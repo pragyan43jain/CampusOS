@@ -10,7 +10,7 @@ import {
   AIStudyTask,
 } from './types';
 import { CampusAPI } from './services/api';
-import { Header } from './components/Header';
+import { Header, ThemeType } from './components/Header';
 import { Sidebar, NavView } from './components/Sidebar';
 import { DashboardView } from './views/DashboardView';
 import { AcademicsView } from './views/AcademicsView';
@@ -21,6 +21,8 @@ import { AIPlannerView } from './views/AIPlannerView';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('dashboard');
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>('baby-pink');
+  const [isMobileMode, setIsMobileMode] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
 
@@ -33,6 +35,11 @@ export const App: React.FC = () => {
   const [placements, setPlacements] = useState<PlacementDrive[]>([]);
   const [dsaTopics, setDsaTopics] = useState<DSACategory[]>([]);
   const [aiTasks, setAiTasks] = useState<AIStudyTask[]>([]);
+
+  // Apply theme to HTML root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', currentTheme);
+  }, [currentTheme]);
 
   // Load all initial mock / backend data
   const loadAllData = async () => {
@@ -99,49 +106,80 @@ export const App: React.FC = () => {
   const criticalAttendanceCount = courses.filter((c) => c.attendance.isCritical).length;
 
   return (
-    <div className="app-container">
-      <Sidebar
-        activeView={activeView}
-        onSelectView={setActiveView}
-        pendingAssignmentsCount={pendingAssignmentsCount}
-        criticalAttendanceCount={criticalAttendanceCount}
-      />
-
-      <div className="main-wrapper">
-        <Header
-          student={student}
+    <div className="app-container" data-theme={currentTheme}>
+      {!isMobileMode && (
+        <Sidebar
           activeView={activeView}
-          onRefresh={loadAllData}
-          syncing={syncing}
+          onSelectView={setActiveView}
+          pendingAssignmentsCount={pendingAssignmentsCount}
+          criticalAttendanceCount={criticalAttendanceCount}
         />
+      )}
 
-        {activeView === 'dashboard' && (
-          <DashboardView
+      <div className={`app-viewport-wrapper ${isMobileMode ? 'mobile-mode' : ''}`}>
+        <div className="main-wrapper">
+          <Header
             student={student}
-            timetable={timetable}
+            activeView={activeView}
+            onRefresh={loadAllData}
+            syncing={syncing}
+            currentTheme={currentTheme}
+            onSelectTheme={setCurrentTheme}
+            isMobileMode={isMobileMode}
+            onToggleMobileMode={() => setIsMobileMode(!isMobileMode)}
           />
-        )}
 
-        {activeView === 'academics' && (
-          <AcademicsView
-            courses={courses}
-          />
-        )}
+          {isMobileMode && (
+            <div style={{ display: 'flex', overflowX: 'auto', background: 'var(--bg-surface)', padding: '8px 12px', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
+              {[
+                { id: 'dashboard', label: 'Home', icon: '⚡' },
+                { id: 'academics', label: 'Academics', icon: '📚' },
+                { id: 'assignments', label: 'Tasks', icon: '📝' },
+                { id: 'fees', label: 'Fees', icon: '💳' },
+                { id: 'placements', label: 'DSA', icon: '🎯' },
+                { id: 'ai-planner', label: 'AI', icon: '🧠' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  className={`nav-item ${activeView === tab.id ? 'active' : ''}`}
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', width: 'auto', whiteSpace: 'nowrap' }}
+                  onClick={() => setActiveView(tab.id as NavView)}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
-        {activeView === 'assignments' && (
-          <AssignmentsView
-            assignments={assignments}
-            onToggleStatus={handleToggleAssignment}
-          />
-        )}
+          {activeView === 'dashboard' && (
+            <DashboardView
+              student={student}
+              timetable={timetable}
+            />
+          )}
 
-        {activeView === 'fees' && <FeesView fees={fees} />}
+          {activeView === 'academics' && (
+            <AcademicsView
+              courses={courses}
+            />
+          )}
 
-        {activeView === 'placements' && (
-          <PlacementsView drives={placements} dsaTopics={dsaTopics} />
-        )}
+          {activeView === 'assignments' && (
+            <AssignmentsView
+              assignments={assignments}
+              onToggleStatus={handleToggleAssignment}
+            />
+          )}
 
-        {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
+          {activeView === 'fees' && <FeesView fees={fees} />}
+
+          {activeView === 'placements' && (
+            <PlacementsView drives={placements} dsaTopics={dsaTopics} />
+          )}
+
+          {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
+        </div>
       </div>
     </div>
   );
