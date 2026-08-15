@@ -33,8 +33,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     return { scored, max, percentage };
   };
 
-  // Performance feedback logic
-// Performance feedback logic updated with your exact requirements
+  // Updated Performance Feedback logic matching your new requirement
   const getPerformanceFeedback = (percentage: number) => {
     if (percentage >= 75) {
       return {
@@ -195,7 +194,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                     </p>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                      {/* Tool Item 1 */}
                       <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -214,7 +212,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                         </button>
                       </div>
 
-                      {/* Tool Item 2 */}
                       <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -233,7 +230,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                         </button>
                       </div>
 
-                      {/* Tool Item 3 */}
                       <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -367,7 +363,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
       {/* STUDY TOOLS FEATURE TAB */}
       {activeTab === 'study-tools' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Tool 1: FAT Target Grade Estimator */}
           <div className="course-card" style={{ background: 'linear-gradient(135deg, #111622 0%, #172033 100%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
@@ -412,7 +407,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
             </div>
           </div>
 
-          {/* Tool 2: Pomodoro Focus Timer */}
           <div className="course-card" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
             <div>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -448,7 +442,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
             </div>
           </div>
 
-          {/* Tool 3: Formula Sheets & Previous Year Questions */}
           <div>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '14px' }}>
               📚 Quick Formula Sheets & PYQ Question Banks
@@ -484,3 +477,5 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     </div>
   );
 };
+
+export default AcademicsView;
