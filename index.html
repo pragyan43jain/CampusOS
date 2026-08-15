@@ -18,33 +18,33 @@
       --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
 
-      --bg-primary: #0a0d14;
-      --bg-surface: #111622;
-      --bg-surface-elevated: #182030;
-      --bg-surface-hover: #1e283d;
+      --bg-primary: #090c15;
+      --bg-surface: #101524;
+      --bg-surface-elevated: #161e32;
+      --bg-surface-hover: #1e2842;
       
-      --border-subtle: rgba(255, 255, 255, 0.07);
-      --border-medium: rgba(255, 255, 255, 0.12);
-      --border-focus: #3b82f6;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-medium: rgba(255, 255, 255, 0.15);
+      --border-focus: #38bdf8;
 
-      --text-primary: #f1f5f9;
+      --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
 
       --brand-blue: #38bdf8;
-      --brand-blue-bg: rgba(56, 189, 248, 0.1);
+      --brand-blue-bg: rgba(56, 189, 248, 0.12);
 
       --success-emerald: #10b981;
       --success-bg: rgba(16, 185, 129, 0.12);
-      --success-border: rgba(16, 185, 129, 0.25);
+      --success-border: rgba(16, 185, 129, 0.28);
 
       --danger-crimson: #f43f5e;
-      --danger-bg: rgba(244, 63, 94, 0.12);
-      --danger-border: rgba(244, 63, 94, 0.25);
+      --danger-bg: rgba(244, 63, 94, 0.14);
+      --danger-border: rgba(244, 63, 94, 0.3);
 
       --warning-amber: #f59e0b;
-      --warning-bg: rgba(245, 158, 11, 0.12);
-      --warning-border: rgba(245, 158, 11, 0.25);
+      --warning-bg: rgba(245, 158, 11, 0.14);
+      --warning-border: rgba(245, 158, 11, 0.3);
 
       --radius-sm: 8px;
       --radius-md: 12px;
@@ -56,27 +56,36 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     body { font-family: var(--font-sans); background-color: var(--bg-primary); color: var(--text-primary); line-height: 1.5; min-height: 100vh; }
-    button { font-family: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+    button, input { font-family: inherit; color: inherit; }
+    button { cursor: pointer; border: none; background: none; }
     
     .app-container { display: flex; min-height: 100vh; }
+    
+    /* Device frame wrapper for Mobile/Web switcher */
+    .app-viewport-wrapper { flex: 1; display: flex; justify-content: center; width: 100%; transition: all 0.3s ease; }
+    .app-viewport-wrapper.mobile-mode { padding: 24px 0; background: #030712; }
+    .app-viewport-wrapper.mobile-mode .main-wrapper { max-width: 430px; border: 8px solid #1f293d; border-radius: 40px; box-shadow: 0 25px 60px rgba(0,0,0,0.8); overflow: hidden; min-height: 860px; max-height: 90vh; }
+    .app-viewport-wrapper.mobile-mode .top-header { border-radius: 30px 30px 0 0; }
+    .app-viewport-wrapper.mobile-mode .page-content { padding: 18px; }
+    
     .sidebar { width: 260px; background-color: var(--bg-surface); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh; z-index: 40; }
     .sidebar-header { padding: 24px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-subtle); }
-    .brand-logo-badge { width: 36px; height: 36px; border-radius: var(--radius-md); background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 1.1rem; }
-    .brand-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
-    .brand-version { font-size: 0.7rem; font-weight: 600; color: var(--brand-blue); background: var(--brand-blue-bg); padding: 2px 6px; border-radius: var(--radius-sm); margin-left: 4px; }
-    .sidebar-nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
-    .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--radius-md); color: var(--text-secondary); font-size: 0.92rem; font-weight: 500; transition: all var(--transition-fast); width: 100%; text-align: left; }
+    .brand-logo-badge { width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 1.15rem; }
+    .brand-title { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.4px; }
+    .brand-version { font-size: 0.7rem; font-weight: 700; color: var(--brand-blue); background: var(--brand-blue-bg); padding: 2px 6px; border-radius: var(--radius-sm); margin-left: 4px; }
+    .sidebar-nav { padding: 20px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: var(--radius-md); color: var(--text-secondary); font-size: 0.92rem; font-weight: 600; transition: all var(--transition-fast); width: 100%; text-align: left; }
     .nav-item:hover { color: var(--text-primary); background-color: var(--bg-surface-hover); }
-    .nav-item.active { color: #ffffff; background-color: var(--bg-surface-elevated); font-weight: 600; box-shadow: inset 0 0 0 1px var(--border-medium); }
-    .nav-item .nav-badge { margin-left: auto; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-full); }
+    .nav-item.active { color: #ffffff; background-color: var(--bg-surface-elevated); font-weight: 700; box-shadow: inset 0 0 0 1px var(--border-medium); }
+    .nav-item .nav-badge { margin-left: auto; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); }
     .nav-badge.alert { background: var(--danger-bg); color: var(--danger-crimson); border: 1px solid var(--danger-border); }
 
-    .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-    .top-header { height: 70px; background-color: rgba(17, 22, 34, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 30; }
-    .header-title-block h1 { font-size: 1.25rem; font-weight: 700; }
+    .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg-primary); overflow-y: auto; }
+    .top-header { height: 72px; background-color: rgba(16, 21, 36, 0.85); backdrop-filter: blur(14px); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; position: sticky; top: 0; z-index: 30; }
+    .header-title-block h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px; }
     .header-title-block p { font-size: 0.8rem; color: var(--text-muted); }
-    .header-right { display: flex; align-items: center; gap: 14px; }
-    .user-profile-badge { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border-radius: var(--radius-lg); background-color: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .user-profile-badge { display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: var(--radius-lg); background-color: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); }
     .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #38bdf8); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
     .user-details { display: flex; flex-direction: column; text-align: left; }
     .user-name { font-size: 0.88rem; font-weight: 600; }
@@ -84,10 +93,10 @@
 
     .page-content { padding: 32px; max-width: 1380px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
     .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-    .metric-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; transition: transform var(--transition-fast); }
+    .metric-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; transition: transform var(--transition-fast); }
     .metric-card:hover { transform: translateY(-2px); border-color: var(--border-medium); }
     .metric-card-header { display: flex; align-items: center; justify-content: space-between; }
-    .metric-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-label { font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; }
     .metric-value-row { display: flex; align-items: baseline; gap: 8px; }
     .metric-value { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; line-height: 1; }
     .metric-subtext { font-size: 0.82rem; color: var(--text-muted); }
@@ -107,38 +116,37 @@
     .day-slot-btn.active { background-color: #ffffff; color: #0a0d14; font-weight: 700; border-color: #ffffff; }
     .day-slot-name { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px; }
     .day-slot-date { font-size: 1.15rem; font-weight: 800; margin-top: 2px; }
-    .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--brand-blue); margin-top: 4px; }
+    .day-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand-blue); margin-top: 4px; }
     .day-slot-btn.active .day-dot { background: #0a0d14; }
 
     .timetable-section { display: flex; flex-direction: column; gap: 18px; }
-    .section-header { display: flex; align-items: center; justify-content: space-between; }
     .timetable-list { display: flex; flex-direction: column; gap: 14px; }
     .timetable-slot-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px 26px; display: grid; grid-template-columns: 140px 1fr auto; align-items: center; gap: 24px; transition: all var(--transition-fast); }
     .timetable-slot-card:hover { border-color: var(--border-medium); background-color: var(--bg-surface-elevated); }
     .slot-time-col { display: flex; flex-direction: column; gap: 4px; }
-    .slot-start-time { font-size: 1.1rem; font-weight: 700; font-family: var(--font-mono); }
+    .slot-start-time { font-size: 1.15rem; font-weight: 700; font-family: var(--font-mono); }
     .slot-end-time { font-size: 0.8rem; color: var(--text-muted); }
     .slot-badge-code { display: inline-block; font-size: 0.72rem; font-family: var(--font-mono); font-weight: 700; padding: 2px 6px; background: rgba(255, 255, 255, 0.06); border-radius: var(--radius-sm); width: fit-content; }
     .slot-main-info { display: flex; flex-direction: column; gap: 6px; }
-    .slot-course-name { font-size: 1.08rem; font-weight: 700; }
+    .slot-course-name { font-size: 1.1rem; font-weight: 700; }
     .slot-meta-row { display: flex; align-items: center; gap: 16px; font-size: 0.82rem; color: var(--text-secondary); }
     .slot-meta-item { display: flex; align-items: center; gap: 6px; }
-    .slot-attendance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; min-width: 220px; }
+    .slot-attendance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; min-width: 230px; }
     .attendance-count-line { font-size: 0.88rem; color: var(--text-secondary); }
     .attendance-count-bold { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
     .attendance-percentage-pill { font-size: 0.85rem; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full); display: inline-flex; align-items: center; gap: 6px; }
     .attendance-percentage-pill.safe { background: var(--success-bg); color: var(--success-emerald); border: 1px solid var(--success-border); }
     .attendance-percentage-pill.critical { background: var(--danger-bg); color: var(--danger-crimson); border: 1px solid var(--danger-border); }
     .attendance-percentage-pill.warning { background: var(--warning-bg); color: var(--warning-amber); border: 1px solid var(--warning-border); }
-    .attendance-margin-note { font-size: 0.78rem; font-weight: 600; }
+    .attendance-margin-note { font-size: 0.78rem; font-weight: 700; }
     .attendance-margin-note.safe { color: var(--success-emerald); }
     .attendance-margin-note.critical { color: var(--danger-crimson); }
 
-    .btn-primary { background-color: #ffffff; color: #0a0d14; font-weight: 600; font-size: 0.85rem; padding: 8px 16px; border-radius: var(--radius-md); transition: all var(--transition-fast); }
+    .btn-primary { background-color: #ffffff; color: #0a0d14; font-weight: 700; font-size: 0.85rem; padding: 8px 16px; border-radius: var(--radius-md); transition: all var(--transition-fast); display: inline-flex; align-items: center; gap: 6px; }
     .btn-primary:hover { background-color: #e2e8f0; }
-    .btn-outline { background: transparent; color: var(--text-primary); border: 1px solid var(--border-medium); font-weight: 500; font-size: 0.82rem; padding: 6px 12px; border-radius: var(--radius-md); transition: all var(--transition-fast); }
+    .btn-outline { background: transparent; color: var(--text-primary); border: 1px solid var(--border-medium); font-weight: 600; font-size: 0.82rem; padding: 7px 12px; border-radius: var(--radius-md); transition: all var(--transition-fast); display: inline-flex; align-items: center; gap: 6px; }
     .btn-outline:hover { background-color: var(--bg-surface-hover); }
-    .btn-sim { font-size: 0.78rem; padding: 4px 10px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); transition: all var(--transition-fast); }
+    .btn-sim { font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); transition: all var(--transition-fast); }
     .btn-sim:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 
     .courses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; }
@@ -158,6 +166,12 @@
     .assignment-source-badge.lms { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
     .assignment-source-badge.teams { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 
+    /* Login Modal Styles */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    .login-card { background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); width: 100%; max-width: 440px; padding: 36px 32px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+    .input-field { width: 100%; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 14px; font-size: 0.92rem; color: #fff; outline: none; transition: border-color 0.2s; }
+    .input-field:focus { border-color: var(--border-focus); }
+
     .empty-state-box { padding: 48px 24px; text-align: center; background-color: var(--bg-surface); border: 1px dashed var(--border-medium); border-radius: var(--radius-lg); color: var(--text-muted); }
   </style>
 </head>
@@ -165,7 +179,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState } = React;
 
     // Attendance Engine
     function calculateAttendance(attended, total) {
@@ -182,7 +196,7 @@
       return { attended, total, percentage, safeToMiss, needToAttend, isCritical };
     }
 
-    // Initial Data
+    // Initial Datasets
     const initialStudent = {
       name: "Pragyan Jain",
       regNo: "22BCE10429",
@@ -192,7 +206,6 @@
       creditsEarned: 68,
       totalCreditsRequired: 160,
       rank: 14,
-      overallAttendance: calculateAttendance(102, 118),
     };
 
     const initialCourses = [
@@ -254,6 +267,9 @@
     function App() {
       const [view, setView] = useState('dashboard');
       const [selectedDay, setSelectedDay] = useState('MON');
+      const [isMobileMode, setIsMobileMode] = useState(false);
+      const [showLoginModal, setShowLoginModal] = useState(false);
+      
       const [courses, setCourses] = useState(initialCourses);
       const [timetable, setTimetable] = useState(initialTimetable);
       const [assignments, setAssignments] = useState(initialAssignments);
@@ -286,349 +302,418 @@
       return (
         <div className="app-container">
           {/* Sidebar */}
-          <aside className="sidebar">
-            <div className="sidebar-header">
-              <div className="brand-logo-badge">C</div>
-              <div>
-                <span className="brand-title">CampusOS</span>
-                <span className="brand-version">v1.0</span>
-              </div>
-            </div>
-
-            <nav className="sidebar-nav">
-              <button className={`nav-item ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>
-                <span>⚡</span>
-                <span>Dashboard</span>
-              </button>
-              <button className={`nav-item ${view === 'academics' ? 'active' : ''}`} onClick={() => setView('academics')}>
-                <span>📚</span>
-                <span>Academics</span>
-                {criticalCount > 0 && <span className="nav-badge alert">{criticalCount}</span>}
-              </button>
-              <button className={`nav-item ${view === 'assignments' ? 'active' : ''}`} onClick={() => setView('assignments')}>
-                <span>📝</span>
-                <span>Assignments</span>
-                {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
-              </button>
-              <button className={`nav-item ${view === 'fees' ? 'active' : ''}`} onClick={() => setView('fees')}>
-                <span>💳</span>
-                <span>Fees & Receipts</span>
-              </button>
-              <button className={`nav-item ${view === 'placements' ? 'active' : ''}`} onClick={() => setView('placements')}>
-                <span>🎯</span>
-                <span>Placements & DSA</span>
-              </button>
-              <button className={`nav-item ${view === 'ai' ? 'active' : ''}`} onClick={() => setView('ai')}>
-                <span>🧠</span>
-                <span>AI Study Planner</span>
-              </button>
-            </nav>
-          </aside>
-
-          {/* Main Area */}
-          <div className="main-wrapper">
-            <header className="top-header">
-              <div className="header-title-block">
-                <h1 style={{ textTransform: 'capitalize' }}>{view === 'ai' ? 'AI Study Planner' : view}</h1>
-                <p>B.Tech Computer Science & Engineering • Semester 4</p>
+          {!isMobileMode && (
+            <aside className="sidebar">
+              <div className="sidebar-header">
+                <div className="brand-logo-badge">C</div>
+                <div>
+                  <span className="brand-title">CampusOS</span>
+                  <span className="brand-version">v1.0</span>
+                </div>
               </div>
 
-              <div className="header-right">
-                <button className="btn-outline" onClick={() => alert("VTOP Synced Successfully!")}>
-                  🔄 Sync VTOP
+              <nav className="sidebar-nav">
+                <button className={`nav-item ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>
+                  <span>⚡</span>
+                  <span>Dashboard</span>
                 </button>
-                <div className="user-profile-badge">
-                  <div className="user-avatar">PJ</div>
-                  <div className="user-details">
-                    <span className="user-name">Pragyan Jain</span>
-                    <span className="user-reg">22BCE10429</span>
-                  </div>
-                </div>
+                <button className={`nav-item ${view === 'academics' ? 'active' : ''}`} onClick={() => setView('academics')}>
+                  <span>📚</span>
+                  <span>Academics</span>
+                  {criticalCount > 0 && <span className="nav-badge alert">{criticalCount}</span>}
+                </button>
+                <button className={`nav-item ${view === 'assignments' ? 'active' : ''}`} onClick={() => setView('assignments')}>
+                  <span>📝</span>
+                  <span>Assignments</span>
+                  {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
+                </button>
+                <button className={`nav-item ${view === 'fees' ? 'active' : ''}`} onClick={() => setView('fees')}>
+                  <span>💳</span>
+                  <span>Fees & Receipts</span>
+                </button>
+                <button className={`nav-item ${view === 'placements' ? 'active' : ''}`} onClick={() => setView('placements')}>
+                  <span>🎯</span>
+                  <span>Placements & DSA</span>
+                </button>
+                <button className={`nav-item ${view === 'ai' ? 'active' : ''}`} onClick={() => setView('ai')}>
+                  <span>🧠</span>
+                  <span>AI Study Planner</span>
+                </button>
+              </nav>
+
+              <div style={{ padding: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                <button className="btn-outline" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowLoginModal(true)}>
+                  🔐 Switch Account
+                </button>
               </div>
-            </header>
+            </aside>
+          )}
 
-            {/* Dashboard View */}
-            {view === 'dashboard' && (
-              <div className="page-content">
-                <div className="metrics-grid">
-                  <div className="metric-card">
-                    <div className="metric-card-header">
-                      <span className="metric-label">Overall Attendance</span>
-                      <span>📊</span>
-                    </div>
-                    <div className="metric-value-row">
-                      <span className="metric-value">{overallPercent}%</span>
-                      <span className="metric-subtext">{totalAttended} / {totalClasses} attended</span>
-                    </div>
-                    <div className="progress-track">
-                      <div className={`progress-fill ${overallPercent >= 75 ? 'emerald' : 'crimson'}`} style={{ width: `${overallPercent}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div className="metric-card">
-                    <div className="metric-card-header">
-                      <span className="metric-label">CGPA</span>
-                      <span>🎓</span>
-                    </div>
-                    <div className="metric-value-row">
-                      <span className="metric-value">8.72</span>
-                      <span className="metric-subtext">Class Rank #14 • Sem 4</span>
-                    </div>
-                    <div className="progress-track">
-                      <div className="progress-fill emerald" style={{ width: '87.2%' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="metric-card">
-                    <div className="metric-card-header">
-                      <span className="metric-label">Degree Credits</span>
-                      <span>📚</span>
-                    </div>
-                    <div className="metric-value-row">
-                      <span className="metric-value">68 / 160</span>
-                      <span className="metric-subtext">42.5% Completed</span>
-                    </div>
-                    <div className="progress-track">
-                      <div className="progress-fill blue" style={{ width: '42.5%' }}></div>
-                    </div>
-                  </div>
+          {/* Viewport Wrapper */}
+          <div className={`app-viewport-wrapper ${isMobileMode ? 'mobile-mode' : ''}`}>
+            <div className="main-wrapper">
+              <header className="top-header">
+                <div className="header-title-block">
+                  <h1 style={{ textTransform: 'capitalize' }}>{view === 'ai' ? 'AI Study Planner' : view}</h1>
+                  <p>B.Tech CSE • Semester 4</p>
                 </div>
 
-                {/* Week Selector */}
-                <div className="week-selector-card">
-                  <div className="week-selector-header">
-                    <span className="week-title">Weekly Schedule</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>August 17 – August 22</span>
+                <div className="header-right">
+                  <button className="btn-outline" onClick={() => setIsMobileMode(!isMobileMode)} title="Toggle Mobile / Desktop Mock Frame">
+                    {isMobileMode ? '💻 Desktop View' : '📱 App View'}
+                  </button>
+                  <button className="btn-outline" onClick={() => alert("VTOP Synced Successfully!")}>
+                    🔄 Sync
+                  </button>
+                  <div className="user-profile-badge" onClick={() => setShowLoginModal(true)} style={{ cursor: 'pointer' }}>
+                    <div className="user-avatar">PJ</div>
+                    {!isMobileMode && (
+                      <div className="user-details">
+                        <span className="user-name">Pragyan Jain</span>
+                        <span className="user-reg">22BCE10429</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="week-days-strip">
-                    {[
-                      { day: 'MON', name: 'MON', dateNum: 17 },
-                      { day: 'TUE', name: 'TUE', dateNum: 18 },
-                      { day: 'WED', name: 'WED', dateNum: 19 },
-                      { day: 'THU', name: 'THU', dateNum: 20 },
-                      { day: 'FRI', name: 'FRI', dateNum: 21 },
-                      { day: 'SAT', name: 'SAT', dateNum: 22 }
-                    ].map(d => (
-                      <button key={d.day} className={`day-slot-btn ${selectedDay === d.day ? 'active' : ''}`} onClick={() => setSelectedDay(d.day)}>
-                        <span className="day-slot-name">{d.name}</span>
-                        <span className="day-slot-date">{d.dateNum}</span>
-                        <div className="day-dot"></div>
-                      </button>
+                </div>
+              </header>
+
+              {/* Mobile Navigation Strip if in Mobile Mode */}
+              {isMobileMode && (
+                <div style={{ display: 'flex', overflowX: 'auto', background: 'var(--bg-surface)', padding: '8px 12px', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  {[
+                    { id: 'dashboard', label: 'Home', icon: '⚡' },
+                    { id: 'academics', label: 'Academics', icon: '📚' },
+                    { id: 'assignments', label: 'Tasks', icon: '📝' },
+                    { id: 'fees', label: 'Fees', icon: '💳' },
+                    { id: 'placements', label: 'DSA', icon: '🎯' },
+                    { id: 'ai', label: 'AI', icon: '🧠' }
+                  ].map(tab => (
+                    <button key={tab.id} className={`nav-item ${view === tab.id ? 'active' : ''}`} style={{ padding: '6px 10px', fontSize: '0.78rem', width: 'auto', whiteSpace: 'nowrap' }} onClick={() => setView(tab.id)}>
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Dashboard View */}
+              {view === 'dashboard' && (
+                <div className="page-content">
+                  <div className="metrics-grid">
+                    <div className="metric-card">
+                      <div className="metric-card-header">
+                        <span className="metric-label">Overall Attendance</span>
+                        <span>📊</span>
+                      </div>
+                      <div className="metric-value-row">
+                        <span className="metric-value">{overallPercent}%</span>
+                        <span className="metric-subtext">{totalAttended} / {totalClasses} attended</span>
+                      </div>
+                      <div className="progress-track">
+                        <div className={`progress-fill ${overallPercent >= 75 ? 'emerald' : 'crimson'}`} style={{ width: `${overallPercent}%` }}></div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-card-header">
+                        <span className="metric-label">CGPA</span>
+                        <span>🎓</span>
+                      </div>
+                      <div className="metric-value-row">
+                        <span className="metric-value">8.72</span>
+                        <span className="metric-subtext">Class Rank #14 • Sem 4</span>
+                      </div>
+                      <div className="progress-track">
+                        <div className="progress-fill emerald" style={{ width: '87.2%' }}></div>
+                      </div>
+                    </div>
+
+                    <div className="metric-card">
+                      <div className="metric-card-header">
+                        <span className="metric-label">Degree Credits</span>
+                        <span>📚</span>
+                      </div>
+                      <div className="metric-value-row">
+                        <span className="metric-value">68 / 160</span>
+                        <span className="metric-subtext">42.5% Completed</span>
+                      </div>
+                      <div className="progress-track">
+                        <div className="progress-fill blue" style={{ width: '42.5%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Week Selector */}
+                  <div className="week-selector-card">
+                    <div className="week-selector-header">
+                      <span className="week-title">Weekly Schedule</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>August 17 – August 22</span>
+                    </div>
+                    <div className="week-days-strip">
+                      {[
+                        { day: 'MON', name: 'MON', dateNum: 17 },
+                        { day: 'TUE', name: 'TUE', dateNum: 18 },
+                        { day: 'WED', name: 'WED', dateNum: 19 },
+                        { day: 'THU', name: 'THU', dateNum: 20 },
+                        { day: 'FRI', name: 'FRI', dateNum: 21 },
+                        { day: 'SAT', name: 'SAT', dateNum: 22 }
+                      ].map(d => (
+                        <button key={d.day} className={`day-slot-btn ${selectedDay === d.day ? 'active' : ''}`} onClick={() => setSelectedDay(d.day)}>
+                          <span className="day-slot-name">{d.name}</span>
+                          <span className="day-slot-date">{d.dateNum}</span>
+                          <div className="day-dot"></div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Daily Timetable */}
+                  <div className="timetable-section">
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>📅 {dayTitles[selectedDay]}</h3>
+                    {filteredSlots.length > 0 ? (
+                      <div className="timetable-list">
+                        {filteredSlots.map(slot => {
+                          const { attendance } = slot;
+                          const isCritical = attendance.isCritical;
+                          return (
+                            <div key={slot.id} className="timetable-slot-card">
+                              <div className="slot-time-col">
+                                <div className="slot-start-time">{slot.startTime}</div>
+                                <div className="slot-end-time">{slot.endTime}</div>
+                                <span className="slot-badge-code">{slot.slotName}</span>
+                              </div>
+
+                              <div className="slot-main-info">
+                                <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--brand-blue)', fontWeight: 600 }}>{slot.courseCode}</span>
+                                <h3 className="slot-course-name">{slot.courseTitle}</h3>
+                                <div className="slot-meta-row">
+                                  <div className="slot-meta-item"><span>📍</span><span>{slot.venue}</span></div>
+                                  <div className="slot-meta-item"><span>👨‍🏫</span><span>{slot.faculty}</span></div>
+                                </div>
+                              </div>
+
+                              <div className="slot-attendance-col">
+                                <div className="attendance-count-line">
+                                  Attendance: <span className="attendance-count-bold">{attendance.attended} / {attendance.total}</span>
+                                  <span className={`attendance-percentage-pill ${isCritical ? 'critical' : attendance.percentage < 80 ? 'warning' : 'safe'}`} style={{ marginLeft: '8px' }}>
+                                    {attendance.percentage}%
+                                  </span>
+                                </div>
+
+                                {isCritical ? (
+                                  <div className="attendance-margin-note critical">
+                                    <span>⚠ Below 75%</span> • Attend next {attendance.needToAttend} classes
+                                  </div>
+                                ) : (
+                                  <div className="attendance-margin-note safe">
+                                    Safe to miss: {attendance.safeToMiss} {attendance.safeToMiss === 1 ? 'class' : 'classes'}
+                                  </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                  <button className="btn-sim" onClick={() => handleSimulate(slot.courseCode, true)}>+ Present</button>
+                                  <button className="btn-sim" onClick={() => handleSimulate(slot.courseCode, false)}>- Bunk</button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="empty-state-box">No classes scheduled today.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Academics View */}
+              {view === 'academics' && (
+                <div className="page-content">
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Semester 4 Enrolled Courses</h2>
+                  <div className="courses-grid">
+                    {courses.map(c => (
+                      <div key={c.id} className="course-card">
+                        <div className="course-header">
+                          <div>
+                            <span className="course-code-tag">{c.code}</span>
+                            <h3 className="course-title">{c.title}</h3>
+                            <span className="course-faculty">👨‍🏫 {c.faculty}</span>
+                          </div>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{c.slot}</b></span>
+                        </div>
+
+                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{c.attendance.attended} / {c.attendance.total}</b></span>
+                            <span className={`attendance-percentage-pill ${c.attendance.isCritical ? 'critical' : 'safe'}`}>{c.attendance.percentage}%</span>
+                          </div>
+                          <div className="progress-track" style={{ marginBottom: '8px' }}>
+                            <div className={`progress-fill ${c.attendance.isCritical ? 'crimson' : 'emerald'}`} style={{ width: `${c.attendance.percentage}%` }}></div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.78rem', color: c.attendance.isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 600 }}>
+                              {c.attendance.isCritical ? `⚠ Attend next ${c.attendance.needToAttend} classes` : `✓ Safe to miss ${c.attendance.safeToMiss} classes`}
+                            </span>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button className="btn-sim" onClick={() => handleSimulate(c.code, true)}>+ Present</button>
+                              <button className="btn-sim" onClick={() => handleSimulate(c.code, false)}>- Bunk</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* Daily Timetable */}
-                <div className="timetable-section">
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>📅 {dayTitles[selectedDay]}</h3>
-                  {filteredSlots.length > 0 ? (
-                    <div className="timetable-list">
-                      {filteredSlots.map(slot => {
-                        const { attendance } = slot;
-                        const isCritical = attendance.isCritical;
-                        return (
-                          <div key={slot.id} className="timetable-slot-card">
-                            <div className="slot-time-col">
-                              <div className="slot-start-time">{slot.startTime}</div>
-                              <div className="slot-end-time">{slot.endTime}</div>
-                              <span className="slot-badge-code">{slot.slotName}</span>
+              {/* Assignments View */}
+              {view === 'assignments' && (
+                <div className="page-content">
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Assignments & Deadlines (LMS & Teams)</h2>
+                  <div className="assignments-container">
+                    {assignments.map(a => (
+                      <div key={a.id} className="assignment-item-card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <input type="checkbox" checked={a.status === 'Submitted'} onChange={() => handleToggleAssignment(a.id)} style={{ width: '18px', height: '18px', accentColor: 'var(--brand-blue)' }} />
+                          <div>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                              <span className={`assignment-source-badge ${a.source.toLowerCase()}`}>{a.source}</span>
+                              <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{a.courseCode}</span>
                             </div>
-
-                            <div className="slot-main-info">
-                              <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', color: 'var(--brand-blue)', fontWeight: 600 }}>{slot.courseCode}</span>
-                              <h3 className="slot-course-name">{slot.courseTitle}</h3>
-                              <div className="slot-meta-row">
-                                <div className="slot-meta-item"><span>📍</span><span>{slot.venue}</span></div>
-                                <div className="slot-meta-item"><span>👨‍🏫</span><span>{slot.faculty}</span></div>
-                              </div>
-                            </div>
-
-                            <div className="slot-attendance-col">
-                              <div className="attendance-count-line">
-                                Attendance: <span className="attendance-count-bold">{attendance.attended} / {attendance.total}</span>
-                                <span className={`attendance-percentage-pill ${isCritical ? 'critical' : attendance.percentage < 80 ? 'warning' : 'safe'}`} style={{ marginLeft: '8px' }}>
-                                  {attendance.percentage}%
-                                </span>
-                              </div>
-
-                              {isCritical ? (
-                                <div className="attendance-margin-note critical">
-                                  <span>⚠ Below 75%</span> • Attend next {attendance.needToAttend} classes
-                                </div>
-                              ) : (
-                                <div className="attendance-margin-note safe">
-                                  Safe to miss: {attendance.safeToMiss} {attendance.safeToMiss === 1 ? 'class' : 'classes'}
-                                </div>
-                              )}
-
-                              <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                                <button className="btn-sim" onClick={() => handleSimulate(slot.courseCode, true)}>+ Present</button>
-                                <button className="btn-sim" onClick={() => handleSimulate(slot.courseCode, false)}>- Bunk</button>
-                              </div>
-                            </div>
+                            <h4 style={{ fontSize: '1rem', fontWeight: 600, textDecoration: a.status === 'Submitted' ? 'line-through' : 'none' }}>{a.title}</h4>
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="empty-state-box">No classes scheduled today.</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Academics View */}
-            {view === 'academics' && (
-              <div className="page-content">
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Semester 4 Enrolled Courses</h2>
-                <div className="courses-grid">
-                  {courses.map(c => (
-                    <div key={c.id} className="course-card">
-                      <div className="course-header">
-                        <div>
-                          <span className="course-code-tag">{c.code}</span>
-                          <h3 className="course-title">{c.title}</h3>
-                          <span className="course-faculty">👨‍🏫 {c.faculty}</span>
                         </div>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{c.slot}</b></span>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: a.status === 'Pending' ? 'var(--warning-amber)' : 'var(--success-emerald)' }}>
+                            Due {a.dueDate}
+                          </div>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Weightage: {a.weightage}%</span>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{c.attendance.attended} / {c.attendance.total}</b></span>
-                          <span className={`attendance-percentage-pill ${c.attendance.isCritical ? 'critical' : 'safe'}`}>{c.attendance.percentage}%</span>
+              {/* Fees View */}
+              {view === 'fees' && (
+                <div className="page-content">
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Fee Management & Receipts</h2>
+                  <div className="assignments-container">
+                    {fees.map(f => (
+                      <div key={f.id} className="assignment-item-card">
+                        <div>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: 'var(--brand-blue)' }}>{f.category}</span>
+                          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: '4px' }}>{f.title}</h3>
+                          {f.receipt && <div style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>Receipt: {f.receipt} • {f.date}</div>}
                         </div>
-                        <div className="progress-track" style={{ marginBottom: '8px' }}>
-                          <div className={`progress-fill ${c.attendance.isCritical ? 'crimson' : 'emerald'}`} style={{ width: `${c.attendance.percentage}%` }}></div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>₹{f.amount.toLocaleString('en-IN')}</div>
+                          <span className={`attendance-percentage-pill ${f.status === 'Paid' ? 'safe' : 'critical'}`}>{f.status}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.78rem', color: c.attendance.isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 600 }}>
-                            {c.attendance.isCritical ? `⚠ Attend next ${c.attendance.needToAttend} classes` : `✓ Safe to miss ${c.attendance.safeToMiss} classes`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Placements & DSA */}
+              {view === 'placements' && (
+                <div className="page-content">
+                  <div style={{ background: 'linear-gradient(135deg, #111622 0%, #1a2233 100%)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Placement Eligibility: 100% Eligible (Super Dream)</h2>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>CGPA: 8.72 (Cutoff ≥ 8.0) • Standing Arrears: 0 • Solved DSA: 143 Problems</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--success-emerald)' }}>🔥 42 Days</div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>DSA Streak</span>
+                    </div>
+                  </div>
+
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>DSA Topic Mastery</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                    {initialDsaTopics.map(t => (
+                      <div key={t.name} className="course-card" style={{ padding: '18px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <h4 style={{ fontSize: '0.92rem', fontWeight: 700 }}>{t.name}</h4>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand-blue)' }}>{t.solved} / {t.total}</span>
+                        </div>
+                        <div className="progress-track" style={{ margin: '8px 0' }}>
+                          <div className="progress-fill emerald" style={{ width: `${(t.solved/t.total)*100}%` }}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Planner */}
+              {view === 'ai' && (
+                <div className="page-content">
+                  <div style={{ background: 'linear-gradient(135deg, #182030 0%, #0f172a 100%)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
+                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>🧠 CampusOS AI Priority Engine</h2>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      Automated priority engine calculating critical attendance recovery, upcoming deadlines, and CAT exam schedules.
+                    </p>
+                  </div>
+
+                  <div className="assignments-container">
+                    {initialAITasks.map(task => (
+                      <div key={task.id} className="assignment-item-card" style={{ borderColor: task.urgency === 'HIGH' ? 'rgba(244, 63, 94, 0.3)' : 'var(--border-subtle)' }}>
+                        <div>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: task.urgency === 'HIGH' ? 'var(--danger-bg)' : 'var(--brand-blue-bg)', color: task.urgency === 'HIGH' ? 'var(--danger-crimson)' : 'var(--brand-blue)' }}>
+                            {task.type}
                           </span>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <button className="btn-sim" onClick={() => handleSimulate(c.code, true)}>+ Present</button>
-                            <button className="btn-sim" onClick={() => handleSimulate(c.code, false)}>- Bunk</button>
+                          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: '4px' }}>{task.headline}</h3>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{task.reason}</p>
+                          <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            ⏱ Estimated: <b>{task.hours}h</b> • 📍 Suggested Slot: <b>{task.slot}</b>
                           </div>
                         </div>
+                        <button className="btn-primary" onClick={() => alert(`Starting session for: ${task.headline}`)}>Start Session ⚡</button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Assignments View */}
-            {view === 'assignments' && (
-              <div className="page-content">
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Assignments & Deadlines (LMS & Teams)</h2>
-                <div className="assignments-container">
-                  {assignments.map(a => (
-                    <div key={a.id} className="assignment-item-card">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <input type="checkbox" checked={a.status === 'Submitted'} onChange={() => handleToggleAssignment(a.id)} style={{ width: '18px', height: '18px', accentColor: 'var(--brand-blue)' }} />
-                        <div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                            <span className={`assignment-source-badge ${a.source.toLowerCase()}`}>{a.source}</span>
-                            <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{a.courseCode}</span>
-                          </div>
-                          <h4 style={{ fontSize: '1rem', fontWeight: 600, textDecoration: a.status === 'Submitted' ? 'line-through' : 'none' }}>{a.title}</h4>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: a.status === 'Pending' ? 'var(--warning-amber)' : 'var(--success-emerald)' }}>
-                          Due {a.dueDate}
-                        </div>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Weightage: {a.weightage}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Fees View */}
-            {view === 'fees' && (
-              <div className="page-content">
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Fee Management & Receipts</h2>
-                <div className="assignments-container">
-                  {fees.map(f => (
-                    <div key={f.id} className="assignment-item-card">
-                      <div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', color: 'var(--brand-blue)' }}>{f.category}</span>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: '4px' }}>{f.title}</h3>
-                        {f.receipt && <div style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>Receipt: {f.receipt} • {f.date}</div>}
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800 }}>₹{f.amount.toLocaleString('en-IN')}</div>
-                        <span className={`attendance-percentage-pill ${f.status === 'Paid' ? 'safe' : 'critical'}`}>{f.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Placements & DSA */}
-            {view === 'placements' && (
-              <div className="page-content">
-                <div style={{ background: 'linear-gradient(135deg, #111622 0%, #1a2233 100%)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Placement Eligibility: 100% Eligible (Super Dream)</h2>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>CGPA: 8.72 (Cutoff ≥ 8.0) • Standing Arrears: 0 • Solved DSA: 143 Problems</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--success-emerald)' }}>🔥 42 Days</div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>DSA Streak</span>
+                    ))}
                   </div>
                 </div>
-
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>DSA Topic Mastery</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                  {initialDsaTopics.map(t => (
-                    <div key={t.name} className="course-card" style={{ padding: '18px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <h4 style={{ fontSize: '0.92rem', fontWeight: 700 }}>{t.name}</h4>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand-blue)' }}>{t.solved} / {t.total}</span>
-                      </div>
-                      <div className="progress-track" style={{ margin: '8px 0' }}>
-                        <div className="progress-fill emerald" style={{ width: `${(t.solved/t.total)*100}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* AI Planner */}
-            {view === 'ai' && (
-              <div className="page-content">
-                <div style={{ background: 'linear-gradient(135deg, #182030 0%, #0f172a 100%)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-                  <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>🧠 CampusOS AI Priority Engine</h2>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Automated priority engine calculating critical attendance recovery, upcoming deadlines, and CAT exam schedules.
-                  </p>
-                </div>
-
-                <div className="assignments-container">
-                  {initialAITasks.map(task => (
-                    <div key={task.id} className="assignment-item-card" style={{ borderColor: task.urgency === 'HIGH' ? 'rgba(244, 63, 94, 0.3)' : 'var(--border-subtle)' }}>
-                      <div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: task.urgency === 'HIGH' ? 'var(--danger-bg)' : 'var(--brand-blue-bg)', color: task.urgency === 'HIGH' ? 'var(--danger-crimson)' : 'var(--brand-blue)' }}>
-                          {task.type}
-                        </span>
-                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: '4px' }}>{task.headline}</h3>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{task.reason}</p>
-                        <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          ⏱ Estimated: <b>{task.hours}h</b> • 📍 Suggested Slot: <b>{task.slot}</b>
-                        </div>
-                      </div>
-                      <button className="btn-primary" onClick={() => alert(`Starting session for: ${task.headline}`)}>Start Session ⚡</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+
+          {/* Login Simulation Modal */}
+          {showLoginModal && (
+            <div className="modal-backdrop" onClick={() => setShowLoginModal(false)}>
+              <div className="login-card" onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="brand-logo-badge">C</div>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>VTOP SSO Authentication</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sign in to synchronize your live student data</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Registration Number</label>
+                    <input className="input-field" defaultValue="22BCE10429" style={{ marginTop: '4px' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>VTOP Password</label>
+                    <input className="input-field" type="password" defaultValue="••••••••••••" style={{ marginTop: '4px' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { alert("Authenticated Pragyan Jain with VTOP SSO!"); setShowLoginModal(false); }}>
+                    Sign In & Sync
+                  </button>
+                  <button className="btn-outline" onClick={() => setShowLoginModal(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
