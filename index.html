@@ -56,12 +56,11 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     body { font-family: var(--font-sans); background-color: var(--bg-primary); color: var(--text-primary); line-height: 1.5; min-height: 100vh; }
-    button, input { font-family: inherit; color: inherit; }
+    button, input, select { font-family: inherit; color: inherit; }
     button { cursor: pointer; border: none; background: none; }
     
     .app-container { display: flex; min-height: 100vh; }
     
-    /* Device frame wrapper for Mobile/Web switcher */
     .app-viewport-wrapper { flex: 1; display: flex; justify-content: center; width: 100%; transition: all 0.3s ease; }
     .app-viewport-wrapper.mobile-mode { padding: 24px 0; background: #030712; }
     .app-viewport-wrapper.mobile-mode .main-wrapper { max-width: 430px; border: 8px solid #1f293d; border-radius: 40px; box-shadow: 0 25px 60px rgba(0,0,0,0.8); overflow: hidden; min-height: 860px; max-height: 90vh; }
@@ -154,9 +153,9 @@
     .course-code-tag { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: var(--brand-blue); background: var(--brand-blue-bg); padding: 3px 8px; border-radius: var(--radius-sm); }
     .course-title { font-size: 1.05rem; font-weight: 700; margin-top: 4px; }
     .course-faculty { font-size: 0.82rem; color: var(--text-secondary); }
-    .marks-breakdown-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; margin-top: 8px; }
-    .marks-breakdown-table th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
-    .marks-breakdown-table td { padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+    .marks-breakdown-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; margin-top: 8px; }
+    .marks-breakdown-table th { text-align: left; color: var(--text-muted); font-weight: 700; padding: 8px 6px; border-bottom: 1px solid var(--border-subtle); }
+    .marks-breakdown-table td { padding: 10px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
 
     .assignments-container { display: flex; flex-direction: column; gap: 14px; }
     .assignment-item-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
@@ -207,12 +206,102 @@
     };
 
     const initialCourses = [
-      { id: "cse2004", code: "CSE2004", title: "Database Management Systems", slot: "A1 + TA1", venue: "AB-2 • Room 304", faculty: "Dr. K. S. Ramanujam", credits: 4, type: "Theory", attendance: calculateAttendance(18, 21), marks: { cat1: { scored: 44, max: 50 }, cat2: { scored: 46, max: 50 }, da1: { scored: 10, max: 10 } } },
-      { id: "cse2005", code: "CSE2005", title: "Design & Analysis of Algorithms", slot: "B1 + TB1", venue: "AB-3 • Room 205", faculty: "Prof. Ananya Sen", credits: 4, type: "Embedded", attendance: calculateAttendance(16, 20), marks: { cat1: { scored: 42, max: 50 }, cat2: { scored: 41, max: 50 }, da1: { scored: 9, max: 10 } } },
-      { id: "cse3002", code: "CSE3002", title: "Cloud Computing & Distributed Systems", slot: "C1 + TC1", venue: "TT • Room 412", faculty: "Dr. Rajesh Varma", credits: 3, type: "Theory", attendance: calculateAttendance(14, 20), marks: { cat1: { scored: 35, max: 50 }, cat2: { scored: 38, max: 50 }, da1: { scored: 8, max: 10 } } },
-      { id: "cse2003", code: "CSE2003", title: "Computer Networks & Protocols", slot: "D1 + TD1", venue: "SJT • Room 502", faculty: "Prof. Shalini Roy", credits: 3, type: "Theory", attendance: calculateAttendance(22, 24), marks: { cat1: { scored: 48, max: 50 }, cat2: { scored: 47, max: 50 }, da1: { scored: 10, max: 10 } } },
-      { id: "mat2001", code: "MAT2001", title: "Linear Algebra and Complex Variables", slot: "E1 + TE1", venue: "MB • Room 118", faculty: "Dr. P. Venkatesan", credits: 4, type: "Theory", attendance: calculateAttendance(19, 21), marks: { cat1: { scored: 40, max: 50 }, cat2: { scored: 43, max: 50 }, da1: { scored: 9, max: 10 } } },
-      { id: "cse2004l", code: "CSE2004L", title: "DBMS Laboratory (PostgreSQL & NoSQL)", slot: "L15 + L16", venue: "SJT • Lab 318", faculty: "Dr. K. S. Ramanujam", credits: 1.5, type: "Lab", attendance: calculateAttendance(13, 14) }
+      { 
+        id: "cse2004", 
+        code: "CSE2004", 
+        title: "Database Management Systems", 
+        slot: "A1 + TA1", 
+        venue: "AB-2 • Room 304", 
+        faculty: "Dr. K. S. Ramanujam", 
+        credits: 4, 
+        type: "Theory", 
+        attendance: calculateAttendance(18, 21), 
+        marks: { 
+          cat1: { scored: 44, max: 50, weightage: 15 }, 
+          cat2: { scored: 46, max: 50, weightage: 15 }, 
+          da1: { scored: 10, max: 10, weightage: 10 },
+          quiz: { scored: 10, max: 10, weightage: 10 }
+        } 
+      },
+      { 
+        id: "cse2005", 
+        code: "CSE2005", 
+        title: "Design & Analysis of Algorithms", 
+        slot: "B1 + TB1", 
+        venue: "AB-3 • Room 205", 
+        faculty: "Prof. Ananya Sen", 
+        credits: 4, 
+        type: "Embedded", 
+        attendance: calculateAttendance(16, 20), 
+        marks: { 
+          cat1: { scored: 32, max: 50, weightage: 15 }, // 64% -> "Do better" (<75%)
+          cat2: { scored: 35, max: 50, weightage: 15 }, 
+          da1: { scored: 7, max: 10, weightage: 10 },
+          quiz: { scored: 7, max: 10, weightage: 10 }
+        } 
+      },
+      { 
+        id: "cse3002", 
+        code: "CSE3002", 
+        title: "Cloud Computing & Distributed Systems", 
+        slot: "C1 + TC1", 
+        venue: "TT • Room 412", 
+        faculty: "Dr. Rajesh Varma", 
+        credits: 3, 
+        type: "Theory", 
+        attendance: calculateAttendance(14, 20), 
+        marks: { 
+          cat1: { scored: 21, max: 50, weightage: 15 }, // 42% -> "You need to work hard" (<50%)
+          cat2: { scored: 24, max: 50, weightage: 15 }, 
+          da1: { scored: 5, max: 10, weightage: 10 },
+          quiz: { scored: 4, max: 10, weightage: 10 }
+        } 
+      },
+      { 
+        id: "cse2003", 
+        code: "CSE2003", 
+        title: "Computer Networks & Protocols", 
+        slot: "D1 + TD1", 
+        venue: "SJT • Room 502", 
+        faculty: "Prof. Shalini Roy", 
+        credits: 3, 
+        type: "Theory", 
+        attendance: calculateAttendance(22, 24), 
+        marks: { 
+          cat1: { scored: 48, max: 50, weightage: 15 }, // 96% -> Strong
+          cat2: { scored: 47, max: 50, weightage: 15 }, 
+          da1: { scored: 10, max: 10, weightage: 10 },
+          quiz: { scored: 10, max: 10, weightage: 10 }
+        } 
+      },
+      { 
+        id: "mat2001", 
+        code: "MAT2001", 
+        title: "Linear Algebra and Complex Variables", 
+        slot: "E1 + TE1", 
+        venue: "MB • Room 118", 
+        faculty: "Dr. P. Venkatesan", 
+        credits: 4, 
+        type: "Theory", 
+        attendance: calculateAttendance(19, 21), 
+        marks: { 
+          cat1: { scored: 40, max: 50, weightage: 15 }, 
+          cat2: { scored: 43, max: 50, weightage: 15 }, 
+          da1: { scored: 9, max: 10, weightage: 10 },
+          quiz: { scored: 8, max: 10, weightage: 10 }
+        } 
+      },
+      { 
+        id: "cse2004l", 
+        code: "CSE2004L", 
+        title: "DBMS Laboratory (PostgreSQL & NoSQL)", 
+        slot: "L15 + L16", 
+        venue: "SJT • Lab 318", 
+        faculty: "Dr. K. S. Ramanujam", 
+        credits: 1.5, 
+        type: "Lab", 
+        attendance: calculateAttendance(13, 14) 
+      }
     ];
 
     const initialTimetable = [
@@ -268,6 +357,13 @@
       const [isMobileMode, setIsMobileMode] = useState(false);
       const [showLoginModal, setShowLoginModal] = useState(false);
       
+      // Academics Specific State
+      const [academicsTab, setAcademicsTab] = useState('marks');
+      const [selectedCourseDropdown, setSelectedCourseDropdown] = useState('all');
+      const [targetGrade, setTargetGrade] = useState('S');
+      const [pomodoroRunning, setPomodoroRunning] = useState(false);
+      const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60);
+
       const [courses] = useState(initialCourses);
       const [timetable] = useState(initialTimetable);
       const [assignments, setAssignments] = useState(initialAssignments);
@@ -285,6 +381,51 @@
       const overallPercent = totalClasses ? Number(((totalAttended / totalClasses) * 100).toFixed(1)) : 100;
       const criticalCount = courses.filter(c => c.attendance.isCritical).length;
       const pendingCount = assignments.filter(a => a.status === 'Pending').length;
+
+      // Filtered courses for Academics View
+      const displayedCourses = selectedCourseDropdown === 'all' 
+        ? courses 
+        : courses.filter(c => c.id === selectedCourseDropdown);
+
+      const getCourseScoreStats = (c) => {
+        if (!c.marks) return null;
+        let scored = 0, max = 0;
+        if (c.marks.cat1) { scored += c.marks.cat1.scored; max += c.marks.cat1.max; }
+        if (c.marks.cat2) { scored += c.marks.cat2.scored; max += c.marks.cat2.max; }
+        if (c.marks.da1) { scored += c.marks.da1.scored; max += c.marks.da1.max; }
+        if (c.marks.quiz) { scored += c.marks.quiz.scored; max += c.marks.quiz.max; }
+        if (max === 0) return null;
+        const percentage = Number(((scored / max) * 100).toFixed(1));
+        return { scored, max, percentage };
+      };
+
+      const getPerformanceNote = (percent) => {
+        if (percent >= 75) {
+          return {
+            badge: "✓ Strong Performance (≥75%)",
+            text: "Outstanding work! You are comfortably exceeding internal thresholds. Maintain this pace for FAT exams.",
+            color: "var(--success-emerald)",
+            bg: "var(--success-bg)",
+            border: "var(--success-border)"
+          };
+        } else if (percent >= 50) {
+          return {
+            badge: "⚠ Do Better (50% - 75%)",
+            text: "Do better: Your marks are currently below 75%. You need to score high on CAT-2 and assignments to secure an A/S grade.",
+            color: "var(--warning-amber)",
+            bg: "var(--warning-bg)",
+            border: "var(--warning-border)"
+          };
+        } else {
+          return {
+            badge: "🚨 You Need to Work Hard (<50%)",
+            text: "You need to work hard: Marks are currently below 50%. Take immediate action with study tools, past papers, and faculty consultation.",
+            color: "var(--danger-crimson)",
+            bg: "var(--danger-bg)",
+            border: "var(--danger-border)"
+          };
+        }
+      };
 
       return (
         <div className="app-container">
@@ -508,39 +649,271 @@
                 </div>
               )}
 
-              {/* Academics View */}
+              {/* Academics View (Enhanced with Marks Dropdown & Study Tools) */}
               {view === 'academics' && (
                 <div className="page-content">
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Semester 4 Enrolled Courses</h2>
-                  <div className="courses-grid">
-                    {courses.map(c => (
-                      <div key={c.id} className="course-card">
-                        <div className="course-header">
-                          <div>
-                            <span className="course-code-tag">{c.code}</span>
-                            <h3 className="course-title">{c.title}</h3>
-                            <span className="course-faculty">👨‍🏫 {c.faculty}</span>
+                  {/* Top Bar for Academics */}
+                  <div className="section-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h2 style={{ fontSize: '1.35rem', fontWeight: 800 }}>Academic Performance & Study Hub</h2>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        Detailed marks evaluation, smart grade recommendations, and study tools.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className={academicsTab === 'marks' ? 'btn-primary' : 'btn-outline'} onClick={() => setAcademicsTab('marks')}>
+                        📊 Marks & Scores
+                      </button>
+                      <button className={academicsTab === 'overview' ? 'btn-primary' : 'btn-outline'} onClick={() => setAcademicsTab('overview')}>
+                        📚 Courses & Attendance
+                      </button>
+                      <button className={academicsTab === 'tools' ? 'btn-primary' : 'btn-outline'} onClick={() => setAcademicsTab('tools')}>
+                        🛠 Study Tools
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Course Dropdown Selector */}
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Select Subject:</span>
+                      <select
+                        value={selectedCourseDropdown}
+                        onChange={(e) => setSelectedCourseDropdown(e.target.value)}
+                        style={{ background: 'var(--bg-surface-elevated)', color: '#fff', border: '1px solid var(--border-medium)', padding: '8px 14px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', outline: 'none', cursor: 'pointer' }}
+                      >
+                        <option value="all">📖 All Enrolled Subjects ({courses.length})</option>
+                        {courses.map(c => (
+                          <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Semester 4 • VTOP Real-Time Evaluation</span>
+                  </div>
+
+                  {/* TAB 1: MARKS & SCORES WITH SMART RECOMMENDATIONS */}
+                  {academicsTab === 'marks' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {displayedCourses.map(course => {
+                        const stats = getCourseScoreStats(course);
+                        const note = stats ? getPerformanceNote(stats.percentage) : null;
+
+                        return (
+                          <div key={course.id} className="course-card">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                              <div>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                                  <span className="course-code-tag">{course.code}</span>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot}</b> • {course.credits} Credits</span>
+                                </div>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{course.title}</h3>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>👨‍🏫 {course.faculty} • 📍 {course.venue}</span>
+                              </div>
+
+                              {stats && (
+                                <div style={{ textAlign: 'right' }}>
+                                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: note?.color }}>{stats.percentage}%</div>
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Internal Score: {stats.scored} / {stats.max}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Intelligent Smart Performance Feedback */}
+                            {note && (
+                              <div style={{ background: note.bg, border: `1px solid ${note.border}`, borderRadius: 'var(--radius-md)', padding: '14px 18px' }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: note.color, textTransform: 'uppercase', marginBottom: '4px' }}>
+                                  {note.badge}
+                                </div>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+                                  {note.text}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Marks Table */}
+                            {course.marks ? (
+                              <table className="marks-breakdown-table">
+                                <thead>
+                                  <tr>
+                                    <th>Assessment Component</th>
+                                    <th>Scored</th>
+                                    <th>Max</th>
+                                    <th>Score %</th>
+                                    <th>Weightage</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {course.marks.cat1 && (
+                                    <tr>
+                                      <td><b>Continuous Assessment Test 1 (CAT-1)</b></td>
+                                      <td style={{ color: (course.marks.cat1.scored / course.marks.cat1.max) >= 0.75 ? 'var(--success-emerald)' : (course.marks.cat1.scored / course.marks.cat1.max) >= 0.5 ? 'var(--warning-amber)' : 'var(--danger-crimson)', fontWeight: 700 }}>
+                                        {course.marks.cat1.scored}
+                                      </td>
+                                      <td>{course.marks.cat1.max}</td>
+                                      <td>{((course.marks.cat1.scored / course.marks.cat1.max) * 100).toFixed(0)}%</td>
+                                      <td>{course.marks.cat1.weightage}%</td>
+                                    </tr>
+                                  )}
+                                  {course.marks.cat2 && (
+                                    <tr>
+                                      <td><b>Continuous Assessment Test 2 (CAT-2)</b></td>
+                                      <td style={{ color: (course.marks.cat2.scored / course.marks.cat2.max) >= 0.75 ? 'var(--success-emerald)' : (course.marks.cat2.scored / course.marks.cat2.max) >= 0.5 ? 'var(--warning-amber)' : 'var(--danger-crimson)', fontWeight: 700 }}>
+                                        {course.marks.cat2.scored}
+                                      </td>
+                                      <td>{course.marks.cat2.max}</td>
+                                      <td>{((course.marks.cat2.scored / course.marks.cat2.max) * 100).toFixed(0)}%</td>
+                                      <td>{course.marks.cat2.weightage}%</td>
+                                    </tr>
+                                  )}
+                                  {course.marks.da1 && (
+                                    <tr>
+                                      <td><b>Digital Assignment 1</b></td>
+                                      <td style={{ color: 'var(--success-emerald)', fontWeight: 700 }}>{course.marks.da1.scored}</td>
+                                      <td>{course.marks.da1.max}</td>
+                                      <td>{((course.marks.da1.scored / course.marks.da1.max) * 100).toFixed(0)}%</td>
+                                      <td>{course.marks.da1.weightage}%</td>
+                                    </tr>
+                                  )}
+                                  {course.marks.quiz && (
+                                    <tr>
+                                      <td><b>Online Quiz Assessment</b></td>
+                                      <td style={{ color: 'var(--success-emerald)', fontWeight: 700 }}>{course.marks.quiz.scored}</td>
+                                      <td>{course.marks.quiz.max}</td>
+                                      <td>{((course.marks.quiz.scored / course.marks.quiz.max) * 100).toFixed(0)}%</td>
+                                      <td>{course.marks.quiz.weightage}%</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Lab assessment marks evaluated during final practical exam.</div>
+                            )}
                           </div>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{c.slot}</b></span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* TAB 2: OVERVIEW & ATTENDANCE */}
+                  {academicsTab === 'overview' && (
+                    <div className="courses-grid">
+                      {displayedCourses.map(c => (
+                        <div key={c.id} className="course-card">
+                          <div className="course-header">
+                            <div>
+                              <span className="course-code-tag">{c.code}</span>
+                              <h3 className="course-title">{c.title}</h3>
+                              <span className="course-faculty">👨‍🏫 {c.faculty}</span>
+                            </div>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{c.slot}</b></span>
+                          </div>
+
+                          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{c.attendance.attended} / {c.attendance.total} classes</b></span>
+                              <span className={`attendance-percentage-pill ${c.attendance.isCritical ? 'critical' : 'safe'}`}>{c.attendance.percentage}%</span>
+                            </div>
+                            <div className="progress-track" style={{ marginBottom: '8px' }}>
+                              <div className={`progress-fill ${c.attendance.isCritical ? 'crimson' : 'emerald'}`} style={{ width: `${c.attendance.percentage}%` }}></div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.8rem', color: c.attendance.isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 700 }}>
+                                {c.attendance.isCritical ? `⚠ Below 75%: Attend next ${c.attendance.needToAttend} classes to reach 75%` : `✓ Safe to miss ${c.attendance.safeToMiss} classes`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* TAB 3: STUDY TOOLS FEATURE */}
+                  {academicsTab === 'tools' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* Tool 1: FAT Target Estimator */}
+                      <div className="course-card" style={{ background: 'linear-gradient(135deg, #111622 0%, #172033 100%)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                          <div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-blue)', textTransform: 'uppercase' }}>Target Score Engine</span>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '2px' }}>🎯 FAT Exam Target Estimator</h3>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                              Calculate exact marks required in the 100-mark final FAT exam to secure your target grade based on internal assessments.
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {['S', 'A', 'B'].map(g => (
+                              <button key={g} className={targetGrade === g ? 'btn-primary' : 'btn-outline'} style={{ fontWeight: 700 }} onClick={() => setTargetGrade(g)}>
+                                Grade {g}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{c.attendance.attended} / {c.attendance.total} classes</b></span>
-                            <span className={`attendance-percentage-pill ${c.attendance.isCritical ? 'critical' : 'safe'}`}>{c.attendance.percentage}%</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '10px' }}>
+                          {courses.filter(c => c.marks).map(c => (
+                            <div key={c.id} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                              <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--brand-blue)', fontWeight: 700 }}>{c.code}</span>
+                              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '4px 0' }}>{c.title}</h4>
+                              <div style={{ fontSize: '0.85rem', marginTop: '8px', color: 'var(--text-secondary)' }}>
+                                Need in FAT (100M): <b style={{ fontSize: '1.15rem', color: 'var(--success-emerald)' }}>{targetGrade === 'S' ? '82+' : targetGrade === 'A' ? '68+' : '52+'}</b>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Tool 2: Pomodoro Focus Timer */}
+                      <div className="course-card" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                        <div>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-blue)', textTransform: 'uppercase' }}>Focus Timer</span>
+                          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '2px' }}>⏱ Active Study Pomodoro Sprint</h3>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>25-minute deep focus sprints designed for exam revisions.</p>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: pomodoroRunning ? 'var(--brand-blue)' : 'var(--text-primary)' }}>
+                            {Math.floor(pomodoroSeconds / 60)}:{(pomodoroSeconds % 60).toString().padStart(2, '0')}
                           </div>
-                          <div className="progress-track" style={{ marginBottom: '8px' }}>
-                            <div className={`progress-fill ${c.attendance.isCritical ? 'crimson' : 'emerald'}`} style={{ width: `${c.attendance.percentage}%` }}></div>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.8rem', color: c.attendance.isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 700 }}>
-                              {c.attendance.isCritical ? `⚠ Below 75%: Attend next ${c.attendance.needToAttend} classes to reach 75%` : `✓ Safe to miss ${c.attendance.safeToMiss} classes`}
-                            </span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn-primary" onClick={() => setPomodoroRunning(!pomodoroRunning)}>
+                              {pomodoroRunning ? '⏸ Pause' : '▶ Start Sprint'}
+                            </button>
+                            <button className="btn-outline" onClick={() => { setPomodoroRunning(false); setPomodoroSeconds(25*60); }}>
+                              ↺ Reset
+                            </button>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Tool 3: Formula Sheets & Solved Papers */}
+                      <div>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '14px' }}>📚 Quick Formula Sheets & PYQ Banks</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                          {[
+                            { title: 'DBMS Relational Algebra & Normalization Cheatsheet', code: 'CSE2004', type: 'Formula Sheet', size: '2.4 MB' },
+                            { title: 'DAA Master Theorem & DP State Recurrences', code: 'CSE2005', type: 'Summary Notes', size: '1.8 MB' },
+                            { title: 'Computer Networks IP Subnetting & Socket Guides', code: 'CSE2003', type: 'Quick Sheet', size: '1.2 MB' },
+                            { title: 'Linear Algebra Eigenvalues & Vector Spaces PYQs', code: 'MAT2001', type: '5-Year Solved PYQ', size: '4.5 MB' },
+                          ].map((doc, idx) => (
+                            <div key={idx} className="assignment-item-card" style={{ padding: '16px 20px' }}>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand-blue)', background: 'var(--brand-blue-bg)', padding: '2px 6px', borderRadius: '4px' }}>
+                                  {doc.code}
+                                </span>
+                                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginTop: '6px' }}>{doc.title}</h4>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{doc.type} • {doc.size}</span>
+                              </div>
+                              <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '6px 10px' }} onClick={() => alert(`Opening Study Resource: ${doc.title}`)}>
+                                Open ↗
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
