@@ -8,8 +8,6 @@ interface HeaderProps {
   activeView: string;
   onRefresh: () => void;
   syncing: boolean;
-  currentTheme: ThemeType;
-  onSelectTheme: (theme: ThemeType) => void;
   isMobileMode: boolean;
   onToggleMobileMode: () => void;
 }
@@ -19,19 +17,9 @@ export const Header: React.FC<HeaderProps> = ({
   activeView,
   onRefresh,
   syncing,
-  currentTheme,
-  onSelectTheme,
   isMobileMode,
   onToggleMobileMode,
 }) => {
-  const themes: { id: ThemeType; name: string; color: string }[] = [
-    { id: 'baby-pink', name: 'Baby Pink (Light)', color: '#f43f5e' },
-    { id: 'nordic-blue', name: 'Nordic Blue (Light)', color: '#0284c7' },
-    { id: 'mint-sage', name: 'Mint Sage (Light)', color: '#059669' },
-    { id: 'warm-cream', name: 'Warm Cream (Light)', color: '#d97706' },
-    { id: 'midnight-slate', name: 'Midnight (Dark)', color: '#0f172a' },
-  ];
-
   return (
     <header className="top-header">
       <div className="header-left">
@@ -42,20 +30,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
-        {/* Quick 1-Click Theme Palette Swatch Bar */}
-        <div className="theme-switcher-box" title="Select Theme Color">
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, marginRight: '4px', color: 'var(--text-muted)' }}>🎨</span>
-          {themes.map(t => (
-            <button
-              key={t.id}
-              className={`theme-swatch-btn ${currentTheme === t.id ? 'active' : ''}`}
-              style={{ backgroundColor: t.color }}
-              onClick={() => onSelectTheme(t.id)}
-              title={`Switch Theme: ${t.name}`}
-            />
-          ))}
-        </div>
-
         {/* Mobile/Desktop Frame Toggle */}
         <button
           className="btn-outline"

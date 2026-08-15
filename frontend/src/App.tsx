@@ -113,6 +113,8 @@ export const App: React.FC = () => {
           onSelectView={setActiveView}
           pendingAssignmentsCount={pendingAssignmentsCount}
           criticalAttendanceCount={criticalAttendanceCount}
+          currentTheme={currentTheme}
+          onSelectTheme={setCurrentTheme}
         />
       )}
 
@@ -123,32 +125,45 @@ export const App: React.FC = () => {
             activeView={activeView}
             onRefresh={loadAllData}
             syncing={syncing}
-            currentTheme={currentTheme}
-            onSelectTheme={setCurrentTheme}
             isMobileMode={isMobileMode}
             onToggleMobileMode={() => setIsMobileMode(!isMobileMode)}
           />
 
           {isMobileMode && (
-            <div style={{ display: 'flex', overflowX: 'auto', background: 'var(--bg-surface)', padding: '8px 12px', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
-              {[
-                { id: 'dashboard', label: 'Home', icon: '⚡' },
-                { id: 'academics', label: 'Academics', icon: '📚' },
-                { id: 'assignments', label: 'Tasks', icon: '📝' },
-                { id: 'fees', label: 'Fees', icon: '💳' },
-                { id: 'placements', label: 'DSA', icon: '🎯' },
-                { id: 'ai-planner', label: 'AI', icon: '🧠' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  className={`nav-item ${activeView === tab.id ? 'active' : ''}`}
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', width: 'auto', whiteSpace: 'nowrap' }}
-                  onClick={() => setActiveView(tab.id as NavView)}
-                >
-                  <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-surface)', padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', gap: '8px', overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { id: 'dashboard', label: 'Home', icon: '⚡' },
+                  { id: 'academics', label: 'Academics', icon: '📚' },
+                  { id: 'assignments', label: 'Tasks', icon: '📝' },
+                  { id: 'fees', label: 'Fees', icon: '💳' },
+                  { id: 'placements', label: 'DSA', icon: '🎯' },
+                  { id: 'ai-planner', label: 'AI', icon: '🧠' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    className={`nav-item ${activeView === tab.id ? 'active' : ''}`}
+                    style={{ padding: '6px 10px', fontSize: '0.78rem', width: 'auto', whiteSpace: 'nowrap' }}
+                    onClick={() => setActiveView(tab.id as NavView)}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile theme select */}
+              <select
+                value={currentTheme}
+                onChange={(e) => setCurrentTheme(e.target.value as ThemeType)}
+                style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-medium)', padding: '4px 8px', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', outline: 'none' }}
+              >
+                <option value="baby-pink">🌸 Pink</option>
+                <option value="nordic-blue">❄️ Blue</option>
+                <option value="mint-sage">🌿 Mint</option>
+                <option value="warm-cream">☕ Cream</option>
+                <option value="midnight-slate">🌌 Dark</option>
+              </select>
             </div>
           )}
 

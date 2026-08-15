@@ -248,12 +248,6 @@
     .user-name { font-size: 0.88rem; font-weight: 600; }
     .user-reg { font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-secondary); }
 
-    /* Theme Picker Bar */
-    .theme-switcher-box { display: flex; align-items: center; gap: 6px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); padding: 5px 10px; border-radius: var(--radius-full); }
-    .theme-swatch-btn { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; transition: transform 0.2s, border-color 0.2s; cursor: pointer; }
-    .theme-swatch-btn:hover { transform: scale(1.2); }
-    .theme-swatch-btn.active { border-color: var(--text-primary); transform: scale(1.15); }
-
     .page-content { padding: 32px; max-width: 1380px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
     .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
     .metric-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; transition: transform var(--transition-fast); }
@@ -515,14 +509,6 @@
       { id: "ai-3", code: "CSE2005", title: "Design & Analysis of Algorithms", type: "Exam Preparation", urgency: "MEDIUM", headline: "Prepare for CAT-2: Graph Algorithms & Dynamic Programming", reason: "Scoring 45+ out of 50 guarantees your S-grade projection with 8.72+ CGPA maintenance.", hours: 3.0, slot: "Thursday 04:00 PM - 07:00 PM" },
     ];
 
-    const availableThemes = [
-      { id: 'baby-pink', name: 'Baby Pink (Light)', color: '#f43f5e' },
-      { id: 'nordic-blue', name: 'Nordic Blue (Light)', color: '#0284c7' },
-      { id: 'mint-sage', name: 'Mint Sage (Light)', color: '#059669' },
-      { id: 'warm-cream', name: 'Warm Cream (Light)', color: '#d97706' },
-      { id: 'midnight-slate', name: 'Midnight (Dark)', color: '#0f172a' },
-    ];
-
     function App() {
       const [view, setView] = useState('dashboard');
       const [currentTheme, setCurrentTheme] = useState('baby-pink');
@@ -610,7 +596,7 @@
 
       return (
         <div className="app-container" data-theme={currentTheme}>
-          {/* Sidebar */}
+          {/* Sidebar Navigation */}
           {!isMobileMode && (
             <aside className="sidebar">
               <div className="sidebar-header">
@@ -648,6 +634,39 @@
                   <span>🧠</span>
                   <span>AI Study Planner</span>
                 </button>
+
+                {/* Themes Dropdown in Sidebar Menu alongside Dashboard & Academics */}
+                <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
+                  <div style={{ padding: '0 12px 8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <span>🎨</span>
+                    <span>App Theme</span>
+                  </div>
+
+                  <div style={{ padding: '0 8px' }}>
+                    <select
+                      value={currentTheme}
+                      onChange={(e) => setCurrentTheme(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: 'var(--bg-surface-elevated)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border-medium)',
+                        padding: '9px 12px',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.86rem',
+                        fontWeight: 600,
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="baby-pink">🌸 Baby Pink (Light)</option>
+                      <option value="nordic-blue">❄️ Nordic Blue (Light)</option>
+                      <option value="mint-sage">🌿 Mint Sage (Light)</option>
+                      <option value="warm-cream">☕ Warm Cream (Light)</option>
+                      <option value="midnight-slate">🌌 Midnight Slate (Dark)</option>
+                    </select>
+                  </div>
+                </div>
               </nav>
 
               <div style={{ padding: '16px', borderTop: '1px solid var(--border-subtle)' }}>
@@ -668,25 +687,11 @@
                 </div>
 
                 <div className="header-right">
-                  {/* Quick 1-Click Theme Switcher Swatches */}
-                  <div className="theme-switcher-box" title="Select Theme Color">
-                    <span style={{ fontSize: '0.8rem', marginRight: '2px' }}>🎨</span>
-                    {availableThemes.map(t => (
-                      <button
-                        key={t.id}
-                        className={`theme-swatch-btn ${currentTheme === t.id ? 'active' : ''}`}
-                        style={{ backgroundColor: t.color }}
-                        onClick={() => setCurrentTheme(t.id)}
-                        title={`Switch Theme: ${t.name}`}
-                      />
-                    ))}
-                  </div>
-
                   <button className="btn-outline" onClick={() => setIsMobileMode(!isMobileMode)} title="Toggle Mobile / Desktop Mock Frame">
                     {isMobileMode ? '💻 Desktop View' : '📱 App View'}
                   </button>
                   <button className="btn-outline" onClick={() => alert("VTOP Synced Successfully!")}>
-                    🔄 Sync
+                    🔄 Sync VTOP
                   </button>
                   <div className="user-profile-badge" onClick={() => setShowLoginModal(true)} style={{ cursor: 'pointer' }}>
                     <div className="user-avatar">PJ</div>
@@ -702,20 +707,35 @@
 
               {/* Mobile Navigation Strip if in Mobile Mode */}
               {isMobileMode && (
-                <div style={{ display: 'flex', overflowX: 'auto', background: 'var(--bg-surface)', padding: '8px 12px', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
-                  {[
-                    { id: 'dashboard', label: 'Home', icon: '⚡' },
-                    { id: 'academics', label: 'Academics', icon: '📚' },
-                    { id: 'assignments', label: 'Tasks', icon: '📝' },
-                    { id: 'fees', label: 'Fees', icon: '💳' },
-                    { id: 'placements', label: 'DSA', icon: '🎯' },
-                    { id: 'ai', label: 'AI', icon: '🧠' }
-                  ].map(tab => (
-                    <button key={tab.id} className={`nav-item ${view === tab.id ? 'active' : ''}`} style={{ padding: '6px 10px', fontSize: '0.78rem', width: 'auto', whiteSpace: 'nowrap' }} onClick={() => setView(tab.id)}>
-                      <span>{tab.icon}</span>
-                      <span>{tab.label}</span>
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-surface)', padding: '8px 12px', gap: '8px', borderBottom: '1px solid var(--border-subtle)', overflowX: 'auto' }}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[
+                      { id: 'dashboard', label: 'Home', icon: '⚡' },
+                      { id: 'academics', label: 'Academics', icon: '📚' },
+                      { id: 'assignments', label: 'Tasks', icon: '📝' },
+                      { id: 'fees', label: 'Fees', icon: '💳' },
+                      { id: 'placements', label: 'DSA', icon: '🎯' },
+                      { id: 'ai', label: 'AI', icon: '🧠' }
+                    ].map(tab => (
+                      <button key={tab.id} className={`nav-item ${view === tab.id ? 'active' : ''}`} style={{ padding: '6px 10px', fontSize: '0.78rem', width: 'auto', whiteSpace: 'nowrap' }} onClick={() => setView(tab.id)}>
+                        <span>{tab.icon}</span>
+                        <span>{tab.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mobile Theme Dropdown */}
+                  <select
+                    value={currentTheme}
+                    onChange={(e) => setCurrentTheme(e.target.value)}
+                    style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-medium)', padding: '5px 8px', borderRadius: 'var(--radius-sm)', fontSize: '0.76rem', outline: 'none' }}
+                  >
+                    <option value="baby-pink">🌸 Pink</option>
+                    <option value="nordic-blue">❄️ Blue</option>
+                    <option value="mint-sage">🌿 Mint</option>
+                    <option value="warm-cream">☕ Cream</option>
+                    <option value="midnight-slate">🌌 Dark</option>
+                  </select>
                 </div>
               )}
 
@@ -844,7 +864,7 @@
                 </div>
               )}
 
-              {/* Academics View (Enhanced with Marks Dropdown & Inline Study Tools) */}
+              {/* Academics View */}
               {view === 'academics' && (
                 <div className="page-content">
                   {/* Top Bar for Academics */}
@@ -887,7 +907,7 @@
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Semester 4 • VTOP Real-Time Evaluation</span>
                   </div>
 
-                  {/* TAB 1: MARKS & SCORES WITH SMART RECOMMENDATIONS & INLINE STUDY TOOLS */}
+                  {/* TAB 1: MARKS & SCORES */}
                   {academicsTab === 'marks' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                       {displayedCourses.map(course => {
