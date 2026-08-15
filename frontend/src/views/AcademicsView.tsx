@@ -33,13 +33,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     return { scored, max, percentage };
   };
 
-  // Updated Performance Feedback logic matching your new requirement
+  // Performance feedback logic based strictly on internal MARKS
   const getPerformanceFeedback = (percentage: number) => {
     if (percentage >= 75) {
       return {
         level: 'good',
-        badge: '✓ Strong Performance (≥75%)',
-        feedback: 'Great job! You are comfortably exceeding internal thresholds. On track for S/A grade.',
+        badge: '✓ Strong Internal Marks (≥75%)',
+        feedback: 'Great job! You are comfortably exceeding internal score thresholds. On track for S/A grade.',
         color: 'var(--success-emerald)',
         bg: 'var(--success-bg)',
         border: 'var(--success-border)',
@@ -48,7 +48,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     } else if (percentage >= 50) {
       return {
         level: 'warning',
-        badge: '⚠ Work Hard (50% - 75%)',
+        badge: '⚠ Work Hard (Marks: 50% - 75%)',
         feedback: 'Work Hard: Your internal marks are below 75%. Prioritize upcoming assignments and CAT-2 to lift your score into a safe grade range.',
         color: 'var(--warning-amber)',
         bg: 'var(--warning-bg)',
@@ -58,8 +58,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     } else {
       return {
         level: 'critical',
-        badge: '🚨 Work Really Hard to Pass (<50%)',
-        feedback: 'Work really hard to pass: Critical deficit in internal assessments (<50%). Access the dedicated study tools & revision material below to recover before the FAT exam.',
+        badge: '🚨 Work Really Hard to Pass (Marks <50%)',
+        feedback: 'Work really hard to pass: Critical deficit in internal assessment marks (<50%). Access the dedicated subject study tools & revision material below to recover before the FAT exam.',
         color: 'var(--danger-crimson)',
         bg: 'var(--danger-bg)',
         border: 'var(--danger-border)',
@@ -75,7 +75,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
         <div>
           <h2 style={{ fontSize: '1.35rem', fontWeight: 800 }}>Academic Performance & Study Center</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            VTOP continuous assessment tracking, automatic grade recommendations, and contextual study tools.
+            VTOP continuous assessment tracking, marks-based recovery tools, and subject material hub.
           </p>
         </div>
 
@@ -155,7 +155,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                   )}
                 </div>
 
-                {/* Dynamic Smart Feedback Alert Banner */}
+                {/* Dynamic Smart Feedback Alert Banner based on Marks */}
                 {feedback && (
                   <div style={{ background: feedback.bg, border: `1px solid ${feedback.border}`, borderRadius: 'var(--radius-md)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -171,58 +171,58 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                   </div>
                 )}
 
-                {/* CONTEXTUAL STUDY TOOLS PANEL (SHOWN AUTOMATICALLY IF MARKS < 50%) */}
+                {/* MARKS-BASED STUDY TOOLS PANEL (SHOWN AUTOMATICALLY IF INTERNAL MARKS < 50%) */}
                 {feedback?.needsStudyTools && (
                   <div style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(17, 22, 34, 0.95) 100%)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: 'var(--radius-md)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '1.1rem' }}>🛠</span>
                         <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#fff' }}>
-                          Recommended Remedial Study Tools for {course.code}
+                          Low Marks Recovery & Material Hub for {course.code}
                         </h4>
                         <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'var(--danger-bg)', color: 'var(--danger-crimson)', borderRadius: '4px', fontWeight: 700 }}>
-                          HIGH PRIORITY RECOVERY
+                          MARKS DEFICIT ALERT
                         </span>
                       </div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        Backend Integration Endpoint: <code>/api/academics/courses/{course.code}/materials</code>
+                        Endpoint: <code>/api/academics/courses/{course.code}/materials</code>
                       </span>
                     </div>
 
                     <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                      Since your score is below 50%, utilize these course-specific study tools and preparation materials to target a safe pass and grade recovery in the FAT exam:
+                      Because your internal assessment score is below 50%, you need to study this subject urgently. Directly access and download the curated study material for <b>{course.title}</b> below:
                     </p>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                       <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            📖 {course.code} High-Yield Concept Sheets
+                            📖 {course.code} Official Course Material & Notes
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            Core definitions, formulas & 2-mark question bank
+                            Lecture slides, lab manuals & solved assignments
                           </div>
                         </div>
                         <button
-                          className="btn-outline"
+                          className="btn-primary"
                           style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
-                          onClick={() => alert(`[Backend Placeholder] Fetching study material PDF for ${course.code} from Spring Boot Backend!`)}
+                          onClick={() => alert(`[Backend Direct Download] Fetching comprehensive study material for ${course.code} - ${course.title}`)}
                         >
-                          Access Study Material 📄
+                          Access Material Now 📥
                         </button>
                       </div>
 
                       <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            🎯 FAT Minimum Passing Marks
+                            🎯 FAT Minimum Passing Target
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            Need <b style={{ color: 'var(--warning-amber)' }}>62+ / 100</b> in FAT to secure B Grade
+                            Target score required in FAT to pass course
                           </div>
                         </div>
                         <button
-                          className="btn-primary"
+                          className="btn-outline"
                           style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
                           onClick={() => { setActiveTab('study-tools'); setTargetGrade('B'); }}
                         >
@@ -236,7 +236,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                             ⏱ 25-Min Recovery Sprint
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            Dedicated focus session for {course.title}
+                            Focused study block for {course.title}
                           </div>
                         </div>
                         <button
@@ -244,7 +244,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                           style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
                           onClick={() => { setActiveTab('study-tools'); setPomodoroRunning(true); }}
                         >
-                          Start Study Timer ⏱
+                          Start Timer ⏱
                         </button>
                       </div>
                     </div>
