@@ -78,53 +78,6 @@ export const App: React.FC = () => {
     loadAllData();
   }, []);
 
-  // Handle Attendance simulation (+ Present or - Bunk)
-  const handleSimulateAttendance = async (courseCode: string, attended: boolean) => {
-    try {
-      const updatedCourse = await CampusAPI.simulateAttendance(courseCode, attended);
-      
-      // Update courses list
-      setCourses((prev) =>
-        prev.map((c) => (c.code === courseCode ? updatedCourse : c))
-      );
-
-      // Update timetable
-      setTimetable((prev) =>
-        prev.map((slot) =>
-          slot.courseCode === courseCode
-            ? { ...slot, attendance: updatedCourse.attendance }
-            : slot
-        )
-      );
-
-      // Recalculate overall student attendance
-      if (student) {
-        const totalAttended = courses.reduce(
-          (acc, c) => acc + (c.code === courseCode ? updatedCourse.attendance.attended : c.attendance.attended),
-          0
-        );
-        const totalClasses = courses.reduce(
-          (acc, c) => acc + (c.code === courseCode ? updatedCourse.attendance.total : c.attendance.total),
-          0
-        );
-        const percentage = Number(((totalAttended / totalClasses) * 100).toFixed(1));
-
-        setStudent({
-          ...student,
-          overallAttendance: {
-            ...student.overallAttendance,
-            attended: totalAttended,
-            total: totalClasses,
-            percentage,
-            isCritical: percentage < 75,
-          },
-        });
-      }
-    } catch (err) {
-      console.error('Attendance simulation error:', err);
-    }
-  };
-
   // Toggle assignment status
   const handleToggleAssignment = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
     const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
@@ -166,14 +119,12 @@ export const App: React.FC = () => {
           <DashboardView
             student={student}
             timetable={timetable}
-            onSimulateAttendance={handleSimulateAttendance}
           />
         )}
 
         {activeView === 'academics' && (
           <AcademicsView
             courses={courses}
-            onSimulateAttendance={handleSimulateAttendance}
           />
         )}
 

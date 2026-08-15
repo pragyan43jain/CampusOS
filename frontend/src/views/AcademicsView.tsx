@@ -3,17 +3,16 @@ import { Course } from '../types';
 
 interface AcademicsViewProps {
   courses: Course[];
-  onSimulateAttendance: (courseCode: string, attended: boolean) => void;
 }
 
-export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses, onSimulateAttendance }) => {
+export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
   return (
     <div className="page-content">
       <div className="section-header">
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Semester 4 Course Registrations</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Detailed breakdown of attendance thresholds, marks, and FAT grade requirements.
+            Direct synchronization from VTOP with marks, thresholds, and FAT grade requirements.
           </p>
         </div>
       </div>
@@ -40,17 +39,17 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses, onSimulat
               </div>
 
               {/* Attendance Bar */}
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px 14px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px 16px', borderRadius: 'var(--radius-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Attendance: <b>{attendance.attended} / {attendance.total}</b>
+                  <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                    VTOP Attendance: <b>{attendance.attended} / {attendance.total} classes</b>
                   </span>
                   <span className={`attendance-percentage-pill ${isCritical ? 'critical' : attendance.percentage < 80 ? 'warning' : 'safe'}`}>
                     {attendance.percentage}%
                   </span>
                 </div>
 
-                <div className="progress-track" style={{ marginBottom: '8px' }}>
+                <div className="progress-track" style={{ marginBottom: '10px' }}>
                   <div
                     className={`progress-fill ${isCritical ? 'crimson' : attendance.percentage < 80 ? 'amber' : 'emerald'}`}
                     style={{ width: `${attendance.percentage}%` }}
@@ -59,19 +58,14 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses, onSimulat
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   {isCritical ? (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--danger-crimson)', fontWeight: 600 }}>
-                      ⚠ Shortage: Attend next {attendance.needToAttend} classes
+                    <span style={{ fontSize: '0.8rem', color: 'var(--danger-crimson)', fontWeight: 700 }}>
+                      ⚠ Shortage Below 75%: Attend next {attendance.needToAttend} classes to reach 75%
                     </span>
                   ) : (
-                    <span style={{ fontSize: '0.78rem', color: 'var(--success-emerald)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--success-emerald)', fontWeight: 600 }}>
                       ✓ Safe to miss: {attendance.safeToMiss} {attendance.safeToMiss === 1 ? 'class' : 'classes'}
                     </span>
                   )}
-
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button className="btn-sim" onClick={() => onSimulateAttendance(course.code, true)}>+ Present</button>
-                    <button className="btn-sim" onClick={() => onSimulateAttendance(course.code, false)}>- Bunk</button>
-                  </div>
                 </div>
               </div>
 

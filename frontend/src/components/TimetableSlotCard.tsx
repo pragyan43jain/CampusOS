@@ -3,10 +3,9 @@ import { TimetableSlot } from '../types';
 
 interface TimetableSlotCardProps {
   slot: TimetableSlot;
-  onSimulate: (courseCode: string, attended: boolean) => void;
 }
 
-export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot, onSimulate }) => {
+export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) => {
   const { attendance } = slot;
   const isCritical = attendance.isCritical;
   const isBorderline = attendance.percentage >= 75 && attendance.percentage < 80;
@@ -61,34 +60,17 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot, onSi
         {isCritical ? (
           <div className="attendance-margin-note critical">
             <span>⚠ Below 75%</span>
-            <span>• Attend next {attendance.needToAttend} classes</span>
+            <span>• Attend next {attendance.needToAttend} classes to reach 75%</span>
           </div>
         ) : (
           <div className="attendance-margin-note safe">
             {attendance.safeToMiss > 0 ? (
               <span>Safe to miss: {attendance.safeToMiss} {attendance.safeToMiss === 1 ? 'class' : 'classes'}</span>
             ) : (
-              <span style={{ color: 'var(--warning-amber)' }}>On the edge (0 safe bunks)</span>
+              <span style={{ color: 'var(--warning-amber)' }}>Borderline (0 safe bunks)</span>
             )}
           </div>
         )}
-
-        <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-          <button
-            className="btn-sim"
-            onClick={() => onSimulate(slot.courseCode, true)}
-            title="Simulate attending next class"
-          >
-            + Present
-          </button>
-          <button
-            className="btn-sim"
-            onClick={() => onSimulate(slot.courseCode, false)}
-            title="Simulate missing next class"
-          >
-            - Bunk
-          </button>
-        </div>
       </div>
     </div>
   );

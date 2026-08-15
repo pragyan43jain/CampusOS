@@ -7,13 +7,11 @@ import { TimetableSlotCard } from '../components/TimetableSlotCard';
 interface DashboardViewProps {
   student: StudentProfile;
   timetable: TimetableSlot[];
-  onSimulateAttendance: (courseCode: string, attended: boolean) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   student,
   timetable,
-  onSimulateAttendance,
 }) => {
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('MON');
 
@@ -103,7 +101,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <TimetableSlotCard
                 key={slot.id}
                 slot={slot}
-                onSimulate={onSimulateAttendance}
               />
             ))}
           </div>

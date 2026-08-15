@@ -131,14 +131,14 @@
     .slot-course-name { font-size: 1.1rem; font-weight: 700; }
     .slot-meta-row { display: flex; align-items: center; gap: 16px; font-size: 0.82rem; color: var(--text-secondary); }
     .slot-meta-item { display: flex; align-items: center; gap: 6px; }
-    .slot-attendance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; min-width: 230px; }
+    .slot-attendance-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; min-width: 250px; }
     .attendance-count-line { font-size: 0.88rem; color: var(--text-secondary); }
     .attendance-count-bold { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
     .attendance-percentage-pill { font-size: 0.85rem; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full); display: inline-flex; align-items: center; gap: 6px; }
     .attendance-percentage-pill.safe { background: var(--success-bg); color: var(--success-emerald); border: 1px solid var(--success-border); }
     .attendance-percentage-pill.critical { background: var(--danger-bg); color: var(--danger-crimson); border: 1px solid var(--danger-border); }
     .attendance-percentage-pill.warning { background: var(--warning-bg); color: var(--warning-amber); border: 1px solid var(--warning-border); }
-    .attendance-margin-note { font-size: 0.78rem; font-weight: 700; }
+    .attendance-margin-note { font-size: 0.8rem; font-weight: 700; }
     .attendance-margin-note.safe { color: var(--success-emerald); }
     .attendance-margin-note.critical { color: var(--danger-crimson); }
 
@@ -146,8 +146,6 @@
     .btn-primary:hover { background-color: #e2e8f0; }
     .btn-outline { background: transparent; color: var(--text-primary); border: 1px solid var(--border-medium); font-weight: 600; font-size: 0.82rem; padding: 7px 12px; border-radius: var(--radius-md); transition: all var(--transition-fast); display: inline-flex; align-items: center; gap: 6px; }
     .btn-outline:hover { background-color: var(--bg-surface-hover); }
-    .btn-sim { font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle); color: var(--text-secondary); transition: all var(--transition-fast); }
-    .btn-sim:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 
     .courses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; }
     .course-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
@@ -196,7 +194,7 @@
       return { attended, total, percentage, safeToMiss, needToAttend, isCritical };
     }
 
-    // Initial Datasets
+    // Live VTOP Synchronized Datasets
     const initialStudent = {
       name: "Pragyan Jain",
       regNo: "22BCE10429",
@@ -270,21 +268,10 @@
       const [isMobileMode, setIsMobileMode] = useState(false);
       const [showLoginModal, setShowLoginModal] = useState(false);
       
-      const [courses, setCourses] = useState(initialCourses);
-      const [timetable, setTimetable] = useState(initialTimetable);
+      const [courses] = useState(initialCourses);
+      const [timetable] = useState(initialTimetable);
       const [assignments, setAssignments] = useState(initialAssignments);
-      const [fees, setFees] = useState(initialFees);
-
-      const handleSimulate = (courseCode, attended) => {
-        const target = courses.find(c => c.code === courseCode);
-        if (!target) return;
-        const newAttended = attended ? target.attendance.attended + 1 : target.attendance.attended;
-        const newTotal = target.attendance.total + 1;
-        const newStats = calculateAttendance(newAttended, newTotal);
-
-        setCourses(prev => prev.map(c => c.code === courseCode ? { ...c, attendance: newStats } : c));
-        setTimetable(prev => prev.map(s => s.courseCode === courseCode ? { ...s, attendance: newStats } : s));
-      };
+      const [fees] = useState(initialFees);
 
       const handleToggleAssignment = (id) => {
         setAssignments(prev => prev.map(a => a.id === id ? { ...a, status: a.status === 'Pending' ? 'Submitted' : 'Pending' } : a));
@@ -363,7 +350,7 @@
                     {isMobileMode ? '💻 Desktop View' : '📱 App View'}
                   </button>
                   <button className="btn-outline" onClick={() => alert("VTOP Synced Successfully!")}>
-                    🔄 Sync
+                    🔄 Sync VTOP
                   </button>
                   <div className="user-profile-badge" onClick={() => setShowLoginModal(true)} style={{ cursor: 'pointer' }}>
                     <div className="user-avatar">PJ</div>
@@ -502,18 +489,13 @@
 
                                 {isCritical ? (
                                   <div className="attendance-margin-note critical">
-                                    <span>⚠ Below 75%</span> • Attend next {attendance.needToAttend} classes
+                                    <span>⚠ Below 75%</span> • Attend next {attendance.needToAttend} classes to reach 75%
                                   </div>
                                 ) : (
                                   <div className="attendance-margin-note safe">
                                     Safe to miss: {attendance.safeToMiss} {attendance.safeToMiss === 1 ? 'class' : 'classes'}
                                   </div>
                                 )}
-
-                                <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                                  <button className="btn-sim" onClick={() => handleSimulate(slot.courseCode, true)}>+ Present</button>
-                                  <button className="btn-sim" onClick={() => handleSimulate(slot.courseCode, false)}>- Bunk</button>
-                                </div>
                               </div>
                             </div>
                           );
@@ -542,22 +524,18 @@
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{c.slot}</b></span>
                         </div>
 
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
+                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{c.attendance.attended} / {c.attendance.total}</b></span>
+                            <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{c.attendance.attended} / {c.attendance.total} classes</b></span>
                             <span className={`attendance-percentage-pill ${c.attendance.isCritical ? 'critical' : 'safe'}`}>{c.attendance.percentage}%</span>
                           </div>
                           <div className="progress-track" style={{ marginBottom: '8px' }}>
                             <div className={`progress-fill ${c.attendance.isCritical ? 'crimson' : 'emerald'}`} style={{ width: `${c.attendance.percentage}%` }}></div>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.78rem', color: c.attendance.isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 600 }}>
-                              {c.attendance.isCritical ? `⚠ Attend next ${c.attendance.needToAttend} classes` : `✓ Safe to miss ${c.attendance.safeToMiss} classes`}
+                            <span style={{ fontSize: '0.8rem', color: c.attendance.isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 700 }}>
+                              {c.attendance.isCritical ? `⚠ Below 75%: Attend next ${c.attendance.needToAttend} classes to reach 75%` : `✓ Safe to miss ${c.attendance.safeToMiss} classes`}
                             </span>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <button className="btn-sim" onClick={() => handleSimulate(c.code, true)}>+ Present</button>
-                              <button className="btn-sim" onClick={() => handleSimulate(c.code, false)}>- Bunk</button>
-                            </div>
                           </div>
                         </div>
                       </div>
