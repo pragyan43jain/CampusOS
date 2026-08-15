@@ -34,6 +34,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
   };
 
   // Performance feedback logic
+// Performance feedback logic updated with your exact requirements
   const getPerformanceFeedback = (percentage: number) => {
     if (percentage >= 75) {
       return {
@@ -48,8 +49,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     } else if (percentage >= 50) {
       return {
         level: 'warning',
-        badge: '⚠ Do Better (50% - 75%)',
-        feedback: 'Do better: Your marks are currently below 75%. Prioritize upcoming assignments and CAT-2 to lift your internal score into the A/S range.',
+        badge: '⚠ Work Hard (50% - 75%)',
+        feedback: 'Work Hard: Your internal marks are below 75%. Prioritize upcoming assignments and CAT-2 to lift your score into a safe grade range.',
         color: 'var(--warning-amber)',
         bg: 'var(--warning-bg)',
         border: 'var(--warning-border)',
@@ -58,8 +59,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     } else {
       return {
         level: 'critical',
-        badge: '🚨 You Need to Work Hard (<50%)',
-        feedback: 'You need to work hard: Critical deficit in internal assessments (<50%). Access the dedicated study tools & revision material below to recover your grade before the FAT final exam.',
+        badge: '🚨 Work Really Hard to Pass (<50%)',
+        feedback: 'Work really hard to pass: Critical deficit in internal assessments (<50%). Access the dedicated study tools & revision material below to recover before the FAT exam.',
         color: 'var(--danger-crimson)',
         bg: 'var(--danger-bg)',
         border: 'var(--danger-border)',
