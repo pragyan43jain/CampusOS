@@ -268,7 +268,7 @@
         type: "Theory", 
         attendance: calculateAttendance(22, 24), 
         marks: { 
-          cat1: { scored: 48, max: 50, weightage: 15 }, // 96% -> Strong
+          cat1: { scored: 48, max: 50, weightage: 15 }, 
           cat2: { scored: 47, max: 50, weightage: 15 }, 
           da1: { scored: 10, max: 10, weightage: 10 },
           quiz: { scored: 10, max: 10, weightage: 10 }
@@ -406,7 +406,8 @@
             text: "Outstanding work! You are comfortably exceeding internal thresholds. Maintain this pace for FAT exams.",
             color: "var(--success-emerald)",
             bg: "var(--success-bg)",
-            border: "var(--success-border)"
+            border: "var(--success-border)",
+            needsStudyTools: false
           };
         } else if (percent >= 50) {
           return {
@@ -414,15 +415,17 @@
             text: "Do better: Your marks are currently below 75%. You need to score high on CAT-2 and assignments to secure an A/S grade.",
             color: "var(--warning-amber)",
             bg: "var(--warning-bg)",
-            border: "var(--warning-border)"
+            border: "var(--warning-border)",
+            needsStudyTools: false
           };
         } else {
           return {
             badge: "🚨 You Need to Work Hard (<50%)",
-            text: "You need to work hard: Marks are currently below 50%. Take immediate action with study tools, past papers, and faculty consultation.",
+            text: "You need to work hard: Critical deficit in internal marks (<50%). Access the dedicated study tools & revision material below to recover your grade before the FAT final exam.",
             color: "var(--danger-crimson)",
             bg: "var(--danger-bg)",
-            border: "var(--danger-border)"
+            border: "var(--danger-border)",
+            needsStudyTools: true
           };
         }
       };
@@ -649,7 +652,7 @@
                 </div>
               )}
 
-              {/* Academics View (Enhanced with Marks Dropdown & Study Tools) */}
+              {/* Academics View (Enhanced with Inline Study Tools for <50% Courses) */}
               {view === 'academics' && (
                 <div className="page-content">
                   {/* Top Bar for Academics */}
@@ -669,7 +672,7 @@
                         📚 Courses & Attendance
                       </button>
                       <button className={academicsTab === 'tools' ? 'btn-primary' : 'btn-outline'} onClick={() => setAcademicsTab('tools')}>
-                        🛠 Study Tools
+                        🛠 Study Tools Hub
                       </button>
                     </div>
                   </div>
@@ -692,7 +695,7 @@
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Semester 4 • VTOP Real-Time Evaluation</span>
                   </div>
 
-                  {/* TAB 1: MARKS & SCORES WITH SMART RECOMMENDATIONS */}
+                  {/* TAB 1: MARKS & SCORES WITH SMART RECOMMENDATIONS & INLINE STUDY TOOLS */}
                   {academicsTab === 'marks' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                       {displayedCourses.map(course => {
@@ -728,6 +731,86 @@
                                 <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>
                                   {note.text}
                                 </p>
+                              </div>
+                            )}
+
+                            {/* INLINE STUDY TOOLS (SHOWN AUTOMATICALLY IF MARKS < 50%) */}
+                            {note?.needsStudyTools && (
+                              <div style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(17, 22, 34, 0.95) 100%)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: 'var(--radius-md)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>🛠</span>
+                                    <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#fff' }}>
+                                      Recommended Remedial Study Tools for {course.code}
+                                    </h4>
+                                    <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: 'var(--danger-bg)', color: 'var(--danger-crimson)', borderRadius: '4px', fontWeight: 700 }}>
+                                      HIGH PRIORITY RECOVERY
+                                    </span>
+                                  </div>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    Backend Endpoint: <code>/api/academics/courses/{course.code}/materials</code>
+                                  </span>
+                                </div>
+
+                                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                                  Since your score in <b>{course.title}</b> is currently below 50%, access these course-specific study tools and preparation materials to target a safe grade recovery in the FAT exam:
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                                  <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+                                    <div>
+                                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        📖 {course.code} High-Yield Study Notes
+                                      </div>
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Core formulas, definitions & 2-mark question bank
+                                      </div>
+                                    </div>
+                                    <button
+                                      className="btn-outline"
+                                      style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
+                                      onClick={() => alert(`[Backend Placeholder] Fetching study material PDF for ${course.code} from Spring Boot Backend!`)}
+                                    >
+                                      Access Study Material 📄
+                                    </button>
+                                  </div>
+
+                                  <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+                                    <div>
+                                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        🎯 FAT Minimum Passing Score
+                                      </div>
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Need <b style={{ color: 'var(--warning-amber)' }}>62+ / 100</b> in FAT to secure B Grade
+                                      </div>
+                                    </div>
+                                    <button
+                                      className="btn-primary"
+                                      style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
+                                      onClick={() => { setAcademicsTab('tools'); setTargetGrade('B'); }}
+                                    >
+                                      Open FAT Calculator ⚡
+                                    </button>
+                                  </div>
+
+                                  <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
+                                    <div>
+                                      <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        ⏱ 25-Min Recovery Sprint
+                                      </div>
+                                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Dedicated focus timer session for {course.title}
+                                      </div>
+                                    </div>
+                                    <button
+                                      className="btn-outline"
+                                      style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
+                                      onClick={() => { setAcademicsTab('tools'); setPomodoroRunning(true); }}
+                                    >
+                                      Start Study Timer ⏱
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             )}
 
@@ -769,7 +852,7 @@
                                   {course.marks.da1 && (
                                     <tr>
                                       <td><b>Digital Assignment 1</b></td>
-                                      <td style={{ color: 'var(--success-emerald)', fontWeight: 700 }}>{course.marks.da1.scored}</td>
+                                      <td style={{ color: (course.marks.da1.scored / course.marks.da1.max) >= 0.75 ? 'var(--success-emerald)' : 'var(--warning-amber)', fontWeight: 700 }}>{course.marks.da1.scored}</td>
                                       <td>{course.marks.da1.max}</td>
                                       <td>{((course.marks.da1.scored / course.marks.da1.max) * 100).toFixed(0)}%</td>
                                       <td>{course.marks.da1.weightage}%</td>
@@ -778,7 +861,7 @@
                                   {course.marks.quiz && (
                                     <tr>
                                       <td><b>Online Quiz Assessment</b></td>
-                                      <td style={{ color: 'var(--success-emerald)', fontWeight: 700 }}>{course.marks.quiz.scored}</td>
+                                      <td style={{ color: (course.marks.quiz.scored / course.marks.quiz.max) >= 0.75 ? 'var(--success-emerald)' : 'var(--warning-amber)', fontWeight: 700 }}>{course.marks.quiz.scored}</td>
                                       <td>{course.marks.quiz.max}</td>
                                       <td>{((course.marks.quiz.scored / course.marks.quiz.max) * 100).toFixed(0)}%</td>
                                       <td>{course.marks.quiz.weightage}%</td>
