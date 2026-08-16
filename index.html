@@ -313,8 +313,6 @@
     .assignments-container { display: flex; flex-direction: column; gap: 14px; }
     .assignment-item-card { background-color: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .assignment-source-badge { font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-sm); text-transform: uppercase; }
-    .assignment-source-badge.lms { background: rgba(59, 130, 246, 0.15); color: #38bdf8; }
-    .assignment-source-badge.teams { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 
     /* Login & Modal Styles */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
@@ -346,7 +344,7 @@
       return { attended, total, percentage, safeToMiss, needToAttend, isCritical };
     }
 
-    // Live VTOP Synchronized Datasets
+    // Live VTOP & LMS/Teams Datasets
     const initialStudent = {
       name: "Pragyan Jain",
       regNo: "22BCE10429",
@@ -479,10 +477,74 @@
     ];
 
     const initialAssignments = [
-      { id: "asg-1", title: "Assignment 2: ACID Properties & Concurrency Control", courseCode: "CSE2004", source: "LMS", dueDate: "2026-08-19", dueTime: "11:59 PM", status: "Pending", priority: "Critical", weightage: 10 },
-      { id: "asg-2", title: "Lab Task 5: Dynamic Programming on Trees", courseCode: "CSE2005", source: "Teams", dueDate: "2026-08-21", dueTime: "05:00 PM", status: "Pending", priority: "Medium", weightage: 5 },
-      { id: "asg-3", title: "Docker Containerization & Kubernetes Cluster Setup", courseCode: "CSE3002", source: "LMS", dueDate: "2026-08-25", dueTime: "11:59 PM", status: "Pending", priority: "Medium", weightage: 10 },
-      { id: "asg-4", title: "Wireshark Packet Analysis on TCP 3-Way Handshake", courseCode: "CSE2003", source: "Teams", dueDate: "2026-08-14", dueTime: "11:59 PM", status: "Submitted", priority: "Low", weightage: 5 },
+      { 
+        id: "asg-1", 
+        title: "Assignment 2: ACID Properties & Concurrency Control Protocols", 
+        courseCode: "CSE2004", 
+        courseTitle: "Database Management Systems",
+        faculty: "Dr. K. S. Ramanujam",
+        source: "LMS", 
+        platformName: "VIT Moodle LMS Portal",
+        platformUrl: "https://lms.vit.ac.in/mod/assign/view.php?id=849201",
+        uploadDate: "Aug 10, 2026",
+        dueDate: "2026-08-19", 
+        dueTime: "11:59 PM", 
+        status: "Pending", 
+        priority: "Critical", 
+        weightage: 10,
+        instructions: "Submit relational algebra proofs and transaction serialization schedules as a single PDF."
+      },
+      { 
+        id: "asg-2", 
+        title: "Lab Task 5: Dynamic Programming on Directed Acyclic Graphs", 
+        courseCode: "CSE2005", 
+        courseTitle: "Design & Analysis of Algorithms",
+        faculty: "Prof. Ananya Sen",
+        source: "Teams", 
+        platformName: "Microsoft Teams Class Team",
+        platformUrl: "https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.assignment/cse2005_task5",
+        uploadDate: "Aug 12, 2026",
+        dueDate: "2026-08-21", 
+        dueTime: "05:00 PM", 
+        status: "Pending", 
+        priority: "Medium", 
+        weightage: 5,
+        instructions: "Upload C++ / Java source code (.zip) and time complexity analysis report."
+      },
+      { 
+        id: "asg-3", 
+        title: "Digital Assignment: Docker Containerization & Kubernetes Microservices", 
+        courseCode: "CSE3002", 
+        courseTitle: "Cloud Computing & Distributed Systems",
+        faculty: "Dr. Rajesh Varma",
+        source: "LMS", 
+        platformName: "VIT Moodle LMS Portal",
+        platformUrl: "https://lms.vit.ac.in/mod/assign/view.php?id=992814",
+        uploadDate: "Aug 14, 2026",
+        dueDate: "2026-08-25", 
+        dueTime: "11:59 PM", 
+        status: "Pending", 
+        priority: "Medium", 
+        weightage: 10,
+        instructions: "Provide Dockerfile, k8s manifest YAML files and screenshot walkthrough of cluster pods."
+      },
+      { 
+        id: "asg-4", 
+        title: "Wireshark Packet Capture Analysis on TCP 3-Way Handshake & SSL/TLS", 
+        courseCode: "CSE2003", 
+        courseTitle: "Computer Networks & Protocols",
+        faculty: "Prof. Shalini Roy",
+        source: "Teams", 
+        platformName: "Microsoft Teams General Channel",
+        platformUrl: "https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.assignment/cse2003_pcap",
+        uploadDate: "Aug 04, 2026",
+        dueDate: "2026-08-14", 
+        dueTime: "11:59 PM", 
+        status: "Submitted", 
+        priority: "Low", 
+        weightage: 5,
+        instructions: "Analyze pcap trace file and identify TCP SYN, SYN-ACK, ACK sequence numbers."
+      },
     ];
 
     const initialFees = [
@@ -498,10 +560,34 @@
       { name: "Sliding Window & Two Pointers", solved: 28, total: 30, easy: 14, medium: 12, hard: 2 },
     ];
 
-    const initialAITasks = [
-      { id: "ai-1", code: "CSE3002", title: "Cloud Computing & Distributed Systems", type: "Attendance Risk", urgency: "HIGH", headline: "Critical Attendance Recovery: 70.0% (<75%)", reason: "You need 4 consecutive attendances without misses to safely enter the 75%+ eligibility bracket before FAT exam hall ticket release.", hours: 1.5, slot: "Wednesday 10:00 AM (TC1)" },
-      { id: "ai-2", code: "CSE2004", title: "Database Management Systems", type: "Assignment Crunch", urgency: "HIGH", headline: "ACID Transactions DA Due in 4 Days", reason: "Weightage is 10% of internal assessment. Focus on Two-Phase Locking and Serializability proofs.", hours: 2.5, slot: "Tonight 08:30 PM - 11:00 PM" },
-      { id: "ai-3", code: "CSE2005", title: "Design & Analysis of Algorithms", type: "Exam Preparation", urgency: "MEDIUM", headline: "Prepare for CAT-2: Graph Algorithms & Dynamic Programming", reason: "Scoring 45+ out of 50 guarantees your S-grade projection with 8.72+ CGPA maintenance.", hours: 3.0, slot: "Thursday 04:00 PM - 07:00 PM" },
+    // Low-marks subjects: those with internal % < 50 get "Critical", 50–74 get "Warning"
+    const lowMarkSubjects = [
+      {
+        id: "lm-1",
+        code: "CSE3002",
+        title: "Cloud Computing & Distributed Systems",
+        scored: 21, max: 50,
+        topics: ["Virtualization & Docker", "MapReduce & Hadoop", "CAP Theorem", "Kubernetes Orchestration"],
+        resources: [
+          { label: "NPTEL Lecture Notes", url: "#", icon: "📄" },
+          { label: "Prof. Slides (LMS)", url: "#", icon: "📊" },
+          { label: "YouTube Playlist", url: "#", icon: "▶️" },
+          { label: "Practice Questions", url: "#", icon: "✏️" },
+        ]
+      },
+      {
+        id: "lm-2",
+        code: "CSE2004",
+        title: "Database Management Systems",
+        scored: 27, max: 50,
+        topics: ["Normalization (3NF, BCNF)", "Transaction & ACID", "SQL Joins & Subqueries", "Indexing & B-Trees"],
+        resources: [
+          { label: "NPTEL DBMS Notes", url: "#", icon: "📄" },
+          { label: "VIT LMS Material", url: "#", icon: "🏫" },
+          { label: "SQL Practice Set", url: "#", icon: "✏️" },
+          { label: "Concept Videos", url: "#", icon: "▶️" },
+        ]
+      },
     ];
 
     function App() {
@@ -511,6 +597,9 @@
       const [showAppModal, setShowAppModal] = useState(false);
       const [showLoginModal, setShowLoginModal] = useState(false);
       
+      // Assignment Filters
+      const [assignmentFilter, setAssignmentFilter] = useState('ALL');
+
       // Academics Specific State
       const [academicsTab, setAcademicsTab] = useState('marks');
       const [selectedCourseDropdown, setSelectedCourseDropdown] = useState('all');
@@ -540,6 +629,17 @@
       const overallPercent = totalClasses ? Number(((totalAttended / totalClasses) * 100).toFixed(1)) : 100;
       const criticalCount = courses.filter(c => c.attendance.isCritical).length;
       const pendingCount = assignments.filter(a => a.status === 'Pending').length;
+      const lmsCount = assignments.filter(a => a.source === 'LMS' && a.status === 'Pending').length;
+      const teamsCount = assignments.filter(a => a.source === 'Teams' && a.status === 'Pending').length;
+
+      // Filtered assignments
+      const displayedAssignments = assignments.filter(a => {
+        if (assignmentFilter === 'LMS') return a.source === 'LMS';
+        if (assignmentFilter === 'TEAMS') return a.source === 'Teams';
+        if (assignmentFilter === 'PENDING') return a.status === 'Pending';
+        if (assignmentFilter === 'SUBMITTED') return a.status === 'Submitted';
+        return true;
+      });
 
       // Filtered courses for Academics View
       const displayedCourses = selectedCourseDropdown === 'all' 
@@ -1177,31 +1277,186 @@
                 </div>
               )}
 
-              {/* Assignments View */}
+              {/* Assignments View (Enhanced with Platform Upload Indication & Deep Links) */}
               {view === 'assignments' && (
                 <div className="page-content">
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Assignments & Deadlines (LMS & Teams)</h2>
-                  <div className="assignments-container">
-                    {assignments.map(a => (
-                      <div key={a.id} className="assignment-item-card">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                          <input type="checkbox" checked={a.status === 'Submitted'} onChange={() => handleToggleAssignment(a.id)} style={{ width: '18px', height: '18px', accentColor: 'var(--brand-color)' }} />
-                          <div>
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                              <span className={`assignment-source-badge ${a.source.toLowerCase()}`}>{a.source}</span>
-                              <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{a.courseCode}</span>
-                            </div>
-                            <h4 style={{ fontSize: '1rem', fontWeight: 600, textDecoration: a.status === 'Submitted' ? 'line-through' : 'none' }}>{a.title}</h4>
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: a.status === 'Pending' ? 'var(--warning-amber)' : 'var(--success-emerald)' }}>
-                            Due {a.dueDate}
-                          </div>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Weightage: {a.weightage}%</span>
-                        </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <h2 style={{ fontSize: '1.35rem', fontWeight: 800 }}>Assignments & Submissions</h2>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        Live platform sync from <b>VIT Moodle LMS</b> & <b>Microsoft Teams</b>.
+                      </p>
+                    </div>
+
+                    {/* Filter Buttons */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button className={assignmentFilter === 'ALL' ? 'btn-primary' : 'btn-outline'} onClick={() => setAssignmentFilter('ALL')}>
+                        All ({assignments.length})
+                      </button>
+                      <button className={assignmentFilter === 'PENDING' ? 'btn-primary' : 'btn-outline'} onClick={() => setAssignmentFilter('PENDING')}>
+                        ⏳ Pending ({pendingCount})
+                      </button>
+                      <button className={assignmentFilter === 'LMS' ? 'btn-primary' : 'btn-outline'} onClick={() => setAssignmentFilter('LMS')}>
+                        🌐 VIT LMS ({lmsCount})
+                      </button>
+                      <button className={assignmentFilter === 'TEAMS' ? 'btn-primary' : 'btn-outline'} onClick={() => setAssignmentFilter('TEAMS')}>
+                        💜 MS Teams ({teamsCount})
+                      </button>
+                      <button className={assignmentFilter === 'SUBMITTED' ? 'btn-primary' : 'btn-outline'} onClick={() => setAssignmentFilter('SUBMITTED')}>
+                        ✓ Submitted
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Banner */}
+                  <div style={{ background: 'var(--card-banner-bg)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active LMS Uploads</span>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--brand-color)', marginTop: '2px' }}>{lmsCount} Pending</div>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Moodle Digital Assignments</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Teams Uploads</span>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#c084fc', marginTop: '2px' }}>{teamsCount} Pending</div>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Class Teams Channel Tasks</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Weightage at Stake</span>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--warning-amber)', marginTop: '2px' }}>
+                        {assignments.filter(a => a.status === 'Pending').reduce((acc, a) => acc + a.weightage, 0)}% Internal
                       </div>
-                    ))}
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Marks towards continuous evaluation</span>
+                    </div>
+                  </div>
+
+                  {/* Assignments List */}
+                  <div className="assignments-container">
+                    {displayedAssignments.map((assignment) => {
+                      const isPending = assignment.status === 'Pending';
+                      const isLms = assignment.source === 'LMS';
+
+                      return (
+                        <div
+                          key={assignment.id}
+                          className="assignment-item-card"
+                          style={{
+                            borderColor: isPending && assignment.priority === 'Critical' ? 'var(--danger-border)' : 'var(--border-subtle)',
+                            background: isPending ? 'var(--bg-surface)' : 'rgba(0, 0, 0, 0.05)',
+                            opacity: isPending ? 1 : 0.75,
+                            flexDirection: 'column',
+                            alignItems: 'stretch',
+                            gap: '16px',
+                            padding: '22px 24px',
+                          }}
+                        >
+                          {/* Header Row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 }}>
+                              <input
+                                type="checkbox"
+                                checked={assignment.status === 'Submitted'}
+                                onChange={() => handleToggleAssignment(assignment.id)}
+                                style={{ width: '20px', height: '20px', accentColor: 'var(--brand-color)', marginTop: '4px', cursor: 'pointer' }}
+                                title="Mark as Submitted / Pending"
+                              />
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  {/* Platform Upload Badge */}
+                                  <span
+                                    style={{
+                                      background: isLms ? 'rgba(56, 189, 248, 0.15)' : 'rgba(192, 132, 252, 0.15)',
+                                      color: isLms ? 'var(--brand-color)' : '#c084fc',
+                                      border: `1px solid ${isLms ? 'rgba(56, 189, 248, 0.3)' : 'rgba(192, 132, 252, 0.3)'}`,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '3px 9px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      fontWeight: 700,
+                                      fontSize: '0.74rem',
+                                    }}
+                                  >
+                                    <span>{isLms ? '🌐' : '💜'}</span>
+                                    <span>Uploaded on {assignment.platformName}</span>
+                                  </span>
+
+                                  {/* Course Code */}
+                                  <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                    {assignment.courseCode}
+                                  </span>
+
+                                  {/* Priority Tag */}
+                                  {isPending && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.7rem',
+                                        fontWeight: 800,
+                                        padding: '2px 8px',
+                                        borderRadius: 'var(--radius-full)',
+                                        background: assignment.priority === 'Critical' ? 'var(--danger-bg)' : 'var(--warning-bg)',
+                                        color: assignment.priority === 'Critical' ? 'var(--danger-crimson)' : 'var(--warning-amber)',
+                                      }}
+                                    >
+                                      {assignment.priority} Priority
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h3
+                                  style={{
+                                    fontSize: '1.12rem',
+                                    fontWeight: 700,
+                                    textDecoration: assignment.status === 'Submitted' ? 'line-through' : 'none',
+                                    color: assignment.status === 'Submitted' ? 'var(--text-muted)' : 'var(--text-primary)',
+                                  }}
+                                >
+                                  {assignment.title}
+                                </h3>
+
+                                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                                  Course: <b>{assignment.courseTitle}</b> • Uploaded by <b>{assignment.faculty}</b>
+                                </p>
+
+                                {assignment.instructions && (
+                                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', background: 'var(--bg-surface-elevated)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', marginTop: '4px' }}>
+                                    📋 <b>Professor Instructions:</b> {assignment.instructions}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right Meta Column */}
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                              <div style={{ fontSize: '0.92rem', fontWeight: 700, color: isPending ? 'var(--warning-amber)' : 'var(--success-emerald)' }}>
+                                {isPending ? `Due: ${assignment.dueDate} at ${assignment.dueTime}` : '✓ Submitted'}
+                              </div>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                Weightage: <b style={{ color: 'var(--text-primary)' }}>{assignment.weightage}% of Grade</b>
+                              </span>
+
+                              {/* Direct Platform Submission Link Button */}
+                              <button
+                                className="btn-primary"
+                                style={{
+                                  fontSize: '0.78rem',
+                                  padding: '6px 12px',
+                                  marginTop: '4px',
+                                  background: isLms ? 'var(--btn-primary-bg)' : '#9333ea',
+                                  color: isLms ? 'var(--btn-primary-text)' : '#ffffff',
+                                }}
+                                onClick={() => {
+                                  alert(`Redirecting to submission portal on ${assignment.platformName}:\nURL: ${assignment.platformUrl}`);
+                                }}
+                              >
+                                <span>{isLms ? '🌐 Open on VIT LMS' : '💜 Open on Teams'}</span>
+                                <span>↗</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1259,33 +1514,127 @@
                 </div>
               )}
 
-              {/* AI Planner */}
+              {/* AI Study Planner — Low Marks Focus */}
               {view === 'ai' && (
                 <div className="page-content">
+                  {/* Section Header */}
                   <div style={{ background: 'var(--card-banner-bg)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>🧠 CampusOS AI Priority Engine</h2>
+                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>📚 Study Planner — Focus Areas</h2>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      Automated priority engine calculating critical attendance recovery, upcoming deadlines, and CAT exam schedules.
+                      Subjects where your internal marks are below 50% — you need to put in extra effort to recover before FAT exams.
                     </p>
                   </div>
 
-                  <div className="assignments-container">
-                    {initialAITasks.map(task => (
-                      <div key={task.id} className="assignment-item-card" style={{ borderColor: task.urgency === 'HIGH' ? 'var(--danger-border)' : 'var(--border-subtle)' }}>
-                        <div>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: task.urgency === 'HIGH' ? 'var(--danger-bg)' : 'var(--brand-bg)', color: task.urgency === 'HIGH' ? 'var(--danger-crimson)' : 'var(--brand-color)' }}>
-                            {task.type}
-                          </span>
-                          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginTop: '4px' }}>{task.headline}</h3>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{task.reason}</p>
-                          <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            ⏱ Estimated: <b>{task.hours}h</b> • 📍 Suggested Slot: <b>{task.slot}</b>
+                  {/* Low-mark subject cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {lowMarkSubjects.map(sub => {
+                      const pct = Math.round((sub.scored / sub.max) * 100);
+                      const isCritical = pct < 50;
+                      return (
+                        <div key={sub.id} style={{
+                          background: 'var(--bg-surface)',
+                          border: `1.5px solid ${isCritical ? 'var(--danger-border)' : 'var(--warning-border)'}`,
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '20px 24px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '16px'
+                        }}>
+
+                          {/* Top row: subject info + score */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1 }}>
+                              <span style={{
+                                fontSize: '0.7rem', fontWeight: 800, padding: '3px 9px',
+                                borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                background: isCritical ? 'var(--danger-bg)' : 'var(--warning-bg)',
+                                color: isCritical ? 'var(--danger-crimson)' : 'var(--warning-amber)'
+                              }}>
+                                {isCritical ? '🚨 Critical — You need to work extra hard' : '⚠️ Warning — Do Better'}
+                              </span>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginTop: '6px' }}>
+                                {sub.code} — {sub.title}
+                              </h3>
+                              <p style={{
+                                fontSize: '0.85rem', marginTop: '4px',
+                                color: isCritical ? 'var(--danger-crimson)' : 'var(--warning-amber)',
+                                fontWeight: 600
+                              }}>
+                                {isCritical
+                                  ? `Your current score is only ${pct}%. This subject needs your immediate attention — dedicate focused study sessions daily.`
+                                  : `Your score is ${pct}%. You need to push harder to cross 75% for a good internal grade.`
+                                }
+                              </p>
+                            </div>
+                            {/* Score badge */}
+                            <div style={{
+                              minWidth: '72px', textAlign: 'center',
+                              background: isCritical ? 'var(--danger-bg)' : 'var(--warning-bg)',
+                              border: `1px solid ${isCritical ? 'var(--danger-border)' : 'var(--warning-border)'}`,
+                              borderRadius: 'var(--radius-md)', padding: '10px 14px'
+                            }}>
+                              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: isCritical ? 'var(--danger-crimson)' : 'var(--warning-amber)' }}>{pct}%</div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{sub.scored}/{sub.max}</div>
+                            </div>
                           </div>
+
+                          {/* Key topics to revise */}
+                          <div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📌 Key Topics to Revise</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {sub.topics.map((t, i) => (
+                                <span key={i} style={{
+                                  fontSize: '0.78rem', fontWeight: 600, padding: '4px 10px',
+                                  background: 'var(--bg-surface-elevated)',
+                                  border: '1px solid var(--border-subtle)',
+                                  borderRadius: 'var(--radius-full)'
+                                }}>{t}</span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Study material quick-access */}
+                          <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🗂 Quick Study Material Access</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px' }}>
+                              {sub.resources.map((r, i) => (
+                                <a
+                                  key={i}
+                                  href={r.url}
+                                  onClick={e => { e.preventDefault(); alert(`Study material will be linked here once the backend is live!\n\nResource: ${r.label}\nSubject: ${sub.title}`); }}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                                    background: 'var(--bg-surface)',
+                                    border: '1px solid var(--border-medium)',
+                                    fontSize: '0.8rem', fontWeight: 600,
+                                    color: 'var(--text-primary)',
+                                    textDecoration: 'none', cursor: 'pointer',
+                                    transition: 'background 0.15s, border-color 0.15s'
+                                  }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-bg)'; e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-surface)'; e.currentTarget.style.borderColor = 'var(--border-medium)'; }}
+                                >
+                                  <span style={{ fontSize: '1rem' }}>{r.icon}</span>
+                                  {r.label}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+
                         </div>
-                        <button className="btn-primary" onClick={() => alert(`Starting session for: ${task.headline}`)}>Start Session ⚡</button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
+
+                  {/* Empty state if all subjects are doing well */}
+                  {lowMarkSubjects.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '3rem' }}>🎉</div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '12px', color: 'var(--success-emerald)' }}>Great work! No subjects need extra attention.</h3>
+                      <p style={{ marginTop: '6px', fontSize: '0.85rem' }}>All your subjects are above 50%. Keep it up!</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -1,56 +1,48 @@
-export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
+export interface StudentProfile {
+  name: string;
+  regNo: string;
+  program: string;
+  semester: number;
+  cgpa: number;
+  creditsEarned: number;
+  totalCreditsRequired: number;
+  rank: number;
+}
 
-export interface AttendanceStats {
+export interface AttendanceRecord {
   attended: number;
   total: number;
   percentage: number;
   safeToMiss: number;
   needToAttend: number;
-  isCritical: boolean; // < 75%
+  isCritical: boolean;
 }
 
-export interface StudentProfile {
-  name: string;
-  regNo: string;
-  email: string;
-  program: string;
-  branch: string;
-  semester: number;
-  batch: string;
-  cgpa: number;
-  creditsEarned: number;
-  totalCreditsRequired: number;
-  rank: number;
-  overallAttendance: AttendanceStats;
-  lastSynced: string;
-}
-
-export interface CourseMarks {
-  cat1?: { max: number; scored: number; weightage: number };
-  cat2?: { max: number; scored: number; weightage: number };
-  da1?: { max: number; scored: number; weightage: number };
-  da2?: { max: number; scored: number; weightage: number };
-  quiz?: { max: number; scored: number; weightage: number };
-  fatProjected?: { minNeededForS: number; minNeededForA: number; max: number };
+export interface MarksBreakdown {
+  cat1?: { scored: number; max: number; weightage: number };
+  cat2?: { scored: number; max: number; weightage: number };
+  da1?: { scored: number; max: number; weightage: number };
+  da2?: { scored: number; max: number; weightage: number };
+  quiz?: { scored: number; max: number; weightage: number };
+  fatTarget?: number;
 }
 
 export interface Course {
   id: string;
   code: string;
   title: string;
-  type: 'Theory' | 'Lab' | 'Embedded' | 'Project';
   slot: string;
   venue: string;
   faculty: string;
   credits: number;
-  attendance: AttendanceStats;
-  marks?: CourseMarks;
-  gradeHistory?: { sem: number; grade: string; credits: number }[];
+  type: 'Theory' | 'Lab' | 'Embedded';
+  attendance: AttendanceRecord;
+  marks?: MarksBreakdown;
 }
 
 export interface TimetableSlot {
   id: string;
-  day: DayOfWeek;
+  day: 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
   courseCode: string;
   courseTitle: string;
   startTime: string;
@@ -59,33 +51,36 @@ export interface TimetableSlot {
   venue: string;
   faculty: string;
   isLab: boolean;
-  attendance: AttendanceStats;
+  attendance: AttendanceRecord;
 }
+
+export type AssignmentPlatform = 'LMS' | 'Teams' | 'Google Classroom' | 'VTOP Portal';
 
 export interface Assignment {
   id: string;
   title: string;
   courseCode: string;
   courseTitle: string;
-  source: 'LMS' | 'Teams' | 'Moodle';
+  faculty: string;
+  source: AssignmentPlatform;
+  platformName: string;
+  platformUrl: string;
+  uploadDate: string;
   dueDate: string;
   dueTime: string;
-  status: 'Pending' | 'Submitted' | 'Overdue';
+  status: 'Pending' | 'Submitted';
   priority: 'Critical' | 'Medium' | 'Low';
-  weightagePercentage?: number;
-  instructionsUrl?: string;
+  weightage: number;
+  instructions?: string;
 }
 
 export interface FeeItem {
   id: string;
   title: string;
-  category: 'Tuition' | 'Hostel & Mess' | 'Exam & Library' | 'Club & Activity';
-  semester: string;
-  totalAmount: number;
-  paidAmount: number;
-  pendingAmount: number;
-  dueDate: string;
-  status: 'Paid' | 'Pending' | 'Partially Paid';
+  category: 'Tuition' | 'Hostel & Mess' | 'Exam' | 'Special';
+  amount: number;
+  status: 'Paid' | 'Pending';
+  dueDate?: string;
   receiptNumber?: string;
   paymentDate?: string;
 }
@@ -93,20 +88,16 @@ export interface FeeItem {
 export interface PlacementDrive {
   id: string;
   companyName: string;
-  logo: string;
   role: string;
-  ctc: string; // e.g. "24 LPA"
-  location: string;
-  minCgpa: number;
-  eligible: boolean;
-  deadline: string;
-  driveDate: string;
-  status: 'Upcoming' | 'Applied' | 'Shortlisted' | 'Assessment Round';
-  tags: string[];
+  ctc: string;
+  eligibilityCgpa: number;
+  isEligible: boolean;
+  deadlineToApply: string;
+  status: 'Open' | 'Applied' | 'Shortlisted' | 'Closed';
 }
 
 export interface DSACategory {
-  name: string;
+  category: string;
   solved: number;
   total: number;
   easy: number;
@@ -116,12 +107,12 @@ export interface DSACategory {
 
 export interface AIStudyTask {
   id: string;
-  subjectCode: string;
-  subjectTitle: string;
-  category: 'Attendance Risk' | 'Exam Preparation' | 'Assignment Crunch' | 'DSA Practice';
-  urgency: 'HIGH' | 'MEDIUM' | 'OPTIMAL';
+  courseCode: string;
+  courseTitle: string;
+  type: 'Attendance Risk' | 'Assignment Crunch' | 'Exam Preparation' | 'DSA Revision';
+  urgency: 'HIGH' | 'MEDIUM' | 'LOW';
   headline: string;
-  actionReason: string;
+  reason: string;
   estimatedHours: number;
   suggestedSlot: string;
 }

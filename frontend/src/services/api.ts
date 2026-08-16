@@ -1,14 +1,4 @@
 import {
-  mockStudentProfile,
-  mockCourses,
-  mockTimetable,
-  mockAssignments,
-  mockFees,
-  mockPlacements,
-  mockDSATopics,
-  mockAITasks,
-} from './mockData';
-import {
   StudentProfile,
   Course,
   TimetableSlot,
@@ -17,152 +7,485 @@ import {
   PlacementDrive,
   DSACategory,
   AIStudyTask,
-  DayOfWeek,
 } from '../types';
-import { simulateAttendanceChange } from './attendanceEngine';
+import { calculateAttendance } from './attendanceEngine';
 
-// Flag to switch between mock layer and live Spring Boot REST API
-const USE_MOCK = true;
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8080/api';
-
-// In-memory state for mock simulations (e.g. marking attendance, completing assignments)
-let localStudentProfile = { ...mockStudentProfile };
-let localCourses = [...mockCourses];
-let localTimetable = [...mockTimetable];
-let localAssignments = [...mockAssignments];
-let localFees = [...mockFees];
-
-export const CampusAPI = {
-  // Student Profile
-  async getStudentProfile(): Promise<StudentProfile> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return { ...localStudentProfile };
-    }
-    const res = await fetch(`${API_BASE_URL}/student/profile`);
-    return res.json();
-  },
-
-  // Courses & Academics
-  async getCourses(): Promise<Course[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return [...localCourses];
-    }
-    const res = await fetch(`${API_BASE_URL}/academics/courses`);
-    return res.json();
-  },
-
-  // Timetable by Day
-  async getTimetable(day?: DayOfWeek): Promise<TimetableSlot[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      if (day) {
-        return localTimetable.filter((slot) => slot.day === day);
-      }
-      return [...localTimetable];
-    }
-    const url = day ? `${API_BASE_URL}/timetable?day=${day}` : `${API_BASE_URL}/timetable`;
-    const res = await fetch(url);
-    return res.json();
-  },
-
-  // Assignments & Deadlines
-  async getAssignments(): Promise<Assignment[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return [...localAssignments];
-    }
-    const res = await fetch(`${API_BASE_URL}/assignments`);
-    return res.json();
-  },
-
-  // Mark Assignment Completed / Submitted
-  async updateAssignmentStatus(id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> {
-    if (USE_MOCK) {
-      await simulateLatency(150);
-      localAssignments = localAssignments.map((a) => (a.id === id ? { ...a, status } : a));
-      const updated = localAssignments.find((a) => a.id === id)!;
-      return updated;
-    }
-    const res = await fetch(`${API_BASE_URL}/assignments/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    return res.json();
-  },
-
-  // Fees & Receipts
-  async getFees(): Promise<FeeItem[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return [...localFees];
-    }
-    const res = await fetch(`${API_BASE_URL}/fees`);
-    return res.json();
-  },
-
-  // Placements & Drives
-  async getPlacementDrives(): Promise<PlacementDrive[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return [...mockPlacements];
-    }
-    const res = await fetch(`${API_BASE_URL}/placements/drives`);
-    return res.json();
-  },
-
-  // DSA Tracker Data
-  async getDSATracker(): Promise<DSACategory[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return [...mockDSATopics];
-    }
-    const res = await fetch(`${API_BASE_URL}/dsa/topics`);
-    return res.json();
-  },
-
-  // AI Study Plan
-  async getAIStudyTasks(): Promise<AIStudyTask[]> {
-    if (USE_MOCK) {
-      await simulateLatency();
-      return [...mockAITasks];
-    }
-    const res = await fetch(`${API_BASE_URL}/ai/study-plan`);
-    return res.json();
-  },
-
-  // Simulate Attendance Check-in / Miss
-  async simulateAttendance(courseCode: string, attended: boolean): Promise<Course> {
-    if (USE_MOCK) {
-      await simulateLatency(200);
-      const course = localCourses.find((c) => c.code === courseCode);
-      if (!course) throw new Error("Course not found");
-
-      const newStats = simulateAttendanceChange(course.attendance.attended, course.attendance.total, attended);
-      course.attendance = newStats;
-
-      // Also update timetable slots for this course
-      localTimetable = localTimetable.map((slot) => {
-        if (slot.courseCode === courseCode) {
-          return { ...slot, attendance: newStats };
-        }
-        return slot;
-      });
-
-      return { ...course };
-    }
-
-    const res = await fetch(`${API_BASE_URL}/attendance/simulate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courseCode, attended }),
-    });
-    return res.json();
-  },
+export const MOCK_STUDENT: StudentProfile = {
+  name: 'Pragyan Jain',
+  regNo: '22BCE10429',
+  program: 'B.Tech - Computer Science and Engineering',
+  semester: 4,
+  cgpa: 8.72,
+  creditsEarned: 68,
+  totalCreditsRequired: 160,
+  rank: 14,
 };
 
-function simulateLatency(ms: number = 100): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+export const MOCK_COURSES: Course[] = [
+  {
+    id: 'cse2004',
+    code: 'CSE2004',
+    title: 'Database Management Systems',
+    slot: 'A1 + TA1',
+    venue: 'AB-2 • Room 304',
+    faculty: 'Dr. K. S. Ramanujam',
+    credits: 4,
+    type: 'Theory',
+    attendance: calculateAttendance(18, 21),
+    marks: {
+      cat1: { scored: 44, max: 50, weightage: 15 },
+      cat2: { scored: 46, max: 50, weightage: 15 },
+      da1: { scored: 10, max: 10, weightage: 10 },
+      quiz: { scored: 10, max: 10, weightage: 10 },
+      fatTarget: 80,
+    },
+  },
+  {
+    id: 'cse2005',
+    code: 'CSE2005',
+    title: 'Design & Analysis of Algorithms',
+    slot: 'B1 + TB1',
+    venue: 'AB-3 • Room 205',
+    faculty: 'Prof. Ananya Sen',
+    credits: 4,
+    type: 'Embedded',
+    attendance: calculateAttendance(16, 20),
+    marks: {
+      cat1: { scored: 32, max: 50, weightage: 15 },
+      cat2: { scored: 35, max: 50, weightage: 15 },
+      da1: { scored: 7, max: 10, weightage: 10 },
+      quiz: { scored: 7, max: 10, weightage: 10 },
+      fatTarget: 75,
+    },
+  },
+  {
+    id: 'cse3002',
+    code: 'CSE3002',
+    title: 'Cloud Computing & Distributed Systems',
+    slot: 'C1 + TC1',
+    venue: 'TT • Room 412',
+    faculty: 'Dr. Rajesh Varma',
+    credits: 3,
+    type: 'Theory',
+    attendance: calculateAttendance(14, 20),
+    marks: {
+      cat1: { scored: 21, max: 50, weightage: 15 },
+      cat2: { scored: 24, max: 50, weightage: 15 },
+      da1: { scored: 5, max: 10, weightage: 10 },
+      quiz: { scored: 4, max: 10, weightage: 10 },
+      fatTarget: 60,
+    },
+  },
+  {
+    id: 'cse2003',
+    code: 'CSE2003',
+    title: 'Computer Networks & Protocols',
+    slot: 'D1 + TD1',
+    venue: 'SJT • Room 502',
+    faculty: 'Prof. Shalini Roy',
+    credits: 3,
+    type: 'Theory',
+    attendance: calculateAttendance(22, 24),
+    marks: {
+      cat1: { scored: 48, max: 50, weightage: 15 },
+      cat2: { scored: 47, max: 50, weightage: 15 },
+      da1: { scored: 10, max: 10, weightage: 10 },
+      quiz: { scored: 10, max: 10, weightage: 10 },
+      fatTarget: 85,
+    },
+  },
+  {
+    id: 'mat2001',
+    code: 'MAT2001',
+    title: 'Linear Algebra and Complex Variables',
+    slot: 'E1 + TE1',
+    venue: 'MB • Room 118',
+    faculty: 'Dr. P. Venkatesan',
+    credits: 4,
+    type: 'Theory',
+    attendance: calculateAttendance(19, 21),
+    marks: {
+      cat1: { scored: 40, max: 50, weightage: 15 },
+      cat2: { scored: 43, max: 50, weightage: 15 },
+      da1: { scored: 9, max: 10, weightage: 10 },
+      quiz: { scored: 8, max: 10, weightage: 10 },
+      fatTarget: 78,
+    },
+  },
+  {
+    id: 'cse2004l',
+    code: 'CSE2004L',
+    title: 'DBMS Laboratory (PostgreSQL & NoSQL)',
+    slot: 'L15 + L16',
+    venue: 'SJT • Lab 318',
+    faculty: 'Dr. K. S. Ramanujam',
+    credits: 1.5,
+    type: 'Lab',
+    attendance: calculateAttendance(13, 14),
+  },
+];
+
+export const MOCK_TIMETABLE: TimetableSlot[] = [
+  {
+    id: 'mon-1',
+    day: 'MON',
+    courseCode: 'CSE2004',
+    courseTitle: 'Database Management Systems',
+    startTime: '09:00 AM',
+    endTime: '09:50 AM',
+    slotName: 'A1',
+    venue: 'AB-2 • Room 304',
+    faculty: 'Dr. K. S. Ramanujam',
+    isLab: false,
+    attendance: calculateAttendance(18, 21),
+  },
+  {
+    id: 'mon-2',
+    day: 'MON',
+    courseCode: 'CSE2005',
+    courseTitle: 'Design & Analysis of Algorithms',
+    startTime: '11:00 AM',
+    endTime: '11:50 AM',
+    slotName: 'B1',
+    venue: 'AB-3 • Room 205',
+    faculty: 'Prof. Ananya Sen',
+    isLab: false,
+    attendance: calculateAttendance(16, 20),
+  },
+  {
+    id: 'mon-3',
+    day: 'MON',
+    courseCode: 'CSE3002',
+    courseTitle: 'Cloud Computing & Distributed Systems',
+    startTime: '02:00 PM',
+    endTime: '02:50 PM',
+    slotName: 'C1',
+    venue: 'TT • Room 412',
+    faculty: 'Dr. Rajesh Varma',
+    isLab: false,
+    attendance: calculateAttendance(14, 20),
+  },
+  {
+    id: 'tue-1',
+    day: 'TUE',
+    courseCode: 'CSE2003',
+    courseTitle: 'Computer Networks & Protocols',
+    startTime: '08:00 AM',
+    endTime: '08:50 AM',
+    slotName: 'D1',
+    venue: 'SJT • Room 502',
+    faculty: 'Prof. Shalini Roy',
+    isLab: false,
+    attendance: calculateAttendance(22, 24),
+  },
+  {
+    id: 'tue-2',
+    day: 'TUE',
+    courseCode: 'MAT2001',
+    courseTitle: 'Linear Algebra and Complex Variables',
+    startTime: '10:00 AM',
+    endTime: '10:50 AM',
+    slotName: 'E1',
+    venue: 'MB • Room 118',
+    faculty: 'Dr. P. Venkatesan',
+    isLab: false,
+    attendance: calculateAttendance(19, 21),
+  },
+  {
+    id: 'tue-3',
+    day: 'TUE',
+    courseCode: 'CSE2004L',
+    courseTitle: 'DBMS Laboratory (PostgreSQL & NoSQL)',
+    startTime: '02:00 PM',
+    endTime: '03:40 PM',
+    slotName: 'L15+16',
+    venue: 'SJT • Lab 318',
+    faculty: 'Dr. K. S. Ramanujam',
+    isLab: true,
+    attendance: calculateAttendance(13, 14),
+  },
+  {
+    id: 'wed-1',
+    day: 'WED',
+    courseCode: 'CSE2004',
+    courseTitle: 'Database Management Systems',
+    startTime: '09:00 AM',
+    endTime: '09:50 AM',
+    slotName: 'TA1',
+    venue: 'AB-2 • Room 304',
+    faculty: 'Dr. K. S. Ramanujam',
+    isLab: false,
+    attendance: calculateAttendance(18, 21),
+  },
+  {
+    id: 'wed-2',
+    day: 'WED',
+    courseCode: 'CSE3002',
+    courseTitle: 'Cloud Computing & Distributed Systems',
+    startTime: '10:00 AM',
+    endTime: '10:50 AM',
+    slotName: 'TC1',
+    venue: 'TT • Room 412',
+    faculty: 'Dr. Rajesh Varma',
+    isLab: false,
+    attendance: calculateAttendance(14, 20),
+  },
+  {
+    id: 'thu-1',
+    day: 'THU',
+    courseCode: 'MAT2001',
+    courseTitle: 'Linear Algebra and Complex Variables',
+    startTime: '09:00 AM',
+    endTime: '09:50 AM',
+    slotName: 'TE1',
+    venue: 'MB • Room 118',
+    faculty: 'Dr. P. Venkatesan',
+    isLab: false,
+    attendance: calculateAttendance(19, 21),
+  },
+  {
+    id: 'thu-2',
+    day: 'THU',
+    courseCode: 'CSE2003',
+    courseTitle: 'Computer Networks & Protocols',
+    startTime: '11:00 AM',
+    endTime: '11:50 AM',
+    slotName: 'TD1',
+    venue: 'SJT • Room 502',
+    faculty: 'Prof. Shalini Roy',
+    isLab: false,
+    attendance: calculateAttendance(22, 24),
+  },
+  {
+    id: 'fri-1',
+    day: 'FRI',
+    courseCode: 'CSE2005',
+    courseTitle: 'Design & Analysis of Algorithms',
+    startTime: '09:00 AM',
+    endTime: '09:50 AM',
+    slotName: 'TB1',
+    venue: 'AB-3 • Room 205',
+    faculty: 'Prof. Ananya Sen',
+    isLab: false,
+    attendance: calculateAttendance(16, 20),
+  },
+  {
+    id: 'fri-2',
+    day: 'FRI',
+    courseCode: 'CSE3002',
+    courseTitle: 'Cloud Computing & Distributed Systems',
+    startTime: '11:00 AM',
+    endTime: '11:50 AM',
+    slotName: 'C1',
+    venue: 'TT • Room 412',
+    faculty: 'Dr. Rajesh Varma',
+    isLab: false,
+    attendance: calculateAttendance(14, 20),
+  },
+  {
+    id: 'sat-1',
+    day: 'SAT',
+    courseCode: 'CSE2004',
+    courseTitle: 'Database Management Systems (Tutorial)',
+    startTime: '10:00 AM',
+    endTime: '10:50 AM',
+    slotName: 'A1',
+    venue: 'AB-2 • Room 304',
+    faculty: 'Dr. K. S. Ramanujam',
+    isLab: false,
+    attendance: calculateAttendance(18, 21),
+  },
+];
+
+export const MOCK_ASSIGNMENTS: Assignment[] = [
+  {
+    id: 'asg-1',
+    title: 'Assignment 2: ACID Properties & Concurrency Control Protocols',
+    courseCode: 'CSE2004',
+    courseTitle: 'Database Management Systems',
+    faculty: 'Dr. K. S. Ramanujam',
+    source: 'LMS',
+    platformName: 'VIT Moodle LMS Portal',
+    platformUrl: 'https://lms.vit.ac.in/mod/assign/view.php?id=849201',
+    uploadDate: 'Aug 10, 2026',
+    dueDate: '2026-08-19',
+    dueTime: '11:59 PM',
+    status: 'Pending',
+    priority: 'Critical',
+    weightage: 10,
+    instructions: 'Submit relational algebra proofs and transaction serialization schedules as a single PDF.',
+  },
+  {
+    id: 'asg-2',
+    title: 'Lab Task 5: Dynamic Programming on Directed Acyclic Graphs',
+    courseCode: 'CSE2005',
+    courseTitle: 'Design & Analysis of Algorithms',
+    faculty: 'Prof. Ananya Sen',
+    source: 'Teams',
+    platformName: 'Microsoft Teams Class Team',
+    platformUrl: 'https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.assignment/cse2005_task5',
+    uploadDate: 'Aug 12, 2026',
+    dueDate: '2026-08-21',
+    dueTime: '05:00 PM',
+    status: 'Pending',
+    priority: 'Medium',
+    weightage: 5,
+    instructions: 'Upload C++ / Java source code (.zip) and time complexity analysis report.',
+  },
+  {
+    id: 'asg-3',
+    title: 'Digital Assignment: Docker Containerization & Kubernetes Microservices',
+    courseCode: 'CSE3002',
+    courseTitle: 'Cloud Computing & Distributed Systems',
+    faculty: 'Dr. Rajesh Varma',
+    source: 'LMS',
+    platformName: 'VIT Moodle LMS Portal',
+    platformUrl: 'https://lms.vit.ac.in/mod/assign/view.php?id=992814',
+    uploadDate: 'Aug 14, 2026',
+    dueDate: '2026-08-25',
+    dueTime: '11:59 PM',
+    status: 'Pending',
+    priority: 'Medium',
+    weightage: 10,
+    instructions: 'Provide Dockerfile, k8s manifest YAML files and screenshot walkthrough of cluster pods.',
+  },
+  {
+    id: 'asg-4',
+    title: 'Wireshark Packet Capture Analysis on TCP 3-Way Handshake & SSL/TLS',
+    courseCode: 'CSE2003',
+    courseTitle: 'Computer Networks & Protocols',
+    faculty: 'Prof. Shalini Roy',
+    source: 'Teams',
+    platformName: 'Microsoft Teams General Channel',
+    platformUrl: 'https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.assignment/cse2003_pcap',
+    uploadDate: 'Aug 04, 2026',
+    dueDate: '2026-08-14',
+    dueTime: '11:59 PM',
+    status: 'Submitted',
+    priority: 'Low',
+    weightage: 5,
+    instructions: 'Analyze pcap trace file and identify TCP SYN, SYN-ACK, ACK sequence numbers.',
+  },
+];
+
+export const MOCK_FEES: FeeItem[] = [
+  {
+    id: 'fee-1',
+    title: 'Tuition Fee - Academic Year 2024-25 (Semester 4)',
+    category: 'Tuition',
+    amount: 198000,
+    status: 'Paid',
+    receiptNumber: 'VT/2026/TUI/94821',
+    paymentDate: 'Jan 10, 2026',
+  },
+  {
+    id: 'fee-2',
+    title: 'Hostel & Special Mess Fee (Block-Q, 2-Bed AC, Non-Veg)',
+    category: 'Hostel & Mess',
+    amount: 145000,
+    status: 'Paid',
+    receiptNumber: 'VT/2026/HST/33019',
+    paymentDate: 'Jan 12, 2026',
+  },
+  {
+    id: 'fee-3',
+    title: 'End Semester FAT Examination & Assessment Fee',
+    category: 'Exam',
+    amount: 3200,
+    status: 'Pending',
+    dueDate: 'Sep 01, 2026',
+  },
+];
+
+export const MOCK_PLACEMENTS: PlacementDrive[] = [
+  {
+    id: 'p-1',
+    companyName: 'Google',
+    role: 'Software Development Engineer (SWE-1)',
+    ctc: '₹54 LPA',
+    eligibilityCgpa: 8.5,
+    isEligible: true,
+    deadlineToApply: 'Aug 28, 2026',
+    status: 'Open',
+  },
+  {
+    id: 'p-2',
+    companyName: 'Microsoft',
+    role: 'Software Engineer',
+    ctc: '₹48 LPA',
+    eligibilityCgpa: 8.0,
+    isEligible: true,
+    deadlineToApply: 'Sep 02, 2026',
+    status: 'Open',
+  },
+  {
+    id: 'p-3',
+    companyName: 'Amazon',
+    role: 'SDE-1 (AWS Cloud Infrastructure)',
+    ctc: '₹44 LPA',
+    eligibilityCgpa: 7.5,
+    isEligible: true,
+    deadlineToApply: 'Aug 24, 2026',
+    status: 'Applied',
+  },
+];
+
+export const MOCK_DSA_TOPICS: DSACategory[] = [
+  { category: 'Dynamic Programming', solved: 48, total: 60, easy: 15, medium: 24, hard: 9 },
+  { category: 'Trees & Binary Search Trees', solved: 36, total: 40, easy: 12, medium: 18, hard: 6 },
+  { category: 'Graphs (BFS, DFS, Dijkstra, Topo)', solved: 31, total: 45, easy: 8, medium: 16, hard: 7 },
+  { category: 'Sliding Window & Two Pointers', solved: 28, total: 30, easy: 14, medium: 12, hard: 2 },
+  { category: 'Tries & Disjoint Set (DSU)', solved: 18, total: 25, easy: 5, medium: 10, hard: 3 },
+];
+
+export const MOCK_AI_TASKS: AIStudyTask[] = [
+  {
+    id: 'ai-1',
+    courseCode: 'CSE3002',
+    courseTitle: 'Cloud Computing & Distributed Systems',
+    type: 'Attendance Risk',
+    urgency: 'HIGH',
+    headline: 'Critical Attendance Recovery: 70.0% (<75%)',
+    reason: 'You need 4 consecutive attendances without misses to safely enter the 75%+ eligibility bracket before FAT exam hall ticket release.',
+    estimatedHours: 1.5,
+    suggestedSlot: 'Wednesday 10:00 AM (TC1)',
+  },
+  {
+    id: 'ai-2',
+    courseCode: 'CSE2004',
+    courseTitle: 'Database Management Systems',
+    type: 'Assignment Crunch',
+    urgency: 'HIGH',
+    headline: 'ACID Transactions DA Due in 4 Days (VIT LMS)',
+    reason: 'Weightage is 10% of internal assessment. Focus on Two-Phase Locking and Serializability proofs.',
+    estimatedHours: 2.5,
+    suggestedSlot: 'Tonight 08:30 PM - 11:00 PM',
+  },
+  {
+    id: 'ai-3',
+    courseCode: 'CSE2005',
+    courseTitle: 'Design & Analysis of Algorithms',
+    type: 'Exam Preparation',
+    urgency: 'MEDIUM',
+    headline: 'Prepare for CAT-2: Graph Algorithms & Dynamic Programming',
+    reason: 'Scoring 45+ out of 50 guarantees your S-grade projection with 8.72+ CGPA maintenance.',
+    estimatedHours: 3.0,
+    suggestedSlot: 'Thursday 04:00 PM - 07:00 PM',
+  },
+];
+
+export const CampusAPI = {
+  getStudentProfile: async (): Promise<StudentProfile> => MOCK_STUDENT,
+  getCourses: async (): Promise<Course[]> => MOCK_COURSES,
+  getTimetable: async (): Promise<TimetableSlot[]> => MOCK_TIMETABLE,
+  getAssignments: async (): Promise<Assignment[]> => MOCK_ASSIGNMENTS,
+  updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {
+    const item = MOCK_ASSIGNMENTS.find(a => a.id === id);
+    if (item) item.status = status;
+    return item || MOCK_ASSIGNMENTS[0];
+  },
+  getFees: async (): Promise<FeeItem[]> => MOCK_FEES,
+  getPlacementDrives: async (): Promise<PlacementDrive[]> => MOCK_PLACEMENTS,
+  getDSATracker: async (): Promise<DSACategory[]> => MOCK_DSA_TOPICS,
+  getAIStudyTasks: async (): Promise<AIStudyTask[]> => MOCK_AI_TASKS,
+};
