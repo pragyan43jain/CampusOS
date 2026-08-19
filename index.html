@@ -810,7 +810,7 @@
             <div className="main-wrapper">
               <header className="top-header">
                 <div className="header-title-block">
-                  <h1 style={{ textTransform: 'capitalize' }}>{view === 'ai' ? 'AI Study Planner' : view}</h1>
+                  <h1 style={{ textTransform: 'capitalize' }}>{view === 'dashboard' ? 'Dashboard' : view === 'academics' ? 'Academics' : view === 'assignments' ? 'Assignments' : view === 'fees' ? 'Fees & Receipts' : view === 'placements' ? 'Placements & DSA' : view}</h1>
                   <p>B.Tech CSE • Semester 4</p>
                 </div>
 
@@ -1549,16 +1549,7 @@
                 </div>
               )}
 
-              {/* AI Study Planner — Focus Session */}
-              {view === 'ai' && (
-                <div className="page-content">
-                  {/* Section Header */}
-                  <div style={{ background: 'var(--card-banner-bg)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>🎯 Study Focus Session</h2>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      Lock in, eliminate distractions, and study smarter — one focused session at a time.
-                    </p>
-                  </div>
+
 
                   {/* ══ STEP: IDLE — Landing ══ */}
                   {focusStep === 'idle' && (
