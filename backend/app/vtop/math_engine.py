@@ -74,7 +74,10 @@ def calculate_od_metrics(used_hours: Optional[int], max_hours: int = 40) -> Dict
     if used_hours is None:
         return {
             "usedHours": None,
+            "odHours": None,
+            "totalOdHours": None,
             "maxHours": max_hours,
+            "maxOdHours": max_hours,
             "remainingHours": None,
             "percentageUsed": None,
             "hasValidData": False,
@@ -86,8 +89,12 @@ def calculate_od_metrics(used_hours: Optional[int], max_hours: int = 40) -> Dict
     
     return {
         "usedHours": clamped_used,
+        "odHours": clamped_used,
+        "totalOdHours": clamped_used,
         "maxHours": max_hours,
+        "maxOdHours": max_hours,
         "remainingHours": remaining,
         "percentageUsed": percentage_used,
         "hasValidData": True,
     }
+

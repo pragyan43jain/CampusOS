@@ -169,12 +169,26 @@ class TestSynced:
         body = client.get("/api/vtop/od").json()
         assert body["hasValidData"] is True
         assert body["maxHours"] == 40
+        assert body["maxOdHours"] == 40
+        assert body["odHours"] == 0
+        assert body["totalOdHours"] == 0
+        assert body["usedHours"] == 0
+        assert body["remainingHours"] == 40
+        assert body["records"] == []
+        assert body["odRecords"] == []
+        # Legacy route agrees
+        legacy_body = client.get("/api/od").json()
+        assert legacy_body["hasValidData"] is True
+        assert legacy_body["odHours"] == 0
 
     def test_features_route_separates_synced_from_unsourced(self, synced):
         body = client.get("/api/features").json()
         assert body["attendance"]["source"] == "vtop"
         assert body["attendance"]["available"] is True
         assert body["attendance"]["count"] == 3
+        # OD is available and sourced from VTOP when synced
+        assert body["od"]["source"] == "vtop"
+        assert body["od"]["available"] is True
         # Sections with no source say so rather than looking like empty data.
         assert body["fees"]["source"] is None
         assert body["fees"]["available"] is False

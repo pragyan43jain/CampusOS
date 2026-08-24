@@ -75,6 +75,9 @@ export interface ODRecord {
   date: string;
   fromDate?: string;
   toDate?: string;
+  fromTime?: string;
+  toTime?: string;
+  timeRange?: string;
   subjectCode: string;
   subjectTitle: string;
   hours: number;
@@ -99,15 +102,19 @@ export type ODState =
 export interface OD {
   state?: ODState;
   usedHours?: number | null;
+  odHours?: number | null;
+  totalOdHours?: number | null;
   approvedHours?: number;
   pendingHours?: number;
   rejectedHours?: number;
   maxHours: number; // Constant 40
+  maxOdHours?: number;
   remainingHours?: number | null;
   percentageUsed?: number | null;
   hasValidData?: boolean;
   message?: string;
   records?: ODRecord[];
+  odRecords?: ODRecord[];
   diagnostics?: any;
 }
 

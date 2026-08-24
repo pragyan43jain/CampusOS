@@ -216,8 +216,13 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
     best_result: Optional[Dict[str, Any]] = None
     selected_ep: Optional[str] = None
 
+    logger.info("[VTOP OD] Starting OD fetch (semester_id=%s, candidate_count=%d)", semester_id, len(C.OD_CANDIDATES))
+
     for endpoint, req_type, csrf_first in C.OD_CANDIDATES:
         try:
+            logger.info("[VTOP OD] Probing endpoint: '%s' (type=%s, csrf_first=%s)", endpoint, req_type, csrf_first)
+            html: Optional[str] = None
+
             if req_type == "semester" and semester_id:
                 html = session.post_semester(endpoint, semester_id, csrf_first=csrf_first)
             elif req_type == "menu":
@@ -225,10 +230,14 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
             else:
                 html = session.post_simple(endpoint)
 
+            resp_len = len(html) if html else 0
+            snippet = (html[:160].replace("\n", " ") if html else "")
+            logger.info("[VTOP OD] Raw VTOP response for '%s': length=%d, snippet='%s'", endpoint, resp_len, snippet)
+
             status_info = {
                 "endpoint": endpoint,
                 "requestType": req_type,
-                "responseLength": len(html) if html else 0,
+                "responseLength": resp_len,
                 "hasHtml": bool(html),
                 "containsAuthMarker": "authorizedIDX" in (html or ""),
                 "containsTable": "<table" in (html or "").lower(),
@@ -240,22 +249,33 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
                 continue
 
             parsed = P.parse_od(html)
-            status_info["status"] = parsed.get("state", "unknown")
-            status_info["recordCount"] = len(parsed.get("records", []))
-            status_info["usedHours"] = parsed.get("usedHours")
+            records = parsed.get("records") or parsed.get("odRecords") or []
+            used_hours = parsed.get("usedHours")
+            state = parsed.get("state", "unknown")
+
+            logger.info("[VTOP OD] Parsed '%s' -> state=%s, records=%d, calculated OD hours=%s", endpoint, state, len(records), used_hours)
+
+            status_info["status"] = state
+            status_info["recordCount"] = len(records)
+            status_info["usedHours"] = used_hours
             diagnostics.append(status_info)
 
-            # If we found real records or verified empty state, use it
-            if parsed.get("state") in ("success_with_records", "success_with_no_records"):
+            # If we found real records, prioritize and stop probing immediately
+            if state == "success_with_records" and records:
                 best_result = parsed
                 selected_ep = endpoint
-                if parsed.get("records"):
-                    break  # Found records, stop probing
-            elif best_result is None and parsed.get("state") != "source_unavailable":
+                logger.info("[VTOP OD] Found %d active OD record(s) on endpoint '%s'. Stopping probe.", len(records), endpoint)
+                break
+            elif state == "success_with_no_records":
+                if best_result is None or best_result.get("state") != "success_with_records":
+                    best_result = parsed
+                    selected_ep = endpoint
+            elif best_result is None and state not in ("source_unavailable", "authentication_required"):
                 best_result = parsed
                 selected_ep = endpoint
 
         except Exception as e:
+            logger.warning("[VTOP OD] Exception querying '%s': %s", endpoint, e)
             diagnostics.append({
                 "endpoint": endpoint,
                 "requestType": req_type,
@@ -264,25 +284,45 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
             })
 
     if best_result is None:
+        logger.warning("[VTOP OD] All candidate endpoints failed to return valid OD data.")
         best_result = {
             "state": "source_unavailable",
             "hasValidData": False,
             "usedHours": None,
+            "odHours": None,
+            "totalOdHours": None,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": C.OD_MAX_HOURS,
+            "maxOdHours": C.OD_MAX_HOURS,
             "remainingHours": None,
             "percentageUsed": None,
             "records": [],
+            "odRecords": [],
             "message": "Unable to locate an active On-Duty (OD) endpoint on this VTOP portal.",
         }
+    else:
+        # Guarantee all alias fields are populated
+        used = best_result.get("usedHours")
+        records = best_result.get("records") or best_result.get("odRecords") or []
+        max_h = best_result.get("maxHours") or best_result.get("maxOdHours") or C.OD_MAX_HOURS
+        best_result["usedHours"] = used
+        best_result["odHours"] = used
+        best_result["totalOdHours"] = used
+        best_result["maxHours"] = max_h
+        best_result["maxOdHours"] = max_h
+        best_result["records"] = records
+        best_result["odRecords"] = records
 
     best_result["diagnostics"] = {
         "probedEndpoints": diagnostics,
         "selectedEndpoint": selected_ep,
     }
+    logger.info("[VTOP OD] Final backend OD response: state=%s, hasValidData=%s, usedHours=%s, records=%d",
+                best_result.get("state"), best_result.get("hasValidData"), best_result.get("usedHours"), len(best_result.get("records", [])))
     return best_result
+
 
 
 # ---------------------------------------------------------------------------
@@ -1058,15 +1098,20 @@ def sync(
         "od",
         lambda: fetch_od(session, semester["id"] if semester else None),
     ) or {
-        "hasValidData": True,
-        "usedHours": 0,
+        "state": "source_unavailable",
+        "hasValidData": False,
+        "usedHours": None,
+        "odHours": None,
+        "totalOdHours": None,
         "approvedHours": 0,
         "pendingHours": 0,
         "rejectedHours": 0,
         "maxHours": 40,
-        "remainingHours": 40,
-        "percentageUsed": 0.0,
+        "maxOdHours": 40,
+        "remainingHours": None,
+        "percentageUsed": None,
         "records": [],
+        "odRecords": [],
     }
 
     normalized_exams = build_exams(exams, registry)

@@ -1306,19 +1306,111 @@ def parse_spotlight(html: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 _OD_RULES: Sequence[ColumnRule] = [
-    ("app_id", lambda t: "app" in t or "sl" in t or "s.no" in t or "ref" in t or "id" == t),
-    ("date", lambda t: "date" in t and "from" not in t and "to" not in t),
-    ("from_date", lambda t: "from" in t and ("date" in t or "time" in t)),
-    ("to_date", lambda t: "to" in t and ("date" in t or "time" in t)),
-    ("course_code", contains("course", "code")),
-    ("course_title", contains("course", "title")),
-    ("slot", contains("slot")),
-    ("hours", lambda t: "hour" in t or "period" in t or "duration" in t or "count" in t),
-    ("days", lambda t: "day" in t and "date" not in t),
-    ("reason", lambda t: "reason" in t or "purpose" in t or "event" in t or "category" in t or "desc" in t),
-    ("status", contains("status")),
-    ("approved_by", lambda t: "approved" in t or "sanctioned" in t or "faculty" in t or "staff" in t or "authority" in t),
+    ("app_id", lambda t: "app" in t or "s.no" in t or "sno" in t or "sl.no" in t or "sl no" in t or t in ("sl", "sl.", "s.no.", "s no") or "ref" in t or t == "id" or "req" in t),
+    ("date", lambda t: "date" in t and "from" not in t and "to" not in t and "appl" not in t and "entry" not in t),
+    ("from_date", lambda t: ("from" in t and "date" in t) or t == "from date" or t == "from"),
+    ("to_date", lambda t: ("to" in t and "date" in t) or t == "to date" or t == "to"),
+    ("from_time", lambda t: ("from" in t and "time" in t) or t == "start time" or t == "time from"),
+    ("to_time", lambda t: ("to" in t and "time" in t) or t == "end time" or t == "time to"),
+    ("time_range", lambda t: "time" in t and "from" not in t and "to" not in t and "table" not in t),
+    ("course_code", lambda t: ("course" in t and "code" in t) or ("sub" in t and "code" in t) or t == "course" or t == "subject"),
+    ("course_title", lambda t: ("course" in t and ("title" in t or "name" in t or "desc" in t)) or ("sub" in t and ("title" in t or "name" in t))),
+    ("slot", lambda t: "slot" in t or "period" in t),
+    ("hours", lambda t: "hour" in t or "duration" in t or "no. of hr" in t or "od hr" in t or "hrs" in t),
+    ("days", lambda t: ("day" in t or "days" in t) and "date" not in t and "today" not in t),
+    ("reason", lambda t: "reason" in t or "purpose" in t or "event" in t or "category" in t or "desc" in t or "details" in t or "place" in t),
+    ("status", lambda t: "status" in t or "state" in t or "approval" in t or "recommend" in t),
+    ("approved_by", lambda t: "approved" in t or "sanctioned" in t or "faculty" in t or "staff" in t or "authority" in t or "advisor" in t or "hod" in t or "dean" in t),
 ]
+
+
+def parse_time_duration(start_str: Optional[str], end_str: Optional[str]) -> Optional[float]:
+    """
+    Compute duration in hours between two time strings like '08:00 AM' and '11:00 AM'
+    or '08:30' and '11:30' or '14:00' and '16:00'.
+    """
+    if not start_str or not end_str:
+        return None
+    try:
+        def to_minutes(t_str: str) -> Optional[int]:
+            t_str = t_str.strip()
+            match_12 = re.search(r"(\d{1,2})[:.](\d{2})(?:\s*([APap][Mm]))?", t_str)
+            if not match_12:
+                match_hr = re.search(r"(\d{1,2})(?:\s*([APap][Mm]))", t_str)
+                if match_hr:
+                    hr = int(match_hr.group(1))
+                    meridiem = (match_hr.group(2) or "").upper()
+                    if meridiem == "PM" and hr < 12:
+                        hr += 12
+                    elif meridiem == "AM" and hr == 12:
+                        hr = 0
+                    return hr * 60
+                return None
+            hr = int(match_12.group(1))
+            mn = int(match_12.group(2))
+            meridiem = (match_12.group(3) or "").upper()
+            if meridiem == "PM" and hr < 12:
+                hr += 12
+            elif meridiem == "AM" and hr == 12:
+                hr = 0
+            return hr * 60 + mn
+
+        start_min = to_minutes(start_str)
+        end_min = to_minutes(end_str)
+        if start_min is not None and end_min is not None:
+            if end_min < start_min:
+                if end_min + 720 > start_min:
+                    end_min += 720
+            diff = (end_min - start_min) / 60.0
+            if 0 < diff <= 24:
+                return round(diff, 1)
+    except Exception:
+        pass
+    return None
+
+
+def parse_time_range_duration(time_str: Optional[str]) -> Optional[float]:
+    """Extract and compute duration from a range string like '08:00 AM - 11:00 AM' or '08:30 to 11:30'."""
+    if not time_str:
+        return None
+    parts = re.split(r"\s*(?:-|to|–|—)\s*", time_str.strip(), maxsplit=1)
+    if len(parts) == 2:
+        return parse_time_duration(parts[0], parts[1])
+    return None
+
+
+def parse_slots_count(slot_str: Optional[str]) -> Optional[int]:
+    """Count academic slots (e.g. 'A1+TA1' -> 2, 'L1+L2+L3' -> 3, 'B2' -> 1)."""
+    if not slot_str:
+        return None
+    tokens = [s.strip() for s in re.split(r"[\s+,;/]+", slot_str) if s.strip()]
+    slot_tokens = [t for t in tokens if re.match(r"^[A-Za-z]+\d+$", t) or t in ("V1", "V2", "ETH", "EPJ")]
+    if slot_tokens:
+        return len(slot_tokens)
+    return len(tokens) if tokens else None
+
+
+def convert_days_to_hours(days: Optional[float]) -> Optional[int]:
+    """In VIT institutional regulations, 1 full day of OD = 6 academic class hours."""
+    if days is not None and days > 0:
+        return int(round(days * 6))
+    return None
+
+
+def calculate_days_from_dates(from_date: Optional[str], to_date: Optional[str]) -> Optional[int]:
+    """Calculate the number of calendar/academic days spanned by fromDate and toDate."""
+    if not from_date or not to_date or from_date == to_date:
+        return 1
+    for fmt in ("%d-%b-%Y", "%d-%B-%Y", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            d1 = datetime.strptime(from_date.strip(), fmt)
+            d2 = datetime.strptime(to_date.strip(), fmt)
+            diff = (d2 - d1).days + 1
+            if 0 < diff <= 60:
+                return diff
+        except Exception:
+            continue
+    return 1
 
 
 def parse_od(html: str) -> Dict[str, Any]:
@@ -1331,18 +1423,24 @@ def parse_od(html: str) -> Dict[str, Any]:
     - source_unavailable
     - authentication_required
     """
+    logger.info("[VTOP OD Parser] Parsing OD HTML payload (length: %d)", len(html) if html else 0)
+
     if not html or not html.strip():
         return {
             "state": "source_unavailable",
             "hasValidData": False,
             "usedHours": None,
+            "odHours": None,
+            "totalOdHours": None,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": C.OD_MAX_HOURS,
+            "maxOdHours": C.OD_MAX_HOURS,
             "remainingHours": None,
             "percentageUsed": None,
             "records": [],
+            "odRecords": [],
             "message": "OD source unavailable from VTOP portal.",
         }
 
@@ -1351,13 +1449,17 @@ def parse_od(html: str) -> Dict[str, Any]:
             "state": "authentication_required",
             "hasValidData": False,
             "usedHours": None,
+            "odHours": None,
+            "totalOdHours": None,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": C.OD_MAX_HOURS,
+            "maxOdHours": C.OD_MAX_HOURS,
             "remainingHours": None,
             "percentageUsed": None,
             "records": [],
+            "odRecords": [],
             "message": "Authentication required to view On-Duty records.",
         }
 
@@ -1371,36 +1473,44 @@ def parse_od(html: str) -> Dict[str, Any]:
             max_hours = C.OD_MAX_HOURS
 
     # Explicit "no records found" marker
-    if body_says(html, "no record(s) found", "no record found", "no data found", "no od applied", "nil", "no details found"):
+    if body_says(html, "no record(s) found", "no record found", "no data found", "no od applied", "nil", "no details found", "no on-duty records", "no leave history"):
+        logger.info("[VTOP OD Parser] Explicit no records marker detected on VTOP page.")
         return {
             "state": "success_with_no_records",
             "hasValidData": True,
             "usedHours": 0,
+            "odHours": 0,
+            "totalOdHours": 0,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": max_hours,
+            "maxOdHours": max_hours,
             "remainingHours": max_hours,
             "percentageUsed": 0.0,
             "records": [],
+            "odRecords": [],
             "message": "No sanctioned On-Duty leave records found on VTOP for this semester.",
         }
 
     soup = soup_of(html)
     tables = soup.find_all("table")
     if not tables:
-        # If response was valid HTML but contained no tables and no "no records" text
         return {
             "state": "source_unavailable",
             "hasValidData": False,
             "usedHours": None,
+            "odHours": None,
+            "totalOdHours": None,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": max_hours,
+            "maxOdHours": max_hours,
             "remainingHours": None,
             "percentageUsed": None,
             "records": [],
+            "odRecords": [],
             "message": "No OD table found in VTOP response.",
         }
 
@@ -1416,8 +1526,8 @@ def parse_od(html: str) -> Dict[str, Any]:
         if not headings or stride <= 0:
             continue
         columns = discover_columns(headings, _OD_RULES)
-        # Check if table looks like an OD table (at least 2 matching columns)
-        if len(columns) >= 2 or any(k in columns for k in ("hours", "status", "date", "reason")):
+        # Check if table looks like an OD table (at least 2 matching columns or key OD fields)
+        if len(columns) >= 2 or any(k in columns for k in ("hours", "status", "date", "reason", "course_code", "from_date")):
             selected_table = table
             selected_columns = columns
             selected_headings = headings
@@ -1426,7 +1536,6 @@ def parse_od(html: str) -> Dict[str, Any]:
             break
 
     if selected_table is None:
-        # Fall back to first table if it exists
         first_table = tables[0]
         headings, offset, stride = header_layout(first_table)
         if headings and stride > 0:
@@ -1441,36 +1550,63 @@ def parse_od(html: str) -> Dict[str, Any]:
             "state": "parser_failed",
             "hasValidData": False,
             "usedHours": None,
+            "odHours": None,
+            "totalOdHours": None,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": max_hours,
+            "maxOdHours": max_hours,
             "remainingHours": None,
             "percentageUsed": None,
             "records": [],
+            "odRecords": [],
             "message": "Unable to parse OD data from VTOP: header layout could not be resolved.",
         }
 
+    # Extract rows: try walk_rows first, then fallback to tr-level iteration
     cells = selected_table.find_all("td")
-    required = [k for k in ("hours", "status", "date", "course_code", "reason") if k in selected_columns]
+    required = [k for k in ("hours", "status", "date", "course_code", "reason", "from_date") if k in selected_columns]
     if not required and selected_columns:
         required = list(selected_columns.keys())[:1]
 
     rows = walk_rows(cells, selected_columns, required=required, stride=selected_stride, offset=selected_offset)
 
     if not rows:
-        # Table had headers but 0 data rows -> verified empty
+        # Fall back to row-by-row TR parsing
+        tr_rows = selected_table.find_all("tr")
+        for tr in tr_rows:
+            tds = tr.find_all("td")
+            if not tds:
+                continue
+            # Check if row is a "no records" placeholder
+            row_text = tr.get_text().lower()
+            if any(p in row_text for p in ("no record", "no data", "nil", "no details")):
+                continue
+            row_dict: Dict[str, Tag] = {}
+            for name, col_idx in selected_columns.items():
+                if 0 <= col_idx < len(tds):
+                    row_dict[name] = tds[col_idx]
+            if row_dict:
+                rows.append(row_dict)
+
+    if not rows:
+        logger.info("[VTOP OD Parser] Table headers found with 0 data rows -> verified empty state.")
         return {
             "state": "success_with_no_records",
             "hasValidData": True,
             "usedHours": 0,
+            "odHours": 0,
+            "totalOdHours": 0,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": max_hours,
+            "maxOdHours": max_hours,
             "remainingHours": max_hours,
             "percentageUsed": 0.0,
             "records": [],
+            "odRecords": [],
             "message": "No sanctioned On-Duty leave records found on VTOP for this semester.",
         }
 
@@ -1480,63 +1616,108 @@ def parse_od(html: str) -> Dict[str, Any]:
     rejected_hours = 0
 
     for idx, row in enumerate(rows):
-        raw_hours = to_int(row.get("hours")) or 1
+        date_str = to_text(row.get("date")) or to_text(row.get("from_date")) or "Recorded Date"
+        from_date = to_text(row.get("from_date")) or date_str
+        to_date = to_text(row.get("to_date")) or date_str
+        from_time = to_text(row.get("from_time"))
+        to_time = to_text(row.get("to_time"))
+        time_range = to_text(row.get("time_range"))
+        course_code = to_text(row.get("course_code")) or "GENERAL"
+        course_title = to_text(row.get("course_title")) or "On-Duty Academic Leave"
+        reason = to_text(row.get("reason")) or "Sanctioned Institutional OD"
+        slot_text = to_text(row.get("slot"))
+        approved_by = to_text(row.get("approved_by"))
+
+        # Calculate duration accurately
+        dur_from_times = None
+        if from_time and to_time:
+            dur_from_times = parse_time_duration(from_time, to_time)
+        if dur_from_times is None and time_range:
+            dur_from_times = parse_time_range_duration(time_range)
+
+        explicit_hours = to_float(row.get("hours"))
+        if explicit_hours is None and row.get("hours"):
+            h_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:hr|hour|period)?", to_text(row.get("hours")) or "")
+            if h_match:
+                try:
+                    explicit_hours = float(h_match.group(1))
+                except ValueError:
+                    pass
+
+        slots_count = parse_slots_count(slot_text)
+        days_val = to_float(row.get("days"))
+        if days_val is None and from_date and to_date and from_date != to_date:
+            days_val = float(calculate_days_from_dates(from_date, to_date) or 1)
+
+        if dur_from_times is not None and dur_from_times > 0:
+            calc_hours = int(round(dur_from_times))
+        elif explicit_hours is not None and explicit_hours > 0:
+            calc_hours = int(round(explicit_hours))
+        elif slots_count is not None and slots_count > 0:
+            calc_hours = slots_count
+        elif days_val is not None and days_val > 0:
+            calc_hours = convert_days_to_hours(days_val) or 6
+        else:
+            calc_hours = 1
+
         raw_status = (to_text(row.get("status")) or "Approved").strip()
         status_lower = raw_status.lower()
 
         is_approved = any(s in status_lower for s in ("approve", "sanction", "accept", "grant"))
-        is_rejected = any(s in status_lower for s in ("reject", "decline", "cancel"))
+        is_rejected = any(s in status_lower for s in ("reject", "decline", "cancel", "disapprove", "not approve"))
 
         if is_approved:
             norm_status = "Approved"
-            approved_hours += raw_hours
+            approved_hours += calc_hours
         elif is_rejected:
             norm_status = "Rejected"
-            rejected_hours += raw_hours
+            rejected_hours += calc_hours
         else:
             norm_status = "Pending"
-            pending_hours += raw_hours
-
-        date_str = to_text(row.get("date")) or to_text(row.get("from_date")) or "Recorded Date"
-        from_date = to_text(row.get("from_date")) or date_str
-        to_date = to_text(row.get("to_date")) or date_str
-        course_code = to_text(row.get("course_code")) or "GENERAL"
-        course_title = to_text(row.get("course_title")) or "On-Duty Academic Leave"
-        reason = to_text(row.get("reason")) or "Sanctioned Institutional OD"
-        days_val = to_int(row.get("days")) or 1
+            pending_hours += calc_hours
 
         records.append({
             "id": to_text(row.get("app_id")) or f"od-{idx + 1}",
             "date": date_str,
             "fromDate": from_date,
             "toDate": to_date,
+            "fromTime": from_time,
+            "toTime": to_time,
+            "timeRange": time_range,
             "subjectCode": course_code.upper(),
             "subjectTitle": course_title,
-            "hours": raw_hours,
-            "days": days_val,
+            "hours": calc_hours,
+            "days": int(days_val) if days_val else 1,
             "reason": reason,
             "status": norm_status,
             "isApproved": is_approved,
-            "slot": to_text(row.get("slot")),
-            "approvedBy": to_text(row.get("approved_by")),
+            "slot": slot_text,
+            "approvedBy": approved_by,
             "rawFields": {k: to_text(v) for k, v in row.items()},
         })
 
     remaining = max(0, max_hours - approved_hours)
     percentage = round((approved_hours / float(max_hours)) * 100.0, 1)
 
-    return {
+    result = {
         "state": "success_with_records" if records else "success_with_no_records",
         "hasValidData": True,
         "usedHours": approved_hours,
+        "odHours": approved_hours,
+        "totalOdHours": approved_hours,
         "approvedHours": approved_hours,
         "pendingHours": pending_hours,
         "rejectedHours": rejected_hours,
         "maxHours": max_hours,
+        "maxOdHours": max_hours,
         "remainingHours": remaining,
         "percentageUsed": percentage,
         "records": records,
+        "odRecords": records,
         "message": f"Successfully parsed {len(records)} OD record(s). ({approved_hours}h approved)",
     }
+    logger.info("[VTOP OD Parser] Finished parsing: state=%s, approvedHours=%d, totalRecords=%d", result["state"], approved_hours, len(records))
+    return result
+
 
 

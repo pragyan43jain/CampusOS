@@ -51,7 +51,20 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
 
   const cgpaDisplay = student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : "Not available";
   const creditsDisplay = student.creditsEarned !== null && student.creditsEarned !== undefined ? `${student.creditsEarned} / ${student.totalCreditsRequired || 160}` : "Not available";
-  const odDisplay = od && od.usedHours !== null && od.usedHours !== undefined ? `${od.usedHours} / ${od.maxHours}h` : "Not available";
+  
+  const odRecordsList = od?.records || od?.odRecords || [];
+  const hasValidOD = Boolean(
+    od &&
+    od.hasValidData &&
+    (od.usedHours !== null && od.usedHours !== undefined ||
+     od.odHours !== null && od.odHours !== undefined ||
+     od.totalOdHours !== null && od.totalOdHours !== undefined ||
+     od.state === 'success_with_records' ||
+     od.state === 'success_with_no_records')
+  );
+  const odHoursCount = od?.usedHours ?? od?.odHours ?? od?.totalOdHours ?? (hasValidOD ? 0 : null);
+  const odValueDisplay = odHoursCount !== null && odHoursCount !== undefined ? `${odHoursCount}` : "Not available";
+  const odCardSubtext = "40h Max Allowed";
 
   return (
     <div className="page-content">
@@ -156,8 +169,8 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
           <span style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '4px', background: marks.length > 0 ? 'var(--success-bg)' : 'rgba(255,255,255,0.05)', color: marks.length > 0 ? 'var(--success-emerald)' : 'var(--text-muted)', fontWeight: 700 }}>
             {marks.length > 0 ? `✓ Marks (${marks.length})` : '✕ Marks'}
           </span>
-          <span style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '4px', background: od && od.hasValidData ? 'var(--success-bg)' : 'rgba(255,255,255,0.05)', color: od && od.hasValidData ? 'var(--success-emerald)' : 'var(--text-muted)', fontWeight: 700 }}>
-            {od && od.hasValidData ? `✓ OD (${od.usedHours}/40h)` : '✕ OD'}
+          <span style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '4px', background: hasValidOD ? 'var(--success-bg)' : 'rgba(255,255,255,0.05)', color: hasValidOD ? 'var(--success-emerald)' : 'var(--text-muted)', fontWeight: 700 }}>
+            {hasValidOD ? `✓ OD (${odHoursCount}/40h)` : '✕ OD'}
           </span>
           <span style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '4px', background: exams.length > 0 ? 'var(--success-bg)' : 'rgba(255,255,255,0.05)', color: exams.length > 0 ? 'var(--success-emerald)' : 'var(--text-muted)', fontWeight: 700 }}>
             {exams.length > 0 ? `✓ Exams (${exams.length})` : '✕ Exams'}
@@ -170,7 +183,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
         {[
           { id: 'overview', label: '📊 Dashboard Overview' },
           { id: 'attendance', label: `📈 Attendance (${attendance.length})` },
-          { id: 'od', label: `⏱ On-Duty (${od && od.usedHours !== null && od.usedHours !== undefined ? `${od.usedHours}/40h` : 'OD'})` },
+          { id: 'od', label: `⏱ On-Duty (${hasValidOD ? `${odHoursCount}/40h` : 'OD'})` },
           { id: 'marks', label: `🎯 Continuous Marks (${marks.length})` },
           { id: 'exams', label: `📝 Exams Schedule (${exams.length})` },
           { id: 'faculty', label: `👨‍🏫 Faculty (${faculty.length})` },
@@ -211,10 +224,10 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
 
             <MetricCard
               label="On-Duty (OD) Hours"
-              value={odDisplay}
-              subtext={od && od.remainingHours !== null && od.remainingHours !== undefined ? `${od.remainingHours}h Remaining (${od.percentageUsed}% Used)` : "40h Max Allowed"}
+              value={odValueDisplay}
+              subtext={odCardSubtext}
               icon="⏱"
-              progressPercent={od && od.percentageUsed ? od.percentageUsed : 0}
+              progressPercent={hasValidOD && odHoursCount !== null ? Math.min(100, Math.max(0, (odHoursCount / (od?.maxHours || 40)) * 100)) : 0}
               variant="blue"
             />
 
@@ -708,8 +721,8 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                 Institutional On-Duty (OD) Records
               </span>
               <h3 style={{ fontSize: '1.3rem', fontWeight: 800, marginTop: '2px' }}>
-                {od && od.usedHours !== null && od.usedHours !== undefined && od.hasValidData
-                  ? `${od.usedHours} of ${od.maxHours || 40} Hours Utilized (${od.percentageUsed || 0}%)`
+                {hasValidOD
+                  ? `${odHoursCount ?? 0} of ${od?.maxHours || 40} Hours Utilized (${od?.percentageUsed ?? Math.round(((odHoursCount || 0) / (od?.maxHours || 40)) * 100)}%)`
                   : `On-Duty Records (${od?.maxHours || 40}h Max Allowed)`}
               </h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
@@ -718,24 +731,29 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: od && od.hasValidData ? 'var(--success-emerald)' : 'var(--text-muted)' }}>
-                {od && od.remainingHours !== null && od.remainingHours !== undefined && od.hasValidData ? `${od.remainingHours} Hours` : `${od?.maxHours || 40} Hours`}
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: hasValidOD ? 'var(--success-emerald)' : 'var(--text-muted)' }}>
+                {hasValidOD ? `${od?.remainingHours ?? Math.max(0, (od?.maxHours || 40) - (odHoursCount || 0))} Hours` : `${od?.maxHours || 40} Hours`}
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Safe Buffer Remaining</span>
             </div>
           </div>
 
-          {/* OD State Handlers */}
-          {od?.state === 'success_with_records' && od.records && od.records.length > 0 && (
+          {/* OD Records List */}
+          {hasValidOD && odRecordsList.length > 0 && (
             <div className="assignments-container">
-              {od.records.map((rec) => (
+              {odRecordsList.map((rec) => (
                 <div key={rec.id} className="assignment-item-card" style={{ padding: '16px 20px' }}>
                   <div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span className="course-code-tag">{rec.subjectCode}</span>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        {rec.fromDate === rec.toDate ? rec.date : `${rec.fromDate} - ${rec.toDate}`}
+                        {rec.fromDate && rec.toDate && rec.fromDate !== rec.toDate ? `${rec.fromDate} - ${rec.toDate}` : rec.date}
                       </span>
+                      {(rec.fromTime || rec.toTime || rec.timeRange) && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--brand-blue)', fontWeight: 600 }}>
+                          ⏰ {rec.timeRange || `${rec.fromTime || ''} - ${rec.toTime || ''}`}
+                        </span>
+                      )}
                       {rec.slot && (
                         <span style={{ fontSize: '0.75rem', color: 'var(--brand-color)', fontWeight: 700 }}>
                           Slot: {rec.slot}
@@ -749,7 +767,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                   </div>
 
                   <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: rec.isApproved ? 'var(--success-emerald)' : 'var(--amber-gold)' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: rec.isApproved ? 'var(--success-emerald)' : rec.status === 'Rejected' ? 'var(--danger-crimson)' : 'var(--amber-gold)' }}>
                       +{rec.hours} Hours OD
                     </div>
                     <span className={`attendance-percentage-pill ${rec.isApproved ? 'safe' : rec.status === 'Rejected' ? 'critical' : 'amber'}`}>
@@ -761,18 +779,18 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
             </div>
           )}
 
-          {od?.state === 'success_with_no_records' && (
+          {hasValidOD && odRecordsList.length === 0 && (
             <div className="empty-state-box">
               <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 ✓ Verified VTOP Check
               </p>
               <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                No sanctioned On-Duty leave records found on VTOP for this semester.
+                No sanctioned On-Duty leave records found on VTOP for this semester (0 / 40h used).
               </p>
             </div>
           )}
 
-          {od?.state === 'source_unavailable' && (
+          {!hasValidOD && od?.state === 'source_unavailable' && (
             <div className="empty-state-box" style={{ border: '1px dashed var(--border-medium)' }}>
               <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
                 ℹ️ On-Duty hours endpoint is not accessible from VTOP portal on this student account / route.
@@ -783,18 +801,18 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
             </div>
           )}
 
-          {od?.state === 'parser_failed' && (
+          {!hasValidOD && od?.state === 'parser_failed' && (
             <div className="empty-state-box" style={{ background: 'var(--danger-bg)', borderColor: 'var(--danger-border)' }}>
               <p style={{ fontSize: '0.95rem', color: 'var(--danger-crimson)', fontWeight: 700 }}>
                 ⚠️ Unable to parse OD data from VTOP
               </p>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                {od.message || 'Header layout or table structure could not be identified.'}
+                {od?.message || 'Header layout or table structure could not be identified.'}
               </p>
             </div>
           )}
 
-          {(!od || (!od.state && (!od.records || od.records.length === 0))) && (
+          {!hasValidOD && !['source_unavailable', 'parser_failed'].includes(od?.state || '') && (
             <div className="empty-state-box">
               <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
                 {od?.message || 'Sync with VTOP to inspect On-Duty status.'}

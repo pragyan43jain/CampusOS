@@ -247,21 +247,50 @@ class FacultyEntry(_Open):
     venue: Optional[str] = None
 
 
+class ODRecordModel(_Open):
+    """One On-Duty (OD) record scraped from VTOP."""
+
+    id: Optional[str] = None
+    date: Optional[str] = None
+    fromDate: Optional[str] = None
+    toDate: Optional[str] = None
+    fromTime: Optional[str] = None
+    toTime: Optional[str] = None
+    timeRange: Optional[str] = None
+    subjectCode: Optional[str] = None
+    subjectTitle: Optional[str] = None
+    hours: int = 1
+    days: Optional[int] = None
+    reason: Optional[str] = None
+    status: str = "Approved"
+    isApproved: bool = True
+    slot: Optional[str] = None
+    approvedBy: Optional[str] = None
+    rawFields: Dict[str, Any] = {}
+
+
 class ODModel(_Open):
     """
-    On-duty hours.
-
-    Permanently ``hasValidData: False`` for now: no VTOP endpoint for OD has been
-    verified against the reference implementation, so nothing is scraped. The old
-    build hardcoded 12 used of 40. See the extension point in ``scraper.sync``.
+    On-duty hours extracted directly from VTOP.
     """
 
     usedHours: Optional[int] = None
+    odHours: Optional[int] = None
+    totalOdHours: Optional[int] = None
     maxHours: int = 40
+    maxOdHours: int = 40
+    approvedHours: int = 0
+    pendingHours: int = 0
+    rejectedHours: int = 0
     remainingHours: Optional[int] = None
     percentageUsed: Optional[float] = None
     hasValidData: bool = False
+    state: Optional[str] = None
     records: List[Dict[str, Any]] = []
+    odRecords: List[Dict[str, Any]] = []
+    message: Optional[str] = None
+    diagnostics: Optional[Dict[str, Any]] = None
+
 
 
 # ---------------------------------------------------------------------------

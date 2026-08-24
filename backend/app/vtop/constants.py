@@ -67,13 +67,20 @@ OD_MAX_HOURS = 40
 # All candidate endpoints probed in sequence for On-Duty (OD) data.
 OD_CANDIDATES = [
     ("academics/common/StudentODView", "semester", True),
+    ("academics/common/StudentODView", "menu", True),
+    ("academics/common/doStudentODView", "semester", True),
+    ("students/viewStudentODDetails", "menu", True),
+    ("students/viewStudentODDetails", "semester", True),
     ("examinations/StudentODView", "semester", False),
     ("examinations/examGradeView/StudentODView", "semester", False),
-    ("students/viewStudentODDetails", "menu", True),
-    ("academics/common/doStudentODView", "semester", True),
     ("examinations/doStudentODView", "semester", False),
+    ("academics/common/StudentAttendanceODView", "semester", True),
+    ("students/viewStudentLeaveDetails", "menu", True),
     ("leave/viewStudentLeaveHistory", "menu", True),
     ("leave/StudentLeaveView", "menu", True),
+    ("leave/doStudentLeaveView", "semester", True),
+    ("students/StudentODView", "menu", True),
+    ("students/StudentODView", "semester", True),
 ]
 
 # ---------------------------------------------------------------------------

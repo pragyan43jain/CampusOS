@@ -94,7 +94,7 @@ def empty_store() -> Dict[str, Any]:
         "deanHod": [],
         "assignments": [],
         "aiTasks": [],
-        "od": {**calculate_od_metrics(None), "records": []},
+        "od": {**calculate_od_metrics(None), "records": [], "odRecords": [], "approvedHours": 0, "pendingHours": 0, "rejectedHours": 0},
         "registry": None,
         "syncReport": None,
         "lastSynced": None,

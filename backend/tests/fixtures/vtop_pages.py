@@ -635,4 +635,139 @@ OD_NO_RECORDS = """
 </body></html>
 """
 
+OD_PAGE_WITH_TIMES = """
+<html><body>
+<table>
+  <tr>
+    <th>S.No</th>
+    <th>Date</th>
+    <th>Start Time</th>
+    <th>End Time</th>
+    <th>Course Code</th>
+    <th>Course Title</th>
+    <th>Purpose</th>
+    <th>Status</th>
+    <th>Sanctioned Authority</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>15-Sep-2024</td>
+    <td>08:00 AM</td>
+    <td>11:00 AM</td>
+    <td>CSE2001</td>
+    <td>Computer Architecture</td>
+    <td>ACM ICPC Regional Round</td>
+    <td>Approved</td>
+    <td>Dean SCSE</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>18-Oct-2024</td>
+    <td>02:00 PM</td>
+    <td>05:00 PM</td>
+    <td>ECE1002</td>
+    <td>Semiconductor Devices</td>
+    <td>Robotics Workshop Demonstration</td>
+    <td>Approved</td>
+    <td>HOD SENSE</td>
+  </tr>
+</table>
+</body></html>
+"""
+
+OD_PAGE_WITH_DAYS = """
+<html><body>
+<table>
+  <tr>
+    <th>Sl.No</th>
+    <th>From Date</th>
+    <th>To Date</th>
+    <th>Days</th>
+    <th>Course Code</th>
+    <th>Reason</th>
+    <th>Approval Status</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>10-Nov-2024</td>
+    <td>11-Nov-2024</td>
+    <td>2</td>
+    <td>CSE3002</td>
+    <td>National Hackathon Finals</td>
+    <td>Approved</td>
+  </tr>
+</table>
+</body></html>
+"""
+
+OD_PAGE_WITH_SLOTS = """
+<html><body>
+<table>
+  <tr>
+    <th>Sl.No</th>
+    <th>Date</th>
+    <th>Course</th>
+    <th>Slot</th>
+    <th>Reason</th>
+    <th>Status</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>05-Dec-2024</td>
+    <td>MAT2001</td>
+    <td>A1+TA1</td>
+    <td>Inter-University Debate Competition</td>
+    <td>Approved</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>08-Dec-2024</td>
+    <td>PHY1001</td>
+    <td>L31+L32+L33</td>
+    <td>Physics Lab Exhibition</td>
+    <td>Approved</td>
+  </tr>
+</table>
+</body></html>
+"""
+
+OD_PAGE_MIXED_STATUS = """
+<html><body>
+<table>
+  <tr>
+    <th>S.No</th>
+    <th>Date</th>
+    <th>Course</th>
+    <th>Hours</th>
+    <th>Reason</th>
+    <th>Status</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>01-Oct-2024</td>
+    <td>CSE1001</td>
+    <td>3</td>
+    <td>Technical Symposium</td>
+    <td>Approved</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>05-Oct-2024</td>
+    <td>CSE1002</td>
+    <td>2</td>
+    <td>Cultural Fest Auditions</td>
+    <td>Pending</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>10-Oct-2024</td>
+    <td>MAT1001</td>
+    <td>4</td>
+    <td>Personal Leave Request</td>
+    <td>Rejected</td>
+  </tr>
+</table>
+</body></html>
+"""
+
 

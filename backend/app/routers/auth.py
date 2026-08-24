@@ -197,7 +197,19 @@ def get_vtop_od() -> Dict[str, Any]:
     """
     store = load_store()
     od = store.get("od") or empty_store()["od"]
-    return od
+    used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if od.get("hasValidData") else None))
+    max_h = od.get("maxHours") or od.get("maxOdHours") or 40
+    records = od.get("records") or od.get("odRecords") or []
+    return {
+        **od,
+        "usedHours": used,
+        "odHours": used,
+        "totalOdHours": used,
+        "maxHours": max_h,
+        "maxOdHours": max_h,
+        "records": records,
+        "odRecords": records,
+    }
 
 
 @router.get("/exams")

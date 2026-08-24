@@ -67,10 +67,23 @@ def get_marks() -> List[Dict[str, Any]]:
 @router.get("/od")
 def get_od() -> Dict[str, Any]:
     """
-    On-duty hours, which VTOP does not currently give us.
+    On-duty hours extracted directly from VTOP leave modules.
     """
     store = load_store()
-    return store.get("od") or empty_store()["od"]
+    od = store.get("od") or empty_store()["od"]
+    used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if od.get("hasValidData") else None))
+    max_h = od.get("maxHours") or od.get("maxOdHours") or 40
+    records = od.get("records") or od.get("odRecords") or []
+    return {
+        **od,
+        "usedHours": used,
+        "odHours": used,
+        "totalOdHours": used,
+        "maxHours": max_h,
+        "maxOdHours": max_h,
+        "records": records,
+        "odRecords": records,
+    }
 
 
 @router.get("/faculty")
@@ -146,6 +159,10 @@ def get_feature_availability() -> Dict[str, Dict[str, Any]]:
             "message": (report.get(name) or {}).get("message"),
         }
 
+    od_data = store.get("od") or {}
+    od_has_valid = bool(od_data.get("hasValidData"))
+    od_count = len(od_data.get("records") or od_data.get("odRecords") or [])
+
     features: Dict[str, Dict[str, Any]] = {
         "attendance": vtop_section("attendance", "attendance"),
         "marks": vtop_section("marks", "marks"),
@@ -153,12 +170,11 @@ def get_feature_availability() -> Dict[str, Dict[str, Any]]:
         "courses": vtop_section("courses", "courses"),
         "exams": vtop_section("exams", "exams"),
         "od": {
-            "source": None,
-            "available": False,
-            "count": 0,
-            "status": (report.get("od") or {}).get("status"),
-            "message": (report.get("od") or {}).get("message")
-            or "No verified VTOP endpoint for on-duty hours.",
+            "source": "vtop" if od_has_valid else None,
+            "available": is_auth and od_has_valid,
+            "count": od_count,
+            "status": (report.get("od") or {}).get("status") or (od_data.get("state") if od_has_valid else "unavailable"),
+            "message": (report.get("od") or {}).get("message") or od_data.get("message"),
         },
     }
 

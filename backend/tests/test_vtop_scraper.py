@@ -443,13 +443,23 @@ class TestOnDutyIsAuthoritative:
         assert res["syncReport"]["modules"]["od"]["status"] == OK
         assert res["od"]["hasValidData"] is True
         assert res["od"]["usedHours"] == 3
+        assert res["od"]["odHours"] == 3
+        assert res["od"]["totalOdHours"] == 3
+        assert res["od"]["approvedHours"] == 3
+        assert res["od"]["maxHours"] == 40
+        assert res["od"]["maxOdHours"] == 40
         assert res["od"]["remainingHours"] == 37
         assert len(res["od"]["records"]) == 2
+        assert len(res["od"]["odRecords"]) == 2
 
     def test_od_defaults_to_zero_when_no_records(self, result):
         assert result["od"]["hasValidData"] is True
         assert result["od"]["usedHours"] == 0
+        assert result["od"]["odHours"] == 0
+        assert result["od"]["totalOdHours"] == 0
         assert result["od"]["remainingHours"] == 40
+        assert result["od"]["records"] == []
+        assert result["od"]["odRecords"] == []
 
 
 

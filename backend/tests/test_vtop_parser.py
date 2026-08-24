@@ -556,11 +556,14 @@ class TestOnDuty:
         od = parse_od(pages.OD_PAGE)
         assert od["hasValidData"] is True
         assert od["usedHours"] == 3
+        assert od["odHours"] == 3
+        assert od["totalOdHours"] == 3
         assert od["approvedHours"] == 3
         assert od["maxHours"] == 40
         assert od["remainingHours"] == 37
         assert od["percentageUsed"] == round((3 / 40.0) * 100, 1)
         assert len(od["records"]) == 2
+        assert len(od["odRecords"]) == 2
         assert od["records"][0]["subjectCode"] == "CSE1002"
         assert od["records"][0]["hours"] == 2
         assert od["records"][0]["reason"] == "Smart India Hackathon 2024"
@@ -570,8 +573,50 @@ class TestOnDuty:
         od = parse_od(pages.OD_NO_RECORDS)
         assert od["hasValidData"] is True
         assert od["usedHours"] == 0
+        assert od["odHours"] == 0
+        assert od["totalOdHours"] == 0
         assert od["remainingHours"] == 40
         assert od["percentageUsed"] == 0.0
         assert od["records"] == []
+        assert od["odRecords"] == []
+        assert od["state"] == "success_with_no_records"
+
+    def test_calculates_duration_from_start_and_end_times(self):
+        od = parse_od(pages.OD_PAGE_WITH_TIMES)
+        assert od["hasValidData"] is True
+        assert od["approvedHours"] == 6  # 3 hours (08:00 AM - 11:00 AM) + 3 hours (02:00 PM - 05:00 PM)
+        assert od["usedHours"] == 6
+        assert len(od["records"]) == 2
+        assert od["records"][0]["hours"] == 3
+        assert od["records"][0]["fromTime"] == "08:00 AM"
+        assert od["records"][0]["toTime"] == "11:00 AM"
+        assert od["records"][1]["hours"] == 3
+
+    def test_converts_days_to_hours(self):
+        od = parse_od(pages.OD_PAGE_WITH_DAYS)
+        assert od["hasValidData"] is True
+        assert len(od["records"]) == 1
+        assert od["records"][0]["hours"] == 12  # 2 days * 6 hours
+        assert od["approvedHours"] == 12
+        assert od["usedHours"] == 12
+
+    def test_calculates_hours_from_slots(self):
+        od = parse_od(pages.OD_PAGE_WITH_SLOTS)
+        assert od["hasValidData"] is True
+        assert len(od["records"]) == 2
+        assert od["records"][0]["hours"] == 2  # A1+TA1 = 2 slots
+        assert od["records"][1]["hours"] == 3  # L31+L32+L33 = 3 slots
+        assert od["approvedHours"] == 5
+        assert od["usedHours"] == 5
+
+    def test_handles_mixed_approval_statuses(self):
+        od = parse_od(pages.OD_PAGE_MIXED_STATUS)
+        assert od["hasValidData"] is True
+        assert od["approvedHours"] == 3
+        assert od["pendingHours"] == 2
+        assert od["rejectedHours"] == 4
+        assert od["usedHours"] == 3  # Only approved counts towards used
+        assert len(od["records"]) == 3
+
 
 
