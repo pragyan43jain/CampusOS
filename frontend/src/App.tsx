@@ -8,10 +8,17 @@ import {
   PlacementDrive,
   DSACategory,
   AIStudyTask,
+  Attendance,
+  Marks,
+  OD,
+  Exam,
+  Faculty,
 } from './types';
 import { CampusAPI } from './services/api';
 import { Header, ThemeType } from './components/Header';
 import { Sidebar, NavView } from './components/Sidebar';
+import { VtopLoginModal } from './components/VtopLoginModal';
+import { VtopSyncView } from './views/VtopSyncView';
 import { DashboardView } from './views/DashboardView';
 import { AcademicsView } from './views/AcademicsView';
 import { AssignmentsView } from './views/AssignmentsView';
@@ -24,11 +31,24 @@ export const App: React.FC = () => {
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('baby-pink');
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
 
-  // Core Data States
+  // Core Academic Data States
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [marks, setMarks] = useState<Marks[]>([]);
+  const [od, setOd] = useState<OD>({
+    usedHours: 0,
+    maxHours: 40,
+    remainingHours: 40,
+    percentageUsed: 0.0,
+    hasValidData: false,
+    records: [],
+  });
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [faculty, setFaculty] = useState<Faculty[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [fees, setFees] = useState<FeeItem[]>([]);
   const [placements, setPlacements] = useState<PlacementDrive[]>([]);
@@ -40,7 +60,7 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', currentTheme);
   }, [currentTheme]);
 
-  // Load all initial mock / backend data
+  // Load all initial academic modules from backend
   const loadAllData = async () => {
     try {
       setSyncing(true);
@@ -48,6 +68,11 @@ export const App: React.FC = () => {
         studentData,
         coursesData,
         timetableData,
+        attendanceData,
+        marksData,
+        odData,
+        examsData,
+        facultyData,
         assignmentsData,
         feesData,
         placementsData,
@@ -57,6 +82,11 @@ export const App: React.FC = () => {
         CampusAPI.getStudentProfile(),
         CampusAPI.getCourses(),
         CampusAPI.getTimetable(),
+        CampusAPI.getAttendance(),
+        CampusAPI.getMarks(),
+        CampusAPI.getOD(),
+        CampusAPI.getExams(),
+        CampusAPI.getFaculty(),
         CampusAPI.getAssignments(),
         CampusAPI.getFees(),
         CampusAPI.getPlacementDrives(),
@@ -67,6 +97,11 @@ export const App: React.FC = () => {
       setStudent(studentData);
       setCourses(coursesData);
       setTimetable(timetableData);
+      setAttendance(attendanceData);
+      setMarks(marksData);
+      setOd(odData);
+      setExams(examsData);
+      setFaculty(facultyData);
       setAssignments(assignmentsData);
       setFees(feesData);
       setPlacements(placementsData);
@@ -77,6 +112,26 @@ export const App: React.FC = () => {
     } finally {
       setLoading(false);
       setSyncing(false);
+    }
+  };
+
+  const handleSyncedData = (data?: any) => {
+    if (data && data.student) {
+      if (data.student) setStudent(data.student);
+      if (data.courses) setCourses(data.courses);
+      if (data.timetable) setTimetable(data.timetable);
+      if (data.attendance) setAttendance(data.attendance);
+      if (data.marks) setMarks(data.marks);
+      if (data.od) setOd(data.od);
+      if (data.exams) setExams(data.exams);
+      if (data.faculty) setFaculty(data.faculty);
+      if (data.assignments) setAssignments(data.assignments);
+      if (data.fees) setFees(data.fees);
+      if (data.placements) setPlacements(data.placements);
+      if (data.dsaTopics) setDsaTopics(data.dsaTopics);
+      if (data.aiTasks) setAiTasks(data.aiTasks);
+    } else {
+      loadAllData();
     }
   };
 
@@ -102,7 +157,7 @@ export const App: React.FC = () => {
   }
 
   const pendingAssignmentsCount = assignments.filter((a) => a.status === 'Pending').length;
-  const criticalAttendanceCount = courses.filter((c) => c.attendance.isCritical).length;
+  const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
   return (
     <div className="app-container" data-theme={currentTheme}>
@@ -113,6 +168,7 @@ export const App: React.FC = () => {
         criticalAttendanceCount={criticalAttendanceCount}
         currentTheme={currentTheme}
         onSelectTheme={setCurrentTheme}
+        onOpenVtopModal={() => setShowVtopModal(true)}
       />
 
       <div className="app-viewport-wrapper">
@@ -120,7 +176,7 @@ export const App: React.FC = () => {
           <Header
             student={student}
             activeView={activeView}
-            onRefresh={loadAllData}
+            onOpenVtopModal={() => setShowVtopModal(true)}
             syncing={syncing}
           />
 
@@ -128,6 +184,21 @@ export const App: React.FC = () => {
             <DashboardView
               student={student}
               timetable={timetable}
+            />
+          )}
+
+          {activeView === 'vtop-sync' && (
+            <VtopSyncView
+              student={student}
+              attendance={attendance}
+              marks={marks}
+              od={od}
+              exams={exams}
+              faculty={faculty}
+              timetable={timetable}
+              onOpenSyncModal={() => setShowVtopModal(true)}
+              onForceSync={loadAllData}
+              syncing={syncing}
             />
           )}
 
@@ -147,12 +218,18 @@ export const App: React.FC = () => {
           {activeView === 'fees' && <FeesView fees={fees} />}
 
           {activeView === 'placements' && (
-            <PlacementsView drives={placements} dsaTopics={dsaTopics} />
+            <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />
           )}
 
           {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
         </div>
       </div>
+
+      <VtopLoginModal
+        isOpen={showVtopModal}
+        onClose={() => setShowVtopModal(false)}
+        onLoginSuccess={handleSyncedData}
+      />
     </div>
   );
 };

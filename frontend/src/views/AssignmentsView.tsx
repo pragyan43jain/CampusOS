@@ -85,7 +85,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         <div>
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Weightage at Stake</span>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--warning-amber)', marginTop: '2px' }}>
-            {assignments.filter(a => a.status === 'Pending').reduce((acc, a) => acc + a.weightage, 0)}% Internal
+            {assignments.filter(a => a.status === 'Pending').reduce((acc, a) => acc + (a.weightage ?? a.weightagePercentage ?? 0), 0)}% Internal
           </div>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Marks towards continuous evaluation</span>
         </div>
@@ -195,7 +195,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                     {isPending ? `Due: ${assignment.dueDate} at ${assignment.dueTime}` : '✓ Submitted'}
                   </div>
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Weightage: <b style={{ color: 'var(--text-primary)' }}>{assignment.weightage}% of Grade</b>
+                    Weightage: <b style={{ color: 'var(--text-primary)' }}>{assignment.weightage ?? assignment.weightagePercentage ?? 10}% of Grade</b>
                   </span>
 
                   {/* Direct Platform Submission Link Button */}

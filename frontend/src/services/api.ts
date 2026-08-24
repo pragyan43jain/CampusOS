@@ -7,485 +7,371 @@ import {
   PlacementDrive,
   DSACategory,
   AIStudyTask,
+  Attendance,
+  Marks,
+  OD,
+  Exam,
+  Faculty,
+  VtopLoginRequest,
+  VtopSyncResponse,
 } from '../types';
-import { calculateAttendance } from './attendanceEngine';
 
-export const MOCK_STUDENT: StudentProfile = {
-  name: 'Pragyan Jain',
-  regNo: '22BCE10429',
-  program: 'B.Tech - Computer Science and Engineering',
-  semester: 4,
-  cgpa: 8.72,
-  creditsEarned: 68,
-  totalCreditsRequired: 160,
-  rank: 14,
-};
+// API base path - proxied by Vite in dev or served directly in prod
+const API_BASE = '/api';
 
-export const MOCK_COURSES: Course[] = [
-  {
-    id: 'cse2004',
-    code: 'CSE2004',
-    title: 'Database Management Systems',
-    slot: 'A1 + TA1',
-    venue: 'AB-2 • Room 304',
-    faculty: 'Dr. K. S. Ramanujam',
-    credits: 4,
-    type: 'Theory',
-    attendance: calculateAttendance(18, 21),
-    marks: {
-      cat1: { scored: 44, max: 50, weightage: 15 },
-      cat2: { scored: 46, max: 50, weightage: 15 },
-      da1: { scored: 10, max: 10, weightage: 10 },
-      quiz: { scored: 10, max: 10, weightage: 10 },
-      fatTarget: 80,
-    },
-  },
-  {
-    id: 'cse2005',
-    code: 'CSE2005',
-    title: 'Design & Analysis of Algorithms',
-    slot: 'B1 + TB1',
-    venue: 'AB-3 • Room 205',
-    faculty: 'Prof. Ananya Sen',
-    credits: 4,
-    type: 'Embedded',
-    attendance: calculateAttendance(16, 20),
-    marks: {
-      cat1: { scored: 32, max: 50, weightage: 15 },
-      cat2: { scored: 35, max: 50, weightage: 15 },
-      da1: { scored: 7, max: 10, weightage: 10 },
-      quiz: { scored: 7, max: 10, weightage: 10 },
-      fatTarget: 75,
-    },
-  },
-  {
-    id: 'cse3002',
-    code: 'CSE3002',
-    title: 'Cloud Computing & Distributed Systems',
-    slot: 'C1 + TC1',
-    venue: 'TT • Room 412',
-    faculty: 'Dr. Rajesh Varma',
-    credits: 3,
-    type: 'Theory',
-    attendance: calculateAttendance(14, 20),
-    marks: {
-      cat1: { scored: 21, max: 50, weightage: 15 },
-      cat2: { scored: 24, max: 50, weightage: 15 },
-      da1: { scored: 5, max: 10, weightage: 10 },
-      quiz: { scored: 4, max: 10, weightage: 10 },
-      fatTarget: 60,
-    },
-  },
-  {
-    id: 'cse2003',
-    code: 'CSE2003',
-    title: 'Computer Networks & Protocols',
-    slot: 'D1 + TD1',
-    venue: 'SJT • Room 502',
-    faculty: 'Prof. Shalini Roy',
-    credits: 3,
-    type: 'Theory',
-    attendance: calculateAttendance(22, 24),
-    marks: {
-      cat1: { scored: 48, max: 50, weightage: 15 },
-      cat2: { scored: 47, max: 50, weightage: 15 },
-      da1: { scored: 10, max: 10, weightage: 10 },
-      quiz: { scored: 10, max: 10, weightage: 10 },
-      fatTarget: 85,
-    },
-  },
-  {
-    id: 'mat2001',
-    code: 'MAT2001',
-    title: 'Linear Algebra and Complex Variables',
-    slot: 'E1 + TE1',
-    venue: 'MB • Room 118',
-    faculty: 'Dr. P. Venkatesan',
-    credits: 4,
-    type: 'Theory',
-    attendance: calculateAttendance(19, 21),
-    marks: {
-      cat1: { scored: 40, max: 50, weightage: 15 },
-      cat2: { scored: 43, max: 50, weightage: 15 },
-      da1: { scored: 9, max: 10, weightage: 10 },
-      quiz: { scored: 8, max: 10, weightage: 10 },
-      fatTarget: 78,
-    },
-  },
-  {
-    id: 'cse2004l',
-    code: 'CSE2004L',
-    title: 'DBMS Laboratory (PostgreSQL & NoSQL)',
-    slot: 'L15 + L16',
-    venue: 'SJT • Lab 318',
-    faculty: 'Dr. K. S. Ramanujam',
-    credits: 1.5,
-    type: 'Lab',
-    attendance: calculateAttendance(13, 14),
-  },
-];
+async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      ...options,
+    });
+    if (!res.ok) {
+      throw new Error(`API HTTP ${res.status}: ${res.statusText}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn(`[CampusAPI] Request to ${endpoint} failed:`, err);
+    if (fallback !== undefined) {
+      return fallback;
+    }
+    throw err;
+  }
+}
 
-export const MOCK_TIMETABLE: TimetableSlot[] = [
-  {
-    id: 'mon-1',
-    day: 'MON',
-    courseCode: 'CSE2004',
-    courseTitle: 'Database Management Systems',
-    startTime: '09:00 AM',
-    endTime: '09:50 AM',
-    slotName: 'A1',
-    venue: 'AB-2 • Room 304',
-    faculty: 'Dr. K. S. Ramanujam',
-    isLab: false,
-    attendance: calculateAttendance(18, 21),
-  },
-  {
-    id: 'mon-2',
-    day: 'MON',
-    courseCode: 'CSE2005',
-    courseTitle: 'Design & Analysis of Algorithms',
-    startTime: '11:00 AM',
-    endTime: '11:50 AM',
-    slotName: 'B1',
-    venue: 'AB-3 • Room 205',
-    faculty: 'Prof. Ananya Sen',
-    isLab: false,
-    attendance: calculateAttendance(16, 20),
-  },
-  {
-    id: 'mon-3',
-    day: 'MON',
-    courseCode: 'CSE3002',
-    courseTitle: 'Cloud Computing & Distributed Systems',
-    startTime: '02:00 PM',
-    endTime: '02:50 PM',
-    slotName: 'C1',
-    venue: 'TT • Room 412',
-    faculty: 'Dr. Rajesh Varma',
-    isLab: false,
-    attendance: calculateAttendance(14, 20),
-  },
-  {
-    id: 'tue-1',
-    day: 'TUE',
-    courseCode: 'CSE2003',
-    courseTitle: 'Computer Networks & Protocols',
-    startTime: '08:00 AM',
-    endTime: '08:50 AM',
-    slotName: 'D1',
-    venue: 'SJT • Room 502',
-    faculty: 'Prof. Shalini Roy',
-    isLab: false,
-    attendance: calculateAttendance(22, 24),
-  },
-  {
-    id: 'tue-2',
-    day: 'TUE',
-    courseCode: 'MAT2001',
-    courseTitle: 'Linear Algebra and Complex Variables',
-    startTime: '10:00 AM',
-    endTime: '10:50 AM',
-    slotName: 'E1',
-    venue: 'MB • Room 118',
-    faculty: 'Dr. P. Venkatesan',
-    isLab: false,
-    attendance: calculateAttendance(19, 21),
-  },
-  {
-    id: 'tue-3',
-    day: 'TUE',
-    courseCode: 'CSE2004L',
-    courseTitle: 'DBMS Laboratory (PostgreSQL & NoSQL)',
-    startTime: '02:00 PM',
-    endTime: '03:40 PM',
-    slotName: 'L15+16',
-    venue: 'SJT • Lab 318',
-    faculty: 'Dr. K. S. Ramanujam',
-    isLab: true,
-    attendance: calculateAttendance(13, 14),
-  },
-  {
-    id: 'wed-1',
-    day: 'WED',
-    courseCode: 'CSE2004',
-    courseTitle: 'Database Management Systems',
-    startTime: '09:00 AM',
-    endTime: '09:50 AM',
-    slotName: 'TA1',
-    venue: 'AB-2 • Room 304',
-    faculty: 'Dr. K. S. Ramanujam',
-    isLab: false,
-    attendance: calculateAttendance(18, 21),
-  },
-  {
-    id: 'wed-2',
-    day: 'WED',
-    courseCode: 'CSE3002',
-    courseTitle: 'Cloud Computing & Distributed Systems',
-    startTime: '10:00 AM',
-    endTime: '10:50 AM',
-    slotName: 'TC1',
-    venue: 'TT • Room 412',
-    faculty: 'Dr. Rajesh Varma',
-    isLab: false,
-    attendance: calculateAttendance(14, 20),
-  },
-  {
-    id: 'thu-1',
-    day: 'THU',
-    courseCode: 'MAT2001',
-    courseTitle: 'Linear Algebra and Complex Variables',
-    startTime: '09:00 AM',
-    endTime: '09:50 AM',
-    slotName: 'TE1',
-    venue: 'MB • Room 118',
-    faculty: 'Dr. P. Venkatesan',
-    isLab: false,
-    attendance: calculateAttendance(19, 21),
-  },
-  {
-    id: 'thu-2',
-    day: 'THU',
-    courseCode: 'CSE2003',
-    courseTitle: 'Computer Networks & Protocols',
-    startTime: '11:00 AM',
-    endTime: '11:50 AM',
-    slotName: 'TD1',
-    venue: 'SJT • Room 502',
-    faculty: 'Prof. Shalini Roy',
-    isLab: false,
-    attendance: calculateAttendance(22, 24),
-  },
-  {
-    id: 'fri-1',
-    day: 'FRI',
-    courseCode: 'CSE2005',
-    courseTitle: 'Design & Analysis of Algorithms',
-    startTime: '09:00 AM',
-    endTime: '09:50 AM',
-    slotName: 'TB1',
-    venue: 'AB-3 • Room 205',
-    faculty: 'Prof. Ananya Sen',
-    isLab: false,
-    attendance: calculateAttendance(16, 20),
-  },
-  {
-    id: 'fri-2',
-    day: 'FRI',
-    courseCode: 'CSE3002',
-    courseTitle: 'Cloud Computing & Distributed Systems',
-    startTime: '11:00 AM',
-    endTime: '11:50 AM',
-    slotName: 'C1',
-    venue: 'TT • Room 412',
-    faculty: 'Dr. Rajesh Varma',
-    isLab: false,
-    attendance: calculateAttendance(14, 20),
-  },
-  {
-    id: 'sat-1',
-    day: 'SAT',
-    courseCode: 'CSE2004',
-    courseTitle: 'Database Management Systems (Tutorial)',
-    startTime: '10:00 AM',
-    endTime: '10:50 AM',
-    slotName: 'A1',
-    venue: 'AB-2 • Room 304',
-    faculty: 'Dr. K. S. Ramanujam',
-    isLab: false,
-    attendance: calculateAttendance(18, 21),
-  },
-];
-
-export const MOCK_ASSIGNMENTS: Assignment[] = [
-  {
-    id: 'asg-1',
-    title: 'Assignment 2: ACID Properties & Concurrency Control Protocols',
-    courseCode: 'CSE2004',
-    courseTitle: 'Database Management Systems',
-    faculty: 'Dr. K. S. Ramanujam',
-    source: 'LMS',
-    platformName: 'VIT Moodle LMS Portal',
-    platformUrl: 'https://lms.vit.ac.in/mod/assign/view.php?id=849201',
-    uploadDate: 'Aug 10, 2026',
-    dueDate: '2026-08-19',
-    dueTime: '11:59 PM',
-    status: 'Pending',
-    priority: 'Critical',
-    weightage: 10,
-    instructions: 'Submit relational algebra proofs and transaction serialization schedules as a single PDF.',
-  },
-  {
-    id: 'asg-2',
-    title: 'Lab Task 5: Dynamic Programming on Directed Acyclic Graphs',
-    courseCode: 'CSE2005',
-    courseTitle: 'Design & Analysis of Algorithms',
-    faculty: 'Prof. Ananya Sen',
-    source: 'Teams',
-    platformName: 'Microsoft Teams Class Team',
-    platformUrl: 'https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.assignment/cse2005_task5',
-    uploadDate: 'Aug 12, 2026',
-    dueDate: '2026-08-21',
-    dueTime: '05:00 PM',
-    status: 'Pending',
-    priority: 'Medium',
-    weightage: 5,
-    instructions: 'Upload C++ / Java source code (.zip) and time complexity analysis report.',
-  },
-  {
-    id: 'asg-3',
-    title: 'Digital Assignment: Docker Containerization & Kubernetes Microservices',
-    courseCode: 'CSE3002',
-    courseTitle: 'Cloud Computing & Distributed Systems',
-    faculty: 'Dr. Rajesh Varma',
-    source: 'LMS',
-    platformName: 'VIT Moodle LMS Portal',
-    platformUrl: 'https://lms.vit.ac.in/mod/assign/view.php?id=992814',
-    uploadDate: 'Aug 14, 2026',
-    dueDate: '2026-08-25',
-    dueTime: '11:59 PM',
-    status: 'Pending',
-    priority: 'Medium',
-    weightage: 10,
-    instructions: 'Provide Dockerfile, k8s manifest YAML files and screenshot walkthrough of cluster pods.',
-  },
-  {
-    id: 'asg-4',
-    title: 'Wireshark Packet Capture Analysis on TCP 3-Way Handshake & SSL/TLS',
-    courseCode: 'CSE2003',
-    courseTitle: 'Computer Networks & Protocols',
-    faculty: 'Prof. Shalini Roy',
-    source: 'Teams',
-    platformName: 'Microsoft Teams General Channel',
-    platformUrl: 'https://teams.microsoft.com/l/entity/com.microsoft.teamspace.tab.assignment/cse2003_pcap',
-    uploadDate: 'Aug 04, 2026',
-    dueDate: '2026-08-14',
-    dueTime: '11:59 PM',
-    status: 'Submitted',
-    priority: 'Low',
-    weightage: 5,
-    instructions: 'Analyze pcap trace file and identify TCP SYN, SYN-ACK, ACK sequence numbers.',
-  },
-];
-
-export const MOCK_FEES: FeeItem[] = [
-  {
-    id: 'fee-1',
-    title: 'Tuition Fee - Academic Year 2024-25 (Semester 4)',
-    category: 'Tuition',
-    amount: 198000,
-    status: 'Paid',
-    receiptNumber: 'VT/2026/TUI/94821',
-    paymentDate: 'Jan 10, 2026',
-  },
-  {
-    id: 'fee-2',
-    title: 'Hostel & Special Mess Fee (Block-Q, 2-Bed AC, Non-Veg)',
-    category: 'Hostel & Mess',
-    amount: 145000,
-    status: 'Paid',
-    receiptNumber: 'VT/2026/HST/33019',
-    paymentDate: 'Jan 12, 2026',
-  },
-  {
-    id: 'fee-3',
-    title: 'End Semester FAT Examination & Assessment Fee',
-    category: 'Exam',
-    amount: 3200,
-    status: 'Pending',
-    dueDate: 'Sep 01, 2026',
-  },
-];
-
-export const MOCK_PLACEMENTS: PlacementDrive[] = [
-  {
-    id: 'p-1',
-    companyName: 'Google',
-    role: 'Software Development Engineer (SWE-1)',
-    ctc: '₹54 LPA',
-    eligibilityCgpa: 8.5,
-    isEligible: true,
-    deadlineToApply: 'Aug 28, 2026',
-    status: 'Open',
-  },
-  {
-    id: 'p-2',
-    companyName: 'Microsoft',
-    role: 'Software Engineer',
-    ctc: '₹48 LPA',
-    eligibilityCgpa: 8.0,
-    isEligible: true,
-    deadlineToApply: 'Sep 02, 2026',
-    status: 'Open',
-  },
-  {
-    id: 'p-3',
-    companyName: 'Amazon',
-    role: 'SDE-1 (AWS Cloud Infrastructure)',
-    ctc: '₹44 LPA',
-    eligibilityCgpa: 7.5,
-    isEligible: true,
-    deadlineToApply: 'Aug 24, 2026',
-    status: 'Applied',
-  },
-];
-
-export const MOCK_DSA_TOPICS: DSACategory[] = [
-  { category: 'Dynamic Programming', solved: 48, total: 60, easy: 15, medium: 24, hard: 9 },
-  { category: 'Trees & Binary Search Trees', solved: 36, total: 40, easy: 12, medium: 18, hard: 6 },
-  { category: 'Graphs (BFS, DFS, Dijkstra, Topo)', solved: 31, total: 45, easy: 8, medium: 16, hard: 7 },
-  { category: 'Sliding Window & Two Pointers', solved: 28, total: 30, easy: 14, medium: 12, hard: 2 },
-  { category: 'Tries & Disjoint Set (DSU)', solved: 18, total: 25, easy: 5, medium: 10, hard: 3 },
-];
-
-export const MOCK_AI_TASKS: AIStudyTask[] = [
-  {
-    id: 'ai-1',
-    courseCode: 'CSE3002',
-    courseTitle: 'Cloud Computing & Distributed Systems',
-    type: 'Attendance Risk',
-    urgency: 'HIGH',
-    headline: 'Critical Attendance Recovery: 70.0% (<75%)',
-    reason: 'You need 4 consecutive attendances without misses to safely enter the 75%+ eligibility bracket before FAT exam hall ticket release.',
-    estimatedHours: 1.5,
-    suggestedSlot: 'Wednesday 10:00 AM (TC1)',
-  },
-  {
-    id: 'ai-2',
-    courseCode: 'CSE2004',
-    courseTitle: 'Database Management Systems',
-    type: 'Assignment Crunch',
-    urgency: 'HIGH',
-    headline: 'ACID Transactions DA Due in 4 Days (VIT LMS)',
-    reason: 'Weightage is 10% of internal assessment. Focus on Two-Phase Locking and Serializability proofs.',
-    estimatedHours: 2.5,
-    suggestedSlot: 'Tonight 08:30 PM - 11:00 PM',
-  },
-  {
-    id: 'ai-3',
-    courseCode: 'CSE2005',
-    courseTitle: 'Design & Analysis of Algorithms',
-    type: 'Exam Preparation',
-    urgency: 'MEDIUM',
-    headline: 'Prepare for CAT-2: Graph Algorithms & Dynamic Programming',
-    reason: 'Scoring 45+ out of 50 guarantees your S-grade projection with 8.72+ CGPA maintenance.',
-    estimatedHours: 3.0,
-    suggestedSlot: 'Thursday 04:00 PM - 07:00 PM',
-  },
-];
+let activeSessionId: string | null = null;
+let inFlightLogin: Promise<VtopSyncResponse> | null = null;
+let inFlightSync: Promise<VtopSyncResponse> | null = null;
 
 export const CampusAPI = {
-  getStudentProfile: async (): Promise<StudentProfile> => MOCK_STUDENT,
-  getCourses: async (): Promise<Course[]> => MOCK_COURSES,
-  getTimetable: async (): Promise<TimetableSlot[]> => MOCK_TIMETABLE,
-  getAssignments: async (): Promise<Assignment[]> => MOCK_ASSIGNMENTS,
-  updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {
-    const item = MOCK_ASSIGNMENTS.find(a => a.id === id);
-    if (item) item.status = status;
-    return item || MOCK_ASSIGNMENTS[0];
+  getActiveSessionId: () => activeSessionId,
+  setActiveSessionId: (sid: string | null) => {
+    activeSessionId = sid;
   },
-  getFees: async (): Promise<FeeItem[]> => MOCK_FEES,
-  getPlacementDrives: async (): Promise<PlacementDrive[]> => MOCK_PLACEMENTS,
-  getDSATracker: async (): Promise<DSACategory[]> => MOCK_DSA_TOPICS,
-  getAIStudyTasks: async (): Promise<AIStudyTask[]> => MOCK_AI_TASKS,
+
+  // 1. Student Profile & CGPA
+  getStudentProfile: async (): Promise<StudentProfile> => {
+    return fetchJson<StudentProfile>('/vtop/profile', undefined, {
+      name: "Not connected",
+      regNo: "Not available",
+      program: "Not available",
+      branch: "Not available",
+      semester: 1,
+      cgpa: 0,
+      creditsEarned: 0,
+      totalCreditsRequired: 160,
+      lastSynced: "Never",
+      semesterGpa: [],
+    });
+  },
+
+  getCgpaDetails: async (): Promise<{ currentCgpa?: number; creditsEarned?: number; totalCreditsRequired: number; rank?: number; semesterGpa: any[] }> => {
+    return fetchJson('/vtop/cgpa', undefined, {
+      currentCgpa: undefined,
+      creditsEarned: undefined,
+      totalCreditsRequired: 160,
+      semesterGpa: [],
+    });
+  },
+
+  // 2. Attendance
+  getAttendance: async (): Promise<Attendance[]> => {
+    const list = await fetchJson<any[]>('/vtop/attendance', undefined, []);
+    return list.map((item: any) => {
+      const conducted = item.conducted ?? item.classesConducted ?? item.total ?? 0;
+      const attended = item.attended ?? item.classesAttended ?? 0;
+      const percentage = item.percentage ?? item.attendancePercentage ?? (conducted > 0 ? Math.round((attended / conducted) * 100) : 0);
+      const title = item.courseTitle || item.courseName || item.title || item.courseCode || 'Course';
+
+      return {
+        ...item,
+        courseName: title,
+        courseTitle: title,
+        attended,
+        classesAttended: attended,
+        conducted,
+        classesConducted: conducted,
+        total: conducted,
+        percentage,
+        attendancePercentage: percentage,
+        displayPercentage: `${percentage}%`,
+        status: item.status || item.attendanceStatus || (percentage >= 75 ? 'Safe' : 'Critical'),
+        attendanceStatus: item.attendanceStatus || item.status || (percentage >= 75 ? 'Safe' : 'Critical'),
+        faculty: item.faculty || item.facultyName || 'Faculty',
+        facultyName: item.facultyName || item.faculty || 'Faculty',
+        hasValidData: item.hasValidData ?? Boolean(conducted > 0 || item.percentage !== undefined),
+      };
+    });
+  },
+
+  getCourses: async (): Promise<Course[]> => {
+    return fetchJson<Course[]>('/courses', undefined, []);
+  },
+
+  // 3. OD (On-Duty Hours out of 40)
+  getOD: async (): Promise<OD> => {
+    const res = await fetchJson<OD>('/vtop/od', undefined, {
+      state: 'source_unavailable',
+      usedHours: null,
+      approvedHours: 0,
+      pendingHours: 0,
+      rejectedHours: 0,
+      maxHours: 40,
+      remainingHours: null,
+      percentageUsed: null,
+      hasValidData: false,
+      records: [],
+    });
+    return res;
+  },
+
+  // 4. Marks
+  getMarks: async (): Promise<Marks[]> => {
+    return fetchJson<Marks[]>('/vtop/marks', undefined, []);
+  },
+
+  // 5. Timetable
+  getTimetable: async (): Promise<TimetableSlot[]> => {
+    const list = await fetchJson<any[]>('/vtop/timetable', undefined, []);
+    const dayFullNames: Record<string, string> = {
+      MON: 'Monday',
+      TUE: 'Tuesday',
+      WED: 'Wednesday',
+      THU: 'Thursday',
+      FRI: 'Friday',
+      SAT: 'Saturday',
+      SUN: 'Sunday',
+    };
+
+    return list.map((slot: any) => {
+      const code = slot.courseCode || slot.subjectCode || slot.code || 'COURSE';
+      const title = slot.courseTitle || slot.courseName || slot.title || code;
+      const venueStr = slot.venue || 'TBA';
+      const bld = slot.building || slot.block || (venueStr.includes('-') ? venueStr.split('-')[0] : venueStr);
+      const rm = slot.room?.roomNumber || slot.room || (venueStr.includes('-') ? venueStr.split('-')[1] : venueStr);
+      const isLab = Boolean(slot.isLab || slot.type === 'Lab' || slot.classType === 'Lab');
+
+      return {
+        ...slot,
+        courseCode: code,
+        subjectCode: code,
+        courseName: title,
+        courseTitle: title,
+        subjectTitle: title,
+        faculty: slot.faculty || slot.facultyName || 'Faculty',
+        facultyName: slot.facultyName || slot.faculty || 'Faculty',
+        dayName: slot.dayName || dayFullNames[slot.day] || slot.day,
+        venue: venueStr,
+        building: bld,
+        block: bld,
+        room: rm,
+        isLab,
+        classType: isLab ? 'Lab' : 'Theory',
+      };
+    });
+  },
+
+  // 6. Exams Schedule
+  getExams: async (): Promise<Exam[]> => {
+    const data = await fetchJson<any>('/vtop/exams', undefined, {});
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data && typeof data === 'object') {
+      const cards: Exam[] = [];
+      let idx = 1;
+      for (const [examType, items] of Object.entries(data)) {
+        if (Array.isArray(items)) {
+          for (const it of items) {
+            const venueStr = it.venue || 'TBA';
+            cards.push({
+              id: `exam-${idx}`,
+              examType,
+              title: `${examType} - ${it.slot || 'Exam'}`,
+              courseCode: it.courseCode || it.slot,
+              courseName: it.courseTitle || it.courseName || `${examType} Exam`,
+              courseTitle: it.courseTitle || it.courseName || `${examType} Exam`,
+              subjectCode: it.courseCode || it.slot,
+              subject: it.courseTitle || `${examType} Exam`,
+              slot: it.slot,
+              date: it.date || 'TBA',
+              time: it.start_time && it.end_time ? `${it.start_time} - ${it.end_time}` : (it.start_time || 'TBA'),
+              startTime: it.start_time,
+              endTime: it.end_time,
+              venue: venueStr,
+              room: venueStr.includes('-') ? venueStr.split('-')[1] : venueStr,
+              building: venueStr.includes('-') ? venueStr.split('-')[0] : venueStr,
+              block: venueStr.includes('-') ? venueStr.split('-')[0] : venueStr,
+              seatNumber: it.seat_number ? String(it.seat_number) : undefined,
+              seatLocation: it.seat_location,
+              status: 'Upcoming',
+            });
+            idx++;
+          }
+        }
+      }
+      return cards;
+    }
+    return [];
+  },
+
+  getVtopDebug: async (): Promise<any> => {
+    return fetchJson('/vtop/debug', undefined, null);
+  },
+
+  // 7. Faculty Mapping
+  getFaculty: async (): Promise<Faculty[]> => {
+    return fetchJson<Faculty[]>('/vtop/faculty', undefined, []);
+  },
+
+  // 8. Assignments & Fees & DSA & AI Tasks
+  getAssignments: async (): Promise<Assignment[]> => {
+    return fetchJson<Assignment[]>('/assignments', undefined, []);
+  },
+
+  updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {
+    const res = await fetch(`${API_BASE}/assignments/${id}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to update assignment ${id}`);
+    }
+    return await res.json();
+  },
+
+  getFees: async (): Promise<FeeItem[]> => {
+    return fetchJson<FeeItem[]>('/fees', undefined, []);
+  },
+
+  getPlacementDrives: async (): Promise<PlacementDrive[]> => {
+    return fetchJson<PlacementDrive[]>('/placements', undefined, []);
+  },
+
+  getDSATracker: async (): Promise<DSACategory[]> => {
+    return fetchJson<DSACategory[]>('/dsa', undefined, []);
+  },
+
+  getAIStudyTasks: async (): Promise<AIStudyTask[]> => {
+    return fetchJson<AIStudyTask[]>('/ai-tasks', undefined, []);
+  },
+
+  // 9. VTOP Spotlight Announcements, Receipts, and Hostel
+  getSpotlight: async (): Promise<any[]> => {
+    return fetchJson<any[]>('/spotlight', undefined, []);
+  },
+
+  getReceipts: async (): Promise<FeeItem[]> => {
+    return fetchJson<FeeItem[]>('/receipts', undefined, []);
+  },
+
+  getDues: async (): Promise<{ hasDues: boolean; totalDue: number; items: any[] }> => {
+    return fetchJson('/dues', undefined, { hasDues: false, totalDue: 0, items: [] });
+  },
+
+  getProctor: async (): Promise<any> => {
+    return fetchJson('/proctor', undefined, null);
+  },
+
+  getHostelMess: async (type: string = 'M-N'): Promise<any[]> => {
+    return fetchJson<any[]>(`/hostel/mess?type=${type}`, undefined, []);
+  },
+
+  getHostelLaundry: async (block: string = 'A'): Promise<any[]> => {
+    return fetchJson<any[]>(`/hostel/laundry?block=${block}`, undefined, []);
+  },
+
+  // 10. VTOP Auth & Synchronization Endpoints
+  getVtopCaptcha: async (campus: string = 'chennai') => {
+    const data = await fetchJson<{ sessionId: string; captchaImage: string; solvedCaptcha: string; campus: string }>(
+      `/vtop/captcha?campus=${campus}`,
+      undefined,
+      { sessionId: '', captchaImage: '', solvedCaptcha: '', campus }
+    );
+    if (data && data.sessionId) {
+      activeSessionId = data.sessionId;
+    }
+    return data;
+  },
+
+  loginVtop: async (req: VtopLoginRequest & { sessionId?: string }): Promise<VtopSyncResponse> => {
+    if (inFlightLogin) {
+      return inFlightLogin;
+    }
+
+    inFlightLogin = (async () => {
+      try {
+        const payload = {
+          ...req,
+          sessionId: req.sessionId || activeSessionId,
+        };
+        const res = await fetch(`${API_BASE}/vtop/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data && data.sessionId) {
+          activeSessionId = data.sessionId;
+        }
+        return data;
+      } catch (err: any) {
+        console.error('[CampusAPI] VTOP login error:', err);
+        return {
+          success: false,
+          message: err.message || 'Unable to connect to VTOP sync backend service.',
+        };
+      } finally {
+        inFlightLogin = null;
+      }
+    })();
+
+    return inFlightLogin;
+  },
+
+  syncVtop: async (_campus: string = 'chennai'): Promise<VtopSyncResponse> => {
+    if (inFlightSync) {
+      return inFlightSync;
+    }
+
+    inFlightSync = (async () => {
+      try {
+        const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
+        const res = await fetch(`${API_BASE}/vtop/sync${q}`, { method: 'POST' });
+        const data = await res.json();
+        if (data && data.sessionId) {
+          activeSessionId = data.sessionId;
+        }
+        return data;
+      } catch (err: any) {
+        console.error('[CampusAPI] VTOP sync error:', err);
+        return {
+          success: false,
+          message: err.message || 'VTOP connection failed',
+        };
+      } finally {
+        inFlightSync = null;
+      }
+    })();
+
+    return inFlightSync;
+  },
+
+  getVtopStatus: async () => {
+    return fetchJson<{ authenticated: boolean; student?: StudentProfile; syncStatus?: any; lastSynced?: string }>('/vtop/status', undefined, {
+      authenticated: false,
+      lastSynced: 'Never',
+    });
+  },
+
+  logoutVtop: async () => {
+    const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
+    activeSessionId = null;
+    return fetchJson<{ success: boolean; message: string }>(`/vtop/logout${q}`, { method: 'POST' }, {
+      success: true,
+      message: 'Logged out',
+    });
+  },
 };

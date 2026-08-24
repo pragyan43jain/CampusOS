@@ -17,18 +17,43 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     ? courses 
     : courses.filter(c => c.id === selectedSubjectId);
 
-  // Helper to compute overall marks percentage
+  // Helper to normalize and compute overall marks percentage
+  const getCourseMarkComponents = (course: Course) => {
+    if (!course || !course.marks) return [];
+    if (Array.isArray(course.marks)) {
+      return course.marks.map((m: any) => ({
+        title: m.title || 'Assessment Component',
+        scored: m.scored !== undefined && m.scored !== null ? m.scored : null,
+        max: m.maxMark || m.max || 50,
+        weightage: m.maxWeightage || m.weightage || 15,
+        status: m.status || (m.scored !== null ? 'Present' : 'Upcoming'),
+      }));
+    }
+    const out: any[] = [];
+    if (course.marks.cat1) out.push({ title: 'Continuous Assessment Test 1 (CAT-1)', ...course.marks.cat1 });
+    if (course.marks.cat2) out.push({ title: 'Continuous Assessment Test 2 (CAT-2)', ...course.marks.cat2 });
+    if (course.marks.da1) out.push({ title: 'Digital Assignment 1', ...course.marks.da1 });
+    if (course.marks.da2) out.push({ title: 'Digital Assignment 2', ...course.marks.da2 });
+    if (course.marks.quiz) out.push({ title: 'Online Quiz Assessment', ...course.marks.quiz });
+    return out;
+  };
+
   const calculateTotalInternalPercentage = (course: Course) => {
-    if (!course.marks) return null;
+    const items = getCourseMarkComponents(course);
+    if (!items.length) return null;
     let scored = 0;
     let max = 0;
-    if (course.marks.cat1) { scored += course.marks.cat1.scored; max += course.marks.cat1.max; }
-    if (course.marks.cat2) { scored += course.marks.cat2.scored; max += course.marks.cat2.max; }
-    if (course.marks.da1) { scored += course.marks.da1.scored; max += course.marks.da1.max; }
-    if (course.marks.da2) { scored += course.marks.da2.scored; max += course.marks.da2.max; }
-    if (course.marks.quiz) { scored += course.marks.quiz.scored; max += course.marks.quiz.max; }
+    let validItemCount = 0;
 
-    if (max === 0) return null;
+    for (const item of items) {
+      if (item.scored !== null && item.scored !== undefined && item.max && item.max > 0) {
+        scored += item.scored;
+        max += item.max;
+        validItemCount++;
+      }
+    }
+
+    if (validItemCount === 0 || max === 0) return null;
     const percentage = Number(((scored / max) * 100).toFixed(1));
     return { scored, max, percentage };
   };
@@ -135,8 +160,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
               <div key={course.id} className="course-card" style={{ gap: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span className="course-code-tag">{course.code}</span>
+                      {course.grade && (
+                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--success-bg)', color: 'var(--success-emerald)', fontWeight: 800, border: '1px solid var(--success-border)' }}>
+                          Grade: {course.grade}
+                        </span>
+                      )}
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot}</b> • {course.credits} Credits</span>
                     </div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{course.title}</h3>
@@ -252,7 +282,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                 )}
 
                 {/* Marks Table */}
-                {course.marks ? (
+                {course.marks && getCourseMarkComponents(course).length > 0 ? (
                   <div>
                     <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-secondary)' }}>
                       Assessment Breakdown
@@ -268,46 +298,20 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {course.marks.cat1 && (
-                          <tr>
-                            <td><b>Continuous Assessment Test 1 (CAT-1)</b></td>
-                            <td style={{ color: (course.marks.cat1.scored / course.marks.cat1.max) >= 0.75 ? 'var(--success-emerald)' : (course.marks.cat1.scored / course.marks.cat1.max) >= 0.5 ? 'var(--warning-amber)' : 'var(--danger-crimson)', fontWeight: 700 }}>
-                              {course.marks.cat1.scored}
-                            </td>
-                            <td>{course.marks.cat1.max}</td>
-                            <td>{((course.marks.cat1.scored / course.marks.cat1.max) * 100).toFixed(0)}%</td>
-                            <td>{course.marks.cat1.weightage}%</td>
-                          </tr>
-                        )}
-                        {course.marks.cat2 && (
-                          <tr>
-                            <td><b>Continuous Assessment Test 2 (CAT-2)</b></td>
-                            <td style={{ color: (course.marks.cat2.scored / course.marks.cat2.max) >= 0.75 ? 'var(--success-emerald)' : (course.marks.cat2.scored / course.marks.cat2.max) >= 0.5 ? 'var(--warning-amber)' : 'var(--danger-crimson)', fontWeight: 700 }}>
-                              {course.marks.cat2.scored}
-                            </td>
-                            <td>{course.marks.cat2.max}</td>
-                            <td>{((course.marks.cat2.scored / course.marks.cat2.max) * 100).toFixed(0)}%</td>
-                            <td>{course.marks.cat2.weightage}%</td>
-                          </tr>
-                        )}
-                        {course.marks.da1 && (
-                          <tr>
-                            <td><b>Digital Assignment 1</b></td>
-                            <td style={{ color: (course.marks.da1.scored / course.marks.da1.max) >= 0.75 ? 'var(--success-emerald)' : 'var(--warning-amber)', fontWeight: 700 }}>{course.marks.da1.scored}</td>
-                            <td>{course.marks.da1.max}</td>
-                            <td>{((course.marks.da1.scored / course.marks.da1.max) * 100).toFixed(0)}%</td>
-                            <td>{course.marks.da1.weightage}%</td>
-                          </tr>
-                        )}
-                        {course.marks.quiz && (
-                          <tr>
-                            <td><b>Online Quiz Assessment</b></td>
-                            <td style={{ color: (course.marks.quiz.scored / course.marks.quiz.max) >= 0.75 ? 'var(--success-emerald)' : 'var(--warning-amber)', fontWeight: 700 }}>{course.marks.quiz.scored}</td>
-                            <td>{course.marks.quiz.max}</td>
-                            <td>{((course.marks.quiz.scored / course.marks.quiz.max) * 100).toFixed(0)}%</td>
-                            <td>{course.marks.quiz.weightage}%</td>
-                          </tr>
-                        )}
+                        {getCourseMarkComponents(course).map((m, idx) => {
+                          const pct = (m.scored !== null && m.scored !== undefined && m.max) ? (m.scored / m.max) * 100 : null;
+                          return (
+                            <tr key={idx}>
+                              <td><b>{m.title}</b></td>
+                              <td style={{ color: pct !== null ? (pct >= 75 ? 'var(--success-emerald)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-crimson)') : 'var(--text-muted)', fontWeight: 700 }}>
+                                {m.scored !== null && m.scored !== undefined ? m.scored : (m.status || '-')}
+                              </td>
+                              <td>{m.max ?? '-'}</td>
+                              <td>{pct !== null ? `${pct.toFixed(0)}%` : '-'}</td>
+                              <td>{m.weightage ? `${m.weightage}%` : '-'}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -327,30 +331,60 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
         <div className="courses-grid">
           {displayedCourses.map((course) => {
             const { attendance } = course;
-            const isCritical = attendance.isCritical;
+            const isCritical = attendance?.isCritical || false;
+            const hasAtt = Boolean(
+              attendance &&
+              attendance.attended !== null &&
+              attendance.attended !== undefined &&
+              attendance.total !== null &&
+              attendance.total !== undefined
+            );
+            const pct = attendance?.percentage !== null && attendance?.percentage !== undefined
+              ? attendance.percentage
+              : (hasAtt && attendance && attendance.total && attendance.total > 0
+                ? Math.round(((attendance.attended || 0) / attendance.total) * 100)
+                : null);
 
             return (
               <div key={course.id} className="course-card">
                 <div className="course-header">
                   <div>
-                    <span className="course-code-tag">{course.code}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span className="course-code-tag">{course.code}</span>
+                      {course.grade && (
+                        <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--success-bg)', color: 'var(--success-emerald)', fontWeight: 800 }}>
+                          Grade: {course.grade}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="course-title">{course.title}</h3>
-                    <span className="course-faculty">👨‍🏫 {course.faculty}</span>
+                    <span className="course-faculty">👨‍🏫 {course.faculty || 'Faculty unassigned'}</span>
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot}</b></span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot || 'N/A'}</b></span>
                 </div>
 
                 <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '0.82rem' }}>Attendance: <b>{attendance.attended} / {attendance.total} classes</b></span>
-                    <span className={`attendance-percentage-pill ${isCritical ? 'critical' : 'safe'}`}>{attendance.percentage}%</span>
+                    <span style={{ fontSize: '0.82rem' }}>
+                      Attendance: <b>{hasAtt && attendance ? `${attendance.attended} / ${attendance.total} classes` : 'Not recorded'}</b>
+                    </span>
+                    <span className={`attendance-percentage-pill ${isCritical ? 'critical' : 'safe'}`}>
+                      {pct !== null ? `${pct}%` : 'N/A'}
+                    </span>
                   </div>
                   <div className="progress-track" style={{ marginBottom: '8px' }}>
-                    <div className={`progress-fill ${isCritical ? 'crimson' : 'emerald'}`} style={{ width: `${attendance.percentage}%` }} />
+                    <div
+                      className={`progress-fill ${isCritical ? 'crimson' : 'emerald'}`}
+                      style={{ width: `${pct || 0}%` }}
+                    />
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.8rem', color: isCritical ? 'var(--danger-crimson)' : 'var(--success-emerald)', fontWeight: 700 }}>
-                      {isCritical ? `⚠ Below 75%: Attend next ${attendance.needToAttend} classes` : `✓ Safe to miss ${attendance.safeToMiss} classes`}
+                      {hasAtt && attendance
+                        ? (isCritical
+                          ? `⚠ Below 75%: Attend next ${attendance.needToAttend || 1} classes`
+                          : `✓ Safe to miss ${attendance.safeToMiss ?? 0} classes`)
+                        : 'Sync VTOP for attendance data'}
                     </span>
                   </div>
                 </div>

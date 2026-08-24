@@ -1,2 +1,27 @@
 frontend/node_modules/
+frontend/dist/
 frontend/npm_*.deb
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ---------------------------------------------------------------------------
+# Your own VTOP data. Never commit these.
+#
+# CampusOS is a public repository, and after a successful sync
+# backend/data/store.json contains your name, registration number, VIT email,
+# CGPA, per-course attendance and your exam seat allocations. A single
+# `git add .` would publish all of it. The same goes for the raw HTML that
+# smoke_test.py --dump writes: those pages are your logged-in session's output.
+# ---------------------------------------------------------------------------
+backend/data/
+*.old
+.backend.log
+vtop_dump/
+vtop_dump_*/
+smoke_report*.json
+
+# Credentials must never reach the repo, and should never be put in a file at
+# all — smoke_test.py prompts for them at runtime for exactly this reason.
+.env
+.env.*

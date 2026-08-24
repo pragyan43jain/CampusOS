@@ -1,7 +1,7 @@
 import React from 'react';
 import { ThemeType } from './Header';
 
-export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
+export type NavView = 'dashboard' | 'vtop-sync' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
 
 interface SidebarProps {
   activeView: NavView;
@@ -10,6 +10,7 @@ interface SidebarProps {
   criticalAttendanceCount: number;
   currentTheme: ThemeType;
   onSelectTheme: (theme: ThemeType) => void;
+  onOpenVtopModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -19,9 +20,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   criticalAttendanceCount,
   currentTheme,
   onSelectTheme,
+  onOpenVtopModal,
 }) => {
   const navItems: { id: NavView; label: string; icon: string; badge?: { count: number; alert?: boolean } }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: '⚡' },
+    { id: 'vtop-sync', label: 'VTOP Live Hub', icon: '🔄' },
     { 
       id: 'academics', 
       label: 'Academics', 
@@ -106,10 +109,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div style={{ padding: '16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <button
           className="btn-outline"
-          style={{ width: '100%', justifyContent: 'center' }}
-          onClick={() => alert("VTOP SSO Active for Pragyan Jain (22BCE10429)")}
+          style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--brand-color)', color: 'var(--brand-color)', fontWeight: 700 }}
+          onClick={onOpenVtopModal}
         >
-          🔐 Switch Account
+          🔐 Connect VTOP
         </button>
       </div>
     </aside>

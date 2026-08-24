@@ -6,17 +6,32 @@ export type ThemeType = 'midnight-slate' | 'baby-pink' | 'nordic-blue' | 'mint-s
 interface HeaderProps {
   student: StudentProfile;
   activeView: string;
-  onRefresh: () => void;
+  onRefresh?: () => void;
+  onOpenVtopModal: () => void;
   syncing: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   student,
   activeView,
-  onRefresh,
+  onOpenVtopModal,
   syncing,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
+
+  const studentName = student?.name || 'Not Connected';
+  const studentRegNo = student?.regNo || 'Sync VTOP';
+  const studentProgram = student?.program || 'VIT Chennai';
+  const studentSemester = student?.semester || 'N/A';
+  const avatarInitials = student?.name
+    ? student.name
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : 'OS';
 
   return (
     <>
@@ -24,12 +39,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="header-left">
           <div className="header-title-block">
             <h1 style={{ textTransform: 'capitalize' }}>{activeView.replace('-', ' ')}</h1>
-            <p>{student.program} • Semester {student.semester}</p>
+            <p>{studentProgram} • Semester {studentSemester}</p>
           </div>
         </div>
 
         <div className="header-right">
-          {/* Replaced 'App View' with 'Download App' Button */}
+          {/* Download App Button */}
           <button
             className="btn-outline"
             onClick={() => setShowAppModal(true)}
@@ -40,12 +55,13 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Download App</span>
           </button>
 
-          {/* Sync Button */}
+          {/* VTOP Sync Modal / Force Refresh Button */}
           <button
             className="btn-outline"
-            onClick={onRefresh}
+            onClick={onOpenVtopModal}
             disabled={syncing}
-            title="Force sync data with VTOP"
+            title="Login or sync with VTOP portal"
+            style={{ fontWeight: 700 }}
           >
             <span style={{ display: 'inline-block', transform: syncing ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s ease' }}>
               🔄
@@ -54,13 +70,18 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* User Profile */}
-          <div className="user-profile-badge">
+          <div
+            className="user-profile-badge"
+            onClick={onOpenVtopModal}
+            style={{ cursor: 'pointer' }}
+            title="Click to manage VTOP session"
+          >
             <div className="user-avatar">
-              {student.name.split(' ').map(n => n[0]).join('')}
+              {avatarInitials}
             </div>
             <div className="user-details">
-              <span className="user-name">{student.name}</span>
-              <span className="user-reg">{student.regNo}</span>
+              <span className="user-name">{studentName}</span>
+              <span className="user-reg">{studentRegNo}</span>
             </div>
           </div>
         </div>

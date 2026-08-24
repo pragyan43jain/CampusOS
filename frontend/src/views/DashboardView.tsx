@@ -13,7 +13,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   student,
   timetable,
 }) => {
-  const [selectedDay, setSelectedDay] = useState<DayOfWeek>('MON');
+  const getTodayDayOfWeek = (): DayOfWeek => {
+    const dayIndex = new Date().getDay();
+    const map: Record<number, DayOfWeek> = {
+      1: 'MON',
+      2: 'TUE',
+      3: 'WED',
+      4: 'THU',
+      5: 'FRI',
+      6: 'SAT',
+    };
+    return map[dayIndex] || 'MON';
+  };
+
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(getTodayDayOfWeek());
 
   const filteredSlots = timetable.filter((slot) => slot.day === selectedDay);
 
@@ -27,13 +40,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const dayTitles: Record<DayOfWeek, string> = {
-    MON: 'Monday, August 17',
-    TUE: 'Tuesday, August 18',
-    WED: 'Wednesday, August 19',
-    THU: 'Thursday, August 20',
-    FRI: 'Friday, August 21',
-    SAT: 'Saturday, August 22',
+    MON: 'Monday',
+    TUE: 'Tuesday',
+    WED: 'Wednesday',
+    THU: 'Thursday',
+    FRI: 'Friday',
+    SAT: 'Saturday',
   };
+
+  const attendance = student.overallAttendance;
+  const hasAttendance = Boolean(
+    attendance &&
+    attendance.percentage !== null &&
+    attendance.percentage !== undefined &&
+    attendance.hasValidData !== false
+  );
+  const hasAttCounts = Boolean(
+    attendance &&
+    attendance.attended !== null &&
+    attendance.attended !== undefined &&
+    attendance.total !== null &&
+    attendance.total !== undefined
+  );
+  
+  const attPct = attendance?.percentage ?? 0;
+  const attAttended = attendance?.attended ?? 0;
+  const attTotal = attendance?.total ?? 0;
+
+  const uniqueCoursesCount = new Set(timetable.map(t => t.courseCode || t.subjectCode).filter(Boolean)).size;
+
+  const cgpaDisplay = student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : "Not available";
+  const creditsDisplay = student.creditsEarned !== null && student.creditsEarned !== undefined 
+    ? `${student.creditsEarned} / ${student.totalCreditsRequired || 160}` 
+    : "Not available";
 
   return (
     <div className="page-content">
@@ -41,37 +80,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="metrics-grid">
         <MetricCard
           label="Overall Attendance"
-          value={`${student.overallAttendance.percentage}%`}
-          subtext={`${student.overallAttendance.attended} / ${student.overallAttendance.total} attended`}
+          value={hasAttendance && attendance ? `${attendance.percentage}%` : "Not available"}
+          subtext={hasAttendance && hasAttCounts ? `${attAttended} / ${attTotal} classes attended` : "VTOP sync required"}
           icon="📊"
-          progressPercent={student.overallAttendance.percentage}
-          variant={student.overallAttendance.percentage >= 80 ? 'emerald' : student.overallAttendance.percentage >= 75 ? 'amber' : 'crimson'}
+          progressPercent={hasAttendance ? attPct : 0}
+          variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'blue'}
         />
 
         <MetricCard
           label="Cumulative CGPA"
-          value={student.cgpa.toFixed(2)}
-          subtext={`Class Rank #${student.rank} • Sem 4`}
+          value={cgpaDisplay}
+          subtext={student.rank ? `Class Rank #${student.rank} • Semester ${student.semester || 'N/A'}` : `Semester ${student.semester || 'N/A'}`}
           icon="🎓"
-          progressPercent={(student.cgpa / 10) * 100}
+          progressPercent={student.cgpa ? (student.cgpa / 10) * 100 : 0}
           variant="emerald"
         />
 
         <MetricCard
           label="Degree Credits"
-          value={`${student.creditsEarned} / ${student.totalCreditsRequired}`}
-          subtext="42.5% Degree Completed"
+          value={creditsDisplay}
+          subtext={student.creditsEarned && student.totalCreditsRequired ? `${((student.creditsEarned / student.totalCreditsRequired) * 100).toFixed(1)}% Degree Completed` : "Official Degree Progress"}
           icon="📚"
-          progressPercent={(student.creditsEarned / student.totalCreditsRequired) * 100}
+          progressPercent={student.creditsEarned && student.totalCreditsRequired ? (student.creditsEarned / student.totalCreditsRequired) * 100 : 0}
           variant="blue"
         />
 
         <MetricCard
           label="Enrolled Courses"
-          value="6"
-          subtext="5 Theory / Embedded + 1 Lab"
+          value={uniqueCoursesCount > 0 ? `${uniqueCoursesCount}` : "Not available"}
+          subtext="Active Academic Registration"
           icon="🏛"
-          progressPercent={100}
+          progressPercent={uniqueCoursesCount > 0 ? 100 : 0}
           variant="blue"
         />
       </div>
@@ -88,7 +127,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="section-header">
           <div className="section-title">
             <span>📅</span>
-            <span>{dayTitles[selectedDay]}</span>
+            <span>{dayTitles[selectedDay]} Schedule</span>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
               ({filteredSlots.length} {filteredSlots.length === 1 ? 'class' : 'classes'} scheduled)
             </span>
@@ -118,3 +157,5 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     </div>
   );
 };
+
+export default DashboardView;
