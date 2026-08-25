@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Course } from '../types';
+import { getStudyMaterialUrl } from '../services/studyMaterialService';
 
 interface AcademicsViewProps {
   courses: Course[];
@@ -155,11 +156,12 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
           {displayedCourses.map((course) => {
             const stats = calculateTotalInternalPercentage(course);
             const feedback = stats ? getPerformanceFeedback(stats.percentage) : null;
+            const studyMaterialUrl = getStudyMaterialUrl({ code: course.code, title: course.title, type: course.type });
 
             return (
               <div key={course.id} className="course-card" style={{ gap: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                  <div style={{ flex: '1 1 300px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span className="course-code-tag">{course.code}</span>
                       {course.grade && (
@@ -173,16 +175,41 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>👨‍🏫 {course.faculty} • 📍 {course.venue}</span>
                   </div>
 
-                  {stats && (
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.8rem', fontWeight: 800, color: feedback?.color }}>
-                        {stats.percentage}%
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                    {studyMaterialUrl ? (
+                      <a
+                        href={studyMaterialUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-study-material"
+                        title={`Open ${course.title} study material on VHelpCC`}
+                      >
+                        <span>📚</span>
+                        <span>Study Material</span>
+                        <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>↗</span>
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        className="btn-study-material-disabled"
+                        title="Study material unavailable on VHelpCC for this course"
+                      >
+                        <span>📚</span>
+                        <span>Study material unavailable</span>
+                      </button>
+                    )}
+
+                    {stats && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: feedback?.color }}>
+                          {stats.percentage}%
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          Internal Score: {stats.scored} / {stats.max} marks
+                        </span>
                       </div>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        Internal Score: {stats.scored} / {stats.max} marks
-                      </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Dynamic Smart Feedback Alert Banner based on Marks */}
@@ -345,22 +372,49 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                 ? Math.round(((attendance.attended || 0) / attendance.total) * 100)
                 : null);
 
+            const studyMaterialUrl = getStudyMaterialUrl({ code: course.code, title: course.title, type: course.type });
+
             return (
               <div key={course.id} className="course-card">
-                <div className="course-header">
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <div className="course-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ flex: '1 1 240px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <span className="course-code-tag">{course.code}</span>
                       {course.grade && (
                         <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--success-bg)', color: 'var(--success-emerald)', fontWeight: 800 }}>
                           Grade: {course.grade}
                         </span>
                       )}
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot || 'N/A'}</b></span>
                     </div>
                     <h3 className="course-title">{course.title}</h3>
                     <span className="course-faculty">👨‍🏫 {course.faculty || 'Faculty unassigned'}</span>
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot || 'N/A'}</b></span>
+
+                  <div>
+                    {studyMaterialUrl ? (
+                      <a
+                        href={studyMaterialUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-study-material"
+                        title={`Open ${course.title} study material on VHelpCC`}
+                      >
+                        <span>📚</span>
+                        <span>Study Material</span>
+                        <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>↗</span>
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        className="btn-study-material-disabled"
+                        title="Study material unavailable on VHelpCC for this course"
+                      >
+                        <span>📚</span>
+                        <span>Study material unavailable</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px' }}>

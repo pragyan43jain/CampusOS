@@ -16,7 +16,7 @@ Two groups:
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -277,4 +277,17 @@ def get_dsa_topics() -> List[Dict[str, Any]]:
 @router.get("/ai-tasks")
 def get_ai_tasks() -> List[Dict[str, Any]]:
     return load_store().get("aiTasks") or []
+
+
+@router.get("/study-materials")
+def get_study_materials(code: Optional[str] = None, title: Optional[str] = None) -> Dict[str, Any]:
+    from app.vtop.study_materials import VHELP_STUDY_MATERIAL_URL, get_vhelp_study_material_url
+    url = get_vhelp_study_material_url(code=code, title=title)
+    return {
+        "code": code,
+        "title": title,
+        "available": True,
+        "url": url or VHELP_STUDY_MATERIAL_URL,
+        "source": "vhelpcc",
+    }
 

@@ -956,3 +956,51 @@ button {
   border-radius: var(--radius-lg);
   color: var(--text-muted);
 }
+
+/* Study Material Action Controls */
+.btn-study-material {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--brand-color);
+  background: var(--brand-bg);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.btn-study-material:hover {
+  background: var(--brand-color);
+  color: #090c15;
+  border-color: var(--brand-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+}
+
+.btn-study-material:active {
+  transform: translateY(0);
+}
+
+.btn-study-material-disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--border-subtle);
+  white-space: nowrap;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+

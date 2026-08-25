@@ -234,3 +234,29 @@ class TestNewVTOPAndHostelEndpoints:
         laundry = client.get("/api/hostel/laundry?block=A").json()
         assert isinstance(laundry, list)
 
+
+class TestStudyMaterialsEndpoint:
+    def test_database_systems_resolves_correct_url(self):
+        res = client.get("/api/study-materials?code=BCSE302L").json()
+        assert res["available"] is True
+        assert res["url"] == "https://www.vhelpcc.com/study-material"
+
+    def test_database_systems_lab_resolves_correct_url(self):
+        res = client.get("/api/study-materials?code=BCSE302P").json()
+        assert res["available"] is True
+        assert res["url"] == "https://www.vhelpcc.com/study-material"
+
+    def test_computer_networks_resolves_correct_url(self):
+        res = client.get("/api/study-materials?code=BCSE308L").json()
+        assert res["available"] is True
+        assert res["url"] == "https://www.vhelpcc.com/study-material"
+
+    def test_computer_networks_lab_resolves_correct_url(self):
+        res = client.get("/api/study-materials?code=BCSE308P").json()
+        assert res["available"] is True
+        assert res["url"] == "https://www.vhelpcc.com/study-material"
+
+    def test_all_courses_resolve_to_study_material_hub(self):
+        res = client.get("/api/study-materials?code=BSSC101N").json()
+        assert res["available"] is True
+        assert res["url"] == "https://www.vhelpcc.com/study-material"
