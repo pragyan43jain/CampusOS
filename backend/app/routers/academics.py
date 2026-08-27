@@ -346,6 +346,14 @@ def update_assignment_status(
     for assignment in assignments:
         if assignment.get("id") == assignment_id:
             assignment["status"] = payload.status
+            if payload.status == "Submitted":
+                assignment["applicationStatus"] = "DONE"
+                assignment["isDone"] = True
+                assignment["isSubmitted"] = True
+            elif payload.status == "Pending":
+                assignment["applicationStatus"] = "PENDING"
+                assignment["isDone"] = False
+                assignment["isSubmitted"] = False
             save_store(store)
             return assignment
     raise HTTPException(status_code=404, detail=f"No assignment {assignment_id}")

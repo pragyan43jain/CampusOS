@@ -46,7 +46,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CAUGHT_UP'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED' | 'OVERDUE'>('ALL');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS' | 'BOTH'>('ALL');
 
   // Accordion open/close state per subject
@@ -60,14 +60,14 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       const data = await CampusAPI.getUnifiedAssignments();
       setDashboard(data);
 
-      // Default expand subjects with pending or overdue assignments
+      // Default expand all subjects that have assignments so completed and pending tasks remain visible
       const initialOpen: Record<string, boolean> = {};
       data.subjects.forEach((s: SubjectAssignmentGroup) => {
-        if (s.pendingCount > 0 || s.overdueCount > 0) {
+        if (s.assignments && s.assignments.length > 0) {
           initialOpen[s.courseCode] = true;
         }
       });
-      setExpandedSubjects(initialOpen);
+      setExpandedSubjects((prev) => (Object.keys(prev).length > 0 ? { ...initialOpen, ...prev } : initialOpen));
 
       // Sync with parent assignments state if handler provided
       if (onAssignmentsUpdated && data.subjects) {
@@ -231,7 +231,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
       // 2. Status Filter
       if (statusFilter === 'PENDING' && sub.pendingCount === 0) return false;
-      if (statusFilter === 'CAUGHT_UP' && sub.pendingCount > 0) return false;
+      if (statusFilter === 'COMPLETED' && sub.submittedCount === 0) return false;
+      if (statusFilter === 'OVERDUE' && sub.overdueCount === 0) return false;
 
       // 3. Source Filter
       if (sourceFilter === 'TEAMS' && !sub.teamsMatched) return false;
@@ -247,6 +248,24 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   const isAnyAccountConnected = teamsAccount.connected || lmsAccount.connected;
 
   const currentSemName = dashboard?.currentSemester?.name || 'Fall Semester 2026-27';
+
+  // Section 14 Verified Counts Breakdown: Total, Completed, Pending, Overdue
+  const totalVerifiedAssignments =
+    dashboard?.totalAssignments ??
+    dashboard?.subjects?.reduce((acc, s) => acc + (s.assignments?.length || 0), 0) ??
+    0;
+  const totalCompletedAssignments =
+    dashboard?.totalSubmittedAssignments ??
+    dashboard?.subjects?.reduce((acc, s) => acc + (s.submittedCount || 0), 0) ??
+    0;
+  const totalPendingAssignments =
+    dashboard?.totalPendingAssignments ??
+    dashboard?.subjects?.reduce((acc, s) => acc + (s.pendingCount || 0), 0) ??
+    0;
+  const totalOverdueAssignments =
+    dashboard?.totalOverdueAssignments ??
+    dashboard?.subjects?.reduce((acc, s) => acc + (s.overdueCount || 0), 0) ??
+    0;
 
   if (loading && !dashboard) {
     return (
@@ -569,7 +588,111 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Filter, Search & Status Metrics Toolbar */}
+      {/* 2. Metrics Summary Strip: Section 14 Requirement */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: '12px',
+        }}
+      >
+        {/* Metric 1: Total Verified */}
+        <div
+          onClick={() => setStatusFilter('ALL')}
+          style={{
+            background: 'var(--bg-surface)',
+            border: `1px solid ${statusFilter === 'ALL' ? 'var(--brand-color)' : 'var(--border-subtle)'}`,
+            borderRadius: 'var(--radius-lg)',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block' }}>
+            Total Verified
+          </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+              {totalVerifiedAssignments}
+            </span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>assignments</span>
+          </div>
+        </div>
+
+        {/* Metric 2: Completed / DONE */}
+        <div
+          onClick={() => setStatusFilter('COMPLETED')}
+          style={{
+            background: 'var(--bg-surface)',
+            border: `1px solid ${statusFilter === 'COMPLETED' ? '#22c55e' : 'var(--border-subtle)'}`,
+            borderRadius: 'var(--radius-lg)',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span style={{ fontSize: '0.76rem', color: '#22c55e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <CheckCircle2 size={13} />
+            Completed
+          </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#22c55e' }}>
+              {totalCompletedAssignments}
+            </span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>submitted</span>
+          </div>
+        </div>
+
+        {/* Metric 3: Pending */}
+        <div
+          onClick={() => setStatusFilter('PENDING')}
+          style={{
+            background: 'var(--bg-surface)',
+            border: `1px solid ${statusFilter === 'PENDING' ? '#f59e0b' : 'var(--border-subtle)'}`,
+            borderRadius: 'var(--radius-lg)',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span style={{ fontSize: '0.76rem', color: '#f59e0b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Clock size={13} />
+            Pending
+          </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f59e0b' }}>
+              {totalPendingAssignments}
+            </span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>in progress</span>
+          </div>
+        </div>
+
+        {/* Metric 4: Overdue */}
+        <div
+          onClick={() => setStatusFilter('OVERDUE')}
+          style={{
+            background: 'var(--bg-surface)',
+            border: `1px solid ${statusFilter === 'OVERDUE' ? '#ef4444' : 'var(--border-subtle)'}`,
+            borderRadius: 'var(--radius-lg)',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span style={{ fontSize: '0.76rem', color: '#ef4444', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <AlertTriangle size={13} />
+            Overdue
+          </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ef4444' }}>
+              {totalOverdueAssignments}
+            </span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>action needed</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Filter & Search Toolbar */}
       <div
         style={{
           display: 'flex',
@@ -618,7 +741,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                 cursor: 'pointer',
               }}
             >
-              All Subjects ({dashboard?.subjects?.length || 0})
+              All Assignments ({totalVerifiedAssignments})
             </button>
             <button
               onClick={() => setStatusFilter('PENDING')}
@@ -628,27 +751,42 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.78rem',
                 fontWeight: statusFilter === 'PENDING' ? 800 : 600,
-                background: statusFilter === 'PENDING' ? 'var(--brand-color)' : 'transparent',
+                background: statusFilter === 'PENDING' ? '#f59e0b' : 'transparent',
                 color: statusFilter === 'PENDING' ? '#ffffff' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
-              Pending Tasks ({dashboard?.totalPendingAssignments || 0})
+              Pending ({totalPendingAssignments})
             </button>
             <button
-              onClick={() => setStatusFilter('CAUGHT_UP')}
+              onClick={() => setStatusFilter('COMPLETED')}
               style={{
                 border: 'none',
                 padding: '6px 12px',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.78rem',
-                fontWeight: statusFilter === 'CAUGHT_UP' ? 800 : 600,
-                background: statusFilter === 'CAUGHT_UP' ? 'var(--brand-color)' : 'transparent',
-                color: statusFilter === 'CAUGHT_UP' ? '#ffffff' : 'var(--text-secondary)',
+                fontWeight: statusFilter === 'COMPLETED' ? 800 : 600,
+                background: statusFilter === 'COMPLETED' ? '#22c55e' : 'transparent',
+                color: statusFilter === 'COMPLETED' ? '#ffffff' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
-              Caught Up
+              Completed ({totalCompletedAssignments})
+            </button>
+            <button
+              onClick={() => setStatusFilter('OVERDUE')}
+              style={{
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.78rem',
+                fontWeight: statusFilter === 'OVERDUE' ? 800 : 600,
+                background: statusFilter === 'OVERDUE' ? '#ef4444' : 'transparent',
+                color: statusFilter === 'OVERDUE' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Overdue ({totalOverdueAssignments})
             </button>
           </div>
 
@@ -885,62 +1023,81 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                       )}
                     </div>
 
-                    {/* Pending / Overdue Status Pill */}
-                    {hasOverdue ? (
-                      <span
-                        style={{
-                          fontSize: '0.76rem',
-                          fontWeight: 800,
-                          padding: '3px 10px',
-                          borderRadius: 'var(--radius-full)',
-                          background: 'rgba(239, 68, 68, 0.12)',
-                          color: '#ef4444',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <AlertTriangle size={13} />
-                        <span>{subject.overdueCount} Overdue</span>
-                      </span>
-                    ) : hasPending ? (
-                      <span
-                        style={{
-                          fontSize: '0.76rem',
-                          fontWeight: 800,
-                          padding: '3px 10px',
-                          borderRadius: 'var(--radius-full)',
-                          background: 'rgba(245, 158, 11, 0.12)',
-                          color: '#f59e0b',
-                          border: '1px solid rgba(245, 158, 11, 0.3)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <Clock size={13} />
-                        <span>{subject.pendingCount} Pending Assignment{subject.pendingCount > 1 ? 's' : ''}</span>
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: '0.76rem',
-                          fontWeight: 800,
-                          padding: '3px 10px',
-                          borderRadius: 'var(--radius-full)',
-                          background: 'rgba(34, 197, 94, 0.1)',
-                          color: '#22c55e',
-                          border: '1px solid rgba(34, 197, 94, 0.25)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <CheckCircle2 size={13} />
-                        <span>No Pending</span>
-                      </span>
-                    )}
+                    {/* Subject Status Badges */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {subject.submittedCount > 0 && (
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(34, 197, 94, 0.1)',
+                            color: '#22c55e',
+                            border: '1px solid rgba(34, 197, 94, 0.25)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <CheckCircle2 size={12} />
+                          <span>{subject.submittedCount} Completed</span>
+                        </span>
+                      )}
+                      {hasOverdue && (
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <AlertTriangle size={12} />
+                          <span>{subject.overdueCount} Overdue</span>
+                        </span>
+                      )}
+                      {hasPending && (
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            padding: '3px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(245, 158, 11, 0.12)',
+                            color: '#f59e0b',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Clock size={12} />
+                          <span>{subject.pendingCount} Pending</span>
+                        </span>
+                      )}
+                      {subject.assignments.length === 0 && (
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            padding: '3px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(156, 163, 175, 0.1)',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          0 Assignments
+                        </span>
+                      )}
+                    </div>
 
                     {/* Expand/Collapse Chevron */}
                     <div style={{ color: 'var(--text-muted)' }}>
@@ -952,8 +1109,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                 {/* Expanded Assignments Area */}
                 {isExpanded && (
                   <div style={{ padding: '16px 20px', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {subject.assignments.length > 0 ? (
-                      subject.assignments.map((assignment) => {
+                    {(() => {
+                      const visibleAssignments = subject.assignments.filter((assignment) => {
                         const isSubmitted = Boolean(
                           assignment.isDone ||
                           (assignment.status || '').toUpperCase() === 'DONE' ||
@@ -961,239 +1118,266 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                           (assignment.status || '').toUpperCase() === 'SUBMITTED' ||
                           (assignment.displayStatus || '').toUpperCase() === 'SUBMITTED'
                         );
-                        const isUnavailable =
-                          (assignment.status || '').toUpperCase() === 'STATUS_UNAVAILABLE' ||
-                          (assignment.displayStatus || '').toUpperCase() === 'STATUS_UNAVAILABLE';
-                        const isOverdue = !isSubmitted && !isUnavailable && (assignment.isOverdue || (assignment.displayStatus || '').toUpperCase() === 'OVERDUE');
-                        const isDueSoon = !isSubmitted && !isUnavailable && !isOverdue && (assignment.isDueSoon || (assignment.displayStatus || '').toUpperCase() === 'DUE SOON');
-                        const isMerged = (assignment.source as string) === 'Teams + LMS' || ((assignment.sourceList?.length || 0) > 1);
+                        const isOverdue = !isSubmitted && (assignment.isOverdue || (assignment.displayStatus || '').toUpperCase() === 'OVERDUE');
 
-                        return (
-                          <div
-                            key={assignment.id}
-                            style={{
-                              background: 'var(--bg-surface-elevated)',
-                              border: `1px solid ${isOverdue ? 'rgba(239, 68, 68, 0.3)' : (isDueSoon ? 'rgba(245, 158, 11, 0.3)' : 'var(--border-subtle)')}`,
-                              borderRadius: 'var(--radius-md)',
-                              padding: '14px 18px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              flexWrap: 'wrap',
-                              gap: '14px',
-                            }}
-                          >
-                            {/* Left Side: Checkbox & Info */}
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '260px' }}>
-                              <input
-                                type="checkbox"
-                                checked={isSubmitted}
-                                onChange={() => handleToggleAssignmentStatus(assignment.id, isSubmitted)}
-                                style={{
-                                  width: '18px',
-                                  height: '18px',
-                                  accentColor: 'var(--brand-color)',
-                                  marginTop: '3px',
-                                  cursor: 'pointer',
-                                }}
-                                title="Toggle submission status"
-                              />
+                        if (statusFilter === 'PENDING') return !isSubmitted;
+                        if (statusFilter === 'COMPLETED') return isSubmitted;
+                        if (statusFilter === 'OVERDUE') return isOverdue;
+                        return true; // 'ALL' shows EVERYTHING! (Section 5 requirement)
+                      });
 
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                {/* Badges Row */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                  {/* Source Badge */}
-                                  <span
-                                    style={{
-                                      fontSize: '0.72rem',
-                                      fontWeight: 800,
-                                      padding: '2px 8px',
-                                      borderRadius: 'var(--radius-sm)',
-                                      background: isMerged
-                                        ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(2, 132, 199, 0.15) 100%)'
-                                        : assignment.source === 'Teams'
-                                        ? 'rgba(99, 102, 241, 0.12)'
-                                        : 'rgba(2, 132, 199, 0.12)',
-                                      color: isMerged ? '#4f46e5' : assignment.source === 'Teams' ? '#6366f1' : '#0284c7',
-                                      border: '1px solid var(--border-subtle)',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                    }}
-                                  >
-                                    <span>{assignment.source === 'Teams' ? '💜' : assignment.source === 'LMS' ? '🎓' : '💜+🎓'}</span>
-                                    <span>{assignment.source}</span>
-                                  </span>
+                      return visibleAssignments.length > 0 ? (
+                        visibleAssignments.map((assignment) => {
+                          const isSubmitted = Boolean(
+                            assignment.isDone ||
+                            (assignment.status || '').toUpperCase() === 'DONE' ||
+                            (assignment.displayStatus || '').toUpperCase() === 'DONE' ||
+                            (assignment.status || '').toUpperCase() === 'SUBMITTED' ||
+                            (assignment.displayStatus || '').toUpperCase() === 'SUBMITTED'
+                          );
+                          const isUnavailable =
+                            (assignment.status || '').toUpperCase() === 'STATUS_UNAVAILABLE' ||
+                            (assignment.displayStatus || '').toUpperCase() === 'STATUS_UNAVAILABLE';
+                          const isOverdue = !isSubmitted && !isUnavailable && (assignment.isOverdue || (assignment.displayStatus || '').toUpperCase() === 'OVERDUE');
+                          const isDueSoon = !isSubmitted && !isUnavailable && !isOverdue && (assignment.isDueSoon || (assignment.displayStatus || '').toUpperCase() === 'DUE SOON');
+                          const isMerged = (assignment.source as string) === 'Teams + LMS' || ((assignment.sourceList?.length || 0) > 1);
 
-                                  {/* Status Pill */}
-                                  {isSubmitted ? (
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.25)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                      <CheckCircle2 size={12} />
-                                      <span>{assignment.isLate ? 'DONE (Submitted Late)' : 'DONE'}</span>
-                                    </span>
-                                  ) : isUnavailable ? (
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(156, 163, 175, 0.12)', color: '#9ca3af', border: '1px solid rgba(156, 163, 175, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                      <AlertTriangle size={12} />
-                                      <span>Status Unavailable</span>
-                                    </span>
-                                  ) : isOverdue ? (
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                                      ⚠️ Overdue
-                                    </span>
-                                  ) : isDueSoon ? (
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                                      🔥 Due Soon
-                                    </span>
-                                  ) : (
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
-                                      ⏳ Pending
-                                    </span>
-                                  )}
+                          return (
+                            <div
+                              key={assignment.id}
+                              style={{
+                                background: isSubmitted ? 'rgba(34, 197, 94, 0.03)' : 'var(--bg-surface-elevated)',
+                                border: `1px solid ${isSubmitted ? 'rgba(34, 197, 94, 0.2)' : isOverdue ? 'rgba(239, 68, 68, 0.3)' : (isDueSoon ? 'rgba(245, 158, 11, 0.3)' : 'var(--border-subtle)')}`,
+                                borderRadius: 'var(--radius-md)',
+                                padding: '14px 18px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                flexWrap: 'wrap',
+                                gap: '14px',
+                              }}
+                            >
+                              {/* Left Side: Checkbox & Info */}
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '260px' }}>
+                                <input
+                                  type="checkbox"
+                                  role="checkbox"
+                                  aria-checked={isSubmitted}
+                                  aria-label={
+                                    isSubmitted
+                                      ? `Assignment "${assignment.title}" completed and verified in ${assignment.source}`
+                                      : `Assignment "${assignment.title}" pending in ${assignment.source}`
+                                  }
+                                  checked={isSubmitted}
+                                  onChange={() => handleToggleAssignmentStatus(assignment.id, isSubmitted)}
+                                  style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    accentColor: '#22c55e',
+                                    marginTop: '3px',
+                                    cursor: 'pointer',
+                                  }}
+                                  title={isSubmitted ? "Marked as completed" : "Mark as completed"}
+                                />
 
-                                  {/* Relative Deadline Tag */}
-                                  {assignment.relativeDeadline && !isSubmitted && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {/* Badges Row */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    {/* Source Badge */}
                                     <span
                                       style={{
                                         fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        color: isOverdue ? '#ef4444' : isDueSoon ? '#f59e0b' : 'var(--text-muted)',
+                                        fontWeight: 800,
+                                        padding: '2px 8px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        background: isMerged
+                                          ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(2, 132, 199, 0.15) 100%)'
+                                          : assignment.source === 'Teams'
+                                          ? 'rgba(99, 102, 241, 0.12)'
+                                          : 'rgba(2, 132, 199, 0.12)',
+                                        color: isMerged ? '#4f46e5' : assignment.source === 'Teams' ? '#6366f1' : '#0284c7',
+                                        border: '1px solid var(--border-subtle)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
                                       }}
                                     >
-                                      • {assignment.relativeDeadline}
+                                      <span>{assignment.source === 'Teams' ? '💜' : assignment.source === 'LMS' ? '🎓' : '💜+🎓'}</span>
+                                      <span>{assignment.source}</span>
+                                    </span>
+
+                                    {/* Status Pill */}
+                                    {isSubmitted ? (
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.25)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <CheckCircle2 size={12} />
+                                        <span>{assignment.isLate ? 'DONE (Submitted Late)' : 'DONE'}</span>
+                                      </span>
+                                    ) : isUnavailable ? (
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(156, 163, 175, 0.12)', color: '#9ca3af', border: '1px solid rgba(156, 163, 175, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <AlertTriangle size={12} />
+                                        <span>Status Unavailable</span>
+                                      </span>
+                                    ) : isOverdue ? (
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                        ⚠️ Overdue
+                                      </span>
+                                    ) : isDueSoon ? (
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                        🔥 Due Soon
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                                        ⏳ Pending
+                                      </span>
+                                    )}
+
+                                    {/* Relative Deadline Tag */}
+                                    {assignment.relativeDeadline && !isSubmitted && (
+                                      <span
+                                        style={{
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
+                                          color: isOverdue ? '#ef4444' : isDueSoon ? '#f59e0b' : 'var(--text-muted)',
+                                        }}
+                                      >
+                                        • {assignment.relativeDeadline}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Title */}
+                                  <h5
+                                    style={{
+                                      fontSize: '1rem',
+                                      fontWeight: 800,
+                                      margin: '3px 0 0',
+                                      color: isSubmitted ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                      textDecoration: isSubmitted ? 'line-through' : 'none',
+                                      opacity: isSubmitted ? 0.85 : 1,
+                                    }}
+                                  >
+                                    {assignment.title}
+                                  </h5>
+
+                                  {/* Instructions / Description */}
+                                  {assignment.instructions && (
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.45 }}>
+                                      {assignment.instructions}
+                                    </p>
+                                  )}
+
+                                  {/* Submission Confirmation Date */}
+                                  {isSubmitted && assignment.submittedAt && (
+                                    <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 600, marginTop: '3px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <CheckCircle2 size={12} />
+                                      Submitted: {new Date(assignment.submittedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                   )}
                                 </div>
+                              </div>
 
-                                {/* Title */}
-                                <h5
-                                  style={{
-                                    fontSize: '1rem',
-                                    fontWeight: 800,
-                                    margin: '3px 0 0',
-                                    color: 'var(--text-primary)',
-                                    textDecoration: isSubmitted ? 'line-through' : 'none',
-                                    opacity: isSubmitted ? 0.75 : 1,
-                                  }}
-                                >
-                                  {assignment.title}
-                                </h5>
-
-                                {/* Instructions / Description */}
-                                {assignment.instructions && (
-                                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.45 }}>
-                                    {assignment.instructions}
-                                  </p>
-                                )}
-
-                                {/* Submission Confirmation Date */}
-                                {isSubmitted && assignment.submittedAt && (
-                                  <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 600, marginTop: '3px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                    <CheckCircle2 size={12} />
-                                    Submitted: {new Date(assignment.submittedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {/* Right Side: Exact Deadline & Direct Action Links */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', minWidth: '180px' }}>
+                                <div style={{ textAlign: 'right' }}>
+                                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>
+                                    {isSubmitted ? 'Completed:' : 'Deadline:'}
                                   </span>
-                                )}
+                                  <span style={{ fontSize: '0.84rem', fontWeight: 800, color: isSubmitted ? '#22c55e' : isOverdue ? '#ef4444' : 'var(--text-primary)' }}>
+                                    {isSubmitted && assignment.submittedAt
+                                      ? new Date(assignment.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                                      : (assignment.formattedDeadline || `${assignment.dueDate}, ${assignment.dueTime}`)}
+                                  </span>
+                                </div>
+
+                                {/* Direct Submission Buttons: Keep open in LMS/Teams accessible */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                  {isMerged ? (
+                                    <>
+                                      {assignment.teamsSubmissionUrl && (
+                                        <a
+                                          href={assignment.teamsSubmissionUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="btn-outline"
+                                          style={{ fontSize: '0.74rem', padding: '5px 9px', color: '#6366f1', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                          title="Open assignment in Microsoft Teams"
+                                        >
+                                          <span>Open Teams</span>
+                                          <ExternalLink size={12} />
+                                        </a>
+                                      )}
+                                      {assignment.lmsSubmissionUrl && (
+                                        <a
+                                          href={assignment.lmsSubmissionUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="btn-outline"
+                                          style={{ fontSize: '0.74rem', padding: '5px 9px', color: '#0284c7', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                          title="Open assignment in VIT LMS"
+                                        >
+                                          <span>Open LMS</span>
+                                          <ExternalLink size={12} />
+                                        </a>
+                                      )}
+                                    </>
+                                  ) : assignment.platformUrl || assignment.submissionUrl ? (
+                                    <a
+                                      href={assignment.platformUrl || assignment.submissionUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="btn-outline"
+                                      style={{
+                                        fontSize: '0.76rem',
+                                        padding: '5px 10px',
+                                        textDecoration: 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        color: assignment.source === 'Teams' ? '#6366f1' : '#0284c7',
+                                      }}
+                                    >
+                                      <span>{assignment.source === 'Teams' ? 'Open in Teams' : 'Open in LMS'}</span>
+                                      <ExternalLink size={12} />
+                                    </a>
+                                  ) : (
+                                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                      Link unavailable
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-
-                            {/* Right Side: Exact Deadline & Direct Action Links */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', minWidth: '180px' }}>
-                              <div style={{ textAlign: 'right' }}>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>
-                                  Deadline:
-                                </span>
-                                <span style={{ fontSize: '0.84rem', fontWeight: 800, color: isOverdue ? '#ef4444' : 'var(--text-primary)' }}>
-                                  {assignment.formattedDeadline || `${assignment.dueDate}, ${assignment.dueTime}`}
-                                </span>
-                              </div>
-
-                              {/* Direct Submission Buttons */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                                {isMerged ? (
-                                  <>
-                                    {assignment.teamsSubmissionUrl && (
-                                      <a
-                                        href={assignment.teamsSubmissionUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="btn-outline"
-                                        style={{ fontSize: '0.74rem', padding: '5px 9px', color: '#6366f1', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        title="Open assignment in Microsoft Teams"
-                                      >
-                                        <span>Open Teams</span>
-                                        <ExternalLink size={12} />
-                                      </a>
-                                    )}
-                                    {assignment.lmsSubmissionUrl && (
-                                      <a
-                                        href={assignment.lmsSubmissionUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="btn-outline"
-                                        style={{ fontSize: '0.74rem', padding: '5px 9px', color: '#0284c7', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        title="Open assignment in VIT LMS"
-                                      >
-                                        <span>Open LMS</span>
-                                        <ExternalLink size={12} />
-                                      </a>
-                                    )}
-                                  </>
-                                ) : assignment.platformUrl || assignment.submissionUrl ? (
-                                  <a
-                                    href={assignment.platformUrl || assignment.submissionUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="btn-outline"
-                                    style={{
-                                      fontSize: '0.76rem',
-                                      padding: '5px 10px',
-                                      textDecoration: 'none',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      color: assignment.source === 'Teams' ? '#6366f1' : '#0284c7',
-                                    }}
-                                  >
-                                    <span>{assignment.source === 'Teams' ? 'Open in Teams' : 'Open in LMS'}</span>
-                                    <ExternalLink size={12} />
-                                  </a>
-                                ) : (
-                                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                                    Link unavailable
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div
-                        style={{
-                          padding: '16px',
-                          textAlign: 'center',
-                          color: subject.syncStatusNote?.includes('could not be verified') ? '#f59e0b' : 'var(--text-muted)',
-                          fontSize: '0.84rem',
-                          background: 'var(--bg-surface-elevated)',
-                          borderRadius: 'var(--radius-md)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        {subject.syncStatusNote?.includes('could not be verified') ? (
-                          <>
-                            <AlertTriangle size={15} color="#f59e0b" />
-                            <span>{subject.syncStatusNote}</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={15} color="var(--text-muted)" />
-                            <span>{subject.syncStatusNote || 'No assignments found.'}</span>
-                          </>
-                        )}
-                      </div>
-                    )}
+                          );
+                        })
+                      ) : (
+                        <div
+                          style={{
+                            padding: '16px',
+                            textAlign: 'center',
+                            color: subject.syncStatusNote?.includes('could not be verified') ? '#f59e0b' : 'var(--text-muted)',
+                            fontSize: '0.84rem',
+                            background: 'var(--bg-surface-elevated)',
+                            borderRadius: 'var(--radius-md)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {subject.syncStatusNote?.includes('could not be verified') ? (
+                            <>
+                              <AlertTriangle size={15} color="#f59e0b" />
+                              <span>{subject.syncStatusNote}</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={15} color="var(--text-muted)" />
+                              <span>{subject.assignments.length > 0 ? 'No assignments match the selected status filter.' : (subject.syncStatusNote || 'No assignments found.')}</span>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

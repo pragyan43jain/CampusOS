@@ -156,7 +156,10 @@ export const App: React.FC = () => {
     );
   }
 
-  const pendingAssignmentsCount = assignments.filter((a) => a.status === 'Pending').length;
+  const pendingAssignmentsCount = assignments.filter((a) => {
+    const st = (a.displayStatus || a.status || '').toUpperCase();
+    return st === 'PENDING' || st === 'DUE SOON' || st === 'OVERDUE';
+  }).length;
   const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
   return (
