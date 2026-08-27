@@ -655,7 +655,7 @@ def sync_lms() -> Dict[str, Any]:
         s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in")
 
     vtop_courses = list(store.get("courses") or [])
-    assignments, matched_subjects, total_courses = fetch_vit_lms_coursework(s, vtop_courses)
+    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(s, vtop_courses)
 
     existing_assignments = store.get("assignments") or []
     other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
@@ -668,6 +668,7 @@ def sync_lms() -> Dict[str, Any]:
     account["matchedSubjects"] = matched_subjects
     account["matchedCount"] = len(matched_subjects)
     account["totalCoursesCount"] = total_courses
+    account["courseMatches"] = course_matches
     store["lmsAccount"] = account
 
     save_store(store)

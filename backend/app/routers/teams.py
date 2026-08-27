@@ -944,7 +944,7 @@ def sync_teams() -> Dict[str, Any]:
             logger.warning("Token refresh error: %s", exc)
 
     vtop_courses = list(store.get("courses") or [])
-    user_info, teams_assignments, matched_subjects = fetch_microsoft_teams_coursework(
+    user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
         access_token, email, vtop_courses
     )
 
@@ -959,6 +959,7 @@ def sync_teams() -> Dict[str, Any]:
     account["matchedSubjects"] = matched_subjects
     account["matchedCount"] = len(matched_subjects)
     account["totalTeamsCount"] = user_info.get("teamsCount", 0)
+    account["courseMatches"] = course_matches
     store["teamsAccount"] = account
 
     save_store(store)
