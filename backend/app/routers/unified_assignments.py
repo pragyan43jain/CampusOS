@@ -17,7 +17,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.storage import load_store, save_store
-from app.routers.teams import match_faculty_names, get_base_code
+from app.course_verification import (
+    VerifiedCourseRecord,
+    ExternalCourseMatch,
+    canonicalize_course_code,
+    canonicalize_faculty_name,
+    build_verified_semester_course_records,
+)
 
 logger = logging.getLogger("vtop.routes.unified_assignments")
 
@@ -35,12 +41,14 @@ def are_duplicate_assignments(a1: Dict[str, Any], a2: Dict[str, Any]) -> bool:
     """
     Determines whether an assignment from Teams and an assignment from LMS
     represent the exact same academic task.
+    Section 18: Never merge assignments belonging to different verified courses.
+    (e.g. BCSE308L must never merge with BCSE308P).
     Requires:
-    1. Matching normalized course code
+    1. Exact canonical course code match
     2. High title similarity OR (matching due date AND moderate title similarity)
     """
-    c1 = re.sub(r"[^A-Z0-9]", "", (a1.get("courseCode") or "").upper())
-    c2 = re.sub(r"[^A-Z0-9]", "", (a2.get("courseCode") or "").upper())
+    c1 = canonicalize_course_code(a1.get("courseCode"))
+    c2 = canonicalize_course_code(a2.get("courseCode"))
     if not c1 or not c2 or c1 != c2:
         return False
 
@@ -240,31 +248,36 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 
     # 3. Raw assignments stored from connected sources
     # Strictly verify: 1. Enrolled in current semester 2. Professor name matches course faculty
+    verified_enrolled = build_verified_semester_course_records(store)
     raw_unfiltered = list(store.get("assignments") or [])
     raw_assignments: List[Dict[str, Any]] = []
     for a in raw_unfiltered:
-        c_code = a.get("courseCode")
-        matched_c = next((c for c in courses if c.get("code") == c_code or get_base_code(c.get("code")) == get_base_code(c_code)), None)
-        if not matched_c:
+        c_code = canonicalize_course_code(a.get("courseCode"))
+        matched_rec = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == c_code), None)
+        if not matched_rec:
             continue
 
-        vtop_faculty = matched_c.get("faculty")
-        assign_faculty_sources = [a.get("faculty"), a.get("matchedTeamName"), a.get("matchedLmsCourse")]
-        if not match_faculty_names(vtop_faculty, [s for s in assign_faculty_sources if s]):
+        enrolled_fac = canonicalize_faculty_name(matched_rec.facultyName)
+        assign_facs = [
+            canonicalize_faculty_name(a.get("faculty")),
+            canonicalize_faculty_name(a.get("matchedTeamName")),
+            canonicalize_faculty_name(a.get("matchedLmsCourse")),
+        ]
+        if not any(f and f == enrolled_fac for f in assign_facs):
             logger.warning(
                 "Unified dashboard dropping assignment '%s' [%s]: course faculty '%s' did not match %s",
                 a.get("title"),
                 c_code,
-                vtop_faculty,
-                assign_faculty_sources,
+                matched_rec.facultyName,
+                assign_facs,
             )
             continue
 
         raw_assignments.append({
             **a,
-            "courseCode": matched_c.get("code") or c_code,
-            "courseTitle": matched_c.get("title") or a.get("courseTitle"),
-            "faculty": vtop_faculty,
+            "courseCode": matched_rec.courseCode,
+            "courseTitle": matched_rec.courseName,
+            "faculty": matched_rec.facultyName,
         })
 
     # Account metadata
@@ -353,7 +366,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     # Central Principle: "Subject first, assignment second, source third"
     subject_map: Dict[str, Dict[str, Any]] = {}
     for c in courses:
-        code = c.get("code")
+        code = canonicalize_course_code(c.get("code"))
         if not code:
             continue
         subject_map[code] = {
@@ -379,17 +392,9 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     unmatched_assignments: List[Dict[str, Any]] = []
 
     for a in enriched_assignments:
-        c_code = a.get("courseCode")
-        # Match to enrolled subject
+        c_code = canonicalize_course_code(a.get("courseCode"))
+        # Exact match to enrolled subject
         matched_sub = subject_map.get(c_code)
-        if not matched_sub:
-            # Check base code
-            base_code = c_code[:-1] if c_code and c_code[-1] in ("L", "P", "J") else c_code
-            for sub_code, sub_val in subject_map.items():
-                if sub_code.startswith(base_code):
-                    matched_sub = sub_val
-                    break
-
         if matched_sub:
             matched_sub["assignments"].append(a)
         else:
@@ -399,6 +404,12 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     total_pending_all = 0
     total_submitted_all = 0
     total_overdue_all = 0
+
+    teams_connected = bool(store.get("teamsConnected"))
+    lms_connected = bool(store.get("lmsConnected"))
+    is_any_connected = teams_connected or lms_connected
+    t_matches = teams_account.get("courseMatches") or []
+    l_matches = lms_account.get("courseMatches") or []
 
     subject_list: List[Dict[str, Any]] = []
     for sub in subject_map.values():
@@ -426,6 +437,22 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         sub["overdueCount"] = o_cnt
         sub["dueSoonCount"] = d_cnt
         sub["totalCount"] = len(sub["assignments"])
+
+        # Section 25: Internally distinguish 0 assignments vs faculty mismatch vs external unavailable
+        sync_note = None
+        if len(sub["assignments"]) == 0:
+            t_m = next((m for m in t_matches if m.get("matchedCourseCode") == sub["courseCode"]), None)
+            l_m = next((m for m in l_matches if m.get("matchedCourseCode") == sub["courseCode"]), None)
+
+            if (t_m and not t_m.get("facultyMatch") and t_m.get("courseCodeMatch")) or \
+               (l_m and not l_m.get("facultyMatch") and l_m.get("courseCodeMatch")):
+                sync_note = "Course not synchronized because faculty identity could not be verified."
+            elif is_any_connected:
+                sync_note = "No assignments found."
+            else:
+                sync_note = "Connect Microsoft Teams or VIT LMS to synchronize assignments."
+
+        sub["syncStatusNote"] = sync_note
 
         total_pending_all += p_cnt
         total_submitted_all += s_cnt

@@ -21,6 +21,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.storage import load_store, save_store
+from app.course_verification import (
+    VerifiedCourseRecord,
+    ExternalCourseMatch,
+    canonicalize_course_code,
+    canonicalize_faculty_name,
+    build_verified_semester_course_records,
+    verify_external_course,
+)
 
 logger = logging.getLogger("vtop.routes.teams")
 
@@ -330,79 +338,26 @@ def match_team_to_vtop_course(
     candidate_professors: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    1. First checks if the team matches a course enrolled in that semester (vtop_courses).
-    2. Then checks the professor name of that course against team owners/metadata.
-    3. If BOTH course and professor match, returns the matched course record.
+    Strict verification of external Teams course:
+    1. EXACT COURSE CODE MATCH (canonical, preserving L/P distinctions)
+    2. EXACT FACULTY IDENTITY MATCH
+    Fails closed if either condition is not satisfied.
     """
-    name_upper = (team_name or "").upper()
-    desc_upper = (team_desc or "").upper()
-    combined_text = f"{name_upper} {desc_upper}"
-
-    matched_course = None
-
-    # 1. Exact course code match
-    for course in vtop_courses:
-        code = normalize_course_code(course.get("code") or course.get("courseCode"))
-        if code and code in combined_text:
-            matched_course = course
-            break
-
-    # 2. Base course code match
-    if not matched_course:
-        for course in vtop_courses:
-            base = get_base_code(course.get("code") or course.get("courseCode"))
-            if len(base) >= 5 and base in combined_text:
-                matched_course = course
-                break
-
-    # 3. Exact course title match
-    if not matched_course:
-        for course in vtop_courses:
-            title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
-            if len(title) >= 5 and title in combined_text:
-                matched_course = course
-                break
-
-    # 4. Slot + Significant title keyword match (e.g. F2-Database, C2+TC2 Cloud)
-    if not matched_course:
-        for course in vtop_courses:
-            slot = (course.get("slot") or "").upper()
-            title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
-            slot_parts = [s.strip() for s in re.split(r"[\s+,-]", slot) if len(s.strip()) >= 2]
-            title_words = [w for w in re.findall(r"[A-Z]{4,}", title) if w not in ("SYSTEMS", "THEORY", "LAB", "PRACTICAL", "ADVANCED")]
-            if any(sp in combined_text for sp in slot_parts) and any(tw in combined_text for tw in title_words):
-                matched_course = course
-                break
-
-    # 5. Token overlap match (multi-word titles)
-    if not matched_course:
-        for course in vtop_courses:
-            title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
-            stopwords = {"AND", "&", "THE", "FOR", "LAB", "THEORY", "PRACTICAL", "ONLY", "FALL", "WINTER"}
-            words = [w for w in re.findall(r"[A-Z]{3,}", title) if w not in stopwords]
-            if words and len(words) >= 2:
-                if all(w in combined_text for w in words):
-                    matched_course = course
-                    break
-
-    if not matched_course:
-        return None
-
-    # Step 2: Check professor name of that course if candidate_professors provided
-    if candidate_professors is not None:
-        vtop_faculty = matched_course.get("faculty")
-        candidate_sources = list(candidate_professors) + [team_name, team_desc]
-        if not match_faculty_names(vtop_faculty, candidate_sources):
-            logger.warning(
-                "Teams '%s' matched course [%s], but faculty '%s' did not match candidate instructors %s",
-                team_name,
-                matched_course.get("code"),
-                vtop_faculty,
-                candidate_sources,
-            )
-            return None
-
-    return matched_course
+    verified_records = build_verified_semester_course_records({"courses": vtop_courses})
+    is_verified, matched_rec, _ = verify_external_course(
+        enrolled_records=verified_records,
+        source="Teams",
+        source_id="team",
+        source_name=team_name,
+        source_desc=team_desc,
+        source_professors=candidate_professors,
+    )
+    if is_verified and matched_rec:
+        return next(
+            (c for c in vtop_courses if canonicalize_course_code(c.get("code") or c.get("courseCode")) == matched_rec.courseCode),
+            None,
+        )
+    return None
 
 
 def parse_teams_adaptive_card(att: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -696,6 +651,9 @@ def fetch_microsoft_teams_coursework(
 
     logger.info("Found %d Teams for student %s. Matching with %d VTOP courses...", len(teams_list), email, len(vtop_courses))
 
+    verified_enrolled = build_verified_semester_course_records({"courses": vtop_courses})
+    course_matches: List[Dict[str, Any]] = []
+
     # 3. Match Teams enrolled subjects with VTOP enrolled subjects
     for team in teams_list:
         team_id = team.get("id")
@@ -705,22 +663,42 @@ def fetch_microsoft_teams_coursework(
         # Retrieve instructor / owner names from Microsoft Graph API
         team_professors = get_team_professors(team_id, headers)
 
-        # Check 1: Enrolled course in that semester
-        # Check 2: Professor name of that course
-        matched_vtop = match_team_to_vtop_course(team_name, team_desc, vtop_courses, candidate_professors=team_professors)
-        if matched_vtop:
-            code = matched_vtop.get("code") or matched_vtop.get("courseCode")
-            title = matched_vtop.get("title") or matched_vtop.get("courseTitle")
-            faculty = matched_vtop.get("faculty")
-            logger.info("Verified enrolled course [%s: %s] AND professor [%s] with Teams '%s' (%s). Fetching assignments...", code, title, faculty, team_name, team_id)
+        # Strict Two-Stage Verification: 1. Course Code 2. Faculty Identity
+        is_verified, matched_rec, match_meta = verify_external_course(
+            enrolled_records=verified_enrolled,
+            source="Teams",
+            source_id=team_id,
+            source_name=team_name,
+            source_desc=team_desc,
+            source_professors=team_professors,
+        )
+        course_matches.append(match_meta.model_dump())
+
+        if is_verified and matched_rec:
+            matched_vtop = {
+                "code": matched_rec.courseCode,
+                "title": matched_rec.courseName,
+                "faculty": matched_rec.facultyName,
+                "facultyId": matched_rec.facultyId,
+                "slot": matched_rec.slot,
+                "section": matched_rec.section,
+            }
+            logger.info("Verified enrolled course [%s: %s] AND professor [%s] with Teams '%s' (%s). Fetching assignments...", matched_rec.courseCode, matched_rec.courseName, matched_rec.facultyName, team_name, team_id)
 
             # 4. Go to assignments section in Teams and fetch details for that subject
             subject_assignments = fetch_assignments_for_matched_team(team_id, team_name, matched_vtop, headers)
 
+            for sa in subject_assignments:
+                sa["verifiedCourseMatchId"] = f"match-teams-{team_id}"
+                sa["subjectId"] = matched_rec.courseCode
+                sa["courseCode"] = matched_rec.courseCode
+                sa["courseTitle"] = matched_rec.courseName
+                sa["faculty"] = matched_rec.facultyName
+
             matched_subjects.append({
-                "courseCode": code,
-                "courseTitle": title,
-                "faculty": faculty,
+                "courseCode": matched_rec.courseCode,
+                "courseTitle": matched_rec.courseName,
+                "faculty": matched_rec.facultyName,
                 "teamId": team_id,
                 "teamName": team_name,
                 "assignmentsCount": len(subject_assignments),
@@ -728,7 +706,7 @@ def fetch_microsoft_teams_coursework(
 
             all_assignments.extend(subject_assignments)
         else:
-            logger.debug("Teams channel '%s' skipped (course not enrolled or professor did not match).", team_name)
+            logger.debug("Teams channel '%s' skipped: %s", team_name, match_meta.rejectionReason)
 
     # 5. Also query general /education/me/assignments for any assignments already published
     try:
@@ -741,16 +719,16 @@ def fetch_microsoft_teams_coursework(
                     continue
 
                 class_id = item.get("classId") or ""
-                # Attempt to link to VTOP course: verify course AND professor
-                matched_course = None
-                for c in vtop_courses:
-                    if normalize_course_code(c.get("code")) in normalize_course_code(class_id):
-                        if match_faculty_names(c.get("faculty"), [item.get("classDisplayName", "")]):
-                            matched_course = c
-                            break
-
-                # Only include if both course and professor match
-                if not matched_course:
+                class_name = item.get("classDisplayName") or ""
+                # Verify course and faculty
+                is_v, matched_c, _ = verify_external_course(
+                    enrolled_records=verified_enrolled,
+                    source="Teams",
+                    source_id=class_id,
+                    source_name=f"{class_id} {class_name}",
+                    source_professors=[class_name],
+                )
+                if not is_v or not matched_c:
                     continue
 
                 due_dt = item.get("dueDateTime") or ""
@@ -764,10 +742,12 @@ def fetch_microsoft_teams_coursework(
 
                 all_assignments.append({
                     "id": assign_id,
+                    "verifiedCourseMatchId": f"match-teams-{class_id}",
+                    "subjectId": matched_c.courseCode,
                     "title": item.get("displayName") or "Teams Assignment",
-                    "courseCode": matched_course.get("code"),
-                    "courseTitle": matched_course.get("title"),
-                    "faculty": matched_course.get("faculty"),
+                    "courseCode": matched_c.courseCode,
+                    "courseTitle": matched_c.courseName,
+                    "faculty": matched_c.facultyName,
                     "source": "Teams",
                     "platformName": "Microsoft Teams",
                     "platformUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
@@ -781,7 +761,7 @@ def fetch_microsoft_teams_coursework(
     except Exception as exc:
         logger.debug("Global education assignments query: %s", exc)
 
-    return user_info, all_assignments, matched_subjects
+    return user_info, all_assignments, matched_subjects, course_matches
 
 
 @router.get("/status")
@@ -863,7 +843,7 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
                 })
 
     # 3. Match Teams enrolled subjects with VTOP enrolled subjects and fetch authentic assignments
-    user_info, teams_assignments, matched_subjects = fetch_microsoft_teams_coursework(
+    user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
         access_token, email, vtop_courses
     )
 
@@ -888,6 +868,7 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
         "matchedSubjects": matched_subjects,
         "matchedCount": len(matched_subjects),
         "totalTeamsCount": user_info.get("teamsCount", 0),
+        "courseMatches": course_matches,
     }
 
     save_store(store)

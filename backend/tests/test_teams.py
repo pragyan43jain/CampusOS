@@ -196,26 +196,52 @@ class TestTeamsAuthenticationErrors:
 
 
 class TestVTOPAndTeamsSubjectMatching:
-    def test_match_team_by_exact_course_code(self):
-        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems"}]
-        match = match_team_to_vtop_course("BCSE302L - Database Systems (F2+TF2)", "Fall 2026", vtop_courses)
+    def test_match_requires_exact_course_code_and_faculty(self):
+        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems", "faculty": "RISHIKESHAN C A"}]
+        match = match_team_to_vtop_course(
+            "BCSE302L - Database Systems (F2+TF2) - RISHIKESHAN C A",
+            "Fall 2026",
+            vtop_courses,
+            candidate_professors=["RISHIKESHAN C A"],
+        )
         assert match is not None
         assert match["code"] == "BCSE302L"
 
-    def test_match_team_by_base_course_code(self):
-        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems"}]
-        match = match_team_to_vtop_course("BCSE302 - Database Systems", "", vtop_courses)
-        assert match is not None
-        assert match["code"] == "BCSE302L"
+    def test_theory_vs_lab_course_code_distinction(self):
+        """BCSE308L must not match BCSE308P."""
+        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks", "faculty": "JAYA VIGNESH T"}]
+        match = match_team_to_vtop_course(
+            "BCSE308P - Computer Networks Lab - JAYA VIGNESH T",
+            "",
+            vtop_courses,
+            candidate_professors=["JAYA VIGNESH T"],
+        )
+        assert match is None
 
-    def test_match_team_by_title_keywords(self):
-        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks"}]
-        match = match_team_to_vtop_course("Computer Networks Class Team 2026", "", vtop_courses)
-        assert match is not None
-        assert match["code"] == "BCSE308L"
+    def test_base_code_without_suffix_fails_match(self):
+        """BCSE308 without suffix L/P must not match BCSE308L."""
+        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks", "faculty": "JAYA VIGNESH T"}]
+        match = match_team_to_vtop_course(
+            "BCSE308 - Computer Networks - JAYA VIGNESH T",
+            "",
+            vtop_courses,
+            candidate_professors=["JAYA VIGNESH T"],
+        )
+        assert match is None
+
+    def test_title_only_without_course_code_fails(self):
+        """Title only without course code must fail closed."""
+        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks", "faculty": "JAYA VIGNESH T"}]
+        match = match_team_to_vtop_course(
+            "Computer Networks Class Team 2026 - JAYA VIGNESH T",
+            "",
+            vtop_courses,
+            candidate_professors=["JAYA VIGNESH T"],
+        )
+        assert match is None
 
     def test_unrelated_team_does_not_match(self):
-        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems"}]
+        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems", "faculty": "RISHIKESHAN C A"}]
         match = match_team_to_vtop_course("University Music Club", "Extracurricular", vtop_courses)
         assert match is None
 
@@ -223,7 +249,7 @@ class TestVTOPAndTeamsSubjectMatching:
         vtop_courses = [{"code": "BECE355L", "title": "Advanced Cloud Computing", "faculty": "UPENDER P"}]
         # 1. Matching course and matching professor -> Success
         match_ok = match_team_to_vtop_course(
-            "C2+TC2 2026 (Advanced Cloud Computing)",
+            "BECE355L 2026 (Advanced Cloud Computing) - UPENDER P",
             "Class team",
             vtop_courses,
             candidate_professors=["UPENDER P"],
@@ -240,9 +266,18 @@ class TestVTOPAndTeamsSubjectMatching:
         )
         assert match_wrong_prof is None
 
-        # 3. Unenrolled course with same professor -> Reject
+        # 3. Missing faculty -> Fail closed
+        match_missing_prof = match_team_to_vtop_course(
+            "BECE355L Cloud Computing",
+            "",
+            vtop_courses,
+            candidate_professors=None,
+        )
+        assert match_missing_prof is None
+
+        # 4. Unenrolled course with same professor -> Reject
         match_unenrolled = match_team_to_vtop_course(
-            "MAT1001 Calculus",
+            "MAT1001 Calculus - UPENDER P",
             "",
             vtop_courses,
             candidate_professors=["UPENDER P"],

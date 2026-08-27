@@ -334,6 +334,7 @@ export interface SubjectAssignmentGroup {
   overdueCount: number;
   dueSoonCount: number;
   totalCount: number;
+  syncStatusNote?: string;
 }
 
 export interface AcademicAccount {

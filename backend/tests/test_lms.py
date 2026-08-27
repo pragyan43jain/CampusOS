@@ -64,19 +64,35 @@ class TestLMSStatus:
 
 class TestLMSMatchingAndParsing:
     def test_match_by_code(self):
-        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems"}]
-        match = match_lms_course_to_vtop("BCSE302L - Database Systems (WIN 2026)", "1024", vtop_courses)
+        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems", "faculty": "RISHIKESHAN C A"}]
+        match = match_lms_course_to_vtop(
+            "BCSE302L - Database Systems (WIN 2026) - RISHIKESHAN C A",
+            "1024",
+            vtop_courses,
+            candidate_professors=["RISHIKESHAN C A"],
+        )
         assert match is not None
         assert match["code"] == "BCSE302L"
 
-    def test_match_by_title(self):
-        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks"}]
-        match = match_lms_course_to_vtop("Computer Networks - Theory Class", "2048", vtop_courses)
-        assert match is not None
-        assert match["code"] == "BCSE308L"
+    def test_title_without_course_code_fails(self):
+        """Title only without course code must fail closed."""
+        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks", "faculty": "JAYA VIGNESH T"}]
+        match = match_lms_course_to_vtop("Computer Networks - Theory Class", "2048", vtop_courses, candidate_professors=["JAYA VIGNESH T"])
+        assert match is None
+
+    def test_theory_vs_lab_distinction(self):
+        """BCSE308L must not match BCSE308P."""
+        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks", "faculty": "JAYA VIGNESH T"}]
+        match = match_lms_course_to_vtop(
+            "Computer Networks Lab (BCSE308P)",
+            "2048",
+            vtop_courses,
+            candidate_professors=["JAYA VIGNESH T"],
+        )
+        assert match is None
 
     def test_unrelated_course_does_not_match(self):
-        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems"}]
+        vtop_courses = [{"code": "BCSE302L", "title": "Database Systems", "faculty": "RISHIKESHAN C A"}]
         match = match_lms_course_to_vtop("Extra French Language Workshop", "9999", vtop_courses)
         assert match is None
 
@@ -100,6 +116,15 @@ class TestLMSMatchingAndParsing:
             candidate_professors=["Dr. Random Teacher"],
         )
         assert match_wrong_prof is None
+
+        # 3. Missing professor -> Reject
+        match_no_prof = match_lms_course_to_vtop(
+            "Computer Networks(BCSE308L)",
+            "2179",
+            vtop_courses,
+            candidate_professors=None,
+        )
+        assert match_no_prof is None
 
 
     def test_moodle_date_parser(self):

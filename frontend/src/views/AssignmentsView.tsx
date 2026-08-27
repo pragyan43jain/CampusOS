@@ -1140,13 +1140,27 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                         style={{
                           padding: '16px',
                           textAlign: 'center',
-                          color: 'var(--text-muted)',
+                          color: subject.syncStatusNote?.includes('could not be verified') ? '#f59e0b' : 'var(--text-muted)',
                           fontSize: '0.84rem',
                           background: 'var(--bg-surface-elevated)',
                           borderRadius: 'var(--radius-md)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
                         }}
                       >
-                        ✓ No assignments currently published for this subject on Teams or LMS.
+                        {subject.syncStatusNote?.includes('could not be verified') ? (
+                          <>
+                            <AlertTriangle size={15} color="#f59e0b" />
+                            <span>{subject.syncStatusNote}</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 size={15} color="var(--text-muted)" />
+                            <span>{subject.syncStatusNote || 'No assignments found.'}</span>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
