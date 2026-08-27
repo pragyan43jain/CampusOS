@@ -1,231 +1,1199 @@
-import React, { useState } from 'react';
-import { Assignment } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Assignment, SubjectAssignmentGroup, UnifiedAssignmentsDashboard, AcademicAccount } from '../types';
+import { CampusAPI } from '../services/api';
+import { TeamsLoginModal } from '../components/TeamsLoginModal';
+import { LMSLoginModal } from '../components/LMSLoginModal';
+import {
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  RefreshCw,
+  Unlink,
+  FolderSync,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Search,
+  Layers,
+} from 'lucide-react';
 
 interface AssignmentsViewProps {
-  assignments: Assignment[];
+  assignments?: Assignment[];
   onToggleStatus: (id: string, currentStatus: 'Pending' | 'Submitted') => void;
+  onAssignmentsUpdated?: (newAssignments: Assignment[]) => void;
+  studentEmail?: string;
+  studentRegNo?: string;
 }
 
 export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
-  assignments,
+  assignments: _assignments,
   onToggleStatus,
+  onAssignmentsUpdated,
+  studentEmail,
+  studentRegNo,
 }) => {
-  const [filter, setFilter] = useState<'ALL' | 'LMS' | 'TEAMS' | 'PENDING' | 'SUBMITTED'>('ALL');
+  // Navigation & Modals
+  const [isTeamsModalOpen, setIsTeamsModalOpen] = useState(false);
+  const [isLMSModalOpen, setIsLMSModalOpen] = useState(false);
 
-  const filteredAssignments = assignments.filter((a) => {
-    if (filter === 'LMS') return a.source === 'LMS';
-    if (filter === 'TEAMS') return a.source === 'Teams';
-    if (filter === 'PENDING') return a.status === 'Pending';
-    if (filter === 'SUBMITTED') return a.status === 'Submitted';
-    return true;
-  });
+  // Accounts & Dashboard State
+  const [dashboard, setDashboard] = useState<UnifiedAssignmentsDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncingTeams, setSyncingTeams] = useState(false);
+  const [syncingLMS, setSyncingLMS] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
-  const pendingCount = assignments.filter((a) => a.status === 'Pending').length;
-  const lmsCount = assignments.filter((a) => a.source === 'LMS' && a.status === 'Pending').length;
-  const teamsCount = assignments.filter((a) => a.source === 'Teams' && a.status === 'Pending').length;
+  // Filter & Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CAUGHT_UP'>('ALL');
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS' | 'BOTH'>('ALL');
+
+  // Accordion open/close state per subject
+  const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
+
+  // Fetch unified dashboard from backend
+  const loadUnifiedData = async () => {
+    try {
+      setLoading(true);
+      setSyncError(null);
+      const data = await CampusAPI.getUnifiedAssignments();
+      setDashboard(data);
+
+      // Default expand subjects with pending or overdue assignments
+      const initialOpen: Record<string, boolean> = {};
+      data.subjects.forEach((s: SubjectAssignmentGroup) => {
+        if (s.pendingCount > 0 || s.overdueCount > 0) {
+          initialOpen[s.courseCode] = true;
+        }
+      });
+      setExpandedSubjects(initialOpen);
+
+      // Sync with parent assignments state if handler provided
+      if (onAssignmentsUpdated && data.subjects) {
+        const flatList: Assignment[] = [];
+        data.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
+        if (flatList.length > 0) {
+          onAssignmentsUpdated(flatList);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to load unified assignments:', err);
+      setSyncError('Could not retrieve latest assignment data. Previously cached records remain visible.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUnifiedData();
+  }, []);
+
+  const toggleSubjectExpand = (courseCode: string) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [courseCode]: !prev[courseCode],
+    }));
+  };
+
+  const handleRefreshAll = async () => {
+    setSyncingAll(true);
+    setSyncError(null);
+    try {
+      const res = await CampusAPI.syncAllAcademicAccounts();
+      if (res.dashboard) {
+        setDashboard(res.dashboard);
+        if (onAssignmentsUpdated && res.dashboard.subjects) {
+          const flatList: Assignment[] = [];
+          res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
+          onAssignmentsUpdated(flatList);
+        }
+      } else {
+        await loadUnifiedData();
+      }
+    } catch (err: any) {
+      setSyncError(err.message || 'Failed to refresh academic platforms.');
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
+  const handleToggleAssignmentStatus = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
+    const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
+
+    // Optimistically update local dashboard state for instant feedback
+    setDashboard((prev) => {
+      if (!prev) return prev;
+      const newSubjects = prev.subjects.map((sub) => {
+        let changed = false;
+        const newAssignments = sub.assignments.map((a) => {
+          if (a.id === id) {
+            changed = true;
+            return {
+              ...a,
+              status: nextStatus as any,
+              displayStatus: nextStatus,
+              isOverdue: false,
+              isDueSoon: false,
+            };
+          }
+          return a;
+        });
+        if (!changed) return sub;
+        const pCount = newAssignments.filter((a) => a.status === 'Pending').length;
+        const sCount = newAssignments.filter((a) => a.status === 'Submitted').length;
+        return {
+          ...sub,
+          assignments: newAssignments,
+          pendingCount: pCount,
+          submittedCount: sCount,
+        };
+      });
+      return {
+        ...prev,
+        subjects: newSubjects,
+        totalPendingAssignments: newSubjects.reduce((acc, s) => acc + s.pendingCount, 0),
+        totalSubmittedAssignments: newSubjects.reduce((acc, s) => acc + s.submittedCount, 0),
+      };
+    });
+
+    onToggleStatus(id, currentStatus);
+  };
+
+  const handleSyncTeams = async () => {
+    setSyncingTeams(true);
+    try {
+      await CampusAPI.syncTeams();
+      await loadUnifiedData();
+    } catch (err: any) {
+      setSyncError('Failed to refresh Microsoft Teams.');
+    } finally {
+      setSyncingTeams(false);
+    }
+  };
+
+  const handleDisconnectTeams = async () => {
+    if (window.confirm('Are you sure you want to disconnect Microsoft Teams?')) {
+      try {
+        await CampusAPI.disconnectTeams();
+        await loadUnifiedData();
+      } catch (err) {
+        console.error('Failed to disconnect Teams:', err);
+      }
+    }
+  };
+
+  const handleSyncLMS = async () => {
+    setSyncingLMS(true);
+    try {
+      await CampusAPI.syncLMS();
+      await loadUnifiedData();
+    } catch (err: any) {
+      setSyncError('Failed to refresh VIT LMS.');
+    } finally {
+      setSyncingLMS(false);
+    }
+  };
+
+  const handleDisconnectLMS = async () => {
+    if (window.confirm('Are you sure you want to disconnect VIT LMS?')) {
+      try {
+        await CampusAPI.disconnectLMS();
+        await loadUnifiedData();
+      } catch (err) {
+        console.error('Failed to disconnect LMS:', err);
+      }
+    }
+  };
+
+  // Filtered subjects computation
+  const filteredSubjects = useMemo(() => {
+    if (!dashboard) return [];
+    return dashboard.subjects.filter((sub) => {
+      // 1. Search Query
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        sub.courseCode.toLowerCase().includes(q) ||
+        sub.courseTitle.toLowerCase().includes(q) ||
+        (sub.faculty && sub.faculty.toLowerCase().includes(q)) ||
+        sub.assignments.some((a) => a.title.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+
+      // 2. Status Filter
+      if (statusFilter === 'PENDING' && sub.pendingCount === 0) return false;
+      if (statusFilter === 'CAUGHT_UP' && sub.pendingCount > 0) return false;
+
+      // 3. Source Filter
+      if (sourceFilter === 'TEAMS' && !sub.teamsMatched) return false;
+      if (sourceFilter === 'LMS' && !sub.lmsMatched) return false;
+      if (sourceFilter === 'BOTH' && (!sub.teamsMatched || !sub.lmsMatched)) return false;
+
+      return true;
+    });
+  }, [dashboard, searchQuery, statusFilter, sourceFilter]);
+
+  const teamsAccount: AcademicAccount = dashboard?.connectedAccounts?.teams || { connected: false };
+  const lmsAccount: AcademicAccount = dashboard?.connectedAccounts?.lms || { connected: false };
+  const isAnyAccountConnected = teamsAccount.connected || lmsAccount.connected;
+
+  const currentSemName = dashboard?.currentSemester?.name || 'Fall Semester 2026-27';
+
+  if (loading && !dashboard) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <RefreshCw size={28} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 14px', display: 'block' }} />
+        <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+          Loading Academic Assignments...
+        </h4>
+        <p style={{ fontSize: '0.84rem', margin: '4px 0 0' }}>
+          Aggregating coursework from Microsoft Teams & VIT LMS
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-content">
-      {/* Section Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Assignments & Submissions</h2>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Unified live sync from <b>VIT Moodle LMS</b> & <b>Microsoft Teams</b>.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* 1. Header & Academic Accounts Connection Section */}
+      <div
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-medium)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '24px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={24} color="var(--brand-color)" />
+                <span>Academic Assignment Inbox</span>
+              </h2>
+              <span
+                style={{
+                  background: 'var(--brand-bg)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--brand-color)',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  padding: '3px 10px',
+                  borderRadius: 'var(--radius-full)',
+                }}
+              >
+                📅 {currentSemName}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '5px', margin: 0 }}>
+              Unified task inbox aggregating authentic coursework from <b>Microsoft Teams</b> and <b>VIT LMS</b>.
+            </p>
+          </div>
+
+          {/* Global Refresh Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {dashboard?.lastSynced && (
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Last synchronized: <b>{new Date(dashboard.lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</b>
+              </span>
+            )}
+            <button
+              onClick={handleRefreshAll}
+              disabled={syncingAll || !isAnyAccountConnected}
+              className="btn-outline"
+              style={{
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                padding: '8px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+              }}
+              title="Refresh assignments across Teams & LMS"
+            >
+              <RefreshCw size={15} style={{ animation: syncingAll ? 'spin 1s linear infinite' : 'none' }} />
+              <span>{syncingAll ? 'Refreshing All...' : 'Refresh Assignments'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sync Error Banner if any */}
+        {syncError && (
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              color: '#ef4444',
+              fontSize: '0.84rem',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={17} />
+              <span>{syncError}</span>
+            </div>
+            <button onClick={handleRefreshAll} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline' }}>
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Dedicated "Connect Academic Accounts" Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          {/* Card 1: Microsoft Teams */}
+          <div
+            style={{
+              background: 'var(--bg-surface-elevated)',
+              border: `1px solid ${teamsAccount.connected ? 'rgba(99, 102, 241, 0.3)' : 'var(--border-subtle)'}`,
+              borderRadius: 'var(--radius-lg)',
+              padding: '16px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  💜
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                      Microsoft Teams
+                    </h4>
+                    {teamsAccount.connected ? (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success-emerald)', border: '1px solid var(--success-border)' }}>
+                        ✓ Connected
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 'var(--radius-full)', background: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                        ✕ Not Connected
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    {teamsAccount.connected ? (
+                      <span>{teamsAccount.email} • <b>{teamsAccount.matchedCount || 0} subjects matched</b></span>
+                    ) : (
+                      <span>Sign in with university Microsoft account</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://www.microsoft.com/en-in/microsoft-teams/log-in"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}
+                title="Open official Microsoft Teams portal"
+              >
+                <span>Portal</span>
+                <ExternalLink size={11} />
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              {teamsAccount.connected ? (
+                <>
+                  <button
+                    onClick={handleSyncTeams}
+                    disabled={syncingTeams}
+                    className="btn-outline"
+                    style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+                  >
+                    <RefreshCw size={13} style={{ animation: syncingTeams ? 'spin 1s linear infinite' : 'none' }} />
+                    <span>{syncingTeams ? 'Syncing...' : 'Re-sync'}</span>
+                  </button>
+                  <button
+                    onClick={handleDisconnectTeams}
+                    className="btn-outline"
+                    style={{ fontSize: '0.78rem', padding: '5px 10px', color: 'var(--danger-crimson)' }}
+                  >
+                    <Unlink size={13} />
+                    <span>Unlink</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setIsTeamsModalOpen(true)}
+                  className="btn-primary"
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '7px 14px',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                    border: 'none',
+                    fontWeight: 800,
+                  }}
+                >
+                  Connect Microsoft Teams
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: VIT LMS */}
+          <div
+            style={{
+              background: 'var(--bg-surface-elevated)',
+              border: `1px solid ${lmsAccount.connected ? 'rgba(2, 132, 199, 0.3)' : 'var(--border-subtle)'}`,
+              borderRadius: 'var(--radius-lg)',
+              padding: '16px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  🎓
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                      VIT LMS (Moodle)
+                    </h4>
+                    {lmsAccount.connected ? (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success-emerald)', border: '1px solid var(--success-border)' }}>
+                        ✓ Connected
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 'var(--radius-full)', background: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+                        ✕ Not Connected
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                    {lmsAccount.connected ? (
+                      <span>{lmsAccount.username || lmsAccount.displayName} • <b>{lmsAccount.matchedCount || 0} subjects matched</b></span>
+                    ) : (
+                      <span>Connect with LMS credentials or session cookie</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://lms.vit.ac.in"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}
+                title="Open official VIT LMS portal"
+              >
+                <span>Portal</span>
+                <ExternalLink size={11} />
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              {lmsAccount.connected ? (
+                <>
+                  <button
+                    onClick={handleSyncLMS}
+                    disabled={syncingLMS}
+                    className="btn-outline"
+                    style={{ fontSize: '0.78rem', padding: '5px 10px' }}
+                  >
+                    <RefreshCw size={13} style={{ animation: syncingLMS ? 'spin 1s linear infinite' : 'none' }} />
+                    <span>{syncingLMS ? 'Syncing...' : 'Re-sync'}</span>
+                  </button>
+                  <button
+                    onClick={handleDisconnectLMS}
+                    className="btn-outline"
+                    style={{ fontSize: '0.78rem', padding: '5px 10px', color: 'var(--danger-crimson)' }}
+                  >
+                    <Unlink size={13} />
+                    <span>Unlink</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setIsLMSModalOpen(true)}
+                  className="btn-primary"
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '7px 14px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    border: 'none',
+                    fontWeight: 800,
+                  }}
+                >
+                  Connect VIT LMS
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Filter, Search & Status Metrics Toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+        }}
+      >
+        {/* Search Bar */}
+        <div style={{ position: 'relative', width: '280px', maxWidth: '100%' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input
+            type="text"
+            placeholder="Search subject code or title..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px 8px 36px',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-primary)',
+              fontSize: '0.84rem',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
 
         {/* Filter Pills */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            className={filter === 'ALL' ? 'btn-primary' : 'btn-outline'}
-            onClick={() => setFilter('ALL')}
-          >
-            All ({assignments.length})
-          </button>
-          <button
-            className={filter === 'PENDING' ? 'btn-primary' : 'btn-outline'}
-            onClick={() => setFilter('PENDING')}
-          >
-            ⏳ Pending ({pendingCount})
-          </button>
-          <button
-            className={filter === 'LMS' ? 'btn-primary' : 'btn-outline'}
-            onClick={() => setFilter('LMS')}
-          >
-            🌐 VIT LMS ({lmsCount})
-          </button>
-          <button
-            className={filter === 'TEAMS' ? 'btn-primary' : 'btn-outline'}
-            onClick={() => setFilter('TEAMS')}
-          >
-            💜 MS Teams ({teamsCount})
-          </button>
-          <button
-            className={filter === 'SUBMITTED' ? 'btn-primary' : 'btn-outline'}
-            onClick={() => setFilter('SUBMITTED')}
-          >
-            ✓ Submitted
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Banner */}
-      <div style={{ background: 'var(--card-banner-bg)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active LMS Uploads</span>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--brand-color)', marginTop: '2px' }}>{lmsCount} Pending</div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Moodle Digital Assignments</span>
-        </div>
-        <div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Teams Uploads</span>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#c084fc', marginTop: '2px' }}>{teamsCount} Pending</div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Class Teams Channel Tasks</span>
-        </div>
-        <div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Weightage at Stake</span>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--warning-amber)', marginTop: '2px' }}>
-            {assignments.filter(a => a.status === 'Pending').reduce((acc, a) => acc + (a.weightage ?? a.weightagePercentage ?? 0), 0)}% Internal
-          </div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Marks towards continuous evaluation</span>
-        </div>
-      </div>
-
-      {/* Assignments List */}
-      <div className="assignments-container">
-        {filteredAssignments.map((assignment) => {
-          const isPending = assignment.status === 'Pending';
-          const isLms = assignment.source === 'LMS';
-
-          return (
-            <div
-              key={assignment.id}
-              className="assignment-item-card"
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Status Filter */}
+          <div style={{ display: 'flex', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '2px' }}>
+            <button
+              onClick={() => setStatusFilter('ALL')}
               style={{
-                borderColor: isPending && assignment.priority === 'Critical' ? 'var(--danger-border)' : 'var(--border-subtle)',
-                background: isPending ? 'var(--bg-surface)' : 'rgba(0, 0, 0, 0.05)',
-                opacity: isPending ? 1 : 0.75,
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                gap: '16px',
-                padding: '22px 24px',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.78rem',
+                fontWeight: statusFilter === 'ALL' ? 800 : 600,
+                background: statusFilter === 'ALL' ? 'var(--brand-color)' : 'transparent',
+                color: statusFilter === 'ALL' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
               }}
             >
-              {/* Header Row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 }}>
-                  <input
-                    type="checkbox"
-                    checked={assignment.status === 'Submitted'}
-                    onChange={() => onToggleStatus(assignment.id, assignment.status)}
-                    style={{ width: '20px', height: '20px', accentColor: 'var(--brand-color)', marginTop: '4px', cursor: 'pointer' }}
-                    title="Mark as Submitted / Pending"
-                  />
+              All Subjects ({dashboard?.subjects?.length || 0})
+            </button>
+            <button
+              onClick={() => setStatusFilter('PENDING')}
+              style={{
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.78rem',
+                fontWeight: statusFilter === 'PENDING' ? 800 : 600,
+                background: statusFilter === 'PENDING' ? 'var(--brand-color)' : 'transparent',
+                color: statusFilter === 'PENDING' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Pending Tasks ({dashboard?.totalPendingAssignments || 0})
+            </button>
+            <button
+              onClick={() => setStatusFilter('CAUGHT_UP')}
+              style={{
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.78rem',
+                fontWeight: statusFilter === 'CAUGHT_UP' ? 800 : 600,
+                background: statusFilter === 'CAUGHT_UP' ? 'var(--brand-color)' : 'transparent',
+                color: statusFilter === 'CAUGHT_UP' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Caught Up
+            </button>
+          </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      {/* Platform Tag */}
-                      <span
-                        className={`assignment-source-badge ${assignment.source.toLowerCase()}`}
-                        style={{
-                          background: isLms ? 'rgba(56, 189, 248, 0.15)' : 'rgba(192, 132, 252, 0.15)',
-                          color: isLms ? 'var(--brand-color)' : '#c084fc',
-                          border: `1px solid ${isLms ? 'rgba(56, 189, 248, 0.3)' : 'rgba(192, 132, 252, 0.3)'}`,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 9px',
-                          borderRadius: 'var(--radius-sm)',
-                          fontWeight: 700,
-                          fontSize: '0.74rem',
-                        }}
-                      >
-                        <span>{isLms ? '🌐' : '💜'}</span>
-                        <span>Uploaded on {assignment.platformName}</span>
-                      </span>
+          {/* Platform Source Filter */}
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as any)}
+            style={{
+              padding: '6px 10px',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-primary)',
+              fontSize: '0.78rem',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="ALL">All Platforms</option>
+            <option value="TEAMS">Microsoft Teams</option>
+            <option value="LMS">VIT LMS</option>
+            <option value="BOTH">Both Teams & LMS</option>
+          </select>
+        </div>
+      </div>
 
-                      {/* Course Code */}
-                      <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
-                        {assignment.courseCode}
-                      </span>
+      {/* 3. Empty State: No Accounts Linked Yet */}
+      {!isAnyAccountConnected && (
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px dashed var(--border-medium)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '48px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '14px',
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '16px',
+              background: 'var(--brand-bg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.8rem',
+            }}
+          >
+            📬
+          </div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+            Assignments haven't been synchronized yet
+          </h3>
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: '480px', margin: 0, lineHeight: 1.5 }}>
+            Connect your <b>Microsoft Teams</b> and <b>VIT LMS</b> accounts above to automatically aggregate class tasks, submission deadlines, and direct submission links for <b>{currentSemName}</b>.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '6px' }}>
+            <button
+              onClick={() => setIsTeamsModalOpen(true)}
+              className="btn-primary"
+              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', border: 'none', fontWeight: 800, padding: '10px 18px', fontSize: '0.85rem' }}
+            >
+              💜 Connect Microsoft Teams
+            </button>
+            <button
+              onClick={() => setIsLMSModalOpen(true)}
+              className="btn-primary"
+              style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', border: 'none', fontWeight: 800, padding: '10px 18px', fontSize: '0.85rem' }}
+            >
+              🎓 Connect VIT LMS
+            </button>
+          </div>
+        </div>
+      )}
 
-                      {/* Priority Tag */}
-                      {isPending && (
+      {/* 4. Empty State: Genuinely Caught Up */}
+      {isAnyAccountConnected && dashboard && dashboard.totalPendingAssignments === 0 && dashboard.subjects.length > 0 && statusFilter !== 'ALL' && (
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '40px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '16px',
+              background: 'var(--success-bg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.6rem',
+              color: 'var(--success-emerald)',
+            }}
+          >
+            🎉
+          </div>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+            No pending assignments
+          </h3>
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', maxWidth: '440px', margin: 0 }}>
+            You're currently caught up across your connected academic platforms for {currentSemName}. All submitted work is recorded.
+          </p>
+        </div>
+      )}
+
+      {/* 5. Primary Interface: "Subject first, assignment second, source third" */}
+      {filteredSubjects.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {filteredSubjects.map((subject: SubjectAssignmentGroup) => {
+            const isExpanded = !!expandedSubjects[subject.courseCode];
+            const hasPending = subject.pendingCount > 0;
+            const hasOverdue = subject.overdueCount > 0;
+
+            return (
+              <div
+                key={subject.courseCode}
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: `1px solid ${hasOverdue ? 'rgba(239, 68, 68, 0.35)' : (hasPending ? 'var(--border-medium)' : 'var(--border-subtle)')}`,
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  transition: 'box-shadow 0.2s ease',
+                  boxShadow: hasOverdue ? '0 4px 16px rgba(239, 68, 68, 0.08)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                }}
+              >
+                {/* Subject Header Card */}
+                <div
+                  onClick={() => toggleSubjectExpand(subject.courseCode)}
+                  style={{
+                    padding: '16px 20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    background: isExpanded ? 'var(--bg-surface-elevated)' : 'transparent',
+                    borderBottom: isExpanded ? '1px solid var(--border-subtle)' : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    {/* Course Code Badge */}
+                    <div
+                      style={{
+                        padding: '6px 12px',
+                        background: 'var(--brand-bg)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-md)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.88rem',
+                        fontWeight: 900,
+                        color: 'var(--brand-color)',
+                        minWidth: '85px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {subject.courseCode}
+                    </div>
+
+                    <div>
+                      {/* Subject Name */}
+                      <h4 style={{ fontSize: '1.08rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                        {subject.courseTitle}
+                      </h4>
+                      {/* Faculty / Slot metadata */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '3px', flexWrap: 'wrap' }}>
+                        {subject.faculty && (
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            Faculty: <b>{subject.faculty}</b>
+                          </span>
+                        )}
+                        {subject.slot && (
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            • Slot: <b>{subject.slot}</b>
+                          </span>
+                        )}
+                        {subject.type && (
+                          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            • <b>{subject.type}</b>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right side badges & toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Platform Integration Badges */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      {subject.teamsMatched && (
                         <span
                           style={{
-                            fontSize: '0.7rem',
+                            fontSize: '0.68rem',
                             fontWeight: 800,
-                            padding: '2px 8px',
-                            borderRadius: 'var(--radius-full)',
-                            background: assignment.priority === 'Critical' ? 'var(--danger-bg)' : 'var(--warning-bg)',
-                            color: assignment.priority === 'Critical' ? 'var(--danger-crimson)' : 'var(--warning-amber)',
+                            padding: '2px 7px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(99, 102, 241, 0.12)',
+                            color: '#6366f1',
+                            border: '1px solid rgba(99, 102, 241, 0.25)',
                           }}
+                          title={subject.teamsChannelName ? `Teams: ${subject.teamsChannelName}` : 'Teams: Matched'}
                         >
-                          {assignment.priority} Priority
+                          Teams
+                        </span>
+                      )}
+                      {subject.lmsMatched && (
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            padding: '2px 7px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(2, 132, 199, 0.12)',
+                            color: '#0284c7',
+                            border: '1px solid rgba(2, 132, 199, 0.25)',
+                          }}
+                          title={subject.lmsCourseName ? `LMS: ${subject.lmsCourseName}` : 'LMS: Matched'}
+                        >
+                          LMS
                         </span>
                       )}
                     </div>
 
-                    <h3
-                      style={{
-                        fontSize: '1.12rem',
-                        fontWeight: 700,
-                        textDecoration: assignment.status === 'Submitted' ? 'line-through' : 'none',
-                        color: assignment.status === 'Submitted' ? 'var(--text-muted)' : 'var(--text-primary)',
-                      }}
-                    >
-                      {assignment.title}
-                    </h3>
+                    {/* Pending / Overdue Status Pill */}
+                    {hasOverdue ? (
+                      <span
+                        style={{
+                          fontSize: '0.76rem',
+                          fontWeight: 800,
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-full)',
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <AlertTriangle size={13} />
+                        <span>{subject.overdueCount} Overdue</span>
+                      </span>
+                    ) : hasPending ? (
+                      <span
+                        style={{
+                          fontSize: '0.76rem',
+                          fontWeight: 800,
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-full)',
+                          background: 'rgba(245, 158, 11, 0.12)',
+                          color: '#f59e0b',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Clock size={13} />
+                        <span>{subject.pendingCount} Pending Assignment{subject.pendingCount > 1 ? 's' : ''}</span>
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '0.76rem',
+                          fontWeight: 800,
+                          padding: '3px 10px',
+                          borderRadius: 'var(--radius-full)',
+                          background: 'rgba(34, 197, 94, 0.1)',
+                          color: '#22c55e',
+                          border: '1px solid rgba(34, 197, 94, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <CheckCircle2 size={13} />
+                        <span>No Pending</span>
+                      </span>
+                    )}
 
-                    <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                      Course: <b>{assignment.courseTitle}</b> • Uploaded by <b>{assignment.faculty}</b>
-                    </p>
+                    {/* Expand/Collapse Chevron */}
+                    <div style={{ color: 'var(--text-muted)' }}>
+                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </div>
+                  </div>
+                </div>
 
-                    {assignment.instructions && (
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', background: 'var(--bg-surface-elevated)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', marginTop: '4px' }}>
-                        📋 <b>Professor Instructions:</b> {assignment.instructions}
-                      </p>
+                {/* Expanded Assignments Area */}
+                {isExpanded && (
+                  <div style={{ padding: '16px 20px', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {subject.assignments.length > 0 ? (
+                      subject.assignments.map((assignment) => {
+                        const isOverdue = assignment.isOverdue || assignment.displayStatus === 'Overdue';
+                        const isDueSoon = assignment.isDueSoon || assignment.displayStatus === 'Due Soon';
+                        const isSubmitted = assignment.status === 'Submitted' || assignment.displayStatus === 'Submitted';
+                        const isMerged = (assignment.source as string) === 'Teams + LMS' || ((assignment.sourceList?.length || 0) > 1);
+
+                        return (
+                          <div
+                            key={assignment.id}
+                            style={{
+                              background: 'var(--bg-surface-elevated)',
+                              border: `1px solid ${isOverdue ? 'rgba(239, 68, 68, 0.3)' : (isDueSoon ? 'rgba(245, 158, 11, 0.3)' : 'var(--border-subtle)')}`,
+                              borderRadius: 'var(--radius-md)',
+                              padding: '14px 18px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              flexWrap: 'wrap',
+                              gap: '14px',
+                            }}
+                          >
+                            {/* Left Side: Checkbox & Info */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '260px' }}>
+                              <input
+                                type="checkbox"
+                                checked={isSubmitted}
+                                onChange={() => handleToggleAssignmentStatus(assignment.id, isSubmitted ? 'Submitted' : 'Pending')}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  accentColor: 'var(--brand-color)',
+                                  marginTop: '3px',
+                                  cursor: 'pointer',
+                                }}
+                                title="Toggle submission status"
+                              />
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {/* Badges Row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  {/* Source Badge */}
+                                  <span
+                                    style={{
+                                      fontSize: '0.72rem',
+                                      fontWeight: 800,
+                                      padding: '2px 8px',
+                                      borderRadius: 'var(--radius-sm)',
+                                      background: isMerged
+                                        ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(2, 132, 199, 0.15) 100%)'
+                                        : assignment.source === 'Teams'
+                                        ? 'rgba(99, 102, 241, 0.12)'
+                                        : 'rgba(2, 132, 199, 0.12)',
+                                      color: isMerged ? '#4f46e5' : assignment.source === 'Teams' ? '#6366f1' : '#0284c7',
+                                      border: '1px solid var(--border-subtle)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    <span>{assignment.source === 'Teams' ? '💜' : assignment.source === 'LMS' ? '🎓' : '💜+🎓'}</span>
+                                    <span>{assignment.source}</span>
+                                  </span>
+
+                                  {/* Status Pill */}
+                                  {isOverdue ? (
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                      ⚠️ Overdue
+                                    </span>
+                                  ) : isDueSoon ? (
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                      🔥 Due Soon
+                                    </span>
+                                  ) : isSubmitted ? (
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.25)' }}>
+                                      ✓ Submitted
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                                      ⏳ Pending
+                                    </span>
+                                  )}
+
+                                  {/* Relative Deadline Tag */}
+                                  {assignment.relativeDeadline && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        color: isOverdue ? '#ef4444' : isDueSoon ? '#f59e0b' : 'var(--text-muted)',
+                                      }}
+                                    >
+                                      • {assignment.relativeDeadline}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Title */}
+                                <h5
+                                  style={{
+                                    fontSize: '1rem',
+                                    fontWeight: 800,
+                                    margin: '3px 0 0',
+                                    color: 'var(--text-primary)',
+                                    textDecoration: isSubmitted ? 'line-through' : 'none',
+                                    opacity: isSubmitted ? 0.75 : 1,
+                                  }}
+                                >
+                                  {assignment.title}
+                                </h5>
+
+                                {/* Instructions / Description */}
+                                {assignment.instructions && (
+                                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.45 }}>
+                                    {assignment.instructions}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right Side: Exact Deadline & Direct Action Links */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', minWidth: '180px' }}>
+                              <div style={{ textAlign: 'right' }}>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>
+                                  Deadline:
+                                </span>
+                                <span style={{ fontSize: '0.84rem', fontWeight: 800, color: isOverdue ? '#ef4444' : 'var(--text-primary)' }}>
+                                  {assignment.formattedDeadline || `${assignment.dueDate}, ${assignment.dueTime}`}
+                                </span>
+                              </div>
+
+                              {/* Direct Submission Buttons */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                {isMerged ? (
+                                  <>
+                                    {assignment.teamsSubmissionUrl && (
+                                      <a
+                                        href={assignment.teamsSubmissionUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn-outline"
+                                        style={{ fontSize: '0.74rem', padding: '5px 9px', color: '#6366f1', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title="Open assignment in Microsoft Teams"
+                                      >
+                                        <span>Open Teams</span>
+                                        <ExternalLink size={12} />
+                                      </a>
+                                    )}
+                                    {assignment.lmsSubmissionUrl && (
+                                      <a
+                                        href={assignment.lmsSubmissionUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn-outline"
+                                        style={{ fontSize: '0.74rem', padding: '5px 9px', color: '#0284c7', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title="Open assignment in VIT LMS"
+                                      >
+                                        <span>Open LMS</span>
+                                        <ExternalLink size={12} />
+                                      </a>
+                                    )}
+                                  </>
+                                ) : assignment.platformUrl || assignment.submissionUrl ? (
+                                  <a
+                                    href={assignment.platformUrl || assignment.submissionUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn-outline"
+                                    style={{
+                                      fontSize: '0.76rem',
+                                      padding: '5px 10px',
+                                      textDecoration: 'none',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      color: assignment.source === 'Teams' ? '#6366f1' : '#0284c7',
+                                    }}
+                                  >
+                                    <span>{assignment.source === 'Teams' ? 'Open in Teams' : 'Open in LMS'}</span>
+                                    <ExternalLink size={12} />
+                                  </a>
+                                ) : (
+                                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                    Link unavailable
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div
+                        style={{
+                          padding: '16px',
+                          textAlign: 'center',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.84rem',
+                          background: 'var(--bg-surface-elevated)',
+                          borderRadius: 'var(--radius-md)',
+                        }}
+                      >
+                        ✓ No assignments currently published for this subject on Teams or LMS.
+                      </div>
                     )}
                   </div>
-                </div>
-
-                {/* Right Meta Column */}
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: isPending ? 'var(--warning-amber)' : 'var(--success-emerald)' }}>
-                    {isPending ? `Due: ${assignment.dueDate} at ${assignment.dueTime}` : '✓ Submitted'}
-                  </div>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Weightage: <b style={{ color: 'var(--text-primary)' }}>{assignment.weightage ?? assignment.weightagePercentage ?? 10}% of Grade</b>
-                  </span>
-
-                  {/* Direct Platform Submission Link Button */}
-                  <a
-                    href={assignment.platformUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-primary"
-                    style={{
-                      fontSize: '0.78rem',
-                      padding: '6px 12px',
-                      textDecoration: 'none',
-                      marginTop: '4px',
-                      background: isLms ? 'var(--btn-primary-bg)' : '#9333ea',
-                      color: isLms ? 'var(--btn-primary-text)' : '#ffffff',
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert(`Redirecting to submission portal on ${assignment.platformName}:\nURL: ${assignment.platformUrl}`);
-                    }}
-                  >
-                    <span>{isLms ? '🌐 Open on VIT LMS' : '💜 Open on Teams'}</span>
-                    <span>↗</span>
-                  </a>
-                </div>
+                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* No Subjects Match Current Filter */
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '36px 20px',
+            textAlign: 'center',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <FolderSync size={32} color="var(--text-muted)" style={{ margin: '0 auto 10px' }} />
+          <h4 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '0 0 6px', color: 'var(--text-primary)' }}>
+            No subjects match your selected filter
+          </h4>
+          <p style={{ fontSize: '0.84rem', margin: 0 }}>
+            Try resetting your search query or switching to "All Subjects".
+          </p>
+        </div>
+      )}
+
+      {/* Microsoft Teams Login Modal */}
+      <TeamsLoginModal
+        isOpen={isTeamsModalOpen}
+        onClose={() => setIsTeamsModalOpen(false)}
+        onLoginSuccess={() => loadUnifiedData()}
+        initialEmail={teamsAccount.email || studentEmail || ''}
+      />
+
+      {/* VIT LMS Login Modal */}
+      <LMSLoginModal
+        isOpen={isLMSModalOpen}
+        onClose={() => setIsLMSModalOpen(false)}
+        onLoginSuccess={() => loadUnifiedData()}
+        initialUsername={lmsAccount.username || studentRegNo || ''}
+      />
     </div>
   );
 };
+
+export default AssignmentsView;

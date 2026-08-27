@@ -120,15 +120,39 @@ export interface OD {
 
 // 4. Marks Model
 export interface MarksAssessmentItem {
-  scored: number;
+  scored: number | null;
   max: number;
   weightage: number;
+  percentage?: number;
+  status?: string;
+}
+
+export interface MarksComponent {
+  title: string;
+  scored: number | null;
+  max: number;
+  weightage?: number;
+  maxWeightage?: number;
+  percentage?: number | null;
+  status?: string;
+  average?: number | null;
 }
 
 export interface Marks {
+  id?: string;
+  courseId?: number;
   courseCode: string;
+  courseTitle: string;
   courseName: string;
+  faculty: string;
   facultyName: string;
+  slot?: string;
+  hasMarks?: boolean;
+  components?: MarksComponent[];
+  weightageScored?: number | null;
+  weightageGraded?: number | null;
+  weightageTotal?: number | null;
+  statusMessage?: string;
   cat1?: MarksAssessmentItem;
   cat2?: MarksAssessmentItem;
   fat?: {
@@ -142,25 +166,36 @@ export interface Marks {
   da1?: MarksAssessmentItem;
   da2?: MarksAssessmentItem;
   quiz?: MarksAssessmentItem;
-  totalInternal: {
+  totalInternal?: {
     scored: number;
     max: number;
     percentage: number;
-  };
+  } | null;
 }
 
 // 5. Faculty Model
+export interface FacultyCourseDetail {
+  code: string;
+  title: string;
+  slot?: string;
+  venue?: string;
+}
+
 export interface Faculty {
   id: string;
   name: string;
   designation?: string;
   department?: string;
-  courseCode: string;
-  courseTitle: string;
-  slot: string;
-  venue: string;
+  courseCode?: string;
+  courseTitle?: string;
+  slot?: string;
+  venue?: string;
   email?: string;
   cabin?: string;
+  phone?: string;
+  isLeadership?: boolean;
+  isProctor?: boolean;
+  enrolledCourses?: FacultyCourseDetail[];
 }
 
 // 6. Room Model
@@ -249,7 +284,7 @@ export interface Course {
   }[];
 }
 
-export type AssignmentPlatform = 'LMS' | 'Teams' | 'Google Classroom' | 'VTOP Portal';
+export type AssignmentPlatform = 'LMS' | 'Teams' | 'Google Classroom' | 'VTOP Portal' | 'Teams + LMS' | string;
 
 export interface Assignment {
   id: string;
@@ -268,6 +303,67 @@ export interface Assignment {
   weightage?: number;
   weightagePercentage?: number;
   instructions?: string;
+  matchedTeamName?: string;
+  matchedLmsCourse?: string;
+  sourceList?: string[];
+  formattedDeadline?: string;
+  relativeDeadline?: string;
+  isOverdue?: boolean;
+  isDueSoon?: boolean;
+  displayStatus?: string;
+  submissionUrl?: string;
+  teamsSubmissionUrl?: string;
+  lmsSubmissionUrl?: string;
+}
+
+export interface SubjectAssignmentGroup {
+  id: string;
+  courseCode: string;
+  courseTitle: string;
+  type?: string;
+  slot?: string;
+  faculty?: string;
+  venue?: string;
+  teamsMatched: boolean;
+  teamsChannelName?: string;
+  lmsMatched: boolean;
+  lmsCourseName?: string;
+  assignments: Assignment[];
+  pendingCount: number;
+  submittedCount: number;
+  overdueCount: number;
+  dueSoonCount: number;
+  totalCount: number;
+}
+
+export interface AcademicAccount {
+  connected: boolean;
+  status?: string;
+  email?: string;
+  username?: string;
+  displayName?: string;
+  portalUrl?: string;
+  lastSynced?: string;
+  matchedCount?: number;
+  totalItemsCount?: number;
+  totalTeamsCount?: number;
+  totalCoursesCount?: number;
+}
+
+export interface UnifiedAssignmentsDashboard {
+  currentSemester: { id: string; name: string };
+  lastSynced?: string;
+  stateLabel: 'synced' | 'caught_up' | 'not_synced' | 'failed' | string;
+  totalPendingAssignments: number;
+  totalSubmittedAssignments: number;
+  totalOverdueAssignments: number;
+  totalAssignments: number;
+  subjects: SubjectAssignmentGroup[];
+  unmatchedAssignments: Assignment[];
+  connectedAccounts: {
+    teams: AcademicAccount;
+    lms: AcademicAccount;
+  };
 }
 
 export interface FeeItem {

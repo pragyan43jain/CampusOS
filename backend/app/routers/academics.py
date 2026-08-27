@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 from app.storage import empty_store, load_store, save_store
 from app.vtop.hostel import fetch_laundry_schedule, fetch_mess_menu
+from app.routers.auth import normalize_marks_item, normalize_faculty_item
 
 logger = logging.getLogger("vtop.routes.academics")
 
@@ -61,7 +62,43 @@ def get_attendance() -> List[Dict[str, Any]]:
 
 @router.get("/marks")
 def get_marks() -> List[Dict[str, Any]]:
-    return load_store().get("marks") or []
+    store = load_store()
+    courses = store.get("courses") or []
+    raw_marks = store.get("marks") or []
+    return [normalize_marks_item(m, courses) for m in raw_marks]
+
+
+@router.get("/marks/summary")
+def get_marks_summary() -> List[Dict[str, Any]]:
+    store = load_store()
+    courses = store.get("courses") or []
+    raw_marks = store.get("marks") or []
+    marks_by_code = {m.get("courseCode"): m for m in raw_marks if m.get("courseCode")}
+
+    summary = []
+    for c in courses:
+        code = c.get("code")
+        if code in marks_by_code:
+            summary.append(normalize_marks_item(marks_by_code[code], courses))
+        else:
+            summary.append({
+                "id": f"marks-{code}",
+                "courseId": c.get("id"),
+                "courseCode": code,
+                "courseTitle": c.get("title"),
+                "courseName": c.get("title"),
+                "faculty": c.get("faculty") or "Faculty unassigned",
+                "facultyName": c.get("faculty") or "Faculty unassigned",
+                "slot": c.get("slot") or "",
+                "hasMarks": False,
+                "components": [],
+                "weightageScored": None,
+                "weightageGraded": None,
+                "weightageTotal": None,
+                "totalInternal": None,
+                "statusMessage": "No assessment records returned by VTOP",
+            })
+    return summary
 
 
 @router.get("/od")
@@ -88,7 +125,62 @@ def get_od() -> Dict[str, Any]:
 
 @router.get("/faculty")
 def get_faculty() -> List[Dict[str, Any]]:
-    return load_store().get("faculty") or []
+    store = load_store()
+    courses = store.get("courses") or []
+    raw_fac = store.get("faculty") or []
+    return [normalize_faculty_item(f, courses) for f in raw_fac]
+
+
+@router.get("/academics/subject/{course_code}")
+def get_subject_details(course_code: str) -> Dict[str, Any]:
+    """
+    Returns authentic academic details specifically for one enrolled course code.
+    Prevents cross-subject contamination.
+    """
+    store = load_store()
+    courses = store.get("courses") or []
+    matched = next((c for c in courses if (c.get("code") or "").upper() == course_code.upper()), None)
+    if not matched:
+        raise HTTPException(status_code=404, detail=f"Course '{course_code}' not found in enrolled courses.")
+
+    code = matched.get("code")
+    raw_marks = store.get("marks") or []
+    course_marks = next((m for m in raw_marks if (m.get("courseCode") or "").upper() == code.upper()), None)
+    norm_marks = normalize_marks_item(course_marks, courses) if course_marks else None
+
+    # Attendance
+    attendance_list = store.get("attendance") or []
+    course_att = next((a for a in attendance_list if (a.get("courseCode") or "").upper() == code.upper()), None)
+
+    # Timetable
+    timetable_list = store.get("timetable") or []
+    course_tt = [t for t in timetable_list if (t.get("courseCode") or "").upper() == code.upper()]
+
+    # Exams
+    exams_list = store.get("examsList") or []
+    course_exams = [e for e in exams_list if (e.get("courseCode") or e.get("subjectCode") or "").upper() == code.upper()]
+
+    # Faculty
+    faculty_list = store.get("faculty") or []
+    course_fac = [normalize_faculty_item(f, courses) for f in faculty_list if code in (f.get("courses") or [])]
+
+    # Assignments
+    assignments_list = store.get("assignments") or []
+    course_assigns = [a for a in assignments_list if (a.get("courseCode") or "").upper() == code.upper()]
+
+    return {
+        "success": True,
+        "course": matched,
+        "marks": norm_marks,
+        "hasMarks": norm_marks is not None and len(norm_marks.get("components") or []) > 0,
+        "attendance": course_att,
+        "timetable": course_tt,
+        "exams": course_exams,
+        "faculty": course_fac[0] if course_fac else None,
+        "allFaculty": course_fac,
+        "assignments": course_assigns,
+        "studyMaterialUrl": "https://www.vhelpcc.com/",
+    }
 
 
 @router.get("/exams")

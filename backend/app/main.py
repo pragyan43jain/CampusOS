@@ -11,7 +11,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import academics, auth
+from app.routers import academics, auth, leetcode, lms, teams, unified_assignments
 from app.storage import load_store
 from app.vtop import constants as C
 
@@ -43,6 +43,10 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(academics.router)
+app.include_router(leetcode.router)
+app.include_router(teams.router)
+app.include_router(lms.router)
+app.include_router(unified_assignments.router)
 
 
 @app.get("/")

@@ -1,22 +1,85 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Course } from '../types';
-import { getStudyMaterialUrl } from '../services/studyMaterialService';
 
 interface AcademicsViewProps {
   courses: Course[];
 }
 
 export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('all');
+  const [selectedSubjectCode, setSelectedSubjectCode] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'marks' | 'overview' | 'study-tools'>('marks');
-  const [pomodoroRunning, setPomodoroRunning] = useState<boolean>(false);
-  const [pomodoroSeconds, setPomodoroSeconds] = useState<number>(25 * 60);
   const [targetGrade, setTargetGrade] = useState<'S' | 'A' | 'B'>('S');
 
-  // Filter courses based on dropdown
-  const displayedCourses = selectedSubjectId === 'all' 
-    ? courses 
-    : courses.filter(c => c.id === selectedSubjectId);
+  // Pomodoro Timer State (Timestamp-based for accuracy across browser tabs)
+  const TOTAL_POMODORO_SECONDS = 25 * 60;
+  const [timerState, setTimerState] = useState<'idle' | 'running' | 'paused' | 'completed'>('idle');
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(TOTAL_POMODORO_SECONDS);
+  const endTimeRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<number | null>(null);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Pomodoro Controls
+  const handleStartTimer = () => {
+    if (timerState === 'running') return; // Prevent multiple timers
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+    const duration = timerState === 'paused' ? remainingSeconds : TOTAL_POMODORO_SECONDS;
+    const now = Date.now();
+    endTimeRef.current = now + duration * 1000;
+    setTimerState('running');
+
+    timerIntervalRef.current = window.setInterval(() => {
+      if (!endTimeRef.current) return;
+      const left = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+      setRemainingSeconds(left);
+      if (left <= 0) {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        endTimeRef.current = null;
+        setTimerState('completed');
+      }
+    }, 250);
+  };
+
+  const handlePauseTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (endTimeRef.current) {
+      const left = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+      setRemainingSeconds(left);
+    }
+    setTimerState('paused');
+  };
+
+  const handleResetTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    endTimeRef.current = null;
+    setRemainingSeconds(TOTAL_POMODORO_SECONDS);
+    setTimerState('idle');
+  };
+
+  // Find selected course and filter displayedCourses strictly
+  const selectedCourse = selectedSubjectCode !== 'all'
+    ? courses.find(c => String(c.code).toUpperCase() === selectedSubjectCode.toUpperCase() || String(c.id) === selectedSubjectCode)
+    : null;
+
+  const displayedCourses = selectedCourse ? [selectedCourse] : courses;
 
   // Helper to normalize and compute overall marks percentage
   const getCourseMarkComponents = (course: Course) => {
@@ -59,7 +122,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     return { scored, max, percentage };
   };
 
-  // Performance feedback logic based strictly on internal MARKS
   const getPerformanceFeedback = (percentage: number) => {
     if (percentage >= 75) {
       return {
@@ -92,6 +154,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
         needsStudyTools: true,
       };
     }
+  };
+
+  const handleOpenVhelp = () => {
+    window.open('https://www.vhelpcc.com/', '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -132,22 +198,29 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Select Subject:</span>
           <select
-            value={selectedSubjectId}
-            onChange={(e) => setSelectedSubjectId(e.target.value)}
+            value={selectedSubjectCode}
+            onChange={(e) => setSelectedSubjectCode(e.target.value)}
             style={{ background: 'var(--bg-surface-elevated)', color: '#fff', border: '1px solid var(--border-medium)', padding: '8px 14px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', outline: 'none', cursor: 'pointer' }}
           >
             <option value="all">📖 All Enrolled Subjects ({courses.length})</option>
             {courses.map(c => (
-              <option key={c.id} value={c.id}>
+              <option key={c.code || c.id} value={c.code || c.id}>
                 {c.code} - {c.title}
               </option>
             ))}
           </select>
         </div>
 
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Academic Year 2026 • Semester 4 • Direct VTOP Sync
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {selectedCourse && (
+            <span style={{ fontSize: '0.78rem', padding: '3px 10px', background: 'var(--brand-bg)', color: 'var(--brand-color)', borderRadius: 'var(--radius-full)', fontWeight: 700 }}>
+              Showing: {selectedCourse.code}
+            </span>
+          )}
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Academic Year 2026 • Semester 4 • Direct VTOP Sync
+          </span>
+        </div>
       </div>
 
       {/* MARKS & SCORECARD TAB */}
@@ -156,10 +229,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
           {displayedCourses.map((course) => {
             const stats = calculateTotalInternalPercentage(course);
             const feedback = stats ? getPerformanceFeedback(stats.percentage) : null;
-            const studyMaterialUrl = getStudyMaterialUrl({ code: course.code, title: course.title, type: course.type });
+            const markItems = getCourseMarkComponents(course);
 
             return (
-              <div key={course.id} className="course-card" style={{ gap: '20px' }}>
+              <div key={course.code || course.id} className="course-card" style={{ gap: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                   <div style={{ flex: '1 1 300px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
@@ -169,35 +242,22 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                           Grade: {course.grade}
                         </span>
                       )}
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot}</b> • {course.credits} Credits</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Slot: <b>{course.slot || 'N/A'}</b> • {course.credits} Credits</span>
                     </div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{course.title}</h3>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>👨‍🏫 {course.faculty} • 📍 {course.venue}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>👨‍🏫 {course.faculty || 'Faculty unassigned'} • 📍 {course.venue || 'TBA'}</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                    {studyMaterialUrl ? (
-                      <a
-                        href={studyMaterialUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-study-material"
-                        title={`Open ${course.title} study material on VHelpCC`}
-                      >
-                        <span>📚</span>
-                        <span>Study Material</span>
-                        <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>↗</span>
-                      </a>
-                    ) : (
-                      <button
-                        disabled
-                        className="btn-study-material-disabled"
-                        title="Study material unavailable on VHelpCC for this course"
-                      >
-                        <span>📚</span>
-                        <span>Study material unavailable</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={handleOpenVhelp}
+                      className="btn-study-material"
+                      title={`Open study material on VHelp for ${course.code}`}
+                    >
+                      <span>📚</span>
+                      <span>Study Material</span>
+                      <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>↗</span>
+                    </button>
 
                     {stats && (
                       <div style={{ textAlign: 'right' }}>
@@ -228,7 +288,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                   </div>
                 )}
 
-                {/* MARKS-BASED STUDY TOOLS PANEL (SHOWN AUTOMATICALLY IF INTERNAL MARKS < 50%) */}
+                {/* MARKS-BASED STUDY TOOLS PANEL */}
                 {feedback?.needsStudyTools && (
                   <div style={{ background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(17, 22, 34, 0.95) 100%)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: 'var(--radius-md)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
@@ -241,49 +301,28 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                           MARKS DEFICIT ALERT
                         </span>
                       </div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        Endpoint: <code>/api/academics/courses/{course.code}/materials</code>
-                      </span>
                     </div>
 
                     <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                      Because your internal assessment score is below 50%, you need to study this subject urgently. Directly access and download the curated study material for <b>{course.title}</b> below:
+                      Because your internal assessment score is below 50%, you need to study this subject urgently. Directly access the curated study material for <b>{course.title}</b> on VHelp:
                     </p>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                       <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            📖 {course.code} Official Course Material & Notes
+                            📖 {course.code} Official Notes & Question Banks
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            Lecture slides, lab manuals & solved assignments
+                            Lecture slides, lab manuals & solved assignments on VHelp
                           </div>
                         </div>
                         <button
                           className="btn-primary"
                           style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
-                          onClick={() => alert(`[Backend Direct Download] Fetching comprehensive study material for ${course.code} - ${course.title}`)}
+                          onClick={handleOpenVhelp}
                         >
-                          Access Material Now 📥
-                        </button>
-                      </div>
-
-                      <div style={{ background: 'rgba(0, 0, 0, 0.3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
-                        <div>
-                          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            🎯 FAT Minimum Passing Target
-                          </div>
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            Target score required in FAT to pass course
-                          </div>
-                        </div>
-                        <button
-                          className="btn-outline"
-                          style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
-                          onClick={() => { setActiveTab('study-tools'); setTargetGrade('B'); }}
-                        >
-                          Open FAT Calculator ⚡
+                          Access Material Now ↗
                         </button>
                       </div>
 
@@ -299,9 +338,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                         <button
                           className="btn-outline"
                           style={{ fontSize: '0.75rem', padding: '6px 10px', width: 'fit-content' }}
-                          onClick={() => { setActiveTab('study-tools'); setPomodoroRunning(true); }}
+                          onClick={() => { setActiveTab('study-tools'); handleStartTimer(); }}
                         >
-                          Start Timer ⏱
+                          Start Focus Sprint ⏱
                         </button>
                       </div>
                     </div>
@@ -309,42 +348,51 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                 )}
 
                 {/* Marks Table */}
-                {course.marks && getCourseMarkComponents(course).length > 0 ? (
+                {markItems.length > 0 ? (
                   <div>
                     <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-secondary)' }}>
                       Assessment Breakdown
                     </h4>
-                    <table className="marks-breakdown-table">
-                      <thead>
-                        <tr>
-                          <th>Assessment</th>
-                          <th>Score</th>
-                          <th>Max Marks</th>
-                          <th>Percentage</th>
-                          <th>Weightage</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getCourseMarkComponents(course).map((m, idx) => {
-                          const pct = (m.scored !== null && m.scored !== undefined && m.max) ? (m.scored / m.max) * 100 : null;
-                          return (
-                            <tr key={idx}>
-                              <td><b>{m.title}</b></td>
-                              <td style={{ color: pct !== null ? (pct >= 75 ? 'var(--success-emerald)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-crimson)') : 'var(--text-muted)', fontWeight: 700 }}>
-                                {m.scored !== null && m.scored !== undefined ? m.scored : (m.status || '-')}
-                              </td>
-                              <td>{m.max ?? '-'}</td>
-                              <td>{pct !== null ? `${pct.toFixed(0)}%` : '-'}</td>
-                              <td>{m.weightage ? `${m.weightage}%` : '-'}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="marks-breakdown-table">
+                        <thead>
+                          <tr>
+                            <th>Assessment</th>
+                            <th>Score</th>
+                            <th>Max Marks</th>
+                            <th>Percentage</th>
+                            <th>Weightage</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {markItems.map((m, idx) => {
+                            const pct = (m.scored !== null && m.scored !== undefined && m.max) ? (m.scored / m.max) * 100 : null;
+                            return (
+                              <tr key={idx}>
+                                <td><b>{m.title}</b></td>
+                                <td style={{ color: pct !== null ? (pct >= 75 ? 'var(--success-emerald)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-crimson)') : 'var(--text-muted)', fontWeight: 700 }}>
+                                  {m.scored !== null && m.scored !== undefined ? m.scored : 'Pending'}
+                                </td>
+                                <td>{m.max ?? '-'}</td>
+                                <td>{pct !== null ? `${pct.toFixed(1)}%` : '-'}</td>
+                                <td>{m.weightage ? `${m.weightage}%` : '-'}</td>
+                                <td>
+                                  <span style={{ fontSize: '0.72rem', padding: '2px 6px', borderRadius: '4px', background: m.scored !== null ? 'var(--success-bg)' : 'rgba(255,255,255,0.05)', color: m.scored !== null ? 'var(--success-emerald)' : 'var(--text-muted)', fontWeight: 700 }}>
+                                    {m.status || (m.scored !== null ? 'Present' : 'Upcoming')}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ) : (
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: 'var(--radius-sm)' }}>
-                    Continuous lab evaluation in progress. Grade assigned upon end-term practical FAT.
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', padding: '14px', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-secondary)' }}>No assessment records returned by VTOP</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem' }}>Continuous assessment marks for this subject have not been published by the faculty on VTOP yet.</p>
                   </div>
                 )}
               </div>
@@ -372,10 +420,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                 ? Math.round(((attendance.attended || 0) / attendance.total) * 100)
                 : null);
 
-            const studyMaterialUrl = getStudyMaterialUrl({ code: course.code, title: course.title, type: course.type });
-
             return (
-              <div key={course.id} className="course-card">
+              <div key={course.code || course.id} className="course-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '220px' }}>
                 <div className="course-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div style={{ flex: '1 1 240px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
@@ -392,32 +438,19 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                   </div>
 
                   <div>
-                    {studyMaterialUrl ? (
-                      <a
-                        href={studyMaterialUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-study-material"
-                        title={`Open ${course.title} study material on VHelpCC`}
-                      >
-                        <span>📚</span>
-                        <span>Study Material</span>
-                        <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>↗</span>
-                      </a>
-                    ) : (
-                      <button
-                        disabled
-                        className="btn-study-material-disabled"
-                        title="Study material unavailable on VHelpCC for this course"
-                      >
-                        <span>📚</span>
-                        <span>Study material unavailable</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={handleOpenVhelp}
+                      className="btn-study-material"
+                      title={`Open study material on VHelp for ${course.code}`}
+                    >
+                      <span>📚</span>
+                      <span>Study Material</span>
+                      <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>↗</span>
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px' }}>
+                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '14px', borderRadius: '8px', marginTop: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontSize: '0.82rem' }}>
                       Attendance: <b>{hasAtt && attendance ? `${attendance.attended} / ${attendance.total} classes` : 'Not recorded'}</b>
@@ -451,17 +484,42 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
       {/* STUDY TOOLS FEATURE TAB */}
       {activeTab === 'study-tools' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Selected Subject Context Banner */}
+          {selectedCourse && (
+            <div style={{ background: 'var(--brand-bg)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-md)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--brand-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Targeted Subject View Active
+                </span>
+                <h4 style={{ fontSize: '1.05rem', fontWeight: 800, marginTop: '2px', color: '#fff' }}>
+                  {selectedCourse.code} • {selectedCourse.title}
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Showing study tools, recovery schedule, and focus timer specifically for this subject.
+                </p>
+              </div>
+              <button
+                className="btn-outline"
+                style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                onClick={() => setSelectedSubjectCode('all')}
+              >
+                Clear Subject Filter (Show All)
+              </button>
+            </div>
+          )}
+
+          {/* 1. FAT Final Exam Grade Estimator */}
           <div className="course-card" style={{ background: 'linear-gradient(135deg, #111622 0%, #172033 100%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Target Score Engine
                 </span>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '2px' }}>
                   🎯 FAT Final Exam Grade Estimator
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Calculate exact marks needed out of 100 in the Final Assessment Test (FAT) to achieve your target grade.
+                  Calculate exact marks needed in the Final Assessment Test (FAT) based on verified continuous assessment records.
                 </p>
               </div>
 
@@ -479,15 +537,27 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '10px' }}>
-              {courses.filter(c => c.marks).map(c => {
-                const minFat = targetGrade === 'S' ? c.marks?.fatProjected?.minNeededForS || 80 : targetGrade === 'A' ? c.marks?.fatProjected?.minNeededForA || 68 : 55;
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginTop: '16px' }}>
+              {displayedCourses.map(c => {
+                const markItems = getCourseMarkComponents(c);
+                const hasMarks = markItems.length >= 3; // Need full continuous assessment for projection
                 return (
-                  <div key={c.id} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
-                    <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--brand-blue)', fontWeight: 700 }}>{c.code}</span>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '4px 0' }}>{c.title}</h4>
-                    <div style={{ fontSize: '0.85rem', marginTop: '8px', color: 'var(--text-secondary)' }}>
-                      Need in FAT (100M): <b style={{ fontSize: '1.1rem', color: 'var(--success-emerald)' }}>{minFat}+</b>
+                  <div key={c.code || c.id} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '130px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--brand-color)', fontWeight: 700 }}>{c.code}</span>
+                      <h4 style={{ fontSize: '0.98rem', fontWeight: 700, margin: '4px 0' }}>{c.title}</h4>
+                    </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                      {hasMarks ? (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          Target Score: <b style={{ fontSize: '1.1rem', color: 'var(--success-emerald)' }}>Calculated</b>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          FAT projection unavailable until marks are synchronized.
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -495,67 +565,103 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
             </div>
           </div>
 
-          <div className="course-card" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+          {/* 2. Active Focus Pomodoro Timer (Subject-Aware) */}
+          <div className="course-card" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', padding: '24px' }}>
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Productivity Toolkit
               </span>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '2px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '2px' }}>
                 ⏱ Active Focus Pomodoro Timer
               </h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                25-minute deep focus sprints designed to master tough topics without burnout.
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                {selectedCourse ? (
+                  <span>Focus Session: <b style={{ color: '#fff' }}>{selectedCourse.code} • {selectedCourse.title}</b></span>
+                ) : (
+                  <span>25-minute deep focus sprints designed to master tough topics without burnout.</span>
+                )}
               </p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ fontSize: '2.4rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: pomodoroRunning ? 'var(--brand-blue)' : 'var(--text-primary)' }}>
-                {Math.floor(pomodoroSeconds / 60)}:{(pomodoroSeconds % 60).toString().padStart(2, '0')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '2.6rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: timerState === 'running' ? 'var(--brand-color)' : timerState === 'completed' ? 'var(--success-emerald)' : 'var(--text-primary)' }}>
+                {Math.floor(remainingSeconds / 60).toString().padStart(2, '0')}:{(remainingSeconds % 60).toString().padStart(2, '0')}
               </div>
 
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  className="btn-primary"
-                  onClick={() => setPomodoroRunning(!pomodoroRunning)}
-                >
-                  {pomodoroRunning ? '⏸ Pause' : '▶ Start Focus'}
-                </button>
-                <button
-                  className="btn-outline"
-                  onClick={() => { setPomodoroRunning(false); setPomodoroSeconds(25 * 60); }}
-                >
+                {timerState === 'running' ? (
+                  <button className="btn-primary" onClick={handlePauseTimer}>
+                    ⏸ Pause
+                  </button>
+                ) : timerState === 'paused' ? (
+                  <button className="btn-primary" onClick={handleStartTimer}>
+                    ▶ Resume
+                  </button>
+                ) : timerState === 'completed' ? (
+                  <button className="btn-primary" onClick={handleResetTimer}>
+                    ✓ Done (Restart)
+                  </button>
+                ) : (
+                  <button className="btn-primary" onClick={handleStartTimer}>
+                    ▶ Start Focus
+                  </button>
+                )}
+
+                <button className="btn-outline" onClick={handleResetTimer}>
                   ↺ Reset
                 </button>
               </div>
             </div>
+
+            {timerState === 'completed' && (
+              <div style={{ width: '100%', padding: '10px 14px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 'var(--radius-sm)', color: 'var(--success-emerald)', fontSize: '0.85rem', fontWeight: 600 }}>
+                🎉 Focus session completed! Take a 5-minute breather before starting your next sprint.
+              </div>
+            )}
           </div>
 
+          {/* 3. Study Material & Practice Resources Hub (Filtered by Subject) */}
           <div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '14px' }}>
-              📚 Quick Formula Sheets & PYQ Question Banks
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              {[
-                { title: 'DBMS Relational Algebra & Normalization Cheatsheet', code: 'CSE2004', type: 'PDF Formula Sheet', size: '2.4 MB' },
-                { title: 'DAA Master Theorem & DP State Recurrence Guide', code: 'CSE2005', type: 'Formula Summary', size: '1.8 MB' },
-                { title: 'Computer Networks IP Subnetting & Socket Cheatsheet', code: 'CSE2003', type: 'Quick Sheet', size: '1.2 MB' },
-                { title: 'Linear Algebra Eigenvalues & Vector Spaces PYQs', code: 'MAT2001', type: '5-Year Solved PYQ', size: '4.5 MB' },
-              ].map((doc, idx) => (
-                <div key={idx} className="assignment-item-card" style={{ padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+                📚 Official University Study Material & Practice Papers
+              </h3>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Powered by VHelpCC Direct Resource Network
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+              {displayedCourses.map((c) => (
+                <div key={c.code || c.id} className="assignment-item-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '160px' }}>
                   <div>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--brand-blue)', background: 'var(--brand-blue-bg)', padding: '2px 6px', borderRadius: '4px' }}>
-                      {doc.code}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--brand-color)', background: 'var(--brand-bg)', padding: '2px 8px', borderRadius: '4px' }}>
+                        {c.code}
+                      </span>
+                      {c.slot && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Slot: <b>{c.slot}</b></span>
+                      )}
+                    </div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: '6px 0 4px' }}>{c.title}</h4>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      👨‍🏫 Instructor: {c.faculty || 'Course Faculty'}
                     </span>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginTop: '6px' }}>{doc.title}</h4>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{doc.type} • {doc.size}</span>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px', margin: 0 }}>
+                      Curated lecture slides, lab manuals, and previous year exam question banks.
+                    </p>
                   </div>
-                  <button
-                    className="btn-outline"
-                    style={{ fontSize: '0.78rem', padding: '6px 10px' }}
-                    onClick={() => alert(`Opening Study Resource: ${doc.title}`)}
-                  >
-                    Open ↗
-                  </button>
+
+                  <div style={{ marginTop: '14px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                    <button
+                      className="btn-primary"
+                      style={{ fontSize: '0.8rem', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={handleOpenVhelp}
+                    >
+                      <span>Access Material on VHelp</span>
+                      <span>↗</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

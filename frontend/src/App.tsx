@@ -190,6 +190,7 @@ export const App: React.FC = () => {
           {activeView === 'vtop-sync' && (
             <VtopSyncView
               student={student}
+              courses={courses}
               attendance={attendance}
               marks={marks}
               od={od}
@@ -212,6 +213,9 @@ export const App: React.FC = () => {
             <AssignmentsView
               assignments={assignments}
               onToggleStatus={handleToggleAssignment}
+              onAssignmentsUpdated={(updated) => setAssignments(updated)}
+              studentEmail={student.email}
+              studentRegNo={student.regNo}
             />
           )}
 

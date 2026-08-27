@@ -5,7 +5,7 @@
  * Provides direct access to the VHelpCC study material hub for all courses.
  */
 
-export const VHELP_STUDY_MATERIAL_URL = "https://www.vhelpcc.com/study-material";
+export const VHELP_STUDY_MATERIAL_URL = "https://www.vhelpcc.com/";
 
 /**
  * Returns the VHelpCC study material landing URL for every course.

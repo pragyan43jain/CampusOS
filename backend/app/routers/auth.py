@@ -17,12 +17,13 @@ a real payload against them.
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, HTTPException, Query
+from pydantic import BaseModel, Field
 
-from app.storage import clear_store, empty_store, load_store
+from app.storage import clear_store, empty_store, load_store, save_store
 from app.vtop.client import client_manager
 
 logger = logging.getLogger("vtop.routes")
@@ -179,9 +180,161 @@ def get_vtop_attendance() -> List[Dict[str, Any]]:
     return load_store().get("attendance") or []
 
 
+def normalize_marks_item(m: Dict[str, Any], courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    code = m.get("courseCode") or ""
+    matched_course = next((c for c in courses if c.get("code") == code), None)
+    title = m.get("courseTitle") or (matched_course.get("title") if matched_course else None) or code
+    faculty = m.get("faculty") or (matched_course.get("faculty") if matched_course else None) or "Faculty unassigned"
+    slot = m.get("slot") or (matched_course.get("slot") if matched_course else None) or ""
+
+    components = []
+    for comp in m.get("components") or []:
+        c_title = comp.get("title") or "Assessment Component"
+        c_scored = comp.get("scored")
+        c_max = comp.get("max") or comp.get("maxMark")
+        c_weight = comp.get("weightage")
+        c_max_weight = comp.get("maxWeightage") or comp.get("weightage")
+        c_status = comp.get("status") or ("Present" if c_scored is not None else "")
+        c_pct = round((c_scored / c_max) * 100, 1) if (c_scored is not None and c_max and c_max > 0) else None
+        components.append({
+            **comp,
+            "title": c_title,
+            "scored": c_scored,
+            "max": c_max,
+            "weightage": c_weight,
+            "maxWeightage": c_max_weight,
+            "percentage": c_pct,
+            "status": c_status,
+        })
+
+    w_scored = m.get("weightageScored")
+    w_graded = m.get("weightageGraded")
+    w_total = m.get("weightageTotal")
+    total_internal = None
+    if w_scored is not None and w_graded is not None and w_graded > 0:
+        total_internal = {
+            "scored": w_scored,
+            "max": w_graded,
+            "percentage": round((w_scored / w_graded) * 100, 1),
+        }
+
+    cat1 = None
+    cat2 = None
+    da1 = None
+    da2 = None
+    quiz = None
+    for c in components:
+        t_low = c["title"].lower()
+        if "cat-1" in t_low or "cat 1" in t_low or "assessment test - i" in t_low or "assessment test 1" in t_low:
+            if not cat1: cat1 = c
+        elif "cat-2" in t_low or "cat 2" in t_low or "assessment test - ii" in t_low or "assessment test 2" in t_low:
+            if not cat2: cat2 = c
+        elif "da-1" in t_low or "da 1" in t_low or "digital assignment 1" in t_low or "digital assignment-1" in t_low:
+            if not da1: da1 = c
+        elif "da-2" in t_low or "da 2" in t_low or "digital assignment 2" in t_low or "digital assignment-2" in t_low:
+            if not da2: da2 = c
+        elif "quiz" in t_low:
+            if not quiz: quiz = c
+
+    return {
+        **m,
+        "courseCode": code,
+        "courseTitle": title,
+        "courseName": title,
+        "faculty": faculty,
+        "facultyName": faculty,
+        "slot": slot,
+        "hasMarks": len(components) > 0,
+        "components": components,
+        "weightageScored": w_scored,
+        "weightageGraded": w_graded,
+        "weightageTotal": w_total,
+        "totalInternal": total_internal,
+        "cat1": cat1,
+        "cat2": cat2,
+        "da1": da1,
+        "da2": da2,
+        "quiz": quiz,
+    }
+
+
+def normalize_faculty_item(fac: Dict[str, Any], courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    name = fac.get("name") or "Faculty Member"
+    raw_courses = fac.get("courses") or []
+    designation = fac.get("designation") or "Course Faculty"
+    is_leadership = any(role in designation.lower() for role in ["dean", "head of the department", "hod", "proctor"]) or fac.get("isProctor") or any("proctor" in str(c).lower() for c in raw_courses)
+
+    matched_courses = []
+    for c_code in raw_courses:
+        c = next((item for item in courses if item.get("code") == c_code), None)
+        if c:
+            matched_courses.append({
+                "code": c.get("code"),
+                "title": c.get("title"),
+                "slot": c.get("slot"),
+                "venue": c.get("venue"),
+            })
+
+    first_course = matched_courses[0] if matched_courses else None
+    course_code = ", ".join(mc["code"] for mc in matched_courses) if matched_courses else (None if is_leadership else "-")
+    course_title = ", ".join(mc["title"] for mc in matched_courses) if matched_courses else (None if is_leadership else "Course information unavailable")
+    slot = ", ".join(mc["slot"] for mc in matched_courses if mc.get("slot")) if matched_courses else (None if is_leadership else None)
+    venue = fac.get("venue") or (first_course["venue"] if first_course else None)
+
+    return {
+        **fac,
+        "id": f"fac-{name.replace(' ', '-').lower()}",
+        "name": name,
+        "designation": designation,
+        "isLeadership": is_leadership,
+        "courseCode": course_code,
+        "courseTitle": course_title,
+        "slot": slot,
+        "venue": venue,
+        "enrolledCourses": matched_courses,
+    }
+
+
 @router.get("/marks")
 def get_vtop_marks() -> List[Dict[str, Any]]:
-    return load_store().get("marks") or []
+    store = load_store()
+    courses = store.get("courses") or []
+    raw_marks = store.get("marks") or []
+    return [normalize_marks_item(m, courses) for m in raw_marks]
+
+
+@router.get("/marks/summary")
+def get_vtop_marks_summary() -> List[Dict[str, Any]]:
+    """Returns continuous marks status for all enrolled courses."""
+    store = load_store()
+    courses = store.get("courses") or []
+    raw_marks = store.get("marks") or []
+    marks_by_code = {m.get("courseCode"): m for m in raw_marks if m.get("courseCode")}
+
+    summary = []
+    for c in courses:
+        code = c.get("code")
+        if code in marks_by_code:
+            summary.append(normalize_marks_item(marks_by_code[code], courses))
+        else:
+            summary.append({
+                "id": f"marks-{code}",
+                "courseId": c.get("id"),
+                "courseCode": code,
+                "courseTitle": c.get("title"),
+                "courseName": c.get("title"),
+                "faculty": c.get("faculty") or "Faculty unassigned",
+                "facultyName": c.get("faculty") or "Faculty unassigned",
+                "slot": c.get("slot") or "",
+                "hasMarks": False,
+                "components": [],
+                "weightageScored": None,
+                "weightageGraded": None,
+                "weightageTotal": None,
+                "totalInternal": None,
+                "statusMessage": "No assessment records returned by VTOP",
+            })
+    return summary
 
 
 @router.get("/courses")
@@ -210,6 +363,44 @@ def get_vtop_od() -> Dict[str, Any]:
         "records": records,
         "odRecords": records,
     }
+
+
+@router.post("/od/sync")
+def sync_od(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
+    """
+    Directly query VTOP CC for On-Duty (OD) hours using the live session.
+    Only stores and reports actually fetched data from VTOP CC.
+    """
+    resolved = sessionId or client_manager._authenticated_handle()
+    handle = client_manager._get(resolved) if resolved else None
+
+    if handle is None or not handle.session.is_authenticated:
+        return {
+            "success": False,
+            "sessionExpired": True,
+            "message": "Your VTOP CC session is not active. Please sign in via the VTOP CC Sync button to authenticate and fetch live OD hours.",
+        }
+
+    store = load_store()
+    semester = store.get("selectedSemester") or {}
+    semester_id = semester.get("id")
+
+    try:
+        from app.vtop.scraper import fetch_od
+        od_data = fetch_od(handle.session, semester_id)
+        store["od"] = od_data
+        save_store(store)
+        return {
+            "success": True,
+            "message": "Successfully fetched OD hours from VTOP CC.",
+            "od": od_data,
+        }
+    except Exception as exc:
+        logger.exception("[VTOP OD] Live fetch failed: %s", exc)
+        return {
+            "success": False,
+            "message": f"Failed to query VTOP CC OD endpoints: {exc}",
+        }
 
 
 @router.get("/exams")
@@ -286,12 +477,12 @@ def get_vtop_timetable() -> List[Dict[str, Any]]:
 @router.get("/faculty")
 def get_vtop_faculty() -> List[Dict[str, Any]]:
     """
-    The student's faculty, projected from the registered-course table.
-
-    Not a separate VTOP module — that table is the only page listing them — so
-    there are no emails or cabin numbers here rather than invented ones.
+    The student's faculty, projected from the registered-course table and university staff records.
     """
-    return load_store().get("faculty") or []
+    store = load_store()
+    courses = store.get("courses") or []
+    raw_fac = store.get("faculty") or []
+    return [normalize_faculty_item(f, courses) for f in raw_fac]
 
 
 @router.get("/receipts")

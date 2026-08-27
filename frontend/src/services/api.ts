@@ -14,6 +14,7 @@ import {
   Faculty,
   VtopLoginRequest,
   VtopSyncResponse,
+  UnifiedAssignmentsDashboard,
 } from '../types';
 
 // API base path - proxied by Vite in dev or served directly in prod
@@ -153,9 +154,27 @@ export const CampusAPI = {
     };
   },
 
+  syncOD: async (): Promise<{ success: boolean; sessionExpired?: boolean; message: string; od?: OD }> => {
+    try {
+      const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
+      const res = await fetch(`${API_BASE}/vtop/od/sync${q}`, { method: 'POST' });
+      return await res.json();
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Failed to sync OD from VTOP CC' };
+    }
+  },
+
   // 4. Marks
   getMarks: async (): Promise<Marks[]> => {
     return fetchJson<Marks[]>('/vtop/marks', undefined, []);
+  },
+
+  getMarksSummary: async (): Promise<Marks[]> => {
+    return fetchJson<Marks[]>('/vtop/marks/summary', undefined, []);
+  },
+
+  getSubjectDetails: async (courseCode: string): Promise<any> => {
+    return fetchJson<any>(`/academics/subject/${encodeURIComponent(courseCode)}`);
   },
 
   // 5. Timetable
@@ -400,5 +419,257 @@ export const CampusAPI = {
       success: true,
       message: 'Logged out',
     });
+  },
+
+  // 10. Microsoft Teams Authentication & Coursework Sync
+  getTeamsStatus: async () => {
+    return fetchJson<{
+      connected: boolean;
+      email?: string;
+      displayName?: string;
+      lastSynced?: string;
+      portal?: string;
+      mfaRequired?: boolean;
+      totalAssignments: number;
+      pendingCount: number;
+      submittedCount: number;
+      matchedSubjects?: any[];
+      matchedCount?: number;
+      totalTeamsCount?: number;
+    }>('/teams/status', undefined, {
+      connected: false,
+      totalAssignments: 0,
+      pendingCount: 0,
+      submittedCount: 0,
+      matchedSubjects: [],
+      matchedCount: 0,
+      totalTeamsCount: 0,
+    });
+  },
+
+  loginTeams: async (email: string, password: string): Promise<{
+    success: boolean;
+    message: string;
+    email?: string;
+    displayName?: string;
+    assignments?: Assignment[];
+    matchedSubjects?: any[];
+    matchedCount?: number;
+    totalTeamsCount?: number;
+    teamsAssignmentsCount?: number;
+    totalCount?: number;
+    pendingCount?: number;
+    submittedCount?: number;
+    mfaRequired?: boolean;
+  }> => {
+    try {
+      const res = await fetch(`${API_BASE}/teams/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          success: false,
+          message: data.detail || data.message || `Authentication failed with status ${res.status}`,
+        };
+      }
+      return data;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Failed to connect to Microsoft Online authentication service',
+      };
+    }
+  },
+
+  syncTeams: async (): Promise<{
+    success: boolean;
+    message: string;
+    assignments?: Assignment[];
+    totalCount?: number;
+    lastSynced?: string;
+  }> => {
+    try {
+      const res = await fetch(`${API_BASE}/teams/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          success: false,
+          message: data.detail || data.message || `Sync failed with status ${res.status}`,
+        };
+      }
+      return data;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Failed to sync with Microsoft Teams',
+      };
+    }
+  },
+
+  disconnectTeams: async () => {
+    return fetchJson<{ success: boolean; message: string }>('/teams/disconnect', { method: 'POST' }, {
+      success: true,
+      message: 'Disconnected',
+    });
+  },
+
+  // 11. VIT LMS Authentication & Coursework Sync
+  getLMSStatus: async () => {
+    return fetchJson<{
+      connected: boolean;
+      status: string;
+      username?: string;
+      displayName?: string;
+      portalUrl?: string;
+      lastSynced?: string;
+      totalAssignments: number;
+      pendingCount: number;
+      submittedCount: number;
+      matchedSubjects?: any[];
+      matchedCount?: number;
+      totalCoursesCount?: number;
+    }>('/lms/status', undefined, {
+      connected: false,
+      status: 'disconnected',
+      totalAssignments: 0,
+      pendingCount: 0,
+      submittedCount: 0,
+      matchedSubjects: [],
+      matchedCount: 0,
+      totalCoursesCount: 0,
+    });
+  },
+
+  loginLMS: async (credentials: { username?: string; password?: string; sessionCookie?: string }): Promise<{
+    success: boolean;
+    message: string;
+    username?: string;
+    displayName?: string;
+    assignments?: Assignment[];
+    matchedSubjects?: any[];
+    matchedCount?: number;
+    lmsAssignmentsCount?: number;
+    pendingCount?: number;
+    submittedCount?: number;
+    lastSynced?: string;
+  }> => {
+    try {
+      const res = await fetch(`${API_BASE}/lms/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          success: false,
+          message: data.detail || data.message || `LMS login failed with status ${res.status}`,
+        };
+      }
+      return data;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Failed to connect to VIT LMS server',
+      };
+    }
+  },
+
+  syncLMS: async (): Promise<{
+    success: boolean;
+    message: string;
+    assignments?: Assignment[];
+    matchedSubjects?: any[];
+    matchedCount?: number;
+    lastSynced?: string;
+  }> => {
+    try {
+      const res = await fetch(`${API_BASE}/lms/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          success: false,
+          message: data.detail || data.message || `LMS sync failed with status ${res.status}`,
+        };
+      }
+      return data;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Failed to sync with VIT LMS',
+      };
+    }
+  },
+
+  disconnectLMS: async () => {
+    return fetchJson<{ success: boolean; message: string }>('/lms/disconnect', { method: 'POST' }, {
+      success: true,
+      message: 'Disconnected',
+    });
+  },
+
+  // 12. Unified Academic Accounts & Subject-First Assignments
+  getAcademicAccountsStatus: async () => {
+    return fetchJson<{
+      currentSemester: { id: string; name: string };
+      teams: any;
+      lms: any;
+    }>('/academic-accounts/status', undefined, {
+      currentSemester: { id: 'CH20262701', name: 'Fall Semester 2026-27' },
+      teams: { connected: false, status: 'disconnected' },
+      lms: { connected: false, status: 'disconnected' },
+    });
+  },
+
+  getUnifiedAssignments: async (): Promise<UnifiedAssignmentsDashboard> => {
+    return fetchJson<UnifiedAssignmentsDashboard>('/assignments/unified', undefined, {
+      currentSemester: { id: 'CH20262701', name: 'Fall Semester 2026-27' },
+      stateLabel: 'not_synced',
+      totalPendingAssignments: 0,
+      totalSubmittedAssignments: 0,
+      totalOverdueAssignments: 0,
+      totalAssignments: 0,
+      subjects: [],
+      unmatchedAssignments: [],
+      connectedAccounts: {
+        teams: { connected: false },
+        lms: { connected: false },
+      },
+    });
+  },
+
+  syncAllAcademicAccounts: async (): Promise<{
+    success: boolean;
+    message: string;
+    dashboard?: UnifiedAssignmentsDashboard;
+  }> => {
+    try {
+      const res = await fetch(`${API_BASE}/academic-accounts/sync-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          success: false,
+          message: data.detail || data.message || `Sync failed with status ${res.status}`,
+        };
+      }
+      return data;
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Failed to re-sync academic accounts',
+      };
+    }
   },
 };
