@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.storage import load_store, save_store
+from app.routers.teams import match_faculty_names
 
 # Suppress insecure request warnings for VIT internal SSL certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -52,41 +53,96 @@ def get_base_code(code: Optional[str]) -> str:
     return norm[:-1] if norm and norm[-1] in ("L", "P", "J") else norm
 
 
+def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List[str]:
+    """Extracts teacher/instructor names from the LMS course view page."""
+    teachers: List[str] = []
+    url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
+    try:
+        r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, "html.parser")
+            for el in soup.find_all(
+                ["span", "div", "p", "li"],
+                class_=lambda c: c and any(k in str(c).lower() for k in ["teacher", "instructor"]),
+            ):
+                txt = el.get_text().strip()
+                if txt and len(txt) < 80:
+                    teachers.append(txt)
+            for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*:\s*([A-Za-z\s\.]+)", r.text):
+                cand = m.group(1).strip().split("\n")[0].strip()
+                if len(cand) >= 3 and len(cand) < 80:
+                    teachers.append(cand)
+    except Exception as exc:
+        logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
+    return teachers
+
+
 def match_lms_course_to_vtop(
-    course_name: str, course_id: str, vtop_courses: List[Dict[str, Any]]
+    course_name: str,
+    course_id: str,
+    vtop_courses: List[Dict[str, Any]],
+    candidate_professors: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Matches an LMS course against VTOP enrolled subjects.
+    1. First checks if the LMS course matches a course enrolled in that semester (vtop_courses).
+    2. Then checks the professor name of that course against LMS teachers/metadata.
+    3. If BOTH course and professor match, returns the matched course record.
     """
     clean_name = (course_name or "").upper()
+
+    matched_course = None
 
     # 1. Exact course code
     for c in vtop_courses:
         code = normalize_code(c.get("code") or c.get("courseCode"))
         if code and code in clean_name:
-            return c
+            matched_course = c
+            break
 
     # 2. Base course code
-    for c in vtop_courses:
-        base = get_base_code(c.get("code") or c.get("courseCode"))
-        if len(base) >= 5 and base in clean_name:
-            return c
+    if not matched_course:
+        for c in vtop_courses:
+            base = get_base_code(c.get("code") or c.get("courseCode"))
+            if len(base) >= 5 and base in clean_name:
+                matched_course = c
+                break
 
     # 3. Exact course title
-    for c in vtop_courses:
-        title = (c.get("title") or c.get("courseTitle") or "").upper().strip()
-        if len(title) >= 5 and title in clean_name:
-            return c
+    if not matched_course:
+        for c in vtop_courses:
+            title = (c.get("title") or c.get("courseTitle") or "").upper().strip()
+            if len(title) >= 5 and title in clean_name:
+                matched_course = c
+                break
 
     # 4. Token overlap
-    for c in vtop_courses:
-        title = (c.get("title") or c.get("courseTitle") or "").upper().strip()
-        stopwords = {"AND", "&", "THE", "FOR", "LAB", "THEORY", "PRACTICAL", "ONLY", "FALL", "WINTER"}
-        words = [w for w in re.findall(r"[A-Z]{3,}", title) if w not in stopwords]
-        if words and len(words) >= 2 and all(w in clean_name for w in words):
-            return c
+    if not matched_course:
+        for c in vtop_courses:
+            title = (c.get("title") or c.get("courseTitle") or "").upper().strip()
+            stopwords = {"AND", "&", "THE", "FOR", "LAB", "THEORY", "PRACTICAL", "ONLY", "FALL", "WINTER"}
+            words = [w for w in re.findall(r"[A-Z]{3,}", title) if w not in stopwords]
+            if words and len(words) >= 2 and all(w in clean_name for w in words):
+                matched_course = c
+                break
 
-    return None
+    if not matched_course:
+        return None
+
+    # Step 2: Check professor name of that course if candidate_professors provided
+    if candidate_professors is not None:
+        vtop_faculty = matched_course.get("faculty")
+        candidate_sources = list(candidate_professors) + [course_name]
+        if not match_faculty_names(vtop_faculty, candidate_sources):
+            logger.warning(
+                "LMS course '%s' matched course [%s], but faculty '%s' did not match LMS instructors %s",
+                course_name,
+                matched_course.get("code"),
+                vtop_faculty,
+                candidate_sources,
+            )
+            return None
+
+    return matched_course
 
 
 def parse_moodle_date(raw: str) -> Tuple[str, str]:
@@ -300,12 +356,15 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
                     for c in course_list:
                         c_id = str(c.get("id"))
                         c_title = c.get("fullname") or c.get("shortname") or ""
+                        contacts = c.get("contacts") or []
+                        teachers = [ct.get("fullname") for ct in contacts if ct.get("fullname")]
                         if c_id and c_id not in seen_ids and c_id != "1":
                             seen_ids.add(c_id)
                             courses.append({
                                 "id": c_id,
                                 "title": c_title,
                                 "shortname": c.get("shortname", ""),
+                                "teachers": teachers,
                                 "url": f"{LMS_BASE_URL}/course/view.php?id={c_id}",
                             })
                     logger.info("Retrieved %d courses via Moodle AJAX service.", len(courses))
@@ -467,22 +526,33 @@ def fetch_vit_lms_coursework(
     for lms_c in enrolled_courses:
         c_id = lms_c["id"]
         c_title = lms_c["title"]
+        c_teachers = list(lms_c.get("teachers") or [])
 
-        matched_vtop = match_lms_course_to_vtop(c_title, c_id, vtop_courses)
+        # If teachers were not in AJAX metadata, scrape course page for teacher names
+        if not c_teachers and session:
+            c_teachers = fetch_lms_course_teachers(session, c_id)
+
+        # Check 1: Enrolled course in that semester
+        # Check 2: Professor name of that course
+        matched_vtop = match_lms_course_to_vtop(c_title, c_id, vtop_courses, candidate_professors=c_teachers)
         if matched_vtop:
             code = matched_vtop.get("code") or matched_vtop.get("courseCode")
             title = matched_vtop.get("title") or matched_vtop.get("courseTitle")
+            faculty = matched_vtop.get("faculty")
+            logger.info("Verified enrolled course [%s: %s] AND professor [%s] with LMS '%s' (%s). Fetching assignments...", code, title, faculty, c_title, c_id)
 
             sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop)
             matched_subjects.append({
                 "courseCode": code,
                 "courseTitle": title,
-                "faculty": matched_vtop.get("faculty"),
+                "faculty": faculty,
                 "lmsCourseId": c_id,
                 "lmsCourseName": c_title,
                 "assignmentsCount": len(sub_assignments),
             })
             all_assignments.extend(sub_assignments)
+        else:
+            logger.debug("LMS course '%s' (%s) skipped (course not enrolled or professor did not match).", c_title, c_id)
 
     return all_assignments, matched_subjects, len(enrolled_courses)
 

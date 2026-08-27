@@ -146,6 +146,7 @@ class TestSubjectFirstDashboard:
                 "id": "t-1",
                 "courseCode": "BCSE302L",
                 "courseTitle": "Database Systems",
+                "faculty": "RISHIKESHAN C A",
                 "title": "DA 1",
                 "source": "Teams",
                 "dueDate": "2026-08-28",
@@ -157,6 +158,7 @@ class TestSubjectFirstDashboard:
                 "id": "l-1",
                 "courseCode": "BCSE302L",
                 "courseTitle": "Database Systems",
+                "faculty": "RISHIKESHAN C A",
                 "title": "DA 1",
                 "source": "LMS",
                 "dueDate": "2026-08-28",
@@ -168,6 +170,7 @@ class TestSubjectFirstDashboard:
                 "id": "t-2",
                 "courseCode": "BCSE308L",
                 "courseTitle": "Computer Networks",
+                "faculty": "JAYA VIGNESH T",
                 "title": "Wireshark Lab",
                 "source": "Teams",
                 "dueDate": "2026-09-02",
@@ -197,6 +200,33 @@ class TestSubjectFirstDashboard:
         assert len(cn["assignments"]) == 1
         assert cn["pendingCount"] == 0
         assert cn["submittedCount"] == 1
+
+    def test_dashboard_filters_out_assignments_with_unmatched_professor(self):
+        """Assignments from a different professor must be filtered out."""
+        store = storage.load_store()
+        store["assignments"] = [
+            {
+                "id": "wrong-prof-1",
+                "courseCode": "BCSE302L",
+                "courseTitle": "Database Systems",
+                "faculty": "Dr. Wrong Professor",
+                "title": "Unauthorized Assignment",
+                "source": "Teams",
+                "dueDate": "2026-08-28",
+                "dueTime": "23:59",
+                "status": "Pending",
+                "platformUrl": "https://teams.microsoft.com/assign/fake",
+            }
+        ]
+        storage.save_store(store)
+
+        res = client.get("/api/assignments/unified")
+        assert res.status_code == 200
+        data = res.json()
+        dbms = next(s for s in data["subjects"] if s["courseCode"] == "BCSE302L")
+        # Must be filtered out because professor does not match RISHIKESHAN C A
+        assert len(dbms["assignments"]) == 0
+
 
     def test_academic_accounts_status_endpoint(self):
         res = client.get("/api/academic-accounts/status")

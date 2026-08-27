@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.storage import load_store, save_store
+from app.routers.teams import match_faculty_names, get_base_code
 
 logger = logging.getLogger("vtop.routes.unified_assignments")
 
@@ -238,7 +239,33 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     courses = list(store.get("courses") or [])
 
     # 3. Raw assignments stored from connected sources
-    raw_assignments = list(store.get("assignments") or [])
+    # Strictly verify: 1. Enrolled in current semester 2. Professor name matches course faculty
+    raw_unfiltered = list(store.get("assignments") or [])
+    raw_assignments: List[Dict[str, Any]] = []
+    for a in raw_unfiltered:
+        c_code = a.get("courseCode")
+        matched_c = next((c for c in courses if c.get("code") == c_code or get_base_code(c.get("code")) == get_base_code(c_code)), None)
+        if not matched_c:
+            continue
+
+        vtop_faculty = matched_c.get("faculty")
+        assign_faculty_sources = [a.get("faculty"), a.get("matchedTeamName"), a.get("matchedLmsCourse")]
+        if not match_faculty_names(vtop_faculty, [s for s in assign_faculty_sources if s]):
+            logger.warning(
+                "Unified dashboard dropping assignment '%s' [%s]: course faculty '%s' did not match %s",
+                a.get("title"),
+                c_code,
+                vtop_faculty,
+                assign_faculty_sources,
+            )
+            continue
+
+        raw_assignments.append({
+            **a,
+            "courseCode": matched_c.get("code") or c_code,
+            "courseTitle": matched_c.get("title") or a.get("courseTitle"),
+            "faculty": vtop_faculty,
+        })
 
     # Account metadata
     teams_account = store.get("teamsAccount") or {}

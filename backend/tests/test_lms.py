@@ -80,6 +80,28 @@ class TestLMSMatchingAndParsing:
         match = match_lms_course_to_vtop("Extra French Language Workshop", "9999", vtop_courses)
         assert match is None
 
+    def test_match_requires_both_enrolled_course_and_professor(self):
+        vtop_courses = [{"code": "BCSE308L", "title": "Computer Networks", "faculty": "JAYA VIGNESH T"}]
+        # 1. Matching course and matching professor -> Success
+        match_ok = match_lms_course_to_vtop(
+            "Computer Networks(BCSE308L)",
+            "2179",
+            vtop_courses,
+            candidate_professors=["JAYA VIGNESH T"],
+        )
+        assert match_ok is not None
+        assert match_ok["code"] == "BCSE308L"
+
+        # 2. Matching course code, but different professor -> Reject
+        match_wrong_prof = match_lms_course_to_vtop(
+            "Computer Networks(BCSE308L)",
+            "2179",
+            vtop_courses,
+            candidate_professors=["Dr. Random Teacher"],
+        )
+        assert match_wrong_prof is None
+
+
     def test_moodle_date_parser(self):
         d, t = parse_moodle_date("Friday, 28 August 2026, 11:59 PM")
         assert d == "2026-08-28"
@@ -139,7 +161,7 @@ class TestLMSAuthentication:
                 if "login" in url:
                     r.text = '<input name="logintoken" value="token123"/>'
                 elif "/my" in url or "courses" in url:
-                    r.text = '<a href="/course/view.php?id=808">BCSE302L - Database Systems</a>'
+                    r.text = '<a href="/course/view.php?id=808">BCSE302L - Database Systems - RISHIKESHAN C A</a>'
                 elif "/mod/assign/index.php" in url:
                     r.text = '''
                     <table class="generaltable mod_index">

@@ -208,59 +208,201 @@ def get_base_code(code: Optional[str]) -> str:
     return norm[:-1] if norm and norm[-1] in ("L", "P", "J") else norm
 
 
+def normalize_faculty_tokens(name: Optional[str]) -> List[str]:
+    """
+    Tokenizes faculty / professor name into normalized significant tokens.
+    Removes honorifics like Dr, Prof, Professor, Mr, Ms, Mrs, Doc, Er.
+    """
+    if not name:
+        return []
+    cleaned = str(name).upper()
+    cleaned = re.sub(r"\b(DR|PROF|PROFESSOR|MR|MS|MRS|DOC|ER|FACULTY|INSTRUCTOR)\b\.?", " ", cleaned)
+    tokens = re.findall(r"[A-Z0-9]+", cleaned)
+    sig_tokens = [t for t in tokens if len(t) >= 2]
+    return sig_tokens if sig_tokens else tokens
+
+
+def match_faculty_names(vtop_faculty: Optional[str], candidate_texts: Union[str, List[str]]) -> bool:
+    """
+    Verifies if the professor/faculty assigned to the VTOP enrolled course matches
+    any candidate text (such as Teams owner, LMS teacher, channel description, or message author).
+    Returns True ONLY if there is an authentic faculty match.
+    """
+    if not vtop_faculty or not candidate_texts:
+        return False
+
+    v_tokens = normalize_faculty_tokens(vtop_faculty)
+    if not v_tokens:
+        return False
+
+    if isinstance(candidate_texts, str):
+        candidates = [candidate_texts]
+    else:
+        candidates = list(candidate_texts)
+
+    v_long_tokens = [t for t in v_tokens if len(t) >= 3]
+    if not v_long_tokens:
+        v_long_tokens = v_tokens
+
+    for cand in candidates:
+        if not cand:
+            continue
+        c_tokens = normalize_faculty_tokens(cand)
+        if not c_tokens:
+            continue
+        c_set = set(c_tokens)
+        c_joined = " ".join(c_tokens)
+
+        # 1. Exact token subset: all long tokens in candidate
+        if all(t in c_set for t in v_long_tokens):
+            return True
+
+        # 2. Candidate joined text contains full vtop faculty name or vice versa
+        v_joined = " ".join(v_long_tokens)
+        if v_joined in c_joined or c_joined in v_joined:
+            return True
+
+        # 3. For multi-word faculty (e.g. "JAYA VIGNESH T" or "SARAVANA KUMAR R"),
+        # at least 2 significant tokens match
+        matches = sum(1 for t in v_long_tokens if t in c_set)
+        if len(v_long_tokens) >= 2 and matches >= 2:
+            return True
+
+        # 4. For distinctive names (>= 5 letters, e.g. "RISHIKESHAN", "UPENDER", "THANGARAJ", "MAHARISHI"),
+        # a match on this distinctive token is sufficient
+        distinctive_tokens = [t for t in v_long_tokens if len(t) >= 5]
+        if any(t in c_set for t in distinctive_tokens):
+            return True
+
+        # 5. Handle vendor / training faculty like "ETHNUS (APT)"
+        if "ETHNUS" in v_tokens and "ETHNUS" in c_set:
+            return True
+
+    return False
+
+
+def get_team_professors(team_id: str, headers: Dict[str, str]) -> List[str]:
+    """Queries Microsoft Graph API for instructors, owners, and teachers of a Team."""
+    prof_names: List[str] = []
+
+    # 1. Group / Team Owners
+    try:
+        r = requests.get(f"https://graph.microsoft.com/v1.0/groups/{team_id}/owners", headers=headers, timeout=5)
+        if r.status_code == 200:
+            for u in r.json().get("value", []):
+                name = u.get("displayName")
+                if name and name not in prof_names:
+                    prof_names.append(name)
+    except Exception as e:
+        logger.debug("Failed fetching owners for team %s: %s", team_id, e)
+
+    # 2. Education Class Teachers
+    try:
+        r = requests.get(f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/teachers", headers=headers, timeout=5)
+        if r.status_code == 200:
+            for u in r.json().get("value", []):
+                name = u.get("displayName")
+                if name and name not in prof_names:
+                    prof_names.append(name)
+    except Exception as e:
+        logger.debug("Failed fetching teachers for class %s: %s", team_id, e)
+
+    # 3. Team Members with Owner role
+    try:
+        r = requests.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/members", headers=headers, timeout=5)
+        if r.status_code == 200:
+            for m in r.json().get("value", []):
+                roles = m.get("roles") or []
+                if "owner" in roles:
+                    name = m.get("displayName")
+                    if name and name not in prof_names:
+                        prof_names.append(name)
+    except Exception as e:
+        logger.debug("Failed fetching members for team %s: %s", team_id, e)
+
+    return prof_names
+
+
 def match_team_to_vtop_course(
-    team_name: str, team_desc: str, vtop_courses: List[Dict[str, Any]]
+    team_name: str,
+    team_desc: str,
+    vtop_courses: List[Dict[str, Any]],
+    candidate_professors: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Searches for the enrolled subject in the VTOP section and matches it with Teams enrolled subjects.
-    Matches by:
-    1. Exact course code (e.g. 'BCSE302L' in team name/description)
-    2. Base course code (e.g. 'BCSE302' in team name/description)
-    3. Exact course title (e.g. 'Database Systems' in team name)
-    4. Slot + Significant title keyword (e.g. 'F2-Database' matching slot 'F2+TF2' and title 'Database Systems')
-    5. Token overlap match (multi-word titles)
+    1. First checks if the team matches a course enrolled in that semester (vtop_courses).
+    2. Then checks the professor name of that course against team owners/metadata.
+    3. If BOTH course and professor match, returns the matched course record.
     """
     name_upper = (team_name or "").upper()
     desc_upper = (team_desc or "").upper()
     combined_text = f"{name_upper} {desc_upper}"
 
+    matched_course = None
+
     # 1. Exact course code match
     for course in vtop_courses:
         code = normalize_course_code(course.get("code") or course.get("courseCode"))
         if code and code in combined_text:
-            return course
+            matched_course = course
+            break
 
     # 2. Base course code match
-    for course in vtop_courses:
-        base = get_base_code(course.get("code") or course.get("courseCode"))
-        if len(base) >= 5 and base in combined_text:
-            return course
+    if not matched_course:
+        for course in vtop_courses:
+            base = get_base_code(course.get("code") or course.get("courseCode"))
+            if len(base) >= 5 and base in combined_text:
+                matched_course = course
+                break
 
     # 3. Exact course title match
-    for course in vtop_courses:
-        title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
-        if len(title) >= 5 and title in combined_text:
-            return course
+    if not matched_course:
+        for course in vtop_courses:
+            title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
+            if len(title) >= 5 and title in combined_text:
+                matched_course = course
+                break
 
     # 4. Slot + Significant title keyword match (e.g. F2-Database, C2+TC2 Cloud)
-    for course in vtop_courses:
-        slot = (course.get("slot") or "").upper()
-        title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
-        slot_parts = [s.strip() for s in re.split(r"[\s+,-]", slot) if len(s.strip()) >= 2]
-        title_words = [w for w in re.findall(r"[A-Z]{4,}", title) if w not in ("SYSTEMS", "THEORY", "LAB", "PRACTICAL", "ADVANCED")]
-        if any(sp in combined_text for sp in slot_parts) and any(tw in combined_text for tw in title_words):
-            return course
+    if not matched_course:
+        for course in vtop_courses:
+            slot = (course.get("slot") or "").upper()
+            title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
+            slot_parts = [s.strip() for s in re.split(r"[\s+,-]", slot) if len(s.strip()) >= 2]
+            title_words = [w for w in re.findall(r"[A-Z]{4,}", title) if w not in ("SYSTEMS", "THEORY", "LAB", "PRACTICAL", "ADVANCED")]
+            if any(sp in combined_text for sp in slot_parts) and any(tw in combined_text for tw in title_words):
+                matched_course = course
+                break
 
     # 5. Token overlap match (multi-word titles)
-    for course in vtop_courses:
-        title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
-        stopwords = {"AND", "&", "THE", "FOR", "LAB", "THEORY", "PRACTICAL", "ONLY", "FALL", "WINTER"}
-        words = [w for w in re.findall(r"[A-Z]{3,}", title) if w not in stopwords]
-        if words and len(words) >= 2:
-            if all(w in combined_text for w in words):
-                return course
+    if not matched_course:
+        for course in vtop_courses:
+            title = (course.get("title") or course.get("courseTitle") or course.get("courseName") or "").upper().strip()
+            stopwords = {"AND", "&", "THE", "FOR", "LAB", "THEORY", "PRACTICAL", "ONLY", "FALL", "WINTER"}
+            words = [w for w in re.findall(r"[A-Z]{3,}", title) if w not in stopwords]
+            if words and len(words) >= 2:
+                if all(w in combined_text for w in words):
+                    matched_course = course
+                    break
 
-    return None
+    if not matched_course:
+        return None
+
+    # Step 2: Check professor name of that course if candidate_professors provided
+    if candidate_professors is not None:
+        vtop_faculty = matched_course.get("faculty")
+        candidate_sources = list(candidate_professors) + [team_name, team_desc]
+        if not match_faculty_names(vtop_faculty, candidate_sources):
+            logger.warning(
+                "Teams '%s' matched course [%s], but faculty '%s' did not match candidate instructors %s",
+                team_name,
+                matched_course.get("code"),
+                vtop_faculty,
+                candidate_sources,
+            )
+            return None
+
+    return matched_course
 
 
 def parse_teams_adaptive_card(att: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -560,11 +702,17 @@ def fetch_microsoft_teams_coursework(
         team_name = team.get("displayName") or ""
         team_desc = team.get("description") or ""
 
-        matched_vtop = match_team_to_vtop_course(team_name, team_desc, vtop_courses)
+        # Retrieve instructor / owner names from Microsoft Graph API
+        team_professors = get_team_professors(team_id, headers)
+
+        # Check 1: Enrolled course in that semester
+        # Check 2: Professor name of that course
+        matched_vtop = match_team_to_vtop_course(team_name, team_desc, vtop_courses, candidate_professors=team_professors)
         if matched_vtop:
             code = matched_vtop.get("code") or matched_vtop.get("courseCode")
             title = matched_vtop.get("title") or matched_vtop.get("courseTitle")
-            logger.info("Matched VTOP course [%s: %s] with Teams '%s' (%s)", code, title, team_name, team_id)
+            faculty = matched_vtop.get("faculty")
+            logger.info("Verified enrolled course [%s: %s] AND professor [%s] with Teams '%s' (%s). Fetching assignments...", code, title, faculty, team_name, team_id)
 
             # 4. Go to assignments section in Teams and fetch details for that subject
             subject_assignments = fetch_assignments_for_matched_team(team_id, team_name, matched_vtop, headers)
@@ -572,7 +720,7 @@ def fetch_microsoft_teams_coursework(
             matched_subjects.append({
                 "courseCode": code,
                 "courseTitle": title,
-                "faculty": matched_vtop.get("faculty"),
+                "faculty": faculty,
                 "teamId": team_id,
                 "teamName": team_name,
                 "assignmentsCount": len(subject_assignments),
@@ -580,7 +728,7 @@ def fetch_microsoft_teams_coursework(
 
             all_assignments.extend(subject_assignments)
         else:
-            logger.debug("Teams channel '%s' did not match any VTOP enrolled course.", team_name)
+            logger.debug("Teams channel '%s' skipped (course not enrolled or professor did not match).", team_name)
 
     # 5. Also query general /education/me/assignments for any assignments already published
     try:
@@ -593,12 +741,17 @@ def fetch_microsoft_teams_coursework(
                     continue
 
                 class_id = item.get("classId") or ""
-                # Attempt to link to VTOP course
+                # Attempt to link to VTOP course: verify course AND professor
                 matched_course = None
                 for c in vtop_courses:
                     if normalize_course_code(c.get("code")) in normalize_course_code(class_id):
-                        matched_course = c
-                        break
+                        if match_faculty_names(c.get("faculty"), [item.get("classDisplayName", "")]):
+                            matched_course = c
+                            break
+
+                # Only include if both course and professor match
+                if not matched_course:
+                    continue
 
                 due_dt = item.get("dueDateTime") or ""
                 due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
@@ -612,8 +765,9 @@ def fetch_microsoft_teams_coursework(
                 all_assignments.append({
                     "id": assign_id,
                     "title": item.get("displayName") or "Teams Assignment",
-                    "courseCode": matched_course.get("code") if matched_course else (item.get("classId") or "TEAMS"),
-                    "courseTitle": matched_course.get("title") if matched_course else (item.get("classDisplayName") or "Microsoft Teams"),
+                    "courseCode": matched_course.get("code"),
+                    "courseTitle": matched_course.get("title"),
+                    "faculty": matched_course.get("faculty"),
                     "source": "Teams",
                     "platformName": "Microsoft Teams",
                     "platformUrl": item.get("webUrl") or TEAMS_PORTAL_URL,

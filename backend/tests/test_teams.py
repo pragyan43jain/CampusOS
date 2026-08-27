@@ -219,6 +219,37 @@ class TestVTOPAndTeamsSubjectMatching:
         match = match_team_to_vtop_course("University Music Club", "Extracurricular", vtop_courses)
         assert match is None
 
+    def test_match_requires_both_enrolled_course_and_professor(self):
+        vtop_courses = [{"code": "BECE355L", "title": "Advanced Cloud Computing", "faculty": "UPENDER P"}]
+        # 1. Matching course and matching professor -> Success
+        match_ok = match_team_to_vtop_course(
+            "C2+TC2 2026 (Advanced Cloud Computing)",
+            "Class team",
+            vtop_courses,
+            candidate_professors=["UPENDER P"],
+        )
+        assert match_ok is not None
+        assert match_ok["code"] == "BECE355L"
+
+        # 2. Matching course code, but different professor -> Reject
+        match_wrong_prof = match_team_to_vtop_course(
+            "BECE355L Cloud Computing",
+            "",
+            vtop_courses,
+            candidate_professors=["Dr. Completely Different Professor"],
+        )
+        assert match_wrong_prof is None
+
+        # 3. Unenrolled course with same professor -> Reject
+        match_unenrolled = match_team_to_vtop_course(
+            "MAT1001 Calculus",
+            "",
+            vtop_courses,
+            candidate_professors=["UPENDER P"],
+        )
+        assert match_unenrolled is None
+
+
 
 class TestTeamsAuthenticationSuccessAndZeroFakeData:
     def test_successful_login_with_no_assignments_returns_zero_fake_data(self):
@@ -246,9 +277,9 @@ class TestTeamsAuthenticationSuccessAndZeroFakeData:
                 if "userrealm" in url:
                     r.json.return_value = {"NameSpaceType": "Managed"}
                 elif "/v1.0/me/joinedTeams" in url:
-                    # Joined a team matching BCSE302L
+                    # Joined a team matching BCSE302L and faculty RISHIKESHAN C A
                     r.json.return_value = {"value": [
-                        {"id": "team-dbms", "displayName": "BCSE302L - Database Systems", "description": ""}
+                        {"id": "team-dbms", "displayName": "BCSE302L - Database Systems - RISHIKESHAN C A", "description": ""}
                     ]}
                 elif "/education/classes/team-dbms/assignments" in url:
                     # ZERO assignments posted in this class
@@ -311,7 +342,7 @@ class TestTeamsAuthenticationSuccessAndZeroFakeData:
                 elif "/v1.0/me/joinedTeams" in url:
                     r.json.return_value = {
                         "value": [
-                            {"id": "team-cn", "displayName": "BCSE308L - Computer Networks", "description": "VIT Chennai"}
+                            {"id": "team-cn", "displayName": "BCSE308L - Computer Networks - JAYA VIGNESH T", "description": "VIT Chennai"}
                         ]
                     }
                 elif "/education/classes/team-cn/assignments" in url:
