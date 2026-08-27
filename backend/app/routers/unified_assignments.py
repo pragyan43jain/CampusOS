@@ -74,17 +74,30 @@ def are_duplicate_assignments(a1: Dict[str, Any], a2: Dict[str, Any]) -> bool:
 def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) -> Dict[str, Any]:
     """
     Combines duplicate assignment records into a single unified record.
-    Preserves both source submission URLs.
+    Preserves both source submission URLs and authentic submission states.
     """
     # Pick title with best detail
     title1 = teams_item.get("title") or ""
     title2 = lms_item.get("title") or ""
     title = title1 if len(title1) >= len(title2) else title2
 
-    # Status: if either is submitted, reflect submitted
-    st1 = teams_item.get("status") or "Pending"
-    st2 = lms_item.get("status") or "Pending"
-    merged_status = "Submitted" if (st1 == "Submitted" or st2 == "Submitted") else "Pending"
+    # Status priority: If either is DONE / Submitted, final is DONE / Submitted
+    is_done = bool(
+        teams_item.get("isDone")
+        or lms_item.get("isDone")
+        or (teams_item.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
+        or (lms_item.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
+    )
+    is_unavail = (
+        teams_item.get("status") == "STATUS_UNAVAILABLE" and lms_item.get("status") == "STATUS_UNAVAILABLE"
+    )
+
+    if is_done:
+        merged_status = "DONE"
+    elif is_unavail:
+        merged_status = "STATUS_UNAVAILABLE"
+    else:
+        merged_status = teams_item.get("applicationStatus") or lms_item.get("status") or "PENDING"
 
     # Descriptions
     desc1 = teams_item.get("instructions") or ""
@@ -94,6 +107,8 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
     # Dates
     due_date = teams_item.get("dueDate") if teams_item.get("dueDate") != "TBA" else lms_item.get("dueDate")
     due_time = teams_item.get("dueTime") or lms_item.get("dueTime") or "23:59"
+
+    submitted_at = teams_item.get("submittedAt") or lms_item.get("submittedAt")
 
     return {
         "id": f"unified-{teams_item.get('id', '')}-{lms_item.get('id', '')}",
@@ -108,6 +123,12 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
         "dueDate": due_date or "TBA",
         "dueTime": due_time,
         "status": merged_status,
+        "applicationStatus": merged_status,
+        "isDone": is_done,
+        "isSubmitted": is_done,
+        "submittedAt": submitted_at,
+        "teamsSubmissionState": teams_item.get("teamsSubmissionState"),
+        "submissionStatus": teams_item.get("submissionStatus") or lms_item.get("submissionStatus"),
         "priority": teams_item.get("priority") or lms_item.get("priority") or "Medium",
         "weightage": teams_item.get("weightage") or lms_item.get("weightage") or 10,
         "submissionUrl": teams_item.get("platformUrl") or lms_item.get("platformUrl"),
@@ -119,52 +140,72 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
 
 
 def compute_relative_deadline(
-    due_date_str: str, due_time_str: str, current_status: str, now: Optional[datetime] = None
+    due_date_str: str, due_time_str: str, current_status: str, now: Optional[datetime] = None, is_done: bool = False
 ) -> Dict[str, Any]:
     """
     Calculates dynamic relative deadline and overdue state based on current time.
-    Does NOT use hardcoded dates.
+    Sections 5, 6 & 7: Submission status has strict priority over deadline.
+    If an assignment is submitted/completed/returned, it MUST show DONE and never OVERDUE or PENDING.
     """
     if not now:
         now = datetime.now(timezone.utc)
 
+    st_upper = (current_status or "").upper().strip()
+    is_already_done = is_done or st_upper in ("DONE", "SUBMITTED", "COMPLETED")
+    is_unavailable = st_upper in ("STATUS_UNAVAILABLE", "UNAVAILABLE")
+
     if not due_date_str or due_date_str == "TBA":
+        final_st = "DONE" if is_already_done else ("STATUS_UNAVAILABLE" if is_unavailable else "PENDING")
         return {
             "formattedDeadline": "TBA",
-            "relativeDeadline": "No deadline specified",
+            "relativeDeadline": "Completed" if is_already_done else "No deadline specified",
             "isOverdue": False,
             "isDueSoon": False,
             "sortKey": "9999-99-99T99:99:99",
-            "finalStatus": current_status,
+            "finalStatus": final_st,
         }
 
     time_part = due_time_str if due_time_str else "23:59"
     try:
         dt = datetime.strptime(f"{due_date_str} {time_part}", "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
     except Exception:
+        final_st = "DONE" if is_already_done else ("STATUS_UNAVAILABLE" if is_unavailable else current_status)
         return {
             "formattedDeadline": f"{due_date_str} {time_part}",
-            "relativeDeadline": "TBA",
+            "relativeDeadline": "Completed" if is_already_done else "TBA",
             "isOverdue": False,
             "isDueSoon": False,
             "sortKey": "9999-99-99",
-            "finalStatus": current_status,
+            "finalStatus": final_st,
         }
 
     formatted = dt.strftime("%d %b %Y, %I:%M %p")
     diff = dt - now
     total_seconds = diff.total_seconds()
 
-    if current_status == "Submitted":
+    # 1. Priority: Submitted assignments are ALWAYS DONE (Section 5 & 6)
+    if is_already_done:
         return {
             "formattedDeadline": formatted,
             "relativeDeadline": "Completed",
             "isOverdue": False,
             "isDueSoon": False,
             "sortKey": dt.isoformat(),
-            "finalStatus": "Submitted",
+            "finalStatus": "DONE",
         }
 
+    # 2. Priority: API failure / submission status unavailable (Section 11)
+    if is_unavailable:
+        return {
+            "formattedDeadline": formatted,
+            "relativeDeadline": "Status unavailable",
+            "isOverdue": False,
+            "isDueSoon": False,
+            "sortKey": dt.isoformat(),
+            "finalStatus": "STATUS_UNAVAILABLE",
+        }
+
+    # 3. Priority: Unsubmitted + deadline passed -> OVERDUE (Section 7)
     if total_seconds < 0:
         overdue_sec = abs(total_seconds)
         overdue_days = int(overdue_sec // 86400)
@@ -179,9 +220,10 @@ def compute_relative_deadline(
             "isOverdue": True,
             "isDueSoon": False,
             "sortKey": dt.isoformat(),
-            "finalStatus": "Overdue",
+            "finalStatus": "OVERDUE",
         }
 
+    # 4. Priority: Unsubmitted + deadline not passed -> PENDING or Due Soon
     days = int(total_seconds // 86400)
     hours = int((total_seconds % 86400) // 3600)
 
@@ -227,7 +269,7 @@ def compute_relative_deadline(
             "isOverdue": False,
             "isDueSoon": False,
             "sortKey": dt.isoformat(),
-            "finalStatus": "Pending",
+            "finalStatus": "PENDING",
         }
 
 
@@ -348,8 +390,9 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     for a in deduped_assignments:
         due_d = a.get("dueDate") or "TBA"
         due_t = a.get("dueTime") or "23:59"
-        raw_st = a.get("status") or "Pending"
-        meta = compute_relative_deadline(due_d, due_t, raw_st, now_utc)
+        raw_st = a.get("applicationStatus") or a.get("status") or "PENDING"
+        is_done = bool(a.get("isDone") or a.get("isSubmitted") or raw_st.upper() in ("DONE", "SUBMITTED", "COMPLETED"))
+        meta = compute_relative_deadline(due_d, due_t, raw_st, now_utc, is_done=is_done)
 
         enriched = {
             **a,
@@ -359,6 +402,8 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "isDueSoon": meta["isDueSoon"],
             "sortKey": meta["sortKey"],
             "displayStatus": meta["finalStatus"],
+            "status": meta["finalStatus"],
+            "isDone": is_done or meta["finalStatus"] == "DONE",
         }
         enriched_assignments.append(enriched)
 
@@ -413,24 +458,26 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 
     subject_list: List[Dict[str, Any]] = []
     for sub in subject_map.values():
-        # Sort assignments
+        # Sort assignments: Overdue first, Due Soon next, Pending next, Status Unavailable next, DONE last
         def sort_priority(item: Dict[str, Any]) -> Tuple[int, str]:
-            st = item.get("displayStatus")
-            if st == "Overdue":
+            st = (item.get("displayStatus") or "").upper()
+            if st == "OVERDUE":
                 return (0, item.get("sortKey", ""))
-            elif st == "Due Soon":
+            elif st == "DUE SOON":
                 return (1, item.get("sortKey", ""))
-            elif st == "Pending":
+            elif st == "PENDING":
                 return (2, item.get("sortKey", ""))
-            else:  # Submitted
+            elif st == "STATUS_UNAVAILABLE":
                 return (3, item.get("sortKey", ""))
+            else:  # DONE / Submitted
+                return (4, item.get("sortKey", ""))
 
         sub["assignments"].sort(key=sort_priority)
 
-        p_cnt = len([a for a in sub["assignments"] if a.get("displayStatus") in ("Pending", "Due Soon", "Overdue")])
-        s_cnt = len([a for a in sub["assignments"] if a.get("displayStatus") == "Submitted"])
-        o_cnt = len([a for a in sub["assignments"] if a.get("displayStatus") == "Overdue"])
-        d_cnt = len([a for a in sub["assignments"] if a.get("displayStatus") == "Due Soon"])
+        p_cnt = len([a for a in sub["assignments"] if (a.get("displayStatus") or "").upper() in ("PENDING", "DUE SOON", "OVERDUE")])
+        s_cnt = len([a for a in sub["assignments"] if (a.get("displayStatus") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")])
+        o_cnt = len([a for a in sub["assignments"] if (a.get("displayStatus") or "").upper() == "OVERDUE"])
+        d_cnt = len([a for a in sub["assignments"] if (a.get("displayStatus") or "").upper() == "DUE SOON"])
 
         sub["pendingCount"] = p_cnt
         sub["submittedCount"] = s_cnt

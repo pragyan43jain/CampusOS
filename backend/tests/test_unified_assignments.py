@@ -122,7 +122,7 @@ class TestRelativeDeadlines:
         now = datetime(2026, 8, 27, 12, 0, tzinfo=timezone.utc)
         meta = compute_relative_deadline("2026-08-26", "23:59", "Pending", now)
         assert meta["isOverdue"] is True
-        assert meta["finalStatus"] == "Overdue"
+        assert meta["finalStatus"].upper() == "OVERDUE"
         assert "Overdue" in meta["relativeDeadline"]
 
     def test_due_today_calculation(self):

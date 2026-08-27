@@ -118,8 +118,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     }
   };
 
-  const handleToggleAssignmentStatus = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
-    const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
+  const handleToggleAssignmentStatus = async (id: string, currentlyDone: boolean) => {
+    const nextStatus = currentlyDone ? 'Pending' : 'Submitted';
+    const nextAppStatus = currentlyDone ? 'PENDING' : 'DONE';
 
     // Optimistically update local dashboard state for instant feedback
     setDashboard((prev) => {
@@ -131,8 +132,11 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             changed = true;
             return {
               ...a,
-              status: nextStatus as any,
-              displayStatus: nextStatus,
+              status: nextAppStatus as any,
+              applicationStatus: nextAppStatus as any,
+              displayStatus: nextAppStatus,
+              isDone: !currentlyDone,
+              isSubmitted: !currentlyDone,
               isOverdue: false,
               isDueSoon: false,
             };
@@ -140,8 +144,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           return a;
         });
         if (!changed) return sub;
-        const pCount = newAssignments.filter((a) => a.status === 'Pending').length;
-        const sCount = newAssignments.filter((a) => a.status === 'Submitted').length;
+        const pCount = newAssignments.filter((a) => (a.displayStatus || a.status) !== 'DONE' && (a.displayStatus || a.status) !== 'Submitted').length;
+        const sCount = newAssignments.filter((a) => (a.displayStatus || a.status) === 'DONE' || (a.displayStatus || a.status) === 'Submitted').length;
         return {
           ...sub,
           assignments: newAssignments,
@@ -157,7 +161,11 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       };
     });
 
-    onToggleStatus(id, currentStatus);
+    try {
+      onToggleStatus(id, nextStatus as 'Pending' | 'Submitted');
+    } catch {
+      // Handled
+    }
   };
 
   const handleSyncTeams = async () => {
@@ -946,9 +954,18 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                   <div style={{ padding: '16px 20px', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {subject.assignments.length > 0 ? (
                       subject.assignments.map((assignment) => {
-                        const isOverdue = assignment.isOverdue || assignment.displayStatus === 'Overdue';
-                        const isDueSoon = assignment.isDueSoon || assignment.displayStatus === 'Due Soon';
-                        const isSubmitted = assignment.status === 'Submitted' || assignment.displayStatus === 'Submitted';
+                        const isSubmitted = Boolean(
+                          assignment.isDone ||
+                          (assignment.status || '').toUpperCase() === 'DONE' ||
+                          (assignment.displayStatus || '').toUpperCase() === 'DONE' ||
+                          (assignment.status || '').toUpperCase() === 'SUBMITTED' ||
+                          (assignment.displayStatus || '').toUpperCase() === 'SUBMITTED'
+                        );
+                        const isUnavailable =
+                          (assignment.status || '').toUpperCase() === 'STATUS_UNAVAILABLE' ||
+                          (assignment.displayStatus || '').toUpperCase() === 'STATUS_UNAVAILABLE';
+                        const isOverdue = !isSubmitted && !isUnavailable && (assignment.isOverdue || (assignment.displayStatus || '').toUpperCase() === 'OVERDUE');
+                        const isDueSoon = !isSubmitted && !isUnavailable && !isOverdue && (assignment.isDueSoon || (assignment.displayStatus || '').toUpperCase() === 'DUE SOON');
                         const isMerged = (assignment.source as string) === 'Teams + LMS' || ((assignment.sourceList?.length || 0) > 1);
 
                         return (
@@ -971,7 +988,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                               <input
                                 type="checkbox"
                                 checked={isSubmitted}
-                                onChange={() => handleToggleAssignmentStatus(assignment.id, isSubmitted ? 'Submitted' : 'Pending')}
+                                onChange={() => handleToggleAssignmentStatus(assignment.id, isSubmitted)}
                                 style={{
                                   width: '18px',
                                   height: '18px',
@@ -1009,17 +1026,23 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                                   </span>
 
                                   {/* Status Pill */}
-                                  {isOverdue ? (
+                                  {isSubmitted ? (
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.25)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <CheckCircle2 size={12} />
+                                      <span>{assignment.isLate ? 'DONE (Submitted Late)' : 'DONE'}</span>
+                                    </span>
+                                  ) : isUnavailable ? (
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(156, 163, 175, 0.12)', color: '#9ca3af', border: '1px solid rgba(156, 163, 175, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <AlertTriangle size={12} />
+                                      <span>Status Unavailable</span>
+                                    </span>
+                                  ) : isOverdue ? (
                                     <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                                       ⚠️ Overdue
                                     </span>
                                   ) : isDueSoon ? (
                                     <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
                                       🔥 Due Soon
-                                    </span>
-                                  ) : isSubmitted ? (
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.25)' }}>
-                                      ✓ Submitted
                                     </span>
                                   ) : (
                                     <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
@@ -1028,7 +1051,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                                   )}
 
                                   {/* Relative Deadline Tag */}
-                                  {assignment.relativeDeadline && (
+                                  {assignment.relativeDeadline && !isSubmitted && (
                                     <span
                                       style={{
                                         fontSize: '0.72rem',
@@ -1060,6 +1083,14 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.45 }}>
                                     {assignment.instructions}
                                   </p>
+                                )}
+
+                                {/* Submission Confirmation Date */}
+                                {isSubmitted && assignment.submittedAt && (
+                                  <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 600, marginTop: '3px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <CheckCircle2 size={12} />
+                                    Submitted: {new Date(assignment.submittedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
                                 )}
                               </div>
                             </div>

@@ -30,6 +30,8 @@ from app.course_verification import (
     verify_external_course,
 )
 
+import time
+
 logger = logging.getLogger("vtop.routes.teams")
 
 router = APIRouter(prefix="/api/teams", tags=["teams"])
@@ -38,11 +40,249 @@ router = APIRouter(prefix="/api/teams", tags=["teams"])
 TEAMS_CLIENT_ID = "1fec8e78-bce4-4aaf-ab1b-5451cc387264"  # Official Microsoft Teams Client
 GRAPH_RESOURCE = "https://graph.microsoft.com"
 SKYPE_RESOURCE = "https://api.spaces.skype.com"
+ASSIGNMENTS_RESOURCE = "https://assignments.onenote.com"
 LOGIN_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/token"
 USERREALM_URL = "https://login.microsoftonline.com/common/userrealm/"
 TEAMS_PORTAL_URL = "https://www.microsoft.com/en-in/microsoft-teams/log-in"
 
 REQUEST_TIMEOUT = 12
+
+
+def map_teams_submission_status(
+    submission_data: Optional[Dict[str, Any]],
+    due_datetime_iso: Optional[str] = None,
+    now: Optional[datetime] = None,
+    api_failed: bool = False,
+) -> Dict[str, Any]:
+    """
+    Centralized mapper for Microsoft Teams assignment submission states.
+    Strictly implements priority from Sections 8 & 15 of user specification:
+    1. Actual submitted/completed state -> DONE
+    2. Explicit resubmission requirement -> PENDING
+    3. Confirmed not submitted + deadline passed -> OVERDUE
+    4. Confirmed not submitted + deadline not passed -> PENDING
+    5. Submission status unavailable / API failure -> STATUS_UNAVAILABLE
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    if api_failed:
+        return {
+            "teamsSubmissionState": "unavailable",
+            "applicationStatus": "STATUS_UNAVAILABLE",
+            "isDone": False,
+            "isSubmitted": False,
+            "isOverdue": False,
+            "isLate": False,
+            "submittedAt": None,
+            "returnedAt": None,
+            "submissionId": None,
+            "statusSource": "teams_api_failure",
+            "statusVerifiedAt": now.isoformat(),
+            "uiStatus": "STATUS_UNAVAILABLE",
+        }
+
+    if not submission_data:
+        is_overdue = False
+        if due_datetime_iso:
+            try:
+                due_dt = datetime.fromisoformat(due_datetime_iso.replace("Z", "+00:00"))
+                is_overdue = due_dt < now
+            except Exception:
+                pass
+        app_status = "OVERDUE" if is_overdue else "PENDING"
+        return {
+            "teamsSubmissionState": "notSubmitted",
+            "applicationStatus": app_status,
+            "isDone": False,
+            "isSubmitted": False,
+            "isOverdue": is_overdue,
+            "isLate": False,
+            "submittedAt": None,
+            "returnedAt": None,
+            "submissionId": None,
+            "statusSource": "teams_confirmed_empty",
+            "statusVerifiedAt": now.isoformat(),
+            "uiStatus": app_status,
+        }
+
+    raw_state = (submission_data.get("status") or "").lower().strip()
+    submission_id = submission_data.get("id")
+    submitted_at = submission_data.get("submittedDateTime")
+    returned_at = submission_data.get("returnedDateTime") or submission_data.get("releasedDateTime")
+    reassigned_at = submission_data.get("reassignedDateTime")
+
+    # Priority 1: Actual submitted / completed / released
+    if raw_state in ("submitted", "turnedin", "completed", "released"):
+        is_late = False
+        if due_datetime_iso and submitted_at:
+            try:
+                due_dt = datetime.fromisoformat(due_datetime_iso.replace("Z", "+00:00"))
+                sub_dt = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
+                is_late = sub_dt > due_dt
+            except Exception:
+                pass
+        return {
+            "teamsSubmissionState": raw_state,
+            "applicationStatus": "DONE",
+            "isDone": True,
+            "isSubmitted": True,
+            "isOverdue": False,
+            "isLate": is_late,
+            "submittedAt": submitted_at,
+            "returnedAt": returned_at,
+            "submissionId": submission_id,
+            "statusSource": "teams_graph_submission",
+            "statusVerifiedAt": now.isoformat(),
+            "uiStatus": "DONE",
+        }
+
+    # Section 9: Returned -> DONE unless source explicitly indicates resubmission is required
+    if raw_state == "returned":
+        is_resubmission_required = bool(reassigned_at)
+        if is_resubmission_required:
+            return {
+                "teamsSubmissionState": "resubmissionRequired",
+                "applicationStatus": "PENDING",
+                "isDone": False,
+                "isSubmitted": False,
+                "isOverdue": False,
+                "isLate": False,
+                "submittedAt": submitted_at,
+                "returnedAt": returned_at,
+                "submissionId": submission_id,
+                "statusSource": "teams_graph_submission",
+                "statusVerifiedAt": now.isoformat(),
+                "uiStatus": "PENDING",
+            }
+        else:
+            return {
+                "teamsSubmissionState": "returned",
+                "applicationStatus": "DONE",
+                "isDone": True,
+                "isSubmitted": True,
+                "isOverdue": False,
+                "isLate": False,
+                "submittedAt": submitted_at,
+                "returnedAt": returned_at,
+                "submissionId": submission_id,
+                "statusSource": "teams_graph_submission",
+                "statusVerifiedAt": now.isoformat(),
+                "uiStatus": "DONE",
+            }
+
+    # Priority 2: Explicit resubmission requirement
+    if raw_state in ("reassigned", "resubmissionrequired"):
+        return {
+            "teamsSubmissionState": "resubmissionRequired",
+            "applicationStatus": "PENDING",
+            "isDone": False,
+            "isSubmitted": False,
+            "isOverdue": False,
+            "isLate": False,
+            "submittedAt": submitted_at,
+            "returnedAt": returned_at,
+            "submissionId": submission_id,
+            "statusSource": "teams_graph_submission",
+            "statusVerifiedAt": now.isoformat(),
+            "uiStatus": "PENDING",
+        }
+
+    # Priority 3 & 4: Working / not submitted
+    if raw_state in ("working", "notsubmitted", "pending", "unsubmitted"):
+        is_overdue = False
+        if due_datetime_iso:
+            try:
+                due_dt = datetime.fromisoformat(due_datetime_iso.replace("Z", "+00:00"))
+                is_overdue = due_dt < now
+            except Exception:
+                pass
+        app_status = "OVERDUE" if is_overdue else "PENDING"
+        return {
+            "teamsSubmissionState": "notSubmitted" if raw_state != "working" else "working",
+            "applicationStatus": app_status,
+            "isDone": False,
+            "isSubmitted": False,
+            "isOverdue": is_overdue,
+            "isLate": False,
+            "submittedAt": None,
+            "returnedAt": None,
+            "submissionId": submission_id,
+            "statusSource": "teams_graph_submission",
+            "statusVerifiedAt": now.isoformat(),
+            "uiStatus": app_status,
+        }
+
+    # Priority 5: Unknown state -> STATUS_UNAVAILABLE
+    return {
+        "teamsSubmissionState": raw_state or "unknown",
+        "applicationStatus": "STATUS_UNAVAILABLE",
+        "isDone": False,
+        "isSubmitted": False,
+        "isOverdue": False,
+        "isLate": False,
+        "submittedAt": submitted_at,
+        "returnedAt": returned_at,
+        "submissionId": submission_id,
+        "statusSource": "teams_graph_unknown",
+        "statusVerifiedAt": now.isoformat(),
+        "uiStatus": "STATUS_UNAVAILABLE",
+    }
+
+
+def fetch_student_teams_submission(
+    class_id: str,
+    assignment_id: str,
+    headers: Dict[str, str],
+    authenticated_user_id: Optional[str] = None,
+    max_retries: int = 2,
+) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """
+    Fetches the submission record for the authenticated student with retry logic.
+    Returns: (submission_record, api_failed)
+    """
+    url = f"https://assignments.onenote.com/api/v1.0/edu/classes/{class_id}/assignments/{assignment_id}/submissions"
+    for attempt in range(max_retries + 1):
+        try:
+            r = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                data = r.json()
+                items = data.get("value", [])
+                if not items:
+                    return None, False
+
+                if authenticated_user_id:
+                    for item in items:
+                        recip = item.get("recipient") or {}
+                        recip_id = recip.get("userId")
+                        sub_by = (item.get("submittedBy") or {}).get("user") or {}
+                        sub_id = sub_by.get("id")
+                        if recip_id == authenticated_user_id or sub_id == authenticated_user_id:
+                            return item, False
+                    if len(items) == 1:
+                        return items[0], False
+                    return None, False
+                else:
+                    return items[0], False
+
+            elif r.status_code == 404:
+                return None, False
+            elif r.status_code in (401, 403):
+                logger.warning("Teams submission auth issue (%s) for class %s / assignment %s", r.status_code, class_id, assignment_id)
+                return None, True
+            else:
+                if attempt < max_retries:
+                    time.sleep(0.4 * (attempt + 1))
+                    continue
+                return None, True
+        except Exception as exc:
+            logger.warning("Teams submission fetch attempt %d failed: %s", attempt + 1, exc)
+            if attempt < max_retries:
+                time.sleep(0.4 * (attempt + 1))
+                continue
+            return None, True
+
+    return None, True
 
 
 class TeamsLoginRequest(BaseModel):
@@ -415,12 +655,19 @@ def parse_teams_adaptive_card(att: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             except ValueError:
                 pass
 
+    assignment_id = None
+    if url:
+        m_aid = re.search(r'assignmentIds(?:%22|%5C%22|")?%3A(?:%5B|\[)(?:%5C%22|%22|")?([a-f0-9\-]{36})', url, re.I)
+        if m_aid:
+            assignment_id = m_aid.group(1)
+
     return {
         "title": title or "Class Assignment",
         "dueText": due_text or "No deadline specified",
         "dueDate": due_date,
         "dueTime": due_time,
         "url": url,
+        "assignmentId": assignment_id,
     }
 
 
@@ -429,10 +676,12 @@ def fetch_assignments_for_matched_team(
     team_name: str,
     vtop_course: Dict[str, Any],
     headers: Dict[str, str],
+    assignments_headers: Optional[Dict[str, str]] = None,
+    authenticated_user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Goes to the assignments section in Microsoft Teams for a matched VTOP subject
-    and fetches the authentic assignment details.
+    and fetches the authentic assignment details and authenticated student submission state.
     """
     assignments: List[Dict[str, Any]] = []
     seen_ids = set()
@@ -440,11 +689,19 @@ def fetch_assignments_for_matched_team(
     course_code = vtop_course.get("code") or vtop_course.get("courseCode") or "TEAMS"
     course_title = vtop_course.get("title") or vtop_course.get("courseTitle") or vtop_course.get("courseName") or team_name
     faculty = vtop_course.get("faculty") or vtop_course.get("facultyName")
+    faculty_id = vtop_course.get("facultyId")
 
-    # 1. Query Microsoft Education Class Assignments for this matched team
+    edu_headers = assignments_headers or headers
+
+    # 1. Query official Education Class Assignments via assignments_headers (https://assignments.onenote.com)
     try:
-        url_edu = f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/assignments"
-        r_edu = requests.get(url_edu, headers=headers, timeout=REQUEST_TIMEOUT)
+        url_edu = f"https://assignments.onenote.com/api/v1.0/edu/classes/{team_id}/assignments"
+        r_edu = requests.get(url_edu, headers=edu_headers, timeout=REQUEST_TIMEOUT)
+        if r_edu.status_code != 200:
+            # Fallback to graph education endpoint
+            url_edu = f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/assignments"
+            r_edu = requests.get(url_edu, headers=headers, timeout=REQUEST_TIMEOUT)
+
         if r_edu.status_code == 200:
             for item in r_edu.json().get("value", []):
                 assign_id = item.get("id") or "item"
@@ -453,29 +710,65 @@ def fetch_assignments_for_matched_team(
                 due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
                 due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
 
-                status_raw = (item.get("status") or "").lower()
-                is_sub = status_raw in ("submitted", "turnedin", "completed")
+                # Query authenticated student submission
+                sub_record, api_failed = fetch_student_teams_submission(
+                    team_id,
+                    assign_id,
+                    edu_headers,
+                    authenticated_user_id=authenticated_user_id,
+                )
+                sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=due_dt, api_failed=api_failed)
+
+                title = item.get("displayName") or f"{course_code} Assignment"
+
+                # Safe logging per Section 26
+                logger.info(
+                    "\n[Teams Assignment Status]\nCourse: %s\nFaculty: %s\nAssignment: %s\nTeams Submission State: %s\nSubmitted At: %s\nDeadline: %s\nApplication Status: %s",
+                    course_code,
+                    faculty,
+                    title,
+                    sub_meta["teamsSubmissionState"],
+                    sub_meta["submittedAt"] or "None",
+                    due_date_str,
+                    sub_meta["applicationStatus"],
+                )
 
                 instructions_obj = item.get("instructions")
                 instructions_raw = instructions_obj.get("content") if isinstance(instructions_obj, dict) else ""
                 clean_instr = clean_html_instructions(instructions_raw)
-
                 web_url = item.get("webUrl") or f"https://teams.microsoft.com/l/team/{team_id}/conversations"
+
+                points = 10
+                if isinstance(item.get("grading"), dict) and item.get("grading", {}).get("maxPoints") is not None:
+                    points = item["grading"]["maxPoints"]
 
                 assignments.append({
                     "id": f"teams-{assign_id}",
-                    "title": item.get("displayName") or f"{course_code} Assignment",
+                    "source": "Teams",
+                    "sourceAssignmentId": assign_id,
+                    "title": title,
                     "courseCode": course_code,
                     "courseTitle": course_title,
                     "faculty": faculty,
-                    "source": "Teams",
+                    "facultyId": faculty_id,
                     "platformName": "Microsoft Teams",
                     "platformUrl": web_url,
                     "dueDate": due_date_str,
                     "dueTime": due_time_str,
-                    "status": "Submitted" if is_sub else "Pending",
-                    "priority": "Critical" if not is_sub else "Medium",
-                    "weightage": 10,
+                    "status": sub_meta["applicationStatus"],
+                    "applicationStatus": sub_meta["applicationStatus"],
+                    "teamsSubmissionState": sub_meta["teamsSubmissionState"],
+                    "submissionStatus": sub_meta["teamsSubmissionState"],
+                    "submittedAt": sub_meta["submittedAt"],
+                    "returnedAt": sub_meta["returnedAt"],
+                    "submissionId": sub_meta["submissionId"],
+                    "isDone": sub_meta["isDone"],
+                    "isSubmitted": sub_meta["isSubmitted"],
+                    "isLate": sub_meta["isLate"],
+                    "statusVerifiedAt": sub_meta["statusVerifiedAt"],
+                    "statusSource": sub_meta["statusSource"],
+                    "priority": "Critical" if sub_meta["isOverdue"] else "Medium",
+                    "weightage": points,
                     "instructions": clean_instr,
                     "matchedTeamName": team_name,
                 })
@@ -489,7 +782,6 @@ def fetch_assignments_for_matched_team(
             channels = r_ch.json().get("value", [])
             for ch in channels:
                 ch_id = ch.get("id")
-                # Look for Assignments Tab URL
                 tab_url = None
                 try:
                     r_tabs = requests.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{ch_id}/tabs", headers=headers, timeout=5)
@@ -511,78 +803,65 @@ def fetch_assignments_for_matched_team(
                     if r_msg.status_code == 200:
                         for msg in r_msg.json().get("value", []):
                             msg_id = msg.get("id")
-                            if msg_id in seen_ids:
-                                continue
 
-                            # Check for Adaptive Card assignment attachments
                             for att in msg.get("attachments") or []:
                                 card_data = parse_teams_adaptive_card(att)
                                 if card_data and card_data.get("title"):
+                                    card_aid = card_data.get("assignmentId")
+                                    if card_aid and card_aid in seen_ids:
+                                        continue
+
+                                    # Avoid duplicate by title if already fetched
+                                    card_title_norm = card_data["title"].strip().lower()
+                                    if any(a.get("title", "").strip().lower() == card_title_norm for a in assignments):
+                                        continue
+
                                     seen_ids.add(msg_id)
                                     target_url = card_data.get("url") or tab_url or f"https://teams.microsoft.com/l/team/{team_id}/conversations"
+
+                                    if card_aid and edu_headers:
+                                        seen_ids.add(card_aid)
+                                        sub_record, api_failed = fetch_student_teams_submission(
+                                            team_id,
+                                            card_aid,
+                                            edu_headers,
+                                            authenticated_user_id=authenticated_user_id,
+                                        )
+                                        sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=card_data.get("dueDate"), api_failed=api_failed)
+                                    else:
+                                        sub_meta = map_teams_submission_status(None, due_datetime_iso=None, api_failed=True)
+
                                     assignments.append({
                                         "id": f"teams-card-{msg_id}",
+                                        "source": "Teams",
+                                        "sourceAssignmentId": card_aid or msg_id,
                                         "title": card_data["title"],
                                         "courseCode": course_code,
                                         "courseTitle": course_title,
                                         "faculty": faculty,
-                                        "source": "Teams",
+                                        "facultyId": faculty_id,
                                         "platformName": "Microsoft Teams",
                                         "platformUrl": target_url,
                                         "dueDate": card_data["dueDate"],
                                         "dueTime": card_data["dueTime"],
-                                        "status": "Pending",
+                                        "status": sub_meta["applicationStatus"],
+                                        "applicationStatus": sub_meta["applicationStatus"],
+                                        "teamsSubmissionState": sub_meta["teamsSubmissionState"],
+                                        "submissionStatus": sub_meta["teamsSubmissionState"],
+                                        "submittedAt": sub_meta["submittedAt"],
+                                        "returnedAt": sub_meta["returnedAt"],
+                                        "submissionId": sub_meta["submissionId"],
+                                        "isDone": sub_meta["isDone"],
+                                        "isSubmitted": sub_meta["isSubmitted"],
+                                        "isLate": sub_meta["isLate"],
+                                        "statusVerifiedAt": sub_meta["statusVerifiedAt"],
+                                        "statusSource": sub_meta["statusSource"],
                                         "priority": "Critical" if "lab" in card_data["title"].lower() or "da" in card_data["title"].lower() else "Medium",
                                         "weightage": 10,
                                         "instructions": f"Published in Teams: {card_data['dueText']}",
                                         "matchedTeamName": team_name,
                                     })
                                     break
-
-                            if msg_id in seen_ids:
-                                continue
-
-                            # Fallback: Check if message text is an assignment announcement
-                            subj = msg.get("subject") or ""
-                            body_dict = msg.get("body") or {}
-                            body_content = clean_html_instructions(body_dict.get("content") or "")
-
-                            is_assignment_msg = any(
-                                kw in subj.lower() or kw in body_content.lower()
-                                for kw in ["digital assignment", "da 1", "da 2", "da1", "da2", "submission link", "submission deadline"]
-                            )
-
-                            if is_assignment_msg and (len(body_content) > 10 or subj):
-                                seen_ids.add(msg_id)
-                                created_dt = msg.get("createdDateTime") or ""
-                                created_date_str = created_dt.split("T")[0] if "T" in created_dt else "TBA"
-
-                                due_date_str = created_date_str
-                                m_due = re.search(r'(due\s*(?:date|on|by)?[:\s]+)(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\w+\s+\d{1,2}(?:st|nd|rd|th)?)', body_content, re.I)
-                                if m_due:
-                                    due_date_str = m_due.group(2)
-
-                                title_str = subj if subj else body_content[:60]
-                                if len(title_str) > 70:
-                                    title_str = title_str[:67] + "..."
-
-                                assignments.append({
-                                    "id": f"teams-msg-{msg_id}",
-                                    "title": title_str,
-                                    "courseCode": course_code,
-                                    "courseTitle": course_title,
-                                    "faculty": faculty,
-                                    "source": "Teams",
-                                    "platformName": "Microsoft Teams",
-                                    "platformUrl": tab_url or msg.get("webUrl") or f"https://teams.microsoft.com/l/team/{team_id}/conversations",
-                                    "dueDate": due_date_str,
-                                    "dueTime": "23:59",
-                                    "status": "Pending",
-                                    "priority": "Medium",
-                                    "weightage": 10,
-                                    "instructions": body_content[:300] if len(body_content) > 300 else body_content,
-                                    "matchedTeamName": team_name,
-                                })
                 except Exception:
                     pass
     except Exception as exc:
@@ -595,23 +874,53 @@ def fetch_microsoft_teams_coursework(
     access_token: Optional[str],
     email: str,
     vtop_courses: List[Dict[str, Any]],
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    assignments_token: Optional[str] = None,
+    authenticated_user_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     1. Searches for enrolled subjects in the VTOP section.
     2. Matches them with Teams enrolled subjects.
-    3. Navigates to the assignments section in Teams for each matched subject and fetches authentic details.
+    3. Navigates to the assignments section in Teams for each matched subject and fetches authentic details
+       and verified student submission states.
     """
     user_info: Dict[str, Any] = {"email": email}
     all_assignments: List[Dict[str, Any]] = []
     matched_subjects: List[Dict[str, Any]] = []
+    course_matches: List[Dict[str, Any]] = []
 
     if not access_token:
-        return user_info, all_assignments, matched_subjects
+        return user_info, all_assignments, matched_subjects, course_matches
 
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Accept": "application/json",
     }
+
+    # If assignments_token was not provided, attempt to acquire it from refresh token if available
+    if not assignments_token:
+        try:
+            store_temp = load_store()
+            r_tok_temp = (store_temp.get("teamsAccount") or {}).get("refreshToken")
+            if r_tok_temp:
+                r_at = requests.post(
+                    LOGIN_TOKEN_URL,
+                    data={
+                        "client_id": TEAMS_CLIENT_ID,
+                        "grant_type": "refresh_token",
+                        "refresh_token": r_tok_temp,
+                        "resource": ASSIGNMENTS_RESOURCE,
+                    },
+                    timeout=8,
+                )
+                if r_at.status_code == 200:
+                    assignments_token = r_at.json().get("access_token")
+        except Exception as exc:
+            logger.debug("Assignments token acquisition: %s", exc)
+
+    assignments_headers = {
+        "Authorization": f"Bearer {assignments_token}",
+        "Accept": "application/json",
+    } if assignments_token else None
 
     # 1. Query /me user profile
     try:
@@ -620,6 +929,8 @@ def fetch_microsoft_teams_coursework(
             me_data = r_me.json()
             user_info["displayName"] = me_data.get("displayName")
             user_info["email"] = me_data.get("mail") or me_data.get("userPrincipalName") or email
+            authenticated_user_id = authenticated_user_id or me_data.get("id")
+            user_info["userId"] = authenticated_user_id
     except Exception as exc:
         logger.warning("Graph API /me query failed: %s", exc)
 
@@ -652,7 +963,6 @@ def fetch_microsoft_teams_coursework(
     logger.info("Found %d Teams for student %s. Matching with %d VTOP courses...", len(teams_list), email, len(vtop_courses))
 
     verified_enrolled = build_verified_semester_course_records({"courses": vtop_courses})
-    course_matches: List[Dict[str, Any]] = []
 
     # 3. Match Teams enrolled subjects with VTOP enrolled subjects
     for team in teams_list:
@@ -686,7 +996,14 @@ def fetch_microsoft_teams_coursework(
             logger.info("Verified enrolled course [%s: %s] AND professor [%s] with Teams '%s' (%s). Fetching assignments...", matched_rec.courseCode, matched_rec.courseName, matched_rec.facultyName, team_name, team_id)
 
             # 4. Go to assignments section in Teams and fetch details for that subject
-            subject_assignments = fetch_assignments_for_matched_team(team_id, team_name, matched_vtop, headers)
+            subject_assignments = fetch_assignments_for_matched_team(
+                team_id,
+                team_name,
+                matched_vtop,
+                headers,
+                assignments_headers=assignments_headers,
+                authenticated_user_id=authenticated_user_id,
+            )
 
             for sa in subject_assignments:
                 sa["verifiedCourseMatchId"] = f"match-teams-{team_id}"
@@ -773,8 +1090,8 @@ def get_teams_status() -> Dict[str, Any]:
     assignments = store.get("assignments") or []
     teams_assignments = [a for a in assignments if a.get("source") == "Teams"]
 
-    pending = [a for a in teams_assignments if a.get("status") == "Pending"]
-    submitted = [a for a in teams_assignments if a.get("status") == "Submitted"]
+    pending = [a for a in teams_assignments if (a.get("status") or "").upper() in ("PENDING", "OVERDUE")]
+    submitted = [a for a in teams_assignments if (a.get("status") or "").upper() in ("DONE", "SUBMITTED")]
 
     return {
         "connected": is_connected,
@@ -879,8 +1196,8 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
         len(teams_assignments),
     )
 
-    pending_count = len([a for a in teams_assignments if a.get("status") == "Pending"])
-    submitted_count = len([a for a in teams_assignments if a.get("status") == "Submitted"])
+    pending_count = len([a for a in teams_assignments if (a.get("status") or "").upper() in ("PENDING", "OVERDUE")])
+    submitted_count = len([a for a in teams_assignments if (a.get("status") or "").upper() in ("DONE", "SUBMITTED")])
 
     msg = (
         f"Successfully authenticated with Microsoft Teams ({email}). "
@@ -923,8 +1240,9 @@ def sync_teams() -> Dict[str, Any]:
     refresh_token = account.get("refreshToken")
     access_token = None
 
+    assignments_token = None
     if refresh_token:
-        # Refresh access token from Microsoft
+        # Refresh access token for Graph
         try:
             r_ref = requests.post(
                 LOGIN_TOKEN_URL,
@@ -943,9 +1261,26 @@ def sync_teams() -> Dict[str, Any]:
         except Exception as exc:
             logger.warning("Token refresh error: %s", exc)
 
+        # Refresh access token for Education Assignments service
+        try:
+            r_at = requests.post(
+                LOGIN_TOKEN_URL,
+                data={
+                    "client_id": TEAMS_CLIENT_ID,
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "resource": ASSIGNMENTS_RESOURCE,
+                },
+                timeout=10,
+            )
+            if r_at.status_code == 200:
+                assignments_token = r_at.json().get("access_token")
+        except Exception as exc:
+            logger.warning("Assignments token refresh error: %s", exc)
+
     vtop_courses = list(store.get("courses") or [])
     user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
-        access_token, email, vtop_courses
+        access_token, email, vtop_courses, assignments_token=assignments_token
     )
 
     existing_assignments = store.get("assignments") or []
