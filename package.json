@@ -1,0 +1,12 @@
+{
+  "name": "campus-os",
+  "version": "2.0.0",
+  "private": true,
+  "description": "CampusOS - Unified Academic Operating System",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "test": "pytest backend/tests"
+  }
+}
