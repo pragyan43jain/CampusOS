@@ -49,6 +49,10 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
   const [odSyncing, setOdSyncing] = useState(false);
   const [odActionMessage, setOdActionMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+  // StudentCC OD Attendance Simulator
+  const [calcCourseCode, setCalcCourseCode] = useState<string>('');
+  const [calcOdHours, setCalcOdHours] = useState<number>(2);
+
   const handleFetchOdFromVtop = async () => {
     setOdSyncing(true);
     setOdActionMessage({ text: 'Connecting to VTOP CC to query On-Duty records...', type: 'info' });
@@ -1125,6 +1129,144 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               </div>
             </div>
           )}
+
+          {/* StudentCC-Inspired OD Attendance Impact & Buffer Simulator */}
+          <div
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '24px 26px',
+              marginTop: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: 'var(--brand-color)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                  StudentCC • OD Attendance Impact Simulator
+                </span>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '2px', color: 'var(--text-primary)' }}>
+                  Calculate Attendance Impact for Prospective / Sanctioned ODs
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  Select an enrolled course and simulate how OD hours/classes shift your attendance percentage and buffer margin.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  Select Registered Course
+                </label>
+                <select
+                  value={calcCourseCode || (attendance[0]?.courseCode || '')}
+                  onChange={(e) => setCalcCourseCode(e.target.value)}
+                  className="filter-select"
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}
+                >
+                  {attendance.map((att) => (
+                    <option key={att.courseCode} value={att.courseCode}>
+                      {att.courseCode} - {att.courseTitle || 'Enrolled Course'} ({att.attendancePercentage}%)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                  OD Hours / Classes to Sanction
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[1, 2, 4, 6].map((hrs) => (
+                    <button
+                      key={hrs}
+                      type="button"
+                      onClick={() => setCalcOdHours(hrs)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: calcOdHours === hrs ? '1px solid var(--brand-color)' : '1px solid var(--border-subtle)',
+                        background: calcOdHours === hrs ? 'rgba(56, 189, 248, 0.15)' : 'var(--bg-surface-elevated)',
+                        color: calcOdHours === hrs ? 'var(--brand-color)' : 'var(--text-primary)',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +{hrs}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Impact Calculation Result Display */}
+            {(() => {
+              const selectedAtt = attendance.find(
+                (a) => (a.courseCode || '').toUpperCase() === (calcCourseCode || (attendance[0]?.courseCode || '')).toUpperCase()
+              ) || attendance[0];
+
+              if (!selectedAtt || selectedAtt.classesAttended === null || selectedAtt.classesConducted === null) {
+                return null;
+              }
+
+              const currAtt = selectedAtt.classesAttended;
+              const total = selectedAtt.classesConducted;
+              const currPct = selectedAtt.attendancePercentage;
+              const newAtt = currAtt + calcOdHours;
+              const newPct = total > 0 ? Number(((newAtt / total) * 100).toFixed(1)) : 0;
+              const floorPct = total > 0 ? Math.floor((newAtt * 100.0) / total) : 0;
+              const diff = Number((newPct - currPct).toFixed(1));
+              const newSafeToMiss = total > 0 ? Math.max(0, Math.floor((newAtt - (0.75 * total)) / 0.75)) : 0;
+
+              return (
+                <div
+                  style={{
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '16px 20px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '14px',
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current Attendance</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      {currPct}% <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>({currAtt} / {total})</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>With +{calcOdHours}h OD Applied</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: newPct >= 75 ? 'var(--success-emerald)' : 'var(--danger-crimson)' }}>
+                      {newPct}% <span style={{ fontSize: '0.82rem', color: 'var(--success-emerald)', fontWeight: 700 }}>(+{diff}%)</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>StudentCC Standard (Floor)</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--brand-color)' }}>
+                      {floorPct}%
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Safe Classes Margin</span>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--success-emerald)' }}>
+                      {newSafeToMiss} {newSafeToMiss === 1 ? 'class' : 'classes'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
 
