@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StudentProfile, TimetableSlot, DayOfWeek } from '../types';
+import { StudentProfile, TimetableSlot, DayOfWeek, OD } from '../types';
 import { MetricCard } from '../components/MetricCard';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
@@ -7,11 +7,13 @@ import { TimetableSlotCard } from '../components/TimetableSlotCard';
 interface DashboardViewProps {
   student: StudentProfile;
   timetable: TimetableSlot[];
+  od?: OD;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   student,
   timetable,
+  od,
 }) => {
   const getTodayDayOfWeek = (): DayOfWeek => {
     const dayIndex = new Date().getDay();
@@ -74,10 +76,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ? `${student.creditsEarned} / ${student.totalCreditsRequired || 160}` 
     : "Not available";
 
+  const odHoursCount = od?.usedHours ?? od?.odHours ?? od?.totalOdHours ?? (od?.hasValidData ? 0 : 0);
+  const odRemaining = od?.remainingHours ?? Math.max(0, (od?.maxHours || 40) - (odHoursCount || 0));
+
   return (
     <div className="page-content">
       {/* Hero Metrics Row */}
-      <div className="metrics-grid">
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         <MetricCard
           label="Overall Attendance"
           value={hasAttendance && attendance ? `${attendance.percentage}%` : "Not available"}
@@ -85,6 +90,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           icon="📊"
           progressPercent={hasAttendance ? attPct : 0}
           variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'blue'}
+        />
+
+        <MetricCard
+          label="On-Duty (OD) Hours"
+          value={`${odHoursCount} Hours`}
+          subtext={`✓ ${odRemaining}h Safe Buffer Available`}
+          icon="⏱"
+          progressPercent={Math.min(100, Math.max(0, ((odHoursCount || 0) / (od?.maxHours || 40)) * 100))}
+          variant="blue"
         />
 
         <MetricCard

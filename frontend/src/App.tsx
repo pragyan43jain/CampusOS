@@ -186,6 +186,7 @@ export const App: React.FC = () => {
             <DashboardView
               student={student}
               timetable={timetable}
+              od={od}
             />
           )}
 
