@@ -21,6 +21,7 @@ BASE_URL = "https://vtopcc.vit.ac.in/vtop"
 LOGIN_PAGE = "login"
 PRELOGIN_SETUP = "prelogin/setup"
 LOGIN_SUBMIT = "login"
+CAPTCHA_ENDPOINT = "get/new/captcha"
 CONTENT_PAGE = "content"
 
 # Marker that proves authentication succeeded. StudentCC detects login success

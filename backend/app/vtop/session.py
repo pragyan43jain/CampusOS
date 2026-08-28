@@ -206,7 +206,7 @@ class VTOPSession:
     @staticmethod
     def _detect_captcha_kind(html: str) -> str:
         """VTOP serves either its own image captcha or an invisible reCAPTCHA."""
-        if 'id="gResponse"' in html or "id='gResponse'" in html:
+        if "recaptcha/api.js" in html or 'class="g-recaptcha"' in html:
             return "grecaptcha"
         return "default"
 
@@ -216,33 +216,39 @@ class VTOPSession:
         """
         Return the login captcha as a data URL, plus our best OCR guess.
 
-        The image is embedded in the login page as a base64 data URL inside
-        #captchaBlock; there is also a /get/new/captcha endpoint that returns a
-        fresh one. We prefer the in-page image because it is guaranteed to match
-        the session's current challenge.
+        First attempts to extract in-page image, then queries the dynamic
+        /get/new/captcha endpoint that VTOP loads via AJAX.
         """
         response = self._get(C.LOGIN_PAGE)
         if not self._is_login_page(response.text):
             self.start_handshake()
             response = self._get(C.LOGIN_PAGE)
 
-        self.captcha_kind = self._detect_captcha_kind(response.text)
-        if self.captcha_kind == "grecaptcha":
-            # Invisible reCAPTCHA cannot be solved server-side. Surface this
-            # honestly rather than pretending we have a challenge to show.
-            return {
-                "captchaKind": "grecaptcha",
-                "captchaImage": None,
-                "solvedCaptcha": None,
-                "message": (
-                    "VTOP is currently using Google reCAPTCHA, which this "
-                    "backend cannot solve. Try again later — VTOP usually "
-                    "reverts to its image captcha."
-                ),
-            }
-
+        # 1. Try to extract from login page HTML
         b64 = self._extract_captcha_b64(response.text)
+
+        # 2. If not in static HTML, query VTOP's dynamic captcha endpoint
         if not b64:
+            try:
+                r_cap = self._get(C.CAPTCHA_ENDPOINT)
+                if r_cap.status_code == 200:
+                    b64 = self._extract_captcha_b64(r_cap.text)
+            except Exception as exc:
+                logger.warning("[VTOP] Dynamic captcha endpoint fetch failed: %s", exc)
+
+        if not b64:
+            self.captcha_kind = self._detect_captcha_kind(response.text)
+            if self.captcha_kind == "grecaptcha":
+                return {
+                    "captchaKind": "grecaptcha",
+                    "captchaImage": None,
+                    "solvedCaptcha": None,
+                    "message": (
+                        "VTOP is currently using Google reCAPTCHA, which this "
+                        "backend cannot solve. Try again later — VTOP usually "
+                        "reverts to its image captcha."
+                    ),
+                }
             return {
                 "captchaKind": "default",
                 "captchaImage": None,
@@ -250,6 +256,7 @@ class VTOPSession:
                 "message": "VTOP did not return a captcha image.",
             }
 
+        self.captcha_kind = "default"
         try:
             raw = base64.b64decode(b64)
         except Exception as exc:  # pragma: no cover - malformed portal response
@@ -263,9 +270,10 @@ class VTOPSession:
 
         guess = solve_captcha_bytes(raw)
         logger.info("[VTOP] Captcha retrieved (OCR guess: %s)", guess or "<none>")
+        mime_prefix = "image/jpeg" if raw.startswith(b"\xff\xd8\xff") else "image/png"
         return {
             "captchaKind": "default",
-            "captchaImage": f"data:image/png;base64,{b64}",
+            "captchaImage": f"data:{mime_prefix};base64,{b64}",
             "solvedCaptcha": guess or None,
         }
 
