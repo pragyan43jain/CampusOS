@@ -311,6 +311,7 @@ class TestTeamsAuthenticationSuccessAndZeroFakeData:
             def mock_get_router(url, **kwargs):
                 r = MagicMock()
                 r.status_code = 200
+                r.json.return_value = {"value": []}
                 if "userrealm" in url:
                     r.json.return_value = {"NameSpaceType": "Managed"}
                 elif "/v1.0/me/joinedTeams" in url:
@@ -374,6 +375,7 @@ class TestTeamsAuthenticationSuccessAndZeroFakeData:
             def mock_get_router(url, **kwargs):
                 r = MagicMock()
                 r.status_code = 200
+                r.json.return_value = {"value": []}
                 if "userrealm" in url:
                     r.json.return_value = {"NameSpaceType": "Managed"}
                 elif "/v1.0/me/joinedTeams" in url:
@@ -570,7 +572,7 @@ class TestTeamsSubmissionStatus:
                 },
             ]
         }
-        with patch("requests.get") as mock_get:
+        with patch("app.routers.teams.requests.get") as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = submissions_resp
 

@@ -61,26 +61,46 @@ def get_base_code(code: Optional[str]) -> str:
 
 
 def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List[str]:
-    """Extracts teacher/instructor names from the LMS course view page."""
+    """Extracts teacher/instructor names from the LMS course view and participants pages."""
     teachers: List[str] = []
+    
+    # 1. Main Course View Page
     url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
     try:
         r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, "html.parser")
             for el in soup.find_all(
-                ["span", "div", "p", "li"],
-                class_=lambda c: c and any(k in str(c).lower() for k in ["teacher", "instructor"]),
+                ["span", "div", "p", "li", "a", "h3", "h4"],
+                class_=lambda c: c and any(k in str(c).lower() for k in ["teacher", "instructor", "faculty", "author", "user"]),
             ):
                 txt = el.get_text().strip()
-                if txt and len(txt) < 80:
+                if 3 <= len(txt) < 80 and not any(kw in txt.lower() for kw in ["dashboard", "course", "activity", "assignment", "announcement"]):
                     teachers.append(txt)
-            for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*:\s*([A-Za-z\s\.]+)", r.text):
+            for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", r.text, flags=re.IGNORECASE):
                 cand = m.group(1).strip().split("\n")[0].strip()
-                if len(cand) >= 3 and len(cand) < 80:
+                if 3 <= len(cand) < 80:
                     teachers.append(cand)
     except Exception as exc:
         logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
+
+    # 2. Participants Page (/user/index.php?id=...)
+    try:
+        url_users = f"{LMS_BASE_URL}/user/index.php?id={course_id}"
+        r_u = session.get(url_users, verify=False, timeout=REQUEST_TIMEOUT)
+        if r_u.status_code == 200:
+            soup_u = BeautifulSoup(r_u.text, "html.parser")
+            for tr in soup_u.find_all("tr"):
+                row_txt = tr.get_text()
+                if any(role in row_txt.lower() for role in ["teacher", "editing teacher", "instructor", "faculty"]):
+                    name_el = tr.find("a", href=re.compile(r"/user/view\.php"))
+                    if name_el:
+                        t_name = name_el.get_text().strip()
+                        if 3 <= len(t_name) < 80 and t_name not in teachers:
+                            teachers.append(t_name)
+    except Exception as exc:
+        logger.debug("Could not fetch participants from LMS course %s: %s", course_id, exc)
+
     return teachers
 
 

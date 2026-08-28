@@ -119,6 +119,17 @@ def extract_course_code_candidates(text: Optional[str]) -> List[str]:
         canon = canonicalize_course_code(rm)
         if canon and canon not in candidates:
             candidates.append(canon)
+
+            # If canon is base code (e.g. BCSE308) and slot is in text, synthesize full course code
+            if len(canon) == 7 and not canon[-1].isalpha():
+                if re.search(r"\b(?:A1|A2|B1|B2|C1|C2|D1|D2|E1|E2|F1|F2|G1|G2|TA1|TA2|TB1|TB2|TC1|TC2|TD1|TD2|TE1|TE2|TF1|TF2|TG1|TG2|THEORY)\b", text_upper):
+                    theory_code = f"{canon}L"
+                    if theory_code not in candidates:
+                        candidates.append(theory_code)
+                if re.search(r"\b(?:L[1-9]|L1[0-9]|L20|LAB|PRACTICAL)\b", text_upper):
+                    lab_code = f"{canon}P"
+                    if lab_code not in candidates:
+                        candidates.append(lab_code)
     return candidates
 
 
@@ -411,17 +422,12 @@ def verify_external_course(
 
     match_result.semesterMatch = True
 
-    # Stage 2: Exact Course Code Match
+    # Stage 2: Course Code & Subject Resolution
     extracted_codes = extract_course_code_candidates(source_name) + extract_course_code_candidates(source_desc)
-    if not extracted_codes:
-        match_result.courseCodeMatch = False
-        match_result.verified = False
-        match_result.rejectionReason = "Course code missing: no valid course code found in external course metadata"
-        logger.debug("[Course Verification] REJECTED %s '%s': %s", source, source_name, match_result.rejectionReason)
-        return False, None, match_result
-
     matched_enrolled: Optional[VerifiedCourseRecord] = None
     matched_code: Optional[str] = None
+
+    # Strategy 2A: Exact course code match (e.g. BCSE308L == BCSE308L)
     for cand_code in extracted_codes:
         c_found = next((r for r in enrolled_records if canonicalize_course_code(r.courseCode) == cand_code), None)
         if c_found:
@@ -429,10 +435,26 @@ def verify_external_course(
             matched_code = cand_code
             break
 
+    # Strategy 2C: Title + Slot Resolution ONLY when NO course code was found in external metadata and slot matches (e.g. 'C2+TC2 2026 (Advanced Cloud Computing)')
+    if not matched_enrolled and not extracted_codes:
+        comb_upper = combined_meta.upper()
+        for r in enrolled_records:
+            title_ok, _ = verify_course_title_match(r.courseName, source_name, source_desc)
+            if title_ok and r.slot:
+                slot_tokens = [s.strip() for s in r.slot.upper().split("+") if s.strip()]
+                slot_match = any(re.search(rf"\b{re.escape(st)}\b", comb_upper) for st in slot_tokens)
+                if slot_match:
+                    matched_enrolled = r
+                    matched_code = r.courseCode
+                    break
+
     if not matched_enrolled:
         match_result.courseCodeMatch = False
         match_result.verified = False
-        match_result.rejectionReason = f"Course code mismatch: extracted codes {extracted_codes} not in student's current enrolled courses"
+        match_result.rejectionReason = (
+            f"Course code mismatch: extracted codes {extracted_codes} not in student's current enrolled courses"
+            if extracted_codes else "Course code missing: no valid course code or matching enrolled subject found in external course metadata"
+        )
         logger.debug("[Course Verification] REJECTED %s '%s': %s", source, source_name, match_result.rejectionReason)
         return False, None, match_result
 
@@ -490,61 +512,48 @@ def verify_external_course(
     if source_professors:
         for p in source_professors:
             if p and str(p).strip():
-                candidate_fac_names.append(str(p).strip())
+                # If professors list is comma-separated (e.g. 'Prof A, Prof B')
+                for p_sub in str(p).split(","):
+                    if p_sub.strip():
+                        candidate_fac_names.append(p_sub.strip())
 
     for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]\s*([A-Za-z\s\.]+)", combined_meta, flags=re.IGNORECASE):
         fn = m.group(1).strip().split("\n")[0].strip()
         if 3 <= len(fn) < 80:
             candidate_fac_names.append(fn)
 
-    for part in re.split(r"[\-\|\–\—]", combined_meta):
-        clean_part = part.strip()
-        if len(clean_part) >= 4 and not any(ch.isdigit() for ch in clean_part):
-            c_part = canonicalize_faculty_name(clean_part)
-            if c_part and enrolled_canon_fac and c_part == enrolled_canon_fac:
-                candidate_fac_names.append(clean_part)
-            elif re.search(r"\b(?:DR|PROF|PROFESSOR|MR|MS|MRS)\b", clean_part, flags=re.IGNORECASE):
-                candidate_fac_names.append(clean_part)
+    for text_field in [source_name, source_desc]:
+        if not text_field:
+            continue
+        for part in re.split(r"[\-\|\–\—\(\)\/]", text_field):
+            clean_part = part.strip()
+            if len(clean_part) >= 4 and not any(ch.isdigit() for ch in clean_part):
+                c_part = canonicalize_faculty_name(clean_part)
+                if c_part and enrolled_canon_fac and c_part == enrolled_canon_fac:
+                    candidate_fac_names.append(clean_part)
+                elif re.search(r"\b(?:DR|PROF|PROFESSOR|MR|MS|MRS)\b", clean_part, flags=re.IGNORECASE):
+                    candidate_fac_names.append(clean_part)
 
-    # Fail closed if faculty is missing
-    if not candidate_fac_names and not source_faculty_ids:
+    # If external instructors exist, perform strict token matching
+    if candidate_fac_names:
+        for cand in candidate_fac_names:
+            c_canon = canonicalize_faculty_name(cand)
+            if c_canon and enrolled_canon_fac and (c_canon == enrolled_canon_fac or c_canon in enrolled_canon_fac or enrolled_canon_fac in c_canon):
+                faculty_name_matched = True
+                match_result.sourceFacultyName = cand
+                break
+
+    # Fail closed if faculty is missing or mismatched
+    if not (faculty_id_matched or faculty_name_matched):
         match_result.facultyMatch = False
         match_result.verified = False
-        match_result.rejectionReason = f"Faculty missing: external course '{source_name}' has no verifiable instructor"
-        logger.warning(
-            "\n[ASSIGNMENT/COURSE VERIFICATION REJECTED]\n"
-            "Source: %s\n"
-            "External Course: %s (ID: %s)\n"
-            "External Faculty: Missing/Unverifiable\n"
-            "Current VTOP Course: %s\n"
-            "Current VTOP Faculty: %s\n"
-            "Reason: %s",
-            source,
-            source_name,
-            source_id,
-            matched_enrolled.courseCode,
-            matched_enrolled.facultyName,
-            match_result.rejectionReason,
-        )
-        return False, None, match_result
-
-    # Strict token matching
-    for cand in candidate_fac_names:
-        c_canon = canonicalize_faculty_name(cand)
-        if c_canon and enrolled_canon_fac and c_canon == enrolled_canon_fac:
-            faculty_name_matched = True
-            match_result.sourceFacultyName = cand
-            break
-
-    if faculty_id_matched or faculty_name_matched:
-        match_result.facultyMatch = True
-    else:
-        match_result.facultyMatch = False
-        match_result.verified = False
-        match_result.rejectionReason = (
-            f"Faculty mismatch: expected '{matched_enrolled.facultyName}', "
-            f"external instructor was {source_professors or candidate_fac_names}"
-        )
+        if not candidate_fac_names and not source_faculty_ids:
+            match_result.rejectionReason = f"Faculty missing: external course '{source_name}' has no verifiable instructor"
+        else:
+            match_result.rejectionReason = (
+                f"Faculty mismatch: expected '{matched_enrolled.facultyName}', "
+                f"external instructor was {source_professors or candidate_fac_names}"
+            )
         logger.warning(
             "\n[ASSIGNMENT/COURSE VERIFICATION REJECTED]\n"
             "Source: %s\n"
@@ -557,13 +566,15 @@ def verify_external_course(
             source,
             source_name,
             source_id,
-            source_professors or candidate_fac_names,
+            source_professors or candidate_fac_names or "Missing",
             matched_enrolled.courseCode,
             matched_enrolled.courseName,
             matched_enrolled.facultyName,
             match_result.rejectionReason,
         )
         return False, None, match_result
+
+    match_result.facultyMatch = True
 
     # All Stages Passed: VERIFIED
     match_result.verified = True
