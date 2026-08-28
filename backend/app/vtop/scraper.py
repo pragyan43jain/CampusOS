@@ -243,7 +243,7 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
                 "containsTable": "<table" in (html or "").lower(),
             }
 
-            if not html or P.body_says(html, "not authorized", "not found", "error"):
+            if not html or P.body_says(html, "not authorized", "http status 404", "session expired", "please login"):
                 status_info["status"] = "rejected_or_empty"
                 diagnostics.append(status_info)
                 continue
