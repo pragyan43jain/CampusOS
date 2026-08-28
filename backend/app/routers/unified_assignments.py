@@ -22,6 +22,8 @@ from app.course_verification import (
     ExternalCourseMatch,
     canonicalize_course_code,
     canonicalize_faculty_name,
+    verify_course_title_match,
+    verify_semester_match,
     build_verified_semester_course_records,
 )
 
@@ -276,6 +278,7 @@ def compute_relative_deadline(
 def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     """
     Builds the subject-first unified assignment structure for the student's current semester.
+    Strictly verifies course code, course title, faculty, academic year, and semester.
     """
     # 1. Current Semester Source of Truth
     semester = store.get("selectedSemester") or {}
@@ -284,39 +287,116 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "name": store["student"].get("semester", "Fall Semester 2026-27"),
             "id": store["student"].get("semesterId", "CH20262701"),
         }
+    sem_name = semester.get("name") or "Fall Semester 2026-27"
 
     # 2. Student's enrolled courses for the current semester
     courses = list(store.get("courses") or [])
 
     # 3. Raw assignments stored from connected sources
     # Strictly verify: 1. Enrolled in current semester 2. Professor name matches course faculty
+    # 3. Course title matches 4. Semester/Academic year matches
     verified_enrolled = build_verified_semester_course_records(store)
     raw_unfiltered = list(store.get("assignments") or [])
     raw_assignments: List[Dict[str, Any]] = []
+
     for a in raw_unfiltered:
         c_code = canonicalize_course_code(a.get("courseCode"))
         matched_rec = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == c_code), None)
+        
+        # Check 1: Course code enrolled in current semester
         if not matched_rec:
+            logger.warning(
+                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                "Source: %s\n"
+                "Assignment: %s (ID: %s)\n"
+                "Assignment Code: %s\n"
+                "Current Semester: %s\n"
+                "Reason: COURSE CODE NOT ENROLLED IN CURRENT SEMESTER",
+                a.get("source"),
+                a.get("title"),
+                a.get("id"),
+                c_code,
+                sem_name,
+            )
             continue
 
+        # Check 2: Semester & Academic Year Match (Section 7)
+        combined_sem_meta = f"{a.get('semester', '')} {a.get('matchedLmsCourse', '')} {a.get('matchedTeamName', '')}"
+        sem_ok, sem_reason = verify_semester_match(sem_name, combined_sem_meta)
+        if not sem_ok:
+            logger.warning(
+                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                "Source: %s\n"
+                "Assignment: %s (ID: %s)\n"
+                "Current VTOP Course: %s\n"
+                "Current VTOP Semester: %s\n"
+                "Reason: %s",
+                a.get("source"),
+                a.get("title"),
+                a.get("id"),
+                matched_rec.courseCode,
+                sem_name,
+                sem_reason,
+            )
+            continue
+
+        # Check 3: Course Title Verification (Section 6 - prevent Computer Architecture under Computer Networks)
+        assign_title_meta = f"{a.get('courseTitle', '')} {a.get('subject', '')} {a.get('matchedLmsCourse', '')} {a.get('matchedTeamName', '')}"
+        title_ok, title_reason = verify_course_title_match(matched_rec.courseName, assign_title_meta)
+        if not title_ok:
+            logger.warning(
+                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                "Source: %s\n"
+                "Assignment: %s (ID: %s)\n"
+                "Assignment Title Metadata: %s\n"
+                "Current VTOP Course: %s\n"
+                "Current VTOP Title: %s\n"
+                "Current VTOP Faculty: %s\n"
+                "Current VTOP Semester: %s\n"
+                "Reason: %s",
+                a.get("source"),
+                a.get("title"),
+                a.get("id"),
+                assign_title_meta,
+                matched_rec.courseCode,
+                matched_rec.courseName,
+                matched_rec.facultyName,
+                sem_name,
+                title_reason,
+            )
+            continue
+
+        # Check 4: Exact Faculty Match (Section 5)
         enrolled_fac = canonicalize_faculty_name(matched_rec.facultyName)
         assign_fac = canonicalize_faculty_name(a.get("faculty"))
         
         # Fail closed on faculty mismatch or missing faculty
         if not assign_fac or assign_fac != enrolled_fac:
             logger.warning(
-                "Unified dashboard dropping assignment '%s' [%s]: course faculty '%s' did not match assignment faculty '%s'",
+                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                "Source: %s\n"
+                "Assignment: %s (ID: %s)\n"
+                "Assignment Faculty: %s\n"
+                "Current VTOP Course: %s\n"
+                "Current VTOP Faculty: %s\n"
+                "Reason: FACULTY MISMATCH",
+                a.get("source"),
                 a.get("title"),
-                c_code,
-                matched_rec.facultyName,
+                a.get("id"),
                 a.get("faculty"),
+                matched_rec.courseCode,
+                matched_rec.facultyName,
             )
             continue
 
         raw_assignments.append({
             **a,
+            "academicYear": matched_rec.academicYear,
+            "semester": matched_rec.semester,
+            "semesterId": matched_rec.semesterId,
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
+            "subject": matched_rec.courseName,
             "faculty": matched_rec.facultyName,
             "verified": True,
         })

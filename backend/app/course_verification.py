@@ -1,21 +1,24 @@
 """
-CampusOS Backend - Strict Course Code + Faculty Verification Engine
+CampusOS Backend - Strict Course Code + Faculty + Title + Semester Verification Engine
 
-Architecture: "STUDENT CURRENT SEMESTER -> ENROLLED COURSE -> EXACT COURSE CODE MATCH -> EXACT FACULTY MATCH -> VERIFIED EXTERNAL COURSE -> FETCH ASSIGNMENTS"
+Architecture: "VTOP CURRENT SEMESTER -> CANONICAL COURSE REGISTRY -> EXTERNAL COURSE DISCOVERY -> STRICT MATCHING -> VERIFIED EXTERNAL COURSE -> FETCH ASSIGNMENTS -> VERIFY ASSIGNMENT OWNERSHIP -> DISPLAY"
 
 Mandates:
 1. Source of truth is student's currently enrolled semester data from VTOP.
-2. An external Teams or LMS course is eligible for assignment retrieval ONLY when:
-   exactCourseCodeMatch == True AND exactFacultyMatch == True.
-3. Fail-closed: missing course code or missing faculty fails the match.
-4. No loose partial code matching (BCSE308L != BCSE308P, BCSE308L != BCSE308).
-5. Full faculty identity matching with safe canonical formatting (Dr./Prof. removal, whitespace/case normalization, preserving initials).
+2. Canonical course identity: academicYear + semester + courseCode + normalizedCourseTitle + verifiedFaculty.
+3. An external Teams or LMS course is eligible for assignment retrieval ONLY when:
+   - exactCourseCodeMatch == True (canonical, preserving L/P distinctions)
+   - exactFacultyMatch == True (strict token-level canonical identity)
+   - courseTitleMatch == True (semantic subject keywords match, no conflicting courses like Computer Architecture != Computer Networks)
+   - semesterMatch == True (current academic year and semester match)
+4. Fail-closed on any missing or conflicting metadata.
+5. Invalidation of stale cached assignments from previous semesters.
 """
 
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -28,21 +31,30 @@ logger = logging.getLogger("vtop.course_verification")
 
 class VerifiedCourseRecord(BaseModel):
     """Authoritative course + faculty pair from the student's current semester in VTOP."""
+    academicYear: str = "2026"
+    semester: str = "Fall Semester 2026-27"
+    semesterId: str = "CH20262701"
     courseCode: str
     courseName: str
     facultyName: str
     facultyId: Optional[str] = None
     slot: Optional[str] = None
     section: Optional[str] = None
-    semester: str
-    semesterId: str
+    type: Optional[str] = None
     verified: bool = True
+
+    @property
+    def canonicalIdentity(self) -> str:
+        fac = canonicalize_faculty_name(self.facultyName) or "UNKNOWN"
+        code = canonicalize_course_code(self.courseCode) or "UNKNOWN"
+        return f"{self.academicYear}:{self.semesterId}:{code}:{self.courseName.lower()}:{fac}"
 
 
 class ExternalCourseMatch(BaseModel):
     """Verification record for a synchronized external Teams/LMS course."""
     userId: Optional[str] = None
-    semesterId: str
+    academicYear: str = "2026"
+    semesterId: str = "CH20262701"
     source: str  # "Teams" or "LMS"
     sourceCourseId: str
     sourceCourseName: str
@@ -53,10 +65,12 @@ class ExternalCourseMatch(BaseModel):
 
     matchedSubjectId: Optional[str] = None
     matchedCourseCode: Optional[str] = None
+    matchedCourseTitle: Optional[str] = None
     matchedFacultyId: Optional[str] = None
     matchedFacultyName: Optional[str] = None
 
     courseCodeMatch: bool = False
+    courseTitleMatch: bool = False
     facultyMatch: bool = False
     sectionMatch: bool = True
     semesterMatch: bool = True
@@ -85,7 +99,7 @@ def canonicalize_course_code(code: Optional[str]) -> Optional[str]:
         return None
     raw = str(code).strip().upper()
     clean = re.sub(r"[\s\-_/]+", "", raw)
-    # Check for standard university course pattern: 3-4 letters + 3-4 digits + optional 1-2 letters
+    # Standard university course pattern: 3-4 letters + 3-4 digits + optional 1-2 letters
     if re.match(r"^[A-Z]{3,4}\d{3,4}[A-Z]{0,2}$", clean):
         return clean
     return None
@@ -93,13 +107,12 @@ def canonicalize_course_code(code: Optional[str]) -> Optional[str]:
 
 def extract_course_code_candidates(text: Optional[str]) -> List[str]:
     """
-    Extracts all potential academic course code tokens from a string (e.g. channel or course name).
+    Extracts all potential academic course code tokens from a string.
     Matches patterns like 'BCSE308L', 'BCSE 308P', 'BECE355L', 'BMAT202L'.
     """
     if not text:
         return []
     text_upper = str(text).upper()
-    # Find all pattern sequences of letters followed by digits and optional letters
     raw_matches = re.findall(r"\b([A-Z]{3,4}\s*[-_]?\s*\d{3,4}[A-Z]{0,2})\b", text_upper)
     candidates = []
     for rm in raw_matches:
@@ -124,13 +137,9 @@ def canonicalize_faculty_name(name: Optional[str]) -> Optional[str]:
     if not name:
         return None
     clean = str(name).strip().upper()
-    # Strip honorific prefix
     clean = re.sub(r"^(?:DR|PROF|PROFESSOR|MR|MS|MRS|DOC)\b\.?\s*", "", clean, flags=re.IGNORECASE).strip()
-    # Replace dots, commas, semicolons with space so initials stay separate tokens
     clean = re.sub(r"[\.,;]", " ", clean)
-    # Strip harmless parentheses around department/affiliations: "(APT)" -> "APT"
     clean = re.sub(r"[\(\)]", " ", clean)
-    # Collapse multiple whitespace
     tokens = clean.split()
     if not tokens:
         return None
@@ -155,6 +164,138 @@ def extract_section(text: Optional[str]) -> Optional[str]:
     return None
 
 
+def normalize_subject_title_tokens(title: Optional[str]) -> Set[str]:
+    """
+    Extracts meaningful subject title tokens, stripping course codes and generic noise words.
+    """
+    if not title:
+        return set()
+    raw = str(title).lower()
+    # Strip course codes
+    raw = re.sub(r"\b[a-z]{3,4}\s*[-_]?\s*\d{3,4}[a-z]{0,2}\b", " ", raw)
+    noise_words = {
+        "theory", "th", "lab", "laboratory", "lo", "course", "slot", "faculty", "prof",
+        "dr", "section", "sec", "vit", "chennai", "vellore", "sem", "semester", "class",
+        "and", "for", "the", "with", "general", "academic",
+    }
+    tokens = {t for t in re.findall(r"[a-z]{3,}", raw) if t not in noise_words}
+    return tokens
+
+
+def verify_course_title_match(vtop_title: str, external_name: str, external_desc: str = "") -> Tuple[bool, Optional[str]]:
+    """
+    Verifies that the external course title/description refers to the same subject as VTOP.
+    Rejects conflicting subjects (e.g. Computer Architecture != Computer Networks).
+    Section 6 requirement: Exact course title verification.
+    """
+    vtop_tokens = normalize_subject_title_tokens(vtop_title)
+    if not vtop_tokens:
+        return True, None
+
+    ext_text = f"{external_name} {external_desc}"
+    ext_tokens = normalize_subject_title_tokens(ext_text)
+
+    # If external text only had course codes / slot codes, title check relies on exact code match
+    if not ext_tokens:
+        return True, None
+
+    # Distinguish generic subject words from domain-specific subject words
+    generic_words = {
+        "computer", "advanced", "systems", "system", "engineering", "introduction",
+        "intro", "science", "applied", "design", "technology", "studies", "basic",
+    }
+    vtop_specific = vtop_tokens - generic_words
+    ext_specific = ext_tokens - generic_words
+
+    if vtop_specific and ext_specific:
+        spec_overlap = vtop_specific.intersection(ext_specific)
+        if not spec_overlap:
+            reason = (
+                f"Course title mismatch: VTOP title is '{vtop_title}' (specific: {vtop_specific}), "
+                f"external course is '{external_name}' (specific: {ext_specific})"
+            )
+            return False, reason
+
+    # Check overall overlap if multiple tokens exist
+    overlap = vtop_tokens.intersection(ext_tokens)
+    if len(vtop_tokens) >= 2 and len(overlap) == 0:
+        reason = f"Course title mismatch: external '{external_name}' has no title keywords matching VTOP '{vtop_title}'"
+        return False, reason
+
+    return True, None
+
+
+def extract_academic_context(text: Optional[str]) -> Dict[str, Any]:
+    """
+    Extracts all structured academic context attributes from a text string:
+    - season: "FALL", "WINTER", "SUMMER"
+    - year: 2026, 2025, etc.
+    - sem_num: 1, 2, 3, 4, etc.
+    - is_archived: bool
+    """
+    if not text:
+        return {"season": None, "year": None, "sem_num": None, "is_archived": False}
+
+    upper = str(text).upper()
+    is_archived = any(kw in upper for kw in ["ARCHIVED", "OLD COURSE", "PREVIOUS SEMESTER", "PREV SEM"])
+
+    m_sem_num = re.search(r"\b(?:SEM|SEMESTER)\s*[:\-]?\s*([1-8])\b", upper)
+    sem_num = int(m_sem_num.group(1)) if m_sem_num else None
+
+    season = None
+    if "FALL" in upper or "AUTUMN" in upper:
+        season = "FALL"
+    elif "WINTER" in upper or "WIN" in upper:
+        season = "WINTER"
+    elif "SUMMER" in upper or "SUM" in upper:
+        season = "SUMMER"
+
+    m_yr = re.search(r"\b(20[2-3]\d)\b", upper)
+    year = int(m_yr.group(1)) if m_yr else None
+
+    return {"season": season, "year": year, "sem_num": sem_num, "is_archived": is_archived}
+
+
+def extract_semester_term_year(text: Optional[str]) -> Optional[Tuple[str, int]]:
+    """Helper for backward compatibility."""
+    ctx = extract_academic_context(text)
+    if ctx["season"] and ctx["year"]:
+        return ctx["season"], ctx["year"]
+    if ctx["sem_num"]:
+        return "SEM", ctx["sem_num"]
+    if ctx["year"]:
+        return "YEAR", ctx["year"]
+    return None
+
+
+def verify_semester_match(current_sem_name: str, external_text: str) -> Tuple[bool, Optional[str]]:
+    """
+    Ensures external courses belonging to previous semesters (e.g. Semester 3 vs Semester 4,
+    Fall 2025 vs Fall 2026) are rejected.
+    """
+    curr = extract_academic_context(current_sem_name)
+    ext = extract_academic_context(external_text)
+
+    if ext["is_archived"]:
+        return False, "Archived course rejected: external course is explicitly tagged as historical/archived"
+
+    # 1. Season mismatch (if both specify season)
+    if curr["season"] and ext["season"] and curr["season"] != ext["season"]:
+        ext_yr_str = f" {ext['year']}" if ext['year'] else ""
+        curr_yr_str = f" {curr['year']}" if curr['year'] else ""
+        return False, f"Semester mismatch: external course is {ext['season']}{ext_yr_str}, current is {curr['season']}{curr_yr_str}"
+
+    # 2. Year mismatch (if both specify year)
+    if curr["year"] and ext["year"] and curr["year"] != ext["year"]:
+        return False, f"Academic year mismatch: external course belongs to year {ext['year']}, current is {curr['year']}"
+
+    # 3. Semester number mismatch (if both specify sem number)
+    if curr["sem_num"] and ext["sem_num"] and curr["sem_num"] != ext["sem_num"]:
+        return False, f"Semester mismatch: external course is Semester {ext['sem_num']}, current is Semester {curr['sem_num']}"
+
+    return True, None
+
+
 # ============================================================================
 # 3. Verified Semester Course Records Builder
 # ============================================================================
@@ -165,14 +306,18 @@ def build_verified_semester_course_records(store: Dict[str, Any]) -> List[Verifi
     1. Identifies the student's selected semester from actual VTOP data.
     2. Retrieves enrolled courses for that semester.
     3. Retrieves verified faculty assigned to each course.
-    4. Creates immutable verified course + faculty pairs.
-    5. Fails closed if faculty is missing from enrolled course record.
+    4. Creates immutable verified canonical course records.
+    5. Fails closed if faculty or course code is missing.
     """
     sem = store.get("selectedSemester") or {}
     student = store.get("student") or {}
 
     sem_name = sem.get("name") or student.get("semester") or "Fall Semester 2026-27"
     sem_id = sem.get("id") or student.get("semesterId") or "CH20262701"
+
+    # Extract academic year (e.g. "2026-27" -> "2026")
+    m_yr = re.search(r"\b(20[2-3]\d)\b", sem_name)
+    acad_year = m_yr.group(1) if m_yr else "2026"
 
     courses = list(store.get("courses") or [])
     verified_records: List[VerifiedCourseRecord] = []
@@ -183,6 +328,7 @@ def build_verified_semester_course_records(store: Dict[str, Any]) -> List[Verifi
         faculty_raw = (c.get("faculty") or c.get("facultyName") or "").strip()
         faculty_id = c.get("facultyId") or (f"fac-{re.sub(r'[^a-z0-9]', '-', faculty_raw.lower())}" if faculty_raw else None)
         slot = (c.get("slot") or "").strip()
+        c_type = (c.get("type") or c.get("courseType") or "").strip()
 
         # Data integrity check: course code and faculty must both be present
         if not code:
@@ -199,48 +345,26 @@ def build_verified_semester_course_records(store: Dict[str, Any]) -> List[Verifi
             continue
 
         verified_records.append(VerifiedCourseRecord(
+            academicYear=acad_year,
+            semester=sem_name,
+            semesterId=sem_id,
             courseCode=code,
             courseName=title or code,
             facultyName=faculty_raw,
             facultyId=faculty_id,
             slot=slot if slot else None,
             section=extract_section(slot) or extract_section(c.get("section")),
-            semester=sem_name,
-            semesterId=sem_id,
+            type=c_type if c_type else None,
             verified=True,
         ))
 
-    logger.info("Built %d verified course+faculty pairs for semester '%s'", len(verified_records), sem_name)
+    logger.info("Built %d canonical verified course records for semester '%s'", len(verified_records), sem_name)
     return verified_records
 
 
 # ============================================================================
-# 4. Two-Stage Strict Verification Engine
+# 4. Multi-Stage Strict Verification Engine
 # ============================================================================
-
-def extract_semester_term_year(text: Optional[str]) -> Optional[Tuple[str, int]]:
-    """
-    Extracts normalized semester season and starting year from text.
-    e.g. 'Fall Semester 2026-27' -> ('FALL', 2026)
-         'WIN 2025'              -> ('WINTER', 2025)
-         'Winter Semester 2025-26' -> ('WINTER', 2025)
-    """
-    if not text:
-        return None
-    upper = str(text).upper()
-    season = None
-    if "FALL" in upper or "AUTUMN" in upper:
-        season = "FALL"
-    elif "WINTER" in upper or "WIN" in upper:
-        season = "WINTER"
-    elif "SUMMER" in upper or "SUM" in upper:
-        season = "SUMMER"
-
-    m_yr = re.search(r"\b(20[2-3]\d)\b", upper)
-    if season and m_yr:
-        return season, int(m_yr.group(1))
-    return None
-
 
 def verify_external_course(
     enrolled_records: List[VerifiedCourseRecord],
@@ -253,15 +377,20 @@ def verify_external_course(
     current_semester: Optional[str] = None,
 ) -> Tuple[bool, Optional[VerifiedCourseRecord], ExternalCourseMatch]:
     """
-    Strict Two-Stage Verification:
-    Stage 1: EXACT COURSE CODE MATCH (canonical, preserving L/P distinctions)
-    Stage 2: EXACT FACULTY IDENTITY MATCH (strict canonical token matching)
+    Strict Four-Stage Course Verification:
+    Stage 1: SEMESTER & ACADEMIC YEAR ISOLATION (rejects old/archived semesters)
+    Stage 2: EXACT COURSE CODE MATCH (canonical, preserving L/P distinctions)
+    Stage 3: COURSE TITLE VERIFICATION (semantic keyword validation, e.g. reject Computer Architecture for Computer Networks)
+    Stage 4: EXACT FACULTY IDENTITY MATCH (strict canonical token matching)
     
-    Fails closed if either condition is missing or not satisfied.
-    Never falls back to course code only or faculty only.
+    Fails closed if any stage fails.
     """
     sem_id = enrolled_records[0].semesterId if enrolled_records else "CH20262701"
+    sem_name = enrolled_records[0].semester if enrolled_records else (current_semester or "Fall Semester 2026-27")
+    acad_yr = enrolled_records[0].academicYear if enrolled_records else "2026"
+
     match_result = ExternalCourseMatch(
+        academicYear=acad_yr,
         semesterId=sem_id,
         source=source,
         sourceCourseId=str(source_id),
@@ -269,23 +398,20 @@ def verify_external_course(
         sourceFacultyName=", ".join(source_professors) if source_professors else None,
     )
 
-    # 1. Semester Check: Reject if external course explicitly references another semester
-    combined_meta = f"{source_name} {source_desc}".upper()
-    if current_semester:
-        curr_parsed = extract_semester_term_year(current_semester)
-        ext_parsed = extract_semester_term_year(combined_meta)
-        if curr_parsed and ext_parsed:
-            if curr_parsed != ext_parsed:
-                match_result.semesterMatch = False
-                match_result.verified = False
-                match_result.rejectionReason = (
-                    f"Semester mismatch: external course belongs to {ext_parsed[0]} {ext_parsed[1]}, "
-                    f"not current semester {current_semester}"
-                )
-                logger.warning("[Course Verification] REJECTED %s '%s': %s", source, source_name, match_result.rejectionReason)
-                return False, None, match_result
+    combined_meta = f"{source_name} {source_desc}"
 
-    # 2. Stage 1: Exact Course Code Match
+    # Stage 1: Semester & Academic Year Isolation
+    sem_ok, sem_reason = verify_semester_match(sem_name, combined_meta)
+    if not sem_ok:
+        match_result.semesterMatch = False
+        match_result.verified = False
+        match_result.rejectionReason = sem_reason
+        logger.warning("[Course Verification] REJECTED %s '%s' (ID: %s): %s", source, source_name, source_id, sem_reason)
+        return False, None, match_result
+
+    match_result.semesterMatch = True
+
+    # Stage 2: Exact Course Code Match
     extracted_codes = extract_course_code_candidates(source_name) + extract_course_code_candidates(source_desc)
     if not extracted_codes:
         match_result.courseCodeMatch = False
@@ -294,7 +420,6 @@ def verify_external_course(
         logger.debug("[Course Verification] REJECTED %s '%s': %s", source, source_name, match_result.rejectionReason)
         return False, None, match_result
 
-    # Find matching enrolled course candidate
     matched_enrolled: Optional[VerifiedCourseRecord] = None
     matched_code: Optional[str] = None
     for cand_code in extracted_codes:
@@ -307,7 +432,7 @@ def verify_external_course(
     if not matched_enrolled:
         match_result.courseCodeMatch = False
         match_result.verified = False
-        match_result.rejectionReason = f"Course code mismatch: extracted codes {extracted_codes} not in student's enrolled courses"
+        match_result.rejectionReason = f"Course code mismatch: extracted codes {extracted_codes} not in student's current enrolled courses"
         logger.debug("[Course Verification] REJECTED %s '%s': %s", source, source_name, match_result.rejectionReason)
         return False, None, match_result
 
@@ -315,11 +440,41 @@ def verify_external_course(
     match_result.sourceCourseCode = matched_code
     match_result.matchedSubjectId = matched_enrolled.courseCode
     match_result.matchedCourseCode = matched_enrolled.courseCode
+    match_result.matchedCourseTitle = matched_enrolled.courseName
     match_result.matchedFacultyId = matched_enrolled.facultyId
     match_result.matchedFacultyName = matched_enrolled.facultyName
 
-    # 3. Stage 2: Exact Faculty Identity Match
-    # Priority 1: Stable Faculty ID Match
+    # Stage 3: Course Title Verification (Section 6 requirement)
+    title_ok, title_reason = verify_course_title_match(matched_enrolled.courseName, source_name, source_desc)
+    if not title_ok:
+        match_result.courseTitleMatch = False
+        match_result.verified = False
+        match_result.rejectionReason = title_reason
+        logger.warning(
+            "\n[ASSIGNMENT/COURSE VERIFICATION REJECTED]\n"
+            "Source: %s\n"
+            "External Course: %s (ID: %s)\n"
+            "External Code: %s\n"
+            "Current VTOP Course: %s\n"
+            "Current VTOP Title: %s\n"
+            "Current VTOP Faculty: %s\n"
+            "Current VTOP Semester: %s\n"
+            "Reason: %s",
+            source,
+            source_name,
+            source_id,
+            matched_code,
+            matched_enrolled.courseCode,
+            matched_enrolled.courseName,
+            matched_enrolled.facultyName,
+            matched_enrolled.semester,
+            title_reason,
+        )
+        return False, None, match_result
+
+    match_result.courseTitleMatch = True
+
+    # Stage 4: Exact Faculty Identity Match
     faculty_id_matched = False
     if matched_enrolled.facultyId and source_faculty_ids:
         enrolled_fid = canonicalize_faculty_id(matched_enrolled.facultyId)
@@ -328,7 +483,6 @@ def verify_external_course(
                 faculty_id_matched = True
                 break
 
-    # Priority 2: Full Canonical Name Match
     faculty_name_matched = False
     enrolled_canon_fac = canonicalize_faculty_name(matched_enrolled.facultyName)
     
@@ -338,46 +492,43 @@ def verify_external_course(
             if p and str(p).strip():
                 candidate_fac_names.append(str(p).strip())
 
-    # Extract explicitly tagged faculty names from text (e.g. "Faculty: Dr. ABC", "Prof. XYZ")
-    for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]\s*([A-Za-z\s\.]+)", f"{source_name} - {source_desc}", flags=re.IGNORECASE):
+    for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]\s*([A-Za-z\s\.]+)", combined_meta, flags=re.IGNORECASE):
         fn = m.group(1).strip().split("\n")[0].strip()
-        if len(fn) >= 3 and len(fn) < 80:
+        if 3 <= len(fn) < 80:
             candidate_fac_names.append(fn)
 
-    # Check hyphenated segments in course name if they contain honorifics or match known faculty
-    for part in re.split(r"[\-\|\–\—]", f"{source_name} - {source_desc}"):
+    for part in re.split(r"[\-\|\–\—]", combined_meta):
         clean_part = part.strip()
         if len(clean_part) >= 4 and not any(ch.isdigit() for ch in clean_part):
-            # Check if it has an honorific or matches the enrolled faculty
             c_part = canonicalize_faculty_name(clean_part)
             if c_part and enrolled_canon_fac and c_part == enrolled_canon_fac:
                 candidate_fac_names.append(clean_part)
             elif re.search(r"\b(?:DR|PROF|PROFESSOR|MR|MS|MRS)\b", clean_part, flags=re.IGNORECASE):
                 candidate_fac_names.append(clean_part)
 
-    # Fail closed if no faculty information is available anywhere
+    # Fail closed if faculty is missing
     if not candidate_fac_names and not source_faculty_ids:
         match_result.facultyMatch = False
         match_result.verified = False
         match_result.rejectionReason = f"Faculty missing: external course '{source_name}' has no verifiable instructor"
         logger.warning(
-            "\n[LMS COURSE VERIFICATION]\n"
-            "VTOP Course: %s\n"
-            "VTOP Faculty: %s\n"
-            "LMS Candidate: %s (ID: %s)\n"
-            "LMS Faculty: Unspecified / Missing\n"
-            "Course Code Match: TRUE\n"
-            "Faculty Match: FALSE\n"
-            "Result: REJECTED (%s)",
-            matched_enrolled.courseCode,
-            matched_enrolled.facultyName,
+            "\n[ASSIGNMENT/COURSE VERIFICATION REJECTED]\n"
+            "Source: %s\n"
+            "External Course: %s (ID: %s)\n"
+            "External Faculty: Missing/Unverifiable\n"
+            "Current VTOP Course: %s\n"
+            "Current VTOP Faculty: %s\n"
+            "Reason: %s",
+            source,
             source_name,
             source_id,
+            matched_enrolled.courseCode,
+            matched_enrolled.facultyName,
             match_result.rejectionReason,
         )
         return False, None, match_result
 
-    # Strict token-level matching against enrolled faculty
+    # Strict token matching
     for cand in candidate_fac_names:
         c_canon = canonicalize_faculty_name(cand)
         if c_canon and enrolled_canon_fac and c_canon == enrolled_canon_fac:
@@ -395,55 +546,43 @@ def verify_external_course(
             f"external instructor was {source_professors or candidate_fac_names}"
         )
         logger.warning(
-            "\n[LMS COURSE VERIFICATION]\n"
-            "VTOP Course: %s\n"
-            "VTOP Subject: %s\n"
-            "VTOP Faculty: %s\n"
-            "VTOP Semester: %s\n\n"
-            "LMS Candidate: %s\n"
-            "LMS Course ID: %s\n"
-            "LMS Faculty: %s\n"
-            "Course Code Match: TRUE\n"
-            "Faculty Match: FALSE\n"
-            "Result: REJECTED (%s)",
-            matched_enrolled.courseCode,
-            matched_enrolled.courseName,
-            matched_enrolled.facultyName,
-            matched_enrolled.semester,
+            "\n[ASSIGNMENT/COURSE VERIFICATION REJECTED]\n"
+            "Source: %s\n"
+            "External Course: %s (ID: %s)\n"
+            "External Faculty: %s\n"
+            "Current VTOP Course: %s\n"
+            "Current VTOP Subject: %s\n"
+            "Current VTOP Faculty: %s\n"
+            "Reason: %s",
+            source,
             source_name,
             source_id,
             source_professors or candidate_fac_names,
+            matched_enrolled.courseCode,
+            matched_enrolled.courseName,
+            matched_enrolled.facultyName,
             match_result.rejectionReason,
         )
         return False, None, match_result
 
-    # 4. Optional Section Verification (if available in both)
-    ext_section = extract_section(source_name) or extract_section(source_desc)
-    if matched_enrolled.section and ext_section:
-        if matched_enrolled.section.upper() != ext_section.upper():
-            logger.info("Section distinction note: enrolled %s, external %s", matched_enrolled.section, ext_section)
-
-    # 5. Full Match Verified
+    # All Stages Passed: VERIFIED
     match_result.verified = True
     logger.info(
-        "\n[LMS COURSE VERIFICATION]\n"
-        "VTOP Course: %s\n"
-        "VTOP Subject: %s\n"
+        "\n[COURSE VERIFICATION: SUCCESS]\n"
+        "VTOP Course: %s (%s)\n"
         "VTOP Faculty: %s\n"
-        "VTOP Semester: %s\n\n"
-        "LMS Candidate: %s\n"
-        "LMS Course ID: %s\n"
-        "LMS Faculty: %s\n"
-        "Course Code Match: TRUE\n"
-        "Faculty Match: TRUE\n"
-        "Semester Match: TRUE\n"
+        "VTOP Semester: %s\n"
+        "External Source: %s\n"
+        "External Course: %s (ID: %s)\n"
+        "Code Match: TRUE | Title Match: TRUE | Faculty Match: TRUE | Semester Match: TRUE\n"
         "FINAL: VERIFIED",
         matched_enrolled.courseCode,
         matched_enrolled.courseName,
         matched_enrolled.facultyName,
         matched_enrolled.semester,
+        source,
         source_name,
         source_id,
-        match_result.sourceFacultyName or matched_enrolled.facultyName,
     )
     return True, matched_enrolled, match_result
+

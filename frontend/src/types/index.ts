@@ -291,6 +291,7 @@ export interface Assignment {
   title: string;
   courseCode: string;
   courseTitle: string;
+  subject?: string;
   faculty?: string;
   source: AssignmentPlatform;
   platformName?: string;

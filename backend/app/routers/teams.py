@@ -695,16 +695,102 @@ def fetch_assignments_for_matched_team(
 
     # 1. Query official Education Class Assignments via assignments_headers (https://assignments.onenote.com)
     try:
-        url_edu = f"https://assignments.onenote.com/api/v1.0/edu/classes/{team_id}/assignments"
-        r_edu = requests.get(url_edu, headers=edu_headers, timeout=REQUEST_TIMEOUT)
-        if r_edu.status_code != 200:
-            # Fallback to graph education endpoint
-            url_edu = f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/assignments"
-            r_edu = requests.get(url_edu, headers=headers, timeout=REQUEST_TIMEOUT)
+        url_edu: Optional[str] = f"https://assignments.onenote.com/api/v1.0/edu/classes/{team_id}/assignments"
+        while url_edu:
+            r_edu = requests.get(url_edu, headers=edu_headers, timeout=REQUEST_TIMEOUT)
+            if r_edu.status_code != 200:
+                if not assignments:
+                    # Fallback to graph education endpoint
+                    url_edu_fallback: Optional[str] = f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/assignments"
+                    while url_edu_fallback:
+                        r_edu_fb = requests.get(url_edu_fallback, headers=headers, timeout=REQUEST_TIMEOUT)
+                        if r_edu_fb.status_code == 200:
+                            fb_data = r_edu_fb.json()
+                            for item in fb_data.get("value", []):
+                                assign_id = item.get("id") or "item"
+                                if assign_id in seen_ids:
+                                    continue
+                                seen_ids.add(assign_id)
+                                due_dt = item.get("dueDateTime") or ""
+                                due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
+                                due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
 
-        if r_edu.status_code == 200:
-            for item in r_edu.json().get("value", []):
+                                sub_record, api_failed = fetch_student_teams_submission(
+                                    team_id,
+                                    assign_id,
+                                    edu_headers,
+                                    authenticated_user_id=authenticated_user_id,
+                                )
+                                sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=due_dt, api_failed=api_failed)
+                                title = item.get("displayName") or f"{course_code} Assignment"
+
+                                logger.info(
+                                    "\n[Teams Assignment Status]\nCourse: %s\nFaculty: %s\nAssignment: %s\nTeams Submission State: %s\nSubmitted At: %s\nDeadline: %s\nApplication Status: %s",
+                                    course_code,
+                                    faculty,
+                                    title,
+                                    sub_meta["teamsSubmissionState"],
+                                    sub_meta["submittedAt"] or "None",
+                                    due_date_str,
+                                    sub_meta["applicationStatus"],
+                                )
+
+                                instructions_obj = item.get("instructions")
+                                instructions_raw = instructions_obj.get("content") if isinstance(instructions_obj, dict) else ""
+                                clean_instr = clean_html_instructions(instructions_raw)
+                                web_url = item.get("webUrl") or f"https://teams.microsoft.com/l/team/{team_id}/conversations"
+
+                                points = 10
+                                if isinstance(item.get("grading"), dict) and item.get("grading", {}).get("maxPoints") is not None:
+                                    points = item["grading"]["maxPoints"]
+
+                                assignments.append({
+                                    "id": f"teams-{assign_id}",
+                                    "source": "Teams",
+                                    "sourceAssignmentId": assign_id,
+                                    "title": title,
+                                    "academicYear": matched_vtop.get("academicYear") or "2026",
+                                    "semester": matched_vtop.get("semester") or "Fall Semester 2026-27",
+                                    "semesterId": matched_vtop.get("semesterId") or "CH20262701",
+                                    "courseCode": course_code,
+                                    "courseTitle": course_title,
+                                    "subject": course_title,
+                                    "faculty": faculty,
+                                    "facultyId": faculty_id,
+                                    "externalCourseId": str(team_id),
+                                    "teamsCourseId": str(team_id),
+                                    "verified": True,
+                                    "platformName": "Microsoft Teams",
+                                    "platformUrl": web_url,
+                                    "dueDate": due_date_str,
+                                    "dueTime": due_time_str,
+                                    "status": sub_meta["applicationStatus"],
+                                    "applicationStatus": sub_meta["applicationStatus"],
+                                    "teamsSubmissionState": sub_meta["teamsSubmissionState"],
+                                    "submissionStatus": sub_meta["teamsSubmissionState"],
+                                    "submittedAt": sub_meta["submittedAt"],
+                                    "returnedAt": sub_meta["returnedAt"],
+                                    "submissionId": sub_meta["submissionId"],
+                                    "isDone": sub_meta["isDone"],
+                                    "isSubmitted": sub_meta["isSubmitted"],
+                                    "isLate": sub_meta["isLate"],
+                                    "statusVerifiedAt": sub_meta["statusVerifiedAt"],
+                                    "statusSource": sub_meta["statusSource"],
+                                    "priority": "Critical" if sub_meta["isOverdue"] else "Medium",
+                                    "weightage": points,
+                                    "instructions": clean_instr,
+                                    "matchedTeamName": team_name,
+                                })
+                            url_edu_fallback = fb_data.get("@odata.nextLink") or fb_data.get("nextLink")
+                        else:
+                            break
+                break
+
+            data = r_edu.json()
+            for item in data.get("value", []):
                 assign_id = item.get("id") or "item"
+                if assign_id in seen_ids:
+                    continue
                 seen_ids.add(assign_id)
                 due_dt = item.get("dueDateTime") or ""
                 due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
@@ -747,10 +833,17 @@ def fetch_assignments_for_matched_team(
                     "source": "Teams",
                     "sourceAssignmentId": assign_id,
                     "title": title,
+                    "academicYear": matched_vtop.get("academicYear") or "2026",
+                    "semester": matched_vtop.get("semester") or "Fall Semester 2026-27",
+                    "semesterId": matched_vtop.get("semesterId") or "CH20262701",
                     "courseCode": course_code,
                     "courseTitle": course_title,
+                    "subject": course_title,
                     "faculty": faculty,
                     "facultyId": faculty_id,
+                    "externalCourseId": str(team_id),
+                    "teamsCourseId": str(team_id),
+                    "verified": True,
                     "platformName": "Microsoft Teams",
                     "platformUrl": web_url,
                     "dueDate": due_date_str,
@@ -772,6 +865,8 @@ def fetch_assignments_for_matched_team(
                     "instructions": clean_instr,
                     "matchedTeamName": team_name,
                 })
+            # Follow pagination nextLink
+            url_edu = data.get("@odata.nextLink") or data.get("nextLink")
     except Exception as exc:
         logger.warning("Education class assignments query for %s failed: %s", team_id, exc)
 

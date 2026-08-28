@@ -465,19 +465,22 @@ def fetch_assignments_for_lms_course(
 
             is_pending = not is_submitted
 
-            # Requirement 12: Ownership & Verified Relationship metadata
+            # Requirement 12 & 18: Full Canonical Ownership & Verified Relationship metadata
             assignments.append({
                 "id": assign_id,
                 "activityId": activity_id,
                 "title": title,
+                "academicYear": vtop_course.get("academicYear") or "2026",
+                "semester": semester_name,
+                "semesterId": vtop_course.get("semesterId") or "CH20262701",
                 "courseCode": course_code,
                 "courseTitle": vtop_title,
                 "subject": vtop_title,
                 "faculty": faculty,
-                "semester": semester_name,
                 "verified": True,
                 "source": "LMS",
                 "lmsCourseId": str(course_id),
+                "externalCourseId": str(course_id),
                 "platformName": "VIT LMS",
                 "platformUrl": assign_url,
                 "submissionUrl": assign_url,
