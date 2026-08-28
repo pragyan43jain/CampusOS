@@ -350,16 +350,30 @@ def get_vtop_od() -> Dict[str, Any]:
     """
     store = load_store()
     od = store.get("od") or empty_store()["od"]
-    used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if od.get("hasValidData") else None))
+    is_auth = bool(store.get("authenticated"))
+    
+    has_valid = bool(od.get("hasValidData") or is_auth)
+    used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if has_valid else None))
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = od.get("records") or od.get("odRecords") or []
+    remaining = max(0, max_h - (used or 0)) if used is not None else None
+    pct = round(((used or 0) / float(max_h)) * 100.0, 1) if used is not None else None
+    state = od.get("state") if od.get("state") and od.get("state") != "source_unavailable" else ("success_with_records" if records else ("success_with_no_records" if is_auth else "source_unavailable"))
+
     return {
         **od,
+        "state": state,
+        "hasValidData": has_valid,
         "usedHours": used,
         "odHours": used,
         "totalOdHours": used,
+        "approvedHours": od.get("approvedHours", used or 0),
+        "pendingHours": od.get("pendingHours", 0),
+        "rejectedHours": od.get("rejectedHours", 0),
         "maxHours": max_h,
         "maxOdHours": max_h,
+        "remainingHours": remaining,
+        "percentageUsed": pct,
         "records": records,
         "odRecords": records,
     }

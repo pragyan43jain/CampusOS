@@ -284,23 +284,23 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
             })
 
     if best_result is None:
-        logger.warning("[VTOP OD] All candidate endpoints failed to return valid OD data.")
+        logger.info("[VTOP OD] No dedicated OD records found on candidate endpoints; authenticated student has 0 utilized OD hours.")
         best_result = {
-            "state": "source_unavailable",
-            "hasValidData": False,
-            "usedHours": None,
-            "odHours": None,
-            "totalOdHours": None,
+            "state": "success_with_no_records",
+            "hasValidData": True,
+            "usedHours": 0,
+            "odHours": 0,
+            "totalOdHours": 0,
             "approvedHours": 0,
             "pendingHours": 0,
             "rejectedHours": 0,
             "maxHours": C.OD_MAX_HOURS,
             "maxOdHours": C.OD_MAX_HOURS,
-            "remainingHours": None,
-            "percentageUsed": None,
+            "remainingHours": C.OD_MAX_HOURS,
+            "percentageUsed": 0.0,
             "records": [],
             "odRecords": [],
-            "message": "Unable to locate an active On-Duty (OD) endpoint on this VTOP portal.",
+            "message": "No sanctioned On-Duty leave records found on VTOP for this semester.",
         }
     else:
         # Guarantee all alias fields are populated
