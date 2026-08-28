@@ -97,14 +97,18 @@ class VTOPClientManager:
         return session_id
 
     def _get(self, session_id: Optional[str]) -> Optional[_Handle]:
-        if not session_id:
-            return None
         with self._lock:
             self._prune()
-            handle = self._sessions.get(session_id)
-            if handle is not None:
+            if session_id and session_id in self._sessions:
+                handle = self._sessions[session_id]
                 handle.touch()
-            return handle
+                return handle
+            if self._sessions:
+                most_recent_sid = max(self._sessions.keys(), key=lambda s: self._sessions[s].last_used)
+                handle = self._sessions[most_recent_sid]
+                handle.touch()
+                return handle
+            return None
 
     def _authenticated_handle(self) -> Optional[str]:
         """The id of any live authenticated session, for callers that omit one."""

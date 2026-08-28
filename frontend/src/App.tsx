@@ -115,9 +115,9 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSyncedData = (data?: any) => {
+  const handleSyncedData = async (data?: any) => {
     if (data && data.student) {
-      if (data.student) setStudent(data.student);
+      setStudent(data.student);
       if (data.courses) setCourses(data.courses);
       if (data.timetable) setTimetable(data.timetable);
       if (data.attendance) setAttendance(data.attendance);
@@ -130,9 +130,8 @@ export const App: React.FC = () => {
       if (data.placements) setPlacements(data.placements);
       if (data.dsaTopics) setDsaTopics(data.dsaTopics);
       if (data.aiTasks) setAiTasks(data.aiTasks);
-    } else {
-      loadAllData();
     }
+    await loadAllData();
   };
 
   useEffect(() => {
