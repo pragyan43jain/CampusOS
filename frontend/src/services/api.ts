@@ -17,8 +17,18 @@ import {
   UnifiedAssignmentsDashboard,
 } from '../types';
 
-// API base path - proxied by Vite in dev or served directly in prod
-const API_BASE = '/api';
+const getApiBase = (): string => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port && port !== '8000' && port !== '5173') {
+      return 'http://127.0.0.1:8000/api';
+    }
+  }
+  return '/api';
+};
+
+const API_BASE = getApiBase();
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
   try {
