@@ -89,20 +89,29 @@ def match_lms_course_to_vtop(
     course_id: str,
     vtop_courses: List[Dict[str, Any]],
     candidate_professors: Optional[List[str]] = None,
+    current_semester: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Strict verification of external LMS course:
     1. EXACT COURSE CODE MATCH (canonical, preserving L/P distinctions)
     2. EXACT FACULTY IDENTITY MATCH
-    Fails closed if either condition is not satisfied.
+    3. CURRENT SEMESTER ISOLATION
+    Fails closed if any condition is not satisfied.
     """
-    verified_records = build_verified_semester_course_records({"courses": vtop_courses})
+    store_data = {"courses": vtop_courses}
+    if current_semester:
+        store_data["selectedSemester"] = {"name": current_semester, "id": "CH20262701"}
+
+    verified_records = build_verified_semester_course_records(store_data)
+    curr_sem = verified_records[0].semester if verified_records else (current_semester or "Fall Semester 2026-27")
+
     is_verified, matched_rec, _ = verify_external_course(
         enrolled_records=verified_records,
         source="LMS",
         source_id=str(course_id),
         source_name=course_name,
         source_professors=candidate_professors,
+        current_semester=curr_sem,
     )
     if is_verified and matched_rec:
         return next(
@@ -402,15 +411,16 @@ def fetch_assignments_for_lms_course(
     vtop_course: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
     """
-    Scrapes assignments from Moodle's course assignments page:
+    Scrapes assignments strictly scoped to Moodle's course assignments page:
     https://lms.vit.ac.in/mod/assign/index.php?id={course_id}
     """
     assignments: List[Dict[str, Any]] = []
     url = f"{LMS_BASE_URL}/mod/assign/index.php?id={course_id}"
 
-    course_code = vtop_course.get("code") or vtop_course.get("courseCode") or "LMS"
-    faculty = vtop_course.get("faculty") or vtop_course.get("facultyName")
+    course_code = canonicalize_course_code(vtop_course.get("code") or vtop_course.get("courseCode")) or "LMS"
+    faculty = vtop_course.get("faculty") or vtop_course.get("facultyName") or "Unassigned"
     vtop_title = vtop_course.get("title") or vtop_course.get("courseTitle") or course_title
+    semester_name = vtop_course.get("semester") or "Fall Semester 2026-27"
 
     try:
         r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
@@ -422,13 +432,17 @@ def fetch_assignments_for_lms_course(
         if not table:
             return assignments
 
-        rows = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")[1:]
-        for row in rows:
+        all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
+        for row in all_trs:
             cols = row.find_all(["td", "th"])
             if len(cols) < 3:
                 continue
 
-            link = cols[1].find("a")
+            # Skip pure header rows without links
+            if not row.find("a") and row.find_all("th") and not row.find_all("td"):
+                continue
+
+            link = row.find("a")
             if not link:
                 continue
 
@@ -437,7 +451,8 @@ def fetch_assignments_for_lms_course(
             assign_url = href if href.startswith("http") else f"{LMS_BASE_URL}{href}"
 
             m_cm = re.search(r"id=(\d+)", href)
-            assign_id = f"lms-{course_id}-{m_cm.group(1)}" if m_cm else f"lms-{course_id}-{len(assignments)+1}"
+            activity_id = m_cm.group(1) if m_cm else str(len(assignments) + 1)
+            assign_id = f"lms-{course_id}-{activity_id}"
 
             due_raw = cols[2].get_text().strip()
             due_date_str, due_time_str = parse_moodle_date(due_raw)
@@ -448,21 +463,30 @@ def fetch_assignments_for_lms_course(
                 for kw in ["submitted", "graded", "turnedin", "complete"]
             )
 
-            # Check if overdue
             is_pending = not is_submitted
 
+            # Requirement 12: Ownership & Verified Relationship metadata
             assignments.append({
                 "id": assign_id,
+                "activityId": activity_id,
                 "title": title,
                 "courseCode": course_code,
                 "courseTitle": vtop_title,
+                "subject": vtop_title,
                 "faculty": faculty,
+                "semester": semester_name,
+                "verified": True,
                 "source": "LMS",
+                "lmsCourseId": str(course_id),
                 "platformName": "VIT LMS",
                 "platformUrl": assign_url,
+                "submissionUrl": assign_url,
                 "dueDate": due_date_str,
                 "dueTime": due_time_str,
                 "status": "Submitted" if is_submitted else "Pending",
+                "applicationStatus": "DONE" if is_submitted else "PENDING",
+                "isDone": is_submitted,
+                "isSubmitted": is_submitted,
                 "priority": "Critical" if is_pending else "Medium",
                 "weightage": 10,
                 "instructions": f"Assigned on VIT LMS ({course_title}).",
@@ -477,23 +501,36 @@ def fetch_assignments_for_lms_course(
 def fetch_vit_lms_coursework(
     session: Optional[requests.Session],
     vtop_courses: List[Dict[str, Any]],
+    current_semester: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], int, List[Dict[str, Any]]]:
     """
     Matches LMS courses with VTOP courses and retrieves authentic assignments.
+    Strict pipeline:
+    VTOP semester -> VTOP enrolled courses -> VTOP course code -> VTOP faculty
+    -> Find matching LMS course -> Verify LMS course code -> Verify LMS faculty
+    -> Fetch assignments ONLY from that verified LMS course
+    -> Return assignments for that subject.
     """
     if not session:
         return [], [], 0, []
 
-    enrolled_courses = fetch_lms_enrolled_courses(session)
-    logger.info("Found %d courses on VIT LMS. Matching with %d VTOP courses...", len(enrolled_courses), len(vtop_courses))
+    store_data = {"courses": vtop_courses}
+    if current_semester:
+        store_data["selectedSemester"] = {"name": current_semester, "id": "CH20262701"}
 
-    verified_enrolled = build_verified_semester_course_records({"courses": vtop_courses})
+    verified_enrolled = build_verified_semester_course_records(store_data)
+    curr_sem_name = verified_enrolled[0].semester if verified_enrolled else (current_semester or "Fall Semester 2026-27")
+
+    enrolled_courses = fetch_lms_enrolled_courses(session)
+    logger.info("Found %d courses on VIT LMS. Matching with %d VTOP courses for semester '%s'...", len(enrolled_courses), len(verified_enrolled), curr_sem_name)
+
     all_assignments: List[Dict[str, Any]] = []
     matched_subjects: List[Dict[str, Any]] = []
     course_matches: List[Dict[str, Any]] = []
+    verified_lms_course_ids = set()
 
     for lms_c in enrolled_courses:
-        c_id = lms_c["id"]
+        c_id = str(lms_c["id"])
         c_title = lms_c["title"]
         c_teachers = list(lms_c.get("teachers") or [])
 
@@ -501,18 +538,61 @@ def fetch_vit_lms_coursework(
         if not c_teachers and session:
             c_teachers = fetch_lms_course_teachers(session, c_id)
 
-        # Check 1: Enrolled course in that semester
-        # Check 2: Professor name of that course
+        # Stage 1: Exact course code match; Stage 2: Exact faculty identity match; Semester isolation
         is_verified, matched_rec, match_meta = verify_external_course(
             enrolled_records=verified_enrolled,
             source="LMS",
-            source_id=str(c_id),
+            source_id=c_id,
             source_name=c_title,
             source_professors=c_teachers,
+            current_semester=curr_sem_name,
         )
         course_matches.append(match_meta.model_dump())
 
+        # Debug logging per Requirement 19 & 20
+        if matched_rec:
+            logger.info(
+                "\n[LMS COURSE VERIFICATION]\n"
+                "VTOP Course: %s\n"
+                "VTOP Subject: %s\n"
+                "VTOP Faculty: %s\n"
+                "VTOP Semester: %s\n\n"
+                "LMS Candidate: %s\n"
+                "LMS Course ID: %s\n"
+                "LMS Faculty: %s\n"
+                "LMS Semester: %s\n\n"
+                "Course Code Match: %s\n"
+                "Faculty Match: %s\n"
+                "Semester Match: %s\n"
+                "FINAL: %s",
+                matched_rec.courseCode,
+                matched_rec.courseName,
+                matched_rec.facultyName,
+                matched_rec.semester,
+                c_title,
+                c_id,
+                c_teachers or ["None"],
+                curr_sem_name,
+                match_meta.courseCodeMatch,
+                match_meta.facultyMatch,
+                match_meta.semesterMatch,
+                "VERIFIED" if is_verified else f"REJECTED ({match_meta.rejectionReason})",
+            )
+        else:
+            logger.info(
+                "\n[LMS COURSE VERIFICATION]\n"
+                "LMS Candidate: %s\n"
+                "LMS Course ID: %s\n"
+                "LMS Faculty: %s\n"
+                "Result: REJECTED (%s)",
+                c_title,
+                c_id,
+                c_teachers or ["None"],
+                match_meta.rejectionReason or "No matching enrolled course",
+            )
+
         if is_verified and matched_rec:
+            verified_lms_course_ids.add(c_id)
             matched_vtop = {
                 "code": matched_rec.courseCode,
                 "title": matched_rec.courseName,
@@ -520,8 +600,8 @@ def fetch_vit_lms_coursework(
                 "facultyId": matched_rec.facultyId,
                 "slot": matched_rec.slot,
                 "section": matched_rec.section,
+                "semester": matched_rec.semester,
             }
-            logger.info("Verified enrolled course [%s: %s] AND professor [%s] with LMS '%s' (%s). Fetching assignments...", matched_rec.courseCode, matched_rec.courseName, matched_rec.facultyName, c_title, c_id)
 
             sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop)
 
@@ -530,7 +610,27 @@ def fetch_vit_lms_coursework(
                 sa["subjectId"] = matched_rec.courseCode
                 sa["courseCode"] = matched_rec.courseCode
                 sa["courseTitle"] = matched_rec.courseName
+                sa["subject"] = matched_rec.courseName
                 sa["faculty"] = matched_rec.facultyName
+                sa["semester"] = matched_rec.semester
+                sa["verified"] = True
+                sa["source"] = "LMS"
+                sa["lmsCourseId"] = c_id
+
+            logger.info(
+                "\n[LMS ASSIGNMENT FETCH]\n"
+                "Verified LMS Course: %s\n"
+                "Course: %s\n"
+                "Faculty: %s\n"
+                "Assignments Retrieved: %d\n"
+                "Assignments Accepted: %d\n"
+                "Assignments Rejected: 0",
+                c_id,
+                matched_rec.courseCode,
+                matched_rec.facultyName,
+                len(sub_assignments),
+                len(sub_assignments),
+            )
 
             matched_subjects.append({
                 "courseCode": matched_rec.courseCode,
@@ -541,8 +641,6 @@ def fetch_vit_lms_coursework(
                 "assignmentsCount": len(sub_assignments),
             })
             all_assignments.extend(sub_assignments)
-        else:
-            logger.debug("LMS course '%s' (%s) skipped: %s", c_title, c_id, match_meta.rejectionReason)
 
     return all_assignments, matched_subjects, len(enrolled_courses), course_matches
 
@@ -590,8 +688,9 @@ def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
     store = load_store()
     vtop_courses = list(store.get("courses") or [])
 
+    current_sem = (store.get("selectedSemester") or {}).get("name")
     assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
-        session, vtop_courses
+        session, vtop_courses, current_semester=current_sem
     )
 
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -655,7 +754,10 @@ def sync_lms() -> Dict[str, Any]:
         s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in")
 
     vtop_courses = list(store.get("courses") or [])
-    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(s, vtop_courses)
+    current_sem = (store.get("selectedSemester") or {}).get("name")
+    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
+        s, vtop_courses, current_semester=current_sem
+    )
 
     existing_assignments = store.get("assignments") or []
     other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]

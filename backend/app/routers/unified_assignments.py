@@ -300,18 +300,16 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             continue
 
         enrolled_fac = canonicalize_faculty_name(matched_rec.facultyName)
-        assign_facs = [
-            canonicalize_faculty_name(a.get("faculty")),
-            canonicalize_faculty_name(a.get("matchedTeamName")),
-            canonicalize_faculty_name(a.get("matchedLmsCourse")),
-        ]
-        if not any(f and f == enrolled_fac for f in assign_facs):
+        assign_fac = canonicalize_faculty_name(a.get("faculty"))
+        
+        # Fail closed on faculty mismatch or missing faculty
+        if not assign_fac or assign_fac != enrolled_fac:
             logger.warning(
-                "Unified dashboard dropping assignment '%s' [%s]: course faculty '%s' did not match %s",
+                "Unified dashboard dropping assignment '%s' [%s]: course faculty '%s' did not match assignment faculty '%s'",
                 a.get("title"),
                 c_code,
                 matched_rec.facultyName,
-                assign_facs,
+                a.get("faculty"),
             )
             continue
 
@@ -320,6 +318,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
             "faculty": matched_rec.facultyName,
+            "verified": True,
         })
 
     # Account metadata
