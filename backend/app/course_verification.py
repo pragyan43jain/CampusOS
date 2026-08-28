@@ -108,12 +108,14 @@ def canonicalize_course_code(code: Optional[str]) -> Optional[str]:
 def extract_course_code_candidates(text: Optional[str]) -> List[str]:
     """
     Extracts all potential academic course code tokens from a string.
-    Matches patterns like 'BCSE308L', 'BCSE 308P', 'BECE355L', 'BMAT202L'.
+    Matches patterns like 'BCSE308L', 'BCSE 308P', 'BECE355L', 'BMAT202L', 'BCSE308L_E1_TH'.
     """
     if not text:
         return []
     text_upper = str(text).upper()
-    raw_matches = re.findall(r"\b([A-Z]{3,4}\s*[-_]?\s*\d{3,4}[A-Z]{0,2})\b", text_upper)
+    # Normalize underscores and hyphens to allow clean token boundary matching
+    clean_text = re.sub(r"[_\-]+", " ", text_upper)
+    raw_matches = re.findall(r"\b([A-Z]{3,4}\s*\d{3,4}[A-Z]{0,2})\b", clean_text)
     candidates = []
     for rm in raw_matches:
         canon = canonicalize_course_code(rm)
@@ -122,11 +124,11 @@ def extract_course_code_candidates(text: Optional[str]) -> List[str]:
 
             # If canon is base code (e.g. BCSE308) and slot is in text, synthesize full course code
             if len(canon) == 7 and not canon[-1].isalpha():
-                if re.search(r"\b(?:A1|A2|B1|B2|C1|C2|D1|D2|E1|E2|F1|F2|G1|G2|TA1|TA2|TB1|TB2|TC1|TC2|TD1|TD2|TE1|TE2|TF1|TF2|TG1|TG2|THEORY)\b", text_upper):
+                if re.search(r"\b(?:A1|A2|B1|B2|C1|C2|D1|D2|E1|E2|F1|F2|G1|G2|TA1|TA2|TB1|TB2|TC1|TC2|TD1|TD2|TE1|TE2|TF1|TF2|TG1|TG2|THEORY|TH)\b", text_upper):
                     theory_code = f"{canon}L"
                     if theory_code not in candidates:
                         candidates.append(theory_code)
-                if re.search(r"\b(?:L[1-9]|L1[0-9]|L20|LAB|PRACTICAL)\b", text_upper):
+                if re.search(r"\b(?:L[1-9]|L1[0-9]|L20|LAB|PRACTICAL|LO)\b", text_upper):
                     lab_code = f"{canon}P"
                     if lab_code not in candidates:
                         candidates.append(lab_code)
@@ -175,9 +177,32 @@ def extract_section(text: Optional[str]) -> Optional[str]:
     return None
 
 
+ACRONYM_MAP = {
+    "dmgt": {"discrete", "mathematics", "graph", "theory"},
+    "dsa": {"design", "analysis", "algorithms", "data", "structures"},
+    "daa": {"design", "analysis", "algorithms"},
+    "toc": {"theory", "computation", "automata", "formal", "languages"},
+    "flat": {"formal", "languages", "automata", "theory"},
+    "cn": {"computer", "networks", "networking"},
+    "os": {"operating", "systems"},
+    "cd": {"compiler", "design"},
+    "es": {"embedded", "systems"},
+    "mpmc": {"microprocessors", "microcontrollers"},
+    "dbms": {"database", "systems", "management"},
+    "db": {"database", "systems"},
+    "vlsi": {"vlsi", "system", "design"},
+    "cloud": {"cloud", "architecture", "computing"},
+    "acc": {"advanced", "cloud", "computing"},
+    "cad": {"cloud", "architecture", "design"},
+    "ai": {"artificial", "intelligence"},
+    "aiml": {"artificial", "intelligence", "machine", "learning"},
+    "ml": {"machine", "learning"},
+}
+
+
 def normalize_subject_title_tokens(title: Optional[str]) -> Set[str]:
     """
-    Extracts meaningful subject title tokens, stripping course codes and generic noise words.
+    Extracts meaningful subject title tokens, expanding university course acronyms.
     """
     if not title:
         return set()
@@ -189,7 +214,13 @@ def normalize_subject_title_tokens(title: Optional[str]) -> Set[str]:
         "dr", "section", "sec", "vit", "chennai", "vellore", "sem", "semester", "class",
         "and", "for", "the", "with", "general", "academic",
     }
-    tokens = {t for t in re.findall(r"[a-z]{3,}", raw) if t not in noise_words}
+    raw_words = re.findall(r"[a-z0-9]+", raw)
+    tokens: Set[str] = set()
+    for w in raw_words:
+        if w in ACRONYM_MAP:
+            tokens.update(ACRONYM_MAP[w])
+        elif len(w) >= 3 and w not in noise_words:
+            tokens.add(w)
     return tokens
 
 
@@ -542,6 +573,12 @@ def verify_external_course(
                 faculty_name_matched = True
                 match_result.sourceFacultyName = cand
                 break
+    elif source == "LMS" and source_professors is not None and matched_code == matched_enrolled.courseCode:
+        # In VIT LMS, Moodle permissions restrict students from viewing the teacher profile page.
+        # When course code, course title, and semester match the authenticated student's enrolled course,
+        # and no conflicting instructor is found, verify and accept the LMS course.
+        faculty_name_matched = True
+        match_result.sourceFacultyName = matched_enrolled.facultyName
 
     # Fail closed if faculty is missing or mismatched
     if not (faculty_id_matched or faculty_name_matched):
