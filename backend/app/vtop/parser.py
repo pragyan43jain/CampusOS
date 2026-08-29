@@ -604,6 +604,116 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
     return records
 
 
+def extract_attendance_od_records(
+    html: str,
+    attendance_rows: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Search the VTOP class attendance page and each subject's attendance table
+    for On-Duty (OD) entries, class credits, and detailed lecture logs.
+    """
+    records: List[Dict[str, Any]] = []
+    seen_keys = set()
+
+    if not html:
+        return records
+
+    soup = soup_of(html)
+
+    # 1. Inspect attendance rows for course-level OD counts
+    for row in (attendance_rows or []):
+        od_cnt = row.get("odAttended") or 0
+        c_code = (row.get("courseCode") or "COURSE").upper()
+        c_title = row.get("courseTitle") or "Course Academic OD"
+        slot = row.get("slot") or ""
+        fac = row.get("facultyName") or "Academic Office"
+
+        if od_cnt > 0:
+            key = f"{c_code}-{slot}-att"
+            if key not in seen_keys:
+                seen_keys.add(key)
+                records.append({
+                    "id": f"od-att-{c_code}",
+                    "date": "Active Semester",
+                    "fromDate": "Semester Sanction",
+                    "toDate": "Semester Sanction",
+                    "fromTime": None,
+                    "toTime": None,
+                    "timeRange": None,
+                    "subjectCode": c_code,
+                    "subjectTitle": c_title,
+                    "hours": od_cnt,
+                    "days": 1,
+                    "slot": slot,
+                    "reason": f"Class On-Duty Credit ({c_code})",
+                    "status": "Approved",
+                    "isApproved": True,
+                    "approvedBy": fac,
+                })
+
+    # 2. Inspect all tables in HTML for detailed date-wise attendance with status 'On Duty' or 'OD'
+    tables = soup.find_all("table")
+    for table in tables:
+        rows = table.find_all("tr")
+        current_course_code = None
+        current_course_title = None
+
+        # Check if table has a course heading nearby or in caption
+        prev_heading = table.find_previous(["h3", "h4", "h5", "b", "strong", "span"])
+        if prev_heading:
+            c_match = re.search(r"([A-Z]{3,4}\d{3,4}[A-Z]?)", prev_heading.get_text())
+            if c_match:
+                current_course_code = c_match.group(1).upper()
+
+        for tr in rows:
+            tds = tr.find_all(["td", "th"])
+            if not tds:
+                continue
+
+            row_text = tr.get_text().strip()
+            # Check if row contains 'On Duty' or 'OD' status
+            if re.search(r"\b(?:on\s*duty|od\s*approved|od\s*sanctioned|attended\s*od)\b", row_text, re.I):
+                # Extract date from cells
+                found_date = None
+                found_slot = None
+                for td in tds:
+                    t_text = td.get_text().strip()
+                    d_match = re.search(r"(\d{1,2}[-/][A-Za-z0-9]{3,}[-/]\d{2,4})", t_text)
+                    if d_match:
+                        found_date = d_match.group(1)
+                    s_match = re.search(r"\b([A-G][12]\+?T?[A-G]?[12]?|L\d{1,2}(?:\+L\d{1,2})*)\b", t_text)
+                    if s_match:
+                        found_slot = s_match.group(1)
+                    c_code_match = re.search(r"\b([A-Z]{3,4}\d{3,4}[A-Z]?)\b", t_text)
+                    if c_code_match and not current_course_code:
+                        current_course_code = c_code_match.group(1).upper()
+
+                if found_date:
+                    record_key = f"{found_date}-{current_course_code or 'COURSE'}-{found_slot or ''}"
+                    if record_key not in seen_keys:
+                        seen_keys.add(record_key)
+                        records.append({
+                            "id": f"od-date-{len(records) + 1}",
+                            "date": found_date,
+                            "fromDate": found_date,
+                            "toDate": found_date,
+                            "fromTime": None,
+                            "toTime": None,
+                            "timeRange": None,
+                            "subjectCode": current_course_code or "GENERAL",
+                            "subjectTitle": current_course_title or "Subject Class Attendance",
+                            "hours": 1,
+                            "days": 1,
+                            "slot": found_slot or "",
+                            "reason": f"Class Attendance On-Duty ({current_course_code or 'Class'})",
+                            "status": "Approved",
+                            "isApproved": True,
+                            "approvedBy": "Course Faculty / VTOP",
+                        })
+
+    return records
+
+
 # ---------------------------------------------------------------------------
 # 6. marks
 # ---------------------------------------------------------------------------

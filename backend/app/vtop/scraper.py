@@ -211,11 +211,12 @@ def fetch_od(
     session: VTOPSession,
     semester_id: Optional[str] = None,
     attendance_rows: Optional[List[Dict[str, Any]]] = None,
+    attendance_html: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Fetch and parse student On-Duty (OD) hours.
-    Probes multiple candidate VTOP endpoints, checks course-level OD attendance credits,
-    and records complete diagnostics.
+    Probes multiple candidate VTOP endpoints, searches the class attendance page
+    and all subject attendance tables for OD credits and detailed lecture logs.
     """
     diagnostics: List[Dict[str, Any]] = []
     best_result: Optional[Dict[str, Any]] = None
@@ -290,38 +291,17 @@ def fetch_od(
                 "error": str(e),
             })
 
-    # Check for course-level OD credits from attendance
+    # Search attendance page and subject attendance for OD credits
     att_od_records: List[Dict[str, Any]] = []
-    if attendance_rows:
-        for a_row in attendance_rows:
-            od_cnt = a_row.get("odAttended") or 0
-            if od_cnt > 0:
-                c_code = (a_row.get("courseCode") or "COURSE").upper()
-                c_title = a_row.get("courseTitle") or "Course Academic OD"
-                slot = a_row.get("slot") or ""
-                fac = a_row.get("facultyName") or "Academic Office"
-                att_od_records.append({
-                    "id": f"od-att-{c_code}",
-                    "date": "Active Semester",
-                    "fromDate": "Active Semester",
-                    "toDate": "Active Semester",
-                    "fromTime": None,
-                    "toTime": None,
-                    "timeRange": None,
-                    "subjectCode": c_code,
-                    "subjectTitle": c_title,
-                    "hours": od_cnt,
-                    "days": 1,
-                    "slot": slot,
-                    "reason": f"Sanctioned On-Duty Classes ({c_code})",
-                    "status": "Approved",
-                    "isApproved": True,
-                    "approvedBy": fac,
-                })
+    if attendance_html or attendance_rows:
+        extracted = P.extract_attendance_od_records(attendance_html or "", attendance_rows or [])
+        if extracted:
+            att_od_records.extend(extracted)
+            logger.info("[VTOP OD] Extracted %d OD record(s) from class attendance page.", len(extracted))
 
     if att_od_records:
-        total_att_od = sum(r["hours"] for r in att_od_records)
-        logger.info("[VTOP OD] Found %d OD hours across course attendance rows.", total_att_od)
+        total_att_od = sum(r.get("hours", 1) for r in att_od_records)
+        logger.info("[VTOP OD] Found %d OD hours across class attendance records.", total_att_od)
         if best_result is None or not (best_result.get("records") or best_result.get("odRecords")):
             best_result = {
                 "state": "success_with_records",
@@ -338,19 +318,23 @@ def fetch_od(
                 "percentageUsed": round((total_att_od / C.OD_MAX_HOURS) * 100, 1),
                 "records": att_od_records,
                 "odRecords": att_od_records,
-                "message": f"Found {total_att_od} approved On-Duty hours credited in course attendance.",
+                "message": f"Found {total_att_od} approved On-Duty hours credited in class attendance.",
             }
         else:
             # Merge non-duplicate records
-            existing_codes = {r.get("subjectCode") for r in best_result.get("records", []) if r.get("subjectCode")}
+            existing_dates_courses = {
+                (r.get("date"), r.get("subjectCode"))
+                for r in best_result.get("records", [])
+            }
             for r in att_od_records:
-                if r["subjectCode"] not in existing_codes:
+                key = (r.get("date"), r.get("subjectCode"))
+                if key not in existing_dates_courses:
                     best_result.setdefault("records", []).append(r)
                     best_result.setdefault("odRecords", []).append(r)
-                    best_result["usedHours"] = (best_result.get("usedHours") or 0) + r["hours"]
+                    best_result["usedHours"] = (best_result.get("usedHours") or 0) + r.get("hours", 1)
                     best_result["odHours"] = best_result["usedHours"]
                     best_result["totalOdHours"] = best_result["usedHours"]
-                    best_result["approvedHours"] = (best_result.get("approvedHours") or 0) + r["hours"]
+                    best_result["approvedHours"] = (best_result.get("approvedHours") or 0) + r.get("hours", 1)
             best_result["remainingHours"] = max(0, C.OD_MAX_HOURS - (best_result.get("usedHours") or 0))
             best_result["percentageUsed"] = round(((best_result.get("usedHours") or 0) / C.OD_MAX_HOURS) * 100, 1)
 
@@ -1097,14 +1081,13 @@ def sync(
             report.record("courses", FAILED, message="timetable page not retrieved")
             report.record("timetableGrid", FAILED, message="timetable page not retrieved")
 
-        attendance_rows = (
-            _step(
-                report,
-                "attendance",
-                lambda: P.parse_attendance(fetch_attendance_page(session, sem_id)),
-            )
-            or []
-        )
+        att_page: Optional[str] = None
+        def _get_attendance() -> List[Dict[str, Any]]:
+            nonlocal att_page
+            att_page = fetch_attendance_page(session, sem_id)
+            return P.parse_attendance(att_page)
+
+        attendance_rows = _step(report, "attendance", _get_attendance) or []
         marks_rows = (
             _step(
                 report,
@@ -1167,7 +1150,12 @@ def sync(
     od_data = _step(
         report,
         "od",
-        lambda: fetch_od(session, semester["id"] if semester else None, attendance_rows=attendance_rows),
+        lambda: fetch_od(
+            session,
+            semester["id"] if semester else None,
+            attendance_rows=attendance_rows,
+            attendance_html=att_page if semester else None,
+        ),
     ) or {
         "state": "source_unavailable",
         "hasValidData": False,
