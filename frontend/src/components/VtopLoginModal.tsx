@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   Lock,
   User,
-  Info,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -24,12 +23,10 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [campus] = useState<'chennai'>('chennai');
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [captcha, setCaptcha] = useState<string>('');
   const [captchaImage, setCaptchaImage] = useState<string>('');
-  const [captchaKind, setCaptchaKind] = useState<string>('default');
   const [sessionId, setSessionId] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loadingCaptcha, setLoadingCaptcha] = useState<boolean>(false);
@@ -38,26 +35,19 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
 
-  const loadCaptcha = async (selectedCampus: string = campus) => {
+  const loadCaptcha = async () => {
     try {
       setLoadingCaptcha(true);
       setErrorMsg('');
-      const data = await CampusAPI.getVtopCaptcha(selectedCampus);
+      const data = await CampusAPI.getVtopCaptcha('chennai');
       if (data) {
         setSessionId(data.sessionId || '');
-        const kind = (data as any).captchaKind || 'default';
-        setCaptchaKind(kind);
-        if (kind === 'grecaptcha') {
-          // Invisible reCAPTCHA — no image to show, clear captcha field
-          setCaptchaImage('');
-          setCaptcha('');
-        } else {
-          setCaptchaImage(data.captchaImage || '');
-          setCaptcha(data.solvedCaptcha || '');
-        }
+        setCaptchaImage(data.captchaImage || '');
+        setCaptcha(data.solvedCaptcha || '');
       }
     } catch (e: any) {
       console.warn('Captcha load failed:', e);
+      setErrorMsg('Failed to load captcha from VTOP. Please retry.');
     } finally {
       setLoadingCaptcha(false);
     }
@@ -68,13 +58,11 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setErrorMsg('');
       setSuccessMsg('');
       setStatusStep('');
-      loadCaptcha(campus);
+      loadCaptcha();
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
-
-  const isGrecaptcha = captchaKind === 'grecaptcha';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,8 +74,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setErrorMsg('Please enter your VTOP Password');
       return;
     }
-    // Only require captcha if VTOP is showing a real image captcha
-    if (!isGrecaptcha && !captcha.trim()) {
+    if (!captcha.trim()) {
       setErrorMsg('Please enter the captcha shown');
       return;
     }
@@ -119,16 +106,11 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         }, 500);
       } else {
         setErrorMsg(response?.message || 'Authentication error. Please check your credentials.');
-        // Reload captcha on failure (only matters for image captcha mode)
-        if (!isGrecaptcha) {
-          loadCaptcha(campus);
-        }
+        loadCaptcha();
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Network error communicating with VTOP.');
-      if (!isGrecaptcha) {
-        loadCaptcha(campus);
-      }
+      loadCaptcha();
     } finally {
       setSubmitting(false);
     }
@@ -146,7 +128,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
             <div>
               <h3 className="modal-title">VTOP Authentication</h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                VIT Chennai — direct session synchronization
+                VIT Chennai (vtopcc.vit.ac.in) — Direct session synchronization
               </p>
             </div>
           </div>
@@ -222,80 +204,60 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
             </div>
           </div>
 
-          {/* Captcha section — adaptive based on VTOP's current mode */}
-          {isGrecaptcha ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                padding: '12px 14px',
-                background: 'rgba(45, 231, 211, 0.07)',
-                border: '1px solid rgba(45, 231, 211, 0.25)',
-                borderRadius: 'var(--radius-card)',
-                fontSize: '0.80rem',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.5,
-              }}
-            >
-              <Info size={15} style={{ color: 'var(--accent-cyan)', flexShrink: 0, marginTop: '1px' }} />
-              <span>
-                <strong style={{ color: 'var(--text-primary)' }}>VTOP is using invisible reCAPTCHA.</strong>
-                {' '}No captcha required — just enter your credentials and click Sign In.
-              </span>
+          {/* Verification Captcha */}
+          <div className="form-group">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="form-label" style={{ margin: 0 }}>Verification Captcha</label>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Auto-filled via OCR — adjust if needed</span>
             </div>
-          ) : (
-            <div className="form-group">
-              <label className="form-label">Verification Captcha</label>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <div
-                  style={{
-                    height: '44px',
-                    minWidth: '130px',
-                    background: '#FFFFFF',
-                    borderRadius: 'var(--radius-input)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  {loadingCaptcha ? (
-                    <RefreshCw size={18} className="animate-spin" color="#111" />
-                  ) : captchaImage ? (
-                    <img
-                      src={captchaImage}
-                      alt="Captcha"
-                      style={{ height: '100%', objectFit: 'contain' }}
-                    />
-                  ) : (
-                    <span style={{ fontSize: '0.74rem', color: '#666' }}>Loading...</span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => loadCaptcha(campus)}
-                  disabled={loadingCaptcha}
-                  className="btn btn-secondary"
-                  style={{ height: '44px', padding: '0 12px' }}
-                  title="Reload captcha image"
-                >
-                  <RefreshCw size={15} className={loadingCaptcha ? 'animate-spin' : ''} />
-                </button>
-
-                <input
-                  type="text"
-                  value={captcha}
-                  onChange={(e) => setCaptcha(e.target.value)}
-                  placeholder="Enter text"
-                  className="input-field"
-                  style={{ flex: 1, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
-                />
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div
+                style={{
+                  height: '44px',
+                  minWidth: '130px',
+                  background: '#FFFFFF',
+                  borderRadius: 'var(--radius-input)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border-primary)',
+                }}
+              >
+                {loadingCaptcha ? (
+                  <RefreshCw size={18} className="animate-spin" color="#111" />
+                ) : captchaImage ? (
+                  <img
+                    src={captchaImage}
+                    alt="Captcha"
+                    style={{ height: '100%', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '0.74rem', color: '#666' }}>No Captcha</span>
+                )}
               </div>
+
+              <button
+                type="button"
+                onClick={loadCaptcha}
+                disabled={loadingCaptcha}
+                className="btn btn-secondary"
+                style={{ height: '44px', padding: '0 12px' }}
+                title="Reload captcha image"
+              >
+                <RefreshCw size={15} className={loadingCaptcha ? 'animate-spin' : ''} />
+              </button>
+
+              <input
+                type="text"
+                value={captcha}
+                onChange={(e) => setCaptcha(e.target.value)}
+                placeholder="Enter captcha text"
+                className="input-field"
+                style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', letterSpacing: '1px' }}
+              />
             </div>
-          )}
+          </div>
 
           {statusStep && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', color: 'var(--accent-cyan)' }}>

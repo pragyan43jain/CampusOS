@@ -216,38 +216,13 @@ class VTOPSession:
         """
         Return the login captcha as a data URL, plus our best OCR guess.
 
-        First attempts to extract in-page image, then queries the dynamic
-        /get/new/captcha endpoint that VTOP loads via AJAX.
-
-        When VTOP is in reCAPTCHA mode the login still works — the invisible
-        reCAPTCHA check is cookie-based, not user-input-based. We return
-        captchaKind=grecaptcha so the frontend can tell the user to leave the
-        captcha blank and click Sign In.
+        Extracts the in-page base64 image or queries the dynamic
+        /get/new/captcha endpoint that VTOP loads.
         """
         response = self._get(C.LOGIN_PAGE)
         if not self._is_login_page(response.text):
             self.start_handshake()
             response = self._get(C.LOGIN_PAGE)
-
-        # Check captcha mode FIRST — before extracting any image.
-        # When VTOP serves Google reCAPTCHA, any base64 image found on the page
-        # is NOT the captcha (it may be VTOP's logo or a hidden element).
-        # OCRing it would produce a garbage string that fails login.
-        captcha_kind = self._detect_captcha_kind(response.text)
-        self.captcha_kind = captcha_kind
-
-        if captcha_kind == "grecaptcha":
-            logger.info("[VTOP] reCAPTCHA mode detected — returning grecaptcha signal (captcha field not required)")
-            return {
-                "captchaKind": "grecaptcha",
-                "captchaImage": None,
-                "solvedCaptcha": "",
-                "message": (
-                    "VTOP is using invisible reCAPTCHA. "
-                    "Leave the captcha field blank and click Sign In — "
-                    "login still works based on your session cookie."
-                ),
-            }
 
         # 1. Try to extract from login page HTML
         b64 = self._extract_captcha_b64(response.text)
@@ -287,7 +262,7 @@ class VTOPSession:
         return {
             "captchaKind": "default",
             "captchaImage": f"data:{mime_prefix};base64,{b64}",
-            "solvedCaptcha": guess or None,
+            "solvedCaptcha": guess or "",
         }
 
     @staticmethod
@@ -371,7 +346,7 @@ class VTOPSession:
 
         if re.search(r"invalid\s*captcha", lowered):
             raise VTOPAuthError(
-                "VTOP rejected the captcha. If you see no captcha image, leave the field blank and try again.",
+                "Incorrect captcha. Please verify the characters from the captcha image and try again.",
                 code=1,
                 retryable=True,
             )
