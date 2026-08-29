@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Lock,
   User,
+  Sparkles,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -47,7 +48,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       }
     } catch (e: any) {
       console.warn('Captcha load failed:', e);
-      setErrorMsg('Failed to load captcha from VTOP. Please retry.');
+      setErrorMsg('Failed to reach VTOP portal. Please retry.');
     } finally {
       setLoadingCaptcha(false);
     }
@@ -74,20 +75,16 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setErrorMsg('Please enter your VTOP Password');
       return;
     }
-    if (!captcha.trim()) {
-      setErrorMsg('Please enter the captcha shown');
-      return;
-    }
 
     try {
       setSubmitting(true);
       setErrorMsg('');
       setSuccessMsg('');
 
-      setStatusStep('Connecting to VTOP portal...');
-      await new Promise((r) => setTimeout(r, 200));
+      setStatusStep('Connecting to VTOP Chennai portal...');
+      await new Promise((r) => setTimeout(r, 150));
 
-      setStatusStep('Authenticating & Fetching Profile...');
+      setStatusStep('Authenticating session & solving captcha...');
       const response = await CampusAPI.loginVtop({
         username: username.trim().toUpperCase(),
         password: password,
@@ -105,7 +102,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           onClose();
         }, 500);
       } else {
-        setErrorMsg(response?.message || 'Authentication error. Please check your credentials.');
+        setErrorMsg(response?.message || 'Authentication failed. Please check your registration number and password.');
         loadCaptcha();
       }
     } catch (err: any) {
@@ -164,7 +161,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                placeholder="e.g. 24BLC1100"
+                placeholder="e.g. 5196BLC1100"
                 className="input-field"
                 style={{ paddingLeft: '38px', fontFamily: 'var(--font-mono)' }}
                 autoComplete="username"
@@ -208,7 +205,9 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label className="form-label" style={{ margin: 0 }}>Verification Captcha</label>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Auto-filled via OCR — adjust if needed</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={11} /> Auto-solved
+              </span>
             </div>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <div
@@ -233,7 +232,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                     style={{ height: '100%', objectFit: 'contain' }}
                   />
                 ) : (
-                  <span style={{ fontSize: '0.74rem', color: '#666' }}>No Captcha</span>
+                  <span style={{ fontSize: '0.74rem', color: '#666' }}>Loaded</span>
                 )}
               </div>
 
@@ -252,7 +251,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 type="text"
                 value={captcha}
                 onChange={(e) => setCaptcha(e.target.value)}
-                placeholder="Enter captcha text"
+                placeholder="Captcha text"
                 className="input-field"
                 style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', letterSpacing: '1px' }}
               />
@@ -276,7 +275,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
             {submitting ? (
               <>
                 <RefreshCw size={15} className="animate-spin" />
-                <span>Authenticating with VTOP...</span>
+                <span>Authenticating &amp; Syncing with VTOP...</span>
               </>
             ) : (
               <span>Authenticate &amp; Sync</span>

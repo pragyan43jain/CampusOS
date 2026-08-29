@@ -25,8 +25,10 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+import base64
 from app.storage import empty_store, save_store
 from app.vtop import scraper
+from app.vtop.ocr import solve_captcha_bytes
 from app.vtop.session import VTOPAuthError, VTOPSession
 
 logger = logging.getLogger("vtop.client")
@@ -178,36 +180,81 @@ class VTOPClientManager:
         """
         Authenticate, then run a full scrape and persist it.
 
-        Returns ``success: False`` with an actionable message on any failure. The
-        store is only written on success, so a failed login never overwrites data
-        the user already has.
+        If the initial captcha is rejected, automatically attempts background
+        captcha resolution with fresh sessions before returning an error,
+        preventing frustrating client-side refresh loops.
         """
-        handle = self._get(session_id)
-        if handle is None:
-            return self._error(
-                "This sign-in attempt has no captcha session, or it expired. "
-                "Request a fresh captcha and try again.",
-                CODE_NO_SESSION if not session_id else CODE_SESSION_EXPIRED,
-                retryable=True,
-            )
+        handle = self._get(session_id) if session_id else None
+        session: Optional[VTOPSession] = handle.session if handle else None
 
-        session = handle.session
-        try:
-            session.login(username, password, captcha or "")
-        except VTOPAuthError as exc:
-            logger.warning("[VTOP] Login refused (%s): %s", exc.code, exc.message)
-            # The captcha is single-use, so the session is spent either way.
-            self._drop(session_id)
-            return self._error(exc.message, exc.code, retryable=exc.retryable)
-        except Exception as exc:
-            logger.error("[VTOP] Login transport error: %s", exc)
-            self._drop(session_id)
-            return self._error(
-                "Lost the connection to VTOP while signing in. Please try again. "
-                f"({type(exc).__name__})",
-                CODE_TRANSPORT,
-                retryable=True,
-            )
+        # 1. First attempt: Use active handle session & provided captcha if available
+        authenticated = False
+        last_error: Optional[VTOPAuthError] = None
+
+        if session is not None and captcha:
+            try:
+                session.login(username, password, captcha.strip())
+                authenticated = True
+            except VTOPAuthError as exc:
+                last_error = exc
+                if exc.code != 1:
+                    # Non-captcha error (e.g. incorrect credentials, account locked) — abort immediately
+                    self._drop(session_id)
+                    return self._error(exc.message, exc.code, retryable=exc.retryable)
+                logger.info("[VTOP] Initial captcha rejected. Starting automatic background retry...")
+            except Exception as exc:
+                logger.error("[VTOP] Login transport error on initial attempt: %s", exc)
+                self._drop(session_id)
+                return self._error(
+                    f"Lost connection to VTOP while signing in ({type(exc).__name__}).",
+                    CODE_TRANSPORT,
+                    retryable=True,
+                )
+
+        # 2. If not yet authenticated, run automatic background solver
+        if not authenticated:
+            max_retries = 6
+            for attempt in range(max_retries):
+                try:
+                    fresh_session = VTOPSession()
+                    cap_meta = fresh_session.fetch_captcha()
+                    b64 = cap_meta.get("captchaImage", "").split("base64,")[-1]
+                    if not b64:
+                        continue
+                    raw_bytes = base64.b64decode(b64)
+                    auto_guess = solve_captcha_bytes(raw_bytes)
+                    if not auto_guess:
+                        continue
+
+                    logger.info("[VTOP Auto-Solver] Attempt %d/%d trying guess '%s'", attempt + 1, max_retries, auto_guess)
+                    fresh_session.login(username, password, auto_guess)
+
+                    # Success! Adopt this fresh authenticated session
+                    if session_id:
+                        self._drop(session_id)
+                    new_session_id = self._put(fresh_session)
+                    session_id = new_session_id
+                    handle = self._get(new_session_id)
+                    session = fresh_session
+                    authenticated = True
+                    logger.info("[VTOP Auto-Solver] Login succeeded on attempt %d!", attempt + 1)
+                    break
+                except VTOPAuthError as exc:
+                    last_error = exc
+                    if exc.code != 1:
+                        # Non-captcha failure (e.g. bad password) — abort immediately
+                        return self._error(exc.message, exc.code, retryable=exc.retryable)
+                    continue
+                except Exception as exc:
+                    logger.warning("[VTOP Auto-Solver] Attempt %d transport error: %s", attempt + 1, exc)
+                    continue
+
+        if not authenticated or handle is None or session is None:
+            if session_id:
+                self._drop(session_id)
+            err_msg = last_error.message if last_error else "Could not verify credentials with VTOP. Please retry."
+            err_code = last_error.code if last_error else CODE_TRANSPORT
+            return self._error(err_msg, err_code, retryable=True)
 
         handle.reg_no = session.username
         handle.touch()
