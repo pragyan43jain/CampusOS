@@ -52,6 +52,8 @@ export interface Attendance {
   total?: number;
   classesAttended: number;
   attended?: number;
+  odAttended?: number;
+  odHours?: number;
   attendancePercentage: number;
   percentage?: number;
   rawPercentage?: number;

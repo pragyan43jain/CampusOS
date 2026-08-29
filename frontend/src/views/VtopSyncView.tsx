@@ -520,6 +520,73 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               </div>
             )}
           </div>
+          {/* Subject-Wise OD Class Breakdown */}
+          <div className="card">
+            <div className="card-header-bar">
+              <div>
+                <h3 className="card-title">
+                  <Percent size={18} color="var(--accent-cyan)" />
+                  <span>Course-Wise On-Duty (OD) Class Audit</span>
+                </h3>
+                <p className="card-description">
+                  Verification of OD hours credited across each registered lecture and lab component
+                </p>
+              </div>
+            </div>
+
+            {attendance.length > 0 ? (
+              <div className="table-responsive-wrapper">
+                <table className="academic-data-table">
+                  <thead>
+                    <tr>
+                      <th>Course Code</th>
+                      <th>Course Title</th>
+                      <th>Slot</th>
+                      <th>Attended</th>
+                      <th>Total</th>
+                      <th>Credited OD</th>
+                      <th>Effective Attendance %</th>
+                      <th>OD Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendance.map((row, idx) => {
+                      const odCnt = row.odAttended ?? (row as any).odHours ?? 0;
+                      const pct = row.attendancePercentage ?? row.percentage ?? 0;
+                      return (
+                        <tr key={idx}>
+                          <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                            {row.courseCode}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{row.courseName || row.courseTitle}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{row.slot || '-'}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)' }}>{row.classesAttended ?? row.attended ?? '-'}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)' }}>{row.classesConducted ?? row.conducted ?? row.total ?? '-'}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: odCnt > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                            {odCnt}h
+                          </td>
+                          <td style={{ fontWeight: 750, fontFamily: 'var(--font-mono)' }}>{pct}%</td>
+                          <td>
+                            <span className={`status-badge ${odCnt > 0 ? 'safe' : 'neutral'}`}>
+                              {odCnt > 0 ? `${odCnt}h Credited` : '0h Logged'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state-card">
+                <div className="empty-state-icon-box">
+                  <Percent size={24} />
+                </div>
+                <h4 className="empty-state-title">No Enrolled Courses Found</h4>
+                <p className="empty-state-desc">Synchronize with VTOP to view registered course OD audits.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
