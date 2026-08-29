@@ -74,9 +74,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Dedicated Themes Dropdown in Navigation Sidebar */}
         <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ padding: '0 12px 8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            <span>🎨</span>
-            <span>App Theme</span>
+          <div style={{ padding: '0 12px 8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-mono)' }}>
+            <span>⚡</span>
+            <span>UI Theme</span>
           </div>
 
           <div style={{ padding: '0 8px' }}>
@@ -90,17 +90,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 border: '1px solid var(--border-medium)',
                 padding: '9px 12px',
                 borderRadius: 'var(--radius-md)',
-                fontSize: '0.86rem',
-                fontWeight: 600,
+                fontSize: '0.84rem',
+                fontWeight: 700,
                 outline: 'none',
                 cursor: 'pointer',
               }}
             >
+              <option value="chaingpt-cyber">⚡ ChainGPT Cyber (Default)</option>
+              <option value="chaingpt-matrix">🟢 ChainGPT Matrix (Emerald)</option>
+              <option value="chaingpt-solana">🟣 ChainGPT Solana (Violet)</option>
+              <option value="midnight-slate">🌌 Midnight Slate (Dark)</option>
               <option value="baby-pink">🌸 Baby Pink (Light)</option>
               <option value="nordic-blue">❄️ Nordic Blue (Light)</option>
-              <option value="mint-sage">🌿 Mint Sage (Light)</option>
-              <option value="warm-cream">☕ Warm Cream (Light)</option>
-              <option value="midnight-slate">🌌 Midnight Slate (Dark)</option>
             </select>
           </div>
         </div>
@@ -108,11 +109,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div style={{ padding: '16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <button
-          className="btn-outline"
-          style={{ width: '100%', justifyContent: 'center', borderColor: 'var(--brand-color)', color: 'var(--brand-color)', fontWeight: 700 }}
+          className="btn-primary"
+          style={{ width: '100%', justifyContent: 'center', fontWeight: 800, fontSize: '0.84rem' }}
           onClick={onOpenVtopModal}
         >
-          🔐 Connect VTOP
+          ⚡ Connect VTOP
         </button>
       </div>
     </aside>

@@ -28,7 +28,7 @@ import { AIPlannerView } from './views/AIPlannerView';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('dashboard');
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>('baby-pink');
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>('chaingpt-cyber');
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);

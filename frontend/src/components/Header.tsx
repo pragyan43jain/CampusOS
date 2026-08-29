@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StudentProfile } from '../types';
 
-export type ThemeType = 'midnight-slate' | 'baby-pink' | 'nordic-blue' | 'mint-sage' | 'warm-cream';
+export type ThemeType = 'chaingpt-cyber' | 'chaingpt-matrix' | 'chaingpt-solana' | 'midnight-slate' | 'baby-pink' | 'nordic-blue';
 
 interface HeaderProps {
   student: StudentProfile;
@@ -23,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   const studentRegNo = student?.regNo || 'Sync VTOP';
   const studentProgram = student?.program || 'VIT Chennai';
   const studentSemester = student?.semester || 'N/A';
+  const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
   const avatarInitials = student?.name
     ? student.name
         .split(' ')
@@ -36,9 +37,15 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header className="top-header">
-        <div className="header-left">
+        <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div className="header-title-block">
-            <h1 style={{ textTransform: 'capitalize' }}>{activeView.replace('-', ' ')}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ textTransform: 'capitalize' }}>{activeView.replace('-', ' ')}</h1>
+              <span className="badge-chaingpt" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                <span className="pulse-dot" />
+                {isAuth ? 'VTOP SYNC v2.0' : 'OFFLINE'}
+              </span>
+            </div>
             <p>{studentProgram} • Semester {studentSemester}</p>
           </div>
         </div>
@@ -49,22 +56,22 @@ export const Header: React.FC<HeaderProps> = ({
             className="btn-outline"
             onClick={() => setShowAppModal(true)}
             title="Download CampusOS Mobile App"
-            style={{ borderColor: 'var(--brand-color)', color: 'var(--brand-color)', fontWeight: 700 }}
+            style={{ borderColor: 'var(--border-medium)', fontSize: '0.82rem' }}
           >
             <span>📲</span>
-            <span>Download App</span>
+            <span>App</span>
           </button>
 
           {/* VTOP Sync Modal / Force Refresh Button */}
           <button
-            className="btn-outline"
+            className="btn-primary"
             onClick={onOpenVtopModal}
             disabled={syncing}
             title="Login or sync with VTOP portal"
-            style={{ fontWeight: 700 }}
+            style={{ fontSize: '0.82rem', padding: '8px 16px' }}
           >
             <span style={{ display: 'inline-block', transform: syncing ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s ease' }}>
-              🔄
+              ⚡
             </span>
             {syncing ? 'Syncing...' : 'Sync VTOP'}
           </button>

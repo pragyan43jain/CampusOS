@@ -83,6 +83,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="page-content">
+      {/* ChainGPT Hero Banner */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(40, 239, 206, 0.08) 0%, rgba(106, 89, 229, 0.08) 50%, rgba(251, 124, 79, 0.05) 100%), #0e0e16',
+          border: '1px solid var(--border-medium)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '28px 32px',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: 'var(--glow-card)',
+        }}
+      >
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, #28efce 0%, #6a59e5 50%, #fb7c4f 100%)' }} />
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <span className="badge-chaingpt">
+                <span className="pulse-dot" />
+                CHAINGPT ACADEMIC PROTOCOL v2.0
+              </span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                ● VIT CHENNAI NODE
+              </span>
+            </div>
+            
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 900, letterSpacing: '-0.5px', background: 'linear-gradient(135deg, #ffffff 30%, #28efce 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Welcome back, {student.name ? student.name.split(' ')[0] : 'Scholar'} ⚡
+            </h2>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '4px', maxWidth: '600px' }}>
+              Autonomous intelligence powering your VTOP academic schedule, attendance buffer optimization, and real-time GPA tracking.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={onOpenSyncModal}
+              className="btn-primary"
+              style={{ padding: '10px 20px', fontSize: '0.86rem' }}
+            >
+              <span>⚡</span>
+              <span>Sync VTOP Engine</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Hero Metrics Row */}
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         <MetricCard
