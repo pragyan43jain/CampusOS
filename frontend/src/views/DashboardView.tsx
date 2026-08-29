@@ -8,12 +8,14 @@ interface DashboardViewProps {
   student: StudentProfile;
   timetable: TimetableSlot[];
   od?: OD;
+  onOpenSyncModal?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   student,
   timetable,
   od,
+  onOpenSyncModal,
 }) => {
   const getTodayDayOfWeek = (): DayOfWeek => {
     const dayIndex = new Date().getDay();
@@ -76,7 +78,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ? `${student.creditsEarned} / ${student.totalCreditsRequired || 160}` 
     : "Not available";
 
-  const odHoursCount = od?.usedHours ?? od?.odHours ?? od?.totalOdHours ?? (od?.hasValidData ? 0 : 0);
+  const odHoursCount = od?.usedHours ?? od?.odHours ?? od?.totalOdHours ?? (od?.hasValidData ? 0 : null);
   const odRemaining = od?.remainingHours ?? Math.max(0, (od?.maxHours || 40) - (odHoursCount || 0));
 
   return (
@@ -92,14 +94,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'blue'}
         />
 
-        <MetricCard
-          label="On-Duty (OD) Hours"
-          value={`${odHoursCount} Hours`}
-          subtext={`✓ ${odRemaining}h Safe Buffer Available`}
-          icon="⏱"
-          progressPercent={Math.min(100, Math.max(0, ((odHoursCount || 0) / (od?.maxHours || 40)) * 100))}
-          variant="blue"
-        />
+        <div onClick={onOpenSyncModal} style={{ cursor: 'pointer' }} title="Click to fetch or view live On-Duty (OD) hours from VTOP CC">
+          <MetricCard
+            label="On-Duty (OD) Hours"
+            value={odHoursCount !== null && odHoursCount !== undefined ? `${odHoursCount} Hours` : "Sync VTOP CC"}
+            subtext={odHoursCount !== null && odHoursCount !== undefined ? `✓ ${odRemaining}h Safe Buffer Available` : "Click to fetch live from VTOP"}
+            icon="⏱"
+            progressPercent={Math.min(100, Math.max(0, (((odHoursCount || 0)) / (od?.maxHours || 40)) * 100))}
+            variant="blue"
+          />
+        </div>
 
         <MetricCard
           label="Cumulative CGPA"

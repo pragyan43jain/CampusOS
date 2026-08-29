@@ -187,6 +187,7 @@ export const App: React.FC = () => {
               student={student}
               timetable={timetable}
               od={od}
+              onOpenSyncModal={() => setShowVtopModal(true)}
             />
           )}
 
