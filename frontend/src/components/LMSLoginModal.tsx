@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, User, AlertCircle, CheckCircle2, Globe, ExternalLink, ShieldCheck, KeyRound } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  ShieldCheck,
+  X,
+  RefreshCw,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
 interface LMSLoginModalProps {
@@ -19,6 +28,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState('');
   const [sessionCookie, setSessionCookie] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -41,9 +51,10 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     try {
       setStep('Connecting to VIT LMS (https://lms.vit.ac.in)...');
 
-      const payload = authMode === 'credentials'
-        ? { username: username.trim(), password: password.trim() }
-        : { sessionCookie: sessionCookie.trim(), username: username.trim() || undefined };
+      const payload =
+        authMode === 'credentials'
+          ? { username: username.trim(), password: password.trim() }
+          : { sessionCookie: sessionCookie.trim(), username: username.trim() || undefined };
 
       if (authMode === 'credentials' && (!payload.username || !payload.password)) {
         throw new Error('Please enter both your VIT LMS username/registration number and password.');
@@ -65,7 +76,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       setTimeout(() => {
         onLoginSuccess();
         onClose();
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
@@ -75,424 +86,225 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        padding: '16px',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
-      }}
-    >
-      <div
-        style={{
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 'var(--radius-xl)',
-          width: '100%',
-          maxWidth: '500px',
-          boxShadow: '0 24px 48px rgba(0, 0, 0, 0.5)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            padding: '24px 28px 18px',
-            borderBottom: '1px solid var(--border-subtle)',
-            background: 'linear-gradient(180deg, rgba(14, 165, 233, 0.08) 0%, transparent 100%)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div className="modal-backdrop-overlay" onClick={onClose}>
+      <div className="modal-dialog-box" onClick={(e) => e.stopPropagation()}>
+        {/* Modal Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
+              className="brand-icon-box"
               style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                width: '38px',
+                height: '38px',
+                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
                 color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.4rem',
-                flexShrink: 0,
               }}
             >
-              🎓
+              <ShieldCheck size={20} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                Connect VIT LMS
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                Link VIT Moodle LMS
               </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '3px 0 0' }}>
-                VIT Chennai Learning Management System (Moodle)
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                Institutional Coursework & Moodle Portal
               </p>
             </div>
           </div>
+
+          <button onClick={onClose} className="btn btn-outline btn-sm" style={{ padding: '6px' }} aria-label="Close">
+            <X size={16} />
+          </button>
         </div>
 
-        {/* Form Content */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Official Gateway Info */}
+        {/* Portal info badge */}
+        <div
+          style={{
+            padding: '8px 12px',
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '0.78rem',
+            color: 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>Official Portal:</span>
+          <a
+            href="https://lms.vit.ac.in"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: 'var(--brand-color)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <span>lms.vit.ac.in</span>
+            <ExternalLink size={12} />
+          </a>
+        </div>
+
+        {/* Segmented Auth Mode Switch */}
+        <div className="segmented-tabs-bar" style={{ width: '100%' }}>
+          <button
+            type="button"
+            className={`segmented-tab-btn ${authMode === 'credentials' ? 'active' : ''}`}
+            onClick={() => setAuthMode('credentials')}
+            style={{ flex: 1, justifyContent: 'center' }}
+          >
+            Credentials Login
+          </button>
+          <button
+            type="button"
+            className={`segmented-tab-btn ${authMode === 'cookie' ? 'active' : ''}`}
+            onClick={() => setAuthMode('cookie')}
+            style={{ flex: 1, justifyContent: 'center' }}
+          >
+            MoodleSession Cookie
+          </button>
+        </div>
+
+        {/* Status / Error feedback */}
+        {error && (
           <div
             style={{
               padding: '10px 14px',
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-md)',
-              fontSize: '0.78rem',
-              color: 'var(--text-secondary)',
+              background: 'var(--danger-bg)',
+              border: '1px solid var(--danger-border)',
+              color: 'var(--danger-crimson)',
+              fontSize: '0.82rem',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              gap: '8px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Globe size={15} color="#0284c7" />
-              <span>Gateway: <b>https://lms.vit.ac.in</b></span>
-            </div>
-            <a
-              href="https://lms.vit.ac.in/login/index.php"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                color: '#0284c7',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                textDecoration: 'none',
-              }}
-            >
-              <span>Portal</span>
-              <ExternalLink size={12} />
-            </a>
+            <AlertCircle size={16} />
+            <span>{error}</span>
           </div>
+        )}
 
-          {/* Auth Mode Tabs */}
+        {successMsg && (
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '6px',
-              background: 'var(--bg-surface-elevated)',
-              padding: '4px',
+              padding: '10px 14px',
               borderRadius: 'var(--radius-md)',
+              background: 'var(--success-bg)',
+              border: '1px solid var(--success-border)',
+              color: 'var(--success-emerald)',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            <button
-              type="button"
-              onClick={() => { setAuthMode('credentials'); setError(null); }}
-              style={{
-                padding: '7px',
-                fontSize: '0.78rem',
-                fontWeight: authMode === 'credentials' ? 800 : 600,
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                background: authMode === 'credentials' ? 'var(--brand-color)' : 'transparent',
-                color: authMode === 'credentials' ? '#ffffff' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              Registration Number & Password
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAuthMode('cookie'); setError(null); }}
-              style={{
-                padding: '7px',
-                fontSize: '0.78rem',
-                fontWeight: authMode === 'cookie' ? 800 : 600,
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                background: authMode === 'cookie' ? 'var(--brand-color)' : 'transparent',
-                color: authMode === 'cookie' ? '#ffffff' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              Session Cookie (SSO)
-            </button>
+            <CheckCircle2 size={16} />
+            <span>{successMsg}</span>
           </div>
+        )}
 
-          {/* Error Message */}
-          {error && (
-            <div
-              style={{
-                padding: '12px 14px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                fontSize: '0.82rem',
-                color: '#ef4444',
-                lineHeight: 1.4,
-              }}
-            >
-              <AlertCircle size={17} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <b>Authentication Failed:</b>
-                <div style={{ marginTop: '2px' }}>{error}</div>
-              </div>
-            </div>
-          )}
+        {step && !error && !successMsg && (
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--brand-bg)',
+              border: '1px solid var(--brand-border)',
+              color: 'var(--brand-color)',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <RefreshCw size={14} className="animate-spin" />
+            <span>{step}</span>
+          </div>
+        )}
 
-          {/* Success Message */}
-          {successMsg && (
-            <div
-              style={{
-                padding: '12px 14px',
-                background: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                fontSize: '0.84rem',
-                color: '#22c55e',
-                fontWeight: 700,
-              }}
-            >
-              <CheckCircle2 size={17} style={{ flexShrink: 0 }} />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {authMode === 'credentials' ? (
             <>
-              {/* Username Field */}
               <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    color: 'var(--text-primary)',
-                    marginBottom: '6px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.4px',
-                  }}
-                >
-                  Registration Number / Username
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  LMS Registration Number / Username
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <User
-                    size={16}
-                    style={{
-                      position: 'absolute',
-                      left: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: 'var(--text-muted)',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="e.g. 24BLC1100"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px 10px 36px',
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-medium)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.88rem',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. 24BLC1100"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                  className="input-field"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                />
               </div>
 
-              {/* Password Field */}
               <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    color: 'var(--text-primary)',
-                    marginBottom: '6px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.4px',
-                  }}
-                >
-                  VIT LMS Password
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  LMS Password
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <Lock
-                    size={16}
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter LMS password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-field"
+                    style={{ paddingRight: '40px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
                     style={{
                       position: 'absolute',
-                      left: '12px',
+                      right: '10px',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
                     }}
-                  />
-                  <input
-                    type="password"
-                    placeholder="Enter your VIT LMS password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px 10px 36px',
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-medium)',
-                      borderRadius: 'var(--radius-md)',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.88rem',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
               </div>
             </>
           ) : (
-            /* Session Cookie Field */
             <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  marginBottom: '6px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.4px',
-                }}
-              >
+              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
                 MoodleSession Cookie Value
               </label>
-              <div style={{ position: 'relative' }}>
-                <KeyRound
-                  size={16}
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '14px',
-                    color: 'var(--text-muted)',
-                  }}
-                />
-                <textarea
-                  placeholder="Paste your MoodleSession cookie value from lms.vit.ac.in"
-                  value={sessionCookie}
-                  onChange={(e) => setSessionCookie(e.target.value)}
-                  disabled={loading}
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px 10px 36px',
-                    background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-medium)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    fontFamily: 'var(--font-mono)',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    resize: 'none',
-                  }}
-                />
-              </div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Tip: Log into lms.vit.ac.in in your browser &gt; Inspect &gt; Application &gt; Cookies &gt; copy <code>MoodleSession</code>.
-              </span>
-            </div>
-          )}
-
-          {/* Privacy & Accuracy Guarantee */}
-          <div
-            style={{
-              padding: '10px 12px',
-              background: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.74rem',
-              color: 'var(--text-muted)',
-              lineHeight: 1.45,
-            }}
-          >
-            🔒 <b>Zero Fake Data Guarantee:</b> CampusOS connects directly with VIT LMS (Moodle). Raw passwords are never stored. Only authentic assignments and official submissions are synchronized.
-          </div>
-
-          {/* Step Indicator */}
-          {loading && step && (
-            <div
-              style={{
-                padding: '10px 14px',
-                background: 'rgba(2, 132, 199, 0.1)',
-                border: '1px solid rgba(2, 132, 199, 0.25)',
-                borderRadius: 'var(--radius-md)',
-                color: '#0284c7',
-                fontSize: '0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <div
-                style={{
-                  width: '14px',
-                  height: '14px',
-                  border: '2px solid #0284c7',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite',
-                }}
+              <input
+                type="text"
+                placeholder="Paste MoodleSession cookie value from browser devtools..."
+                value={sessionCookie}
+                onChange={(e) => setSessionCookie(e.target.value)}
+                className="input-field"
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
               />
-              <span>{step}</span>
+              <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Login to lms.vit.ac.in in browser, press F12 $\rightarrow$ Application $\rightarrow$ Cookies $\rightarrow$ copy <code>MoodleSession</code>.
+              </p>
             </div>
           )}
 
-          {/* Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
             <button
               type="button"
               onClick={onClose}
-              disabled={loading}
-              className="btn-outline"
-              style={{ padding: '9px 16px', fontSize: '0.85rem' }}
+              className="btn btn-outline"
+              style={{ flex: 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary"
-              style={{
-                padding: '9px 20px',
-                fontSize: '0.85rem',
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                border: 'none',
-                fontWeight: 800,
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
+              className="btn btn-primary"
+              style={{ flex: 2 }}
             >
-              <ShieldCheck size={16} />
-              <span>{loading ? 'Verifying...' : 'Verify & Link LMS'}</span>
+              {loading ? 'Authenticating...' : 'Connect LMS'}
             </button>
           </div>
         </form>
@@ -500,3 +312,5 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     </div>
   );
 };
+
+export default LMSLoginModal;
