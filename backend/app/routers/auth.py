@@ -383,7 +383,11 @@ def get_vtop_od() -> Dict[str, Any]:
 def sync_od(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
     """
     Directly query VTOP CC for On-Duty (OD) hours using the live session.
-    Only stores and reports actually fetched data from VTOP CC.
+
+    Critical: we re-fetch the live attendance page so that per-subject
+    drill-down (processViewAttendanceDetail) can run with valid classIds.
+    Without this, odAttended is always 0 from cached rows because the main
+    attendance summary table on VTOP CC does not carry an OD column.
     """
     resolved = sessionId or client_manager._authenticated_handle()
     handle = client_manager._get(resolved) if resolved else None
@@ -392,7 +396,7 @@ def sync_od(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
         return {
             "success": False,
             "sessionExpired": True,
-            "message": "Your VTOP CC session is not active. Please sign in via the VTOP CC Sync button to authenticate and fetch live OD hours.",
+            "message": "VTOP CC session expired. Please sync VTOP again to re-authenticate.",
         }
 
     store = load_store()
@@ -400,13 +404,42 @@ def sync_od(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
     semester_id = semester.get("id")
 
     try:
-        from app.vtop.scraper import fetch_od
-        od_data = fetch_od(handle.session, semester_id, attendance_rows=store.get("attendance"))
+        from app.vtop.scraper import fetch_od, fetch_attendance_page
+        from app.vtop import parser as P
+
+        # Re-fetch the live attendance page so drill-down class IDs are available.
+        # This is the key fix: the cached att rows have odAttended=0 because the
+        # summary page doesn't have an OD column — the OD status lives only inside
+        # the per-subject lecture log (processViewAttendanceDetail).
+        att_html: Optional[str] = None
+        att_rows = store.get("attendance") or []
+
+        if semester_id:
+            try:
+                logger.info("[VTOP OD] Fetching live attendance page for classId extraction…")
+                att_html = fetch_attendance_page(handle.session, semester_id)
+                fresh_rows = P.parse_attendance(att_html) if att_html else []
+                if fresh_rows:
+                    att_rows = fresh_rows
+                    logger.info("[VTOP OD] Refreshed %d attendance rows from live VTOP page.", len(fresh_rows))
+            except Exception as e:
+                logger.warning("[VTOP OD] Could not fetch live attendance page: %s. Proceeding with cached rows.", e)
+
+        od_data = fetch_od(
+            handle.session,
+            semester_id,
+            attendance_rows=att_rows,
+            attendance_html=att_html,
+        )
+
         store["od"] = od_data
         save_store(store)
+
+        used = od_data.get("usedHours") or od_data.get("odHours") or 0
+        records_count = len(od_data.get("records") or od_data.get("odRecords") or [])
         return {
             "success": True,
-            "message": "Successfully fetched OD hours from VTOP CC.",
+            "message": f"OD fetch complete — {used}h used across {records_count} record(s) from VTOP CC.",
             "od": od_data,
         }
     except Exception as exc:

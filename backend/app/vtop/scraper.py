@@ -336,17 +336,43 @@ def fetch_od(
             att_od_records.extend(extracted)
             logger.info("[VTOP OD] Extracted %d OD record(s) from class attendance page.", len(extracted))
 
-    # Drill down into individual subject attendance detail pages if semester_id and attendance_html exist
+    # Drill down into individual subject attendance detail pages if semester_id is available.
+    # Strategy 1: extract classIds from onclick attributes in attendance_html
+    tried_class_ids: set = set()
     if semester_id and attendance_html:
         descriptors = P.extract_course_attendance_descriptors(attendance_html)
         for desc in descriptors:
             c_id = desc.get("classId")
             c_code = desc.get("courseCode") or ""
-            if c_id:
+            if c_id and c_id not in tried_class_ids:
+                tried_class_ids.add(c_id)
                 logger.info("[VTOP OD] Querying attendance drilldown for %s (classId=%s)", c_code, c_id)
                 detail_recs = fetch_course_attendance_detail(session, semester_id, c_id, course_code=c_code)
                 if detail_recs:
                     logger.info("[VTOP OD] Found %d detailed OD lecture(s) in %s", len(detail_recs), c_code)
+                    att_od_records.extend(detail_recs)
+
+    # Strategy 2: fall back to courseId from attendance rows as classId.
+    # VTOP CC uses numeric courseIds in processViewAttendanceDetail that often match
+    # the sequential row IDs — this catches cases where HTML onclick parsing yields nothing.
+    if semester_id and attendance_rows:
+        for row in attendance_rows:
+            c_id_raw = row.get("courseId") or row.get("id")
+            c_code = (row.get("courseCode") or "").upper()
+            c_title = row.get("courseTitle") or row.get("courseName") or ""
+            fac = row.get("facultyName") or row.get("faculty") or ""
+            c_id = str(c_id_raw) if c_id_raw is not None else None
+            if c_id and c_id not in tried_class_ids and c_code:
+                tried_class_ids.add(c_id)
+                logger.info("[VTOP OD] Fallback drill-down for %s using courseId=%s", c_code, c_id)
+                detail_recs = fetch_course_attendance_detail(
+                    session, semester_id, c_id,
+                    course_code=c_code,
+                    course_title=c_title,
+                    faculty_name=fac,
+                )
+                if detail_recs:
+                    logger.info("[VTOP OD] Fallback found %d OD class(es) in %s", len(detail_recs), c_code)
                     att_od_records.extend(detail_recs)
 
     if att_od_records:
