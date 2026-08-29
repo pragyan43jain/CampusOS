@@ -401,7 +401,7 @@ def sync_od(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
 
     try:
         from app.vtop.scraper import fetch_od
-        od_data = fetch_od(handle.session, semester_id)
+        od_data = fetch_od(handle.session, semester_id, attendance_rows=store.get("attendance"))
         store["od"] = od_data
         save_store(store)
         return {

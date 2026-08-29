@@ -446,6 +446,21 @@ class VTOPSession:
             [("_csrf", csrf), ("authorizedID", authorized_id), ("x", "")],
         ).text
 
+    def post_od(self, path: str, semester_id: Optional[str] = None) -> str:
+        """
+        Request an OD-specific endpoint with full parameter payload.
+        """
+        csrf, authorized_id = self._require_auth()
+        fields: List[Tuple[str, str]] = [
+            ("_csrf", csrf),
+            ("authorizedID", authorized_id),
+            ("x", ""),
+            ("nocache", C.NOCACHE_LITERAL),
+        ]
+        if semester_id:
+            fields.insert(1, ("semesterSubId", semester_id))
+        return self._post(path, fields).text
+
     def logout(self) -> None:
         self.is_authenticated = False
         self.csrf = None

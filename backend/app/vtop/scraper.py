@@ -207,10 +207,15 @@ def fetch_spotlight(session: VTOPSession) -> List[Dict[str, Any]]:
     return P.parse_spotlight(session.post_simple(C.SPOTLIGHT))
 
 
-def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[str, Any]:
+def fetch_od(
+    session: VTOPSession,
+    semester_id: Optional[str] = None,
+    attendance_rows: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """
     Fetch and parse student On-Duty (OD) hours.
-    Probes multiple candidate VTOP endpoints and records complete diagnostics.
+    Probes multiple candidate VTOP endpoints, checks course-level OD attendance credits,
+    and records complete diagnostics.
     """
     diagnostics: List[Dict[str, Any]] = []
     best_result: Optional[Dict[str, Any]] = None
@@ -225,6 +230,8 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
 
             if req_type == "semester" and semester_id:
                 html = session.post_semester(endpoint, semester_id, csrf_first=csrf_first)
+            elif req_type == "od":
+                html = session.post_od(endpoint, semester_id)
             elif req_type == "menu":
                 html = session.post_menu(endpoint, with_win_image=True)
             else:
@@ -282,6 +289,70 @@ def fetch_od(session: VTOPSession, semester_id: Optional[str] = None) -> Dict[st
                 "status": "exception",
                 "error": str(e),
             })
+
+    # Check for course-level OD credits from attendance
+    att_od_records: List[Dict[str, Any]] = []
+    if attendance_rows:
+        for a_row in attendance_rows:
+            od_cnt = a_row.get("odAttended") or 0
+            if od_cnt > 0:
+                c_code = (a_row.get("courseCode") or "COURSE").upper()
+                c_title = a_row.get("courseTitle") or "Course Academic OD"
+                slot = a_row.get("slot") or ""
+                fac = a_row.get("facultyName") or "Academic Office"
+                att_od_records.append({
+                    "id": f"od-att-{c_code}",
+                    "date": "Active Semester",
+                    "fromDate": "Active Semester",
+                    "toDate": "Active Semester",
+                    "fromTime": None,
+                    "toTime": None,
+                    "timeRange": None,
+                    "subjectCode": c_code,
+                    "subjectTitle": c_title,
+                    "hours": od_cnt,
+                    "days": 1,
+                    "slot": slot,
+                    "reason": f"Sanctioned On-Duty Classes ({c_code})",
+                    "status": "Approved",
+                    "isApproved": True,
+                    "approvedBy": fac,
+                })
+
+    if att_od_records:
+        total_att_od = sum(r["hours"] for r in att_od_records)
+        logger.info("[VTOP OD] Found %d OD hours across course attendance rows.", total_att_od)
+        if best_result is None or not (best_result.get("records") or best_result.get("odRecords")):
+            best_result = {
+                "state": "success_with_records",
+                "hasValidData": True,
+                "usedHours": total_att_od,
+                "odHours": total_att_od,
+                "totalOdHours": total_att_od,
+                "approvedHours": total_att_od,
+                "pendingHours": 0,
+                "rejectedHours": 0,
+                "maxHours": C.OD_MAX_HOURS,
+                "maxOdHours": C.OD_MAX_HOURS,
+                "remainingHours": max(0, C.OD_MAX_HOURS - total_att_od),
+                "percentageUsed": round((total_att_od / C.OD_MAX_HOURS) * 100, 1),
+                "records": att_od_records,
+                "odRecords": att_od_records,
+                "message": f"Found {total_att_od} approved On-Duty hours credited in course attendance.",
+            }
+        else:
+            # Merge non-duplicate records
+            existing_codes = {r.get("subjectCode") for r in best_result.get("records", []) if r.get("subjectCode")}
+            for r in att_od_records:
+                if r["subjectCode"] not in existing_codes:
+                    best_result.setdefault("records", []).append(r)
+                    best_result.setdefault("odRecords", []).append(r)
+                    best_result["usedHours"] = (best_result.get("usedHours") or 0) + r["hours"]
+                    best_result["odHours"] = best_result["usedHours"]
+                    best_result["totalOdHours"] = best_result["usedHours"]
+                    best_result["approvedHours"] = (best_result.get("approvedHours") or 0) + r["hours"]
+            best_result["remainingHours"] = max(0, C.OD_MAX_HOURS - (best_result.get("usedHours") or 0))
+            best_result["percentageUsed"] = round(((best_result.get("usedHours") or 0) / C.OD_MAX_HOURS) * 100, 1)
 
     if best_result is None:
         logger.info("[VTOP OD] No dedicated OD records found on candidate endpoints; authenticated student has 0 utilized OD hours.")
@@ -1096,7 +1167,7 @@ def sync(
     od_data = _step(
         report,
         "od",
-        lambda: fetch_od(session, semester["id"] if semester else None),
+        lambda: fetch_od(session, semester["id"] if semester else None, attendance_rows=attendance_rows),
     ) or {
         "state": "source_unavailable",
         "hasValidData": False,

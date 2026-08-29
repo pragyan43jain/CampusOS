@@ -533,7 +533,8 @@ _ATTENDANCE_RULES = [
     ("course_code", contains("course", "code")),
     ("course_title", contains("course", "title")),
     ("slot", contains("slot")),
-    ("attended", lambda t: "attended" in t or "present" in t),
+    ("od_attended", lambda t: ("od" in t or "on duty" in t or "on-duty" in t or "leave" in t) and ("attend" in t or "class" in t or "unit" in t or "hr" in t or "hour" in t or t in ("od", "on duty", "on-duty", "od attend", "od attended", "od class", "od classes"))),
+    ("attended", lambda t: ("attended" in t or "present" in t) and "od" not in t and "on duty" not in t),
     ("total", lambda t: "total" in t or "conducted" in t or "held" in t),
     ("percentage", lambda t: "percentage" in t or "%" in t),
     ("faculty", contains("faculty")),
@@ -577,6 +578,7 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
     for row in rows:
         attended = to_int(row.get("attended"))
         total = to_int(row.get("total"))
+        od_attended = to_int(row.get("od_attended")) or 0
         # A row with no class count is a footer/summary row, not a course.
         if attended is None and total is None:
             continue
@@ -593,6 +595,7 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
                 "facultyName": to_text(row.get("faculty")),
                 "attended": attended,
                 "total": total,
+                "odAttended": od_attended,
                 # Kept for diagnostics/comparison; the pipeline recomputes it.
                 "reportedPercentage": to_float(row.get("percentage")),
             }
@@ -1310,17 +1313,17 @@ _OD_RULES: Sequence[ColumnRule] = [
     ("date", lambda t: "date" in t and "from" not in t and "to" not in t and "appl" not in t and "entry" not in t),
     ("from_date", lambda t: ("from" in t and "date" in t) or t == "from date" or t == "from"),
     ("to_date", lambda t: ("to" in t and "date" in t) or t == "to date" or t == "to"),
-    ("from_time", lambda t: ("from" in t and "time" in t) or t == "start time" or t == "time from"),
-    ("to_time", lambda t: ("to" in t and "time" in t) or t == "end time" or t == "time to"),
+    ("from_time", lambda t: ("from" in t and "time" in t) or t == "start time" or t == "time from" or t == "from session" or "session from" in t),
+    ("to_time", lambda t: ("to" in t and "time" in t) or t == "end time" or t == "time to" or t == "to session" or "session to" in t),
     ("time_range", lambda t: "time" in t and "from" not in t and "to" not in t and "table" not in t),
-    ("course_code", lambda t: ("course" in t and "code" in t) or ("sub" in t and "code" in t) or t == "course" or t == "subject"),
+    ("course_code", lambda t: ("course" in t and "code" in t) or ("sub" in t and "code" in t) or t == "course" or t == "subject" or "paper" in t),
     ("course_title", lambda t: ("course" in t and ("title" in t or "name" in t or "desc" in t)) or ("sub" in t and ("title" in t or "name" in t))),
-    ("slot", lambda t: "slot" in t or "period" in t),
-    ("hours", lambda t: "hour" in t or "duration" in t or "no. of hr" in t or "od hr" in t or "hrs" in t),
+    ("slot", lambda t: "slot" in t or "period" in t or "class" in t),
+    ("hours", lambda t: "hour" in t or "duration" in t or "no. of hr" in t or "od hr" in t or "hrs" in t or "credit" in t or "period" in t or "sessions" in t or "units" in t or "classes" in t),
     ("days", lambda t: ("day" in t or "days" in t) and "date" not in t and "today" not in t),
-    ("reason", lambda t: "reason" in t or "purpose" in t or "event" in t or "category" in t or "desc" in t or "details" in t or "place" in t),
-    ("status", lambda t: "status" in t or "state" in t or "approval" in t or "recommend" in t),
-    ("approved_by", lambda t: "approved" in t or "sanctioned" in t or "faculty" in t or "staff" in t or "authority" in t or "advisor" in t or "hod" in t or "dean" in t),
+    ("reason", lambda t: "reason" in t or "purpose" in t or "event" in t or "category" in t or "desc" in t or "details" in t or "place" in t or "activity" in t or "nature" in t or "remarks" in t),
+    ("status", lambda t: "status" in t or "state" in t or "approval" in t or "recommend" in t or "decision" in t or "action" in t or "sanction" in t),
+    ("approved_by", lambda t: "approved" in t or "sanctioned" in t or "faculty" in t or "staff" in t or "authority" in t or "advisor" in t or "hod" in t or "dean" in t or "recommender" in t),
 ]
 
 
@@ -1663,8 +1666,9 @@ def parse_od(html: str) -> Dict[str, Any]:
         raw_status = (to_text(row.get("status")) or "Approved").strip()
         status_lower = raw_status.lower()
 
-        is_approved = any(s in status_lower for s in ("approve", "sanction", "accept", "grant"))
-        is_rejected = any(s in status_lower for s in ("reject", "decline", "cancel", "disapprove", "not approve"))
+        is_rejected = any(s in status_lower for s in ("reject", "decline", "cancel", "disapprove", "not approve", "denied"))
+        is_pending = any(s in status_lower for s in ("pending", "wait", "applied", "in progress", "under review"))
+        is_approved = any(s in status_lower for s in ("approve", "sanction", "accept", "grant", "avail", "recommend", "verif", "confirm", "process", "forward", "valid", "present", "success")) or (not is_rejected and not is_pending)
 
         if is_approved:
             norm_status = "Approved"
