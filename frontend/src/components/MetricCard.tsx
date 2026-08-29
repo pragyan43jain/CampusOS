@@ -6,8 +6,9 @@ export interface MetricCardProps {
   subtext: string;
   icon?: React.ReactNode;
   progressPercent?: number;
-  variant?: 'emerald' | 'amber' | 'crimson' | 'blue' | 'cyan';
+  variant?: 'emerald' | 'amber' | 'crimson' | 'blue' | 'cyan' | 'purple';
   loading?: boolean;
+  onClick?: () => void;
 }
 
 export const MetricCard: React.FC<MetricCardProps> = ({
@@ -16,35 +17,40 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   subtext,
   icon,
   progressPercent,
-  variant = 'blue',
+  variant = 'cyan',
   loading = false,
+  onClick,
 }) => {
-  const colorClass = variant === 'cyan' ? 'blue' : variant;
   const pct = typeof progressPercent === 'number' ? Math.min(100, Math.max(0, progressPercent)) : 0;
+  const fillVariant = variant === 'emerald' ? 'emerald' : variant === 'amber' ? 'amber' : variant === 'crimson' ? 'crimson' : '';
 
   return (
-    <div className="stat-card">
-      <div className="stat-top-row">
-        <span className="stat-label-text">{label}</span>
-        {icon && <div className="stat-icon-wrapper">{icon}</div>}
+    <div
+      className="stat-card"
+      onClick={onClick}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
+      <div className="stat-card-header">
+        <span className="stat-card-label">{label}</span>
+        {icon && <div className="stat-card-icon-wrap">{icon}</div>}
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-          <div className="skeleton-box" style={{ height: '32px', width: '60%' }} />
-          <div className="skeleton-box" style={{ height: '14px', width: '85%' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '4px 0' }}>
+          <div className="skeleton-shimmer" style={{ height: '32px', width: '55%' }} />
+          <div className="skeleton-shimmer" style={{ height: '14px', width: '80%' }} />
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div className="stat-main-value">{value}</div>
-          <div className="stat-subtext-detail">{subtext}</div>
+        <div>
+          <div className="stat-card-value">{value}</div>
+          <div className="stat-card-subtext">{subtext}</div>
         </div>
       )}
 
       {typeof progressPercent === 'number' && !loading && (
-        <div className="stat-progress-track">
+        <div className="progress-track" style={{ marginTop: '10px' }}>
           <div
-            className={`stat-progress-fill ${colorClass}`}
+            className={`progress-fill ${fillVariant}`}
             style={{ width: `${pct}%` }}
           />
         </div>

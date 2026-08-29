@@ -127,58 +127,40 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
 
   return (
     <div className="page-container">
-      {/* Top Header Section */}
-      <div
-        className="card"
-        style={{
-          background: 'var(--brand-gradient-soft)',
-          border: '1px solid var(--border-medium)',
-          padding: '24px 28px',
-        }}
-      >
+            {/* Top Hero Section */}
+      <div className="hero-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div className="brand-icon-box" style={{ width: '44px', height: '44px' }}>
-              <ShieldCheck size={22} />
+          <div>
+            <div className="hero-eyebrow">
+              <ShieldCheck size={13} />
+              <span>VTOP LIVE HUB</span>
+              <span>•</span>
+              <span style={{ color: isAuth ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
+                {isAuth ? 'Verified Session Active' : 'Disconnected'}
+              </span>
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-                  VTOP Integration Protocol
-                </h2>
-                <span className={`status-badge ${isAuth ? 'safe' : 'neutral'}`}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAuth ? 'var(--success-emerald)' : 'var(--text-muted)' }} />
-                  {isAuth ? 'Authoritative VTOP Connection' : 'Disconnected'}
-                </span>
-              </div>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Student: <b>{student.name || 'Not logged in'}</b> ({student.regNo || 'No Reg No'}) • {student.program || 'VIT Chennai'} • Semester {student.semester || 'N/A'}
-              </p>
-            </div>
+
+            <h2 className="hero-heading">VTOP Integration</h2>
+            <p className="hero-desc">
+              Synchronize and manage authoritative academic records, attendance logs, continuous assessments, and degree progression directly from the student portal.
+            </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Last Synchronized:</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Last Sync:</span>
               <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                 {student.lastSynced || 'Never'}
               </span>
             </div>
 
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary"
               onClick={onForceSync}
               disabled={syncing}
             >
               <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-              <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
-            </button>
-
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={onOpenSyncModal}
-            >
-              <span>Connect Account</span>
+              <span>{syncing ? 'Syncing...' : 'Sync VTOP'}</span>
             </button>
           </div>
         </div>

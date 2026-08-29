@@ -8,6 +8,8 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Mail,
+  Lock,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -69,7 +71,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       setTimeout(() => {
         onLoginSuccess();
         onClose();
-      }, 1000);
+      }, 800);
     } catch (err: any) {
       setError(err.message || 'Failed to authenticate with Microsoft Teams.');
     } finally {
@@ -79,34 +81,24 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop-overlay" onClick={onClose}>
-      <div className="modal-dialog-box" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              className="brand-icon-box"
-              style={{
-                width: '38px',
-                height: '38px',
-                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                color: '#ffffff',
-              }}
-            >
-              <ShieldCheck size={20} />
+            <div className="brand-icon-box" style={{ width: '38px', height: '38px' }}>
+              <ShieldCheck size={19} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                Link Microsoft Teams
-              </h3>
+              <h3 className="modal-title">Link Microsoft Teams</h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
                 University Microsoft 365 Education
               </p>
             </div>
           </div>
 
-          <button onClick={onClose} className="btn btn-outline btn-sm" style={{ padding: '6px' }} aria-label="Close">
-            <X size={16} />
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '4px' }} aria-label="Close">
+            <X size={18} />
           </button>
         </div>
 
@@ -114,8 +106,8 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
         <div
           style={{
             padding: '8px 12px',
-            background: 'var(--bg-surface-elevated)',
-            border: '1px solid var(--border-subtle)',
+            background: 'var(--surface-input)',
+            border: '1px solid var(--border-secondary)',
             borderRadius: 'var(--radius-md)',
             fontSize: '0.78rem',
             color: 'var(--text-secondary)',
@@ -129,139 +121,100 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             href="https://www.microsoft.com/en-in/microsoft-teams/log-in"
             target="_blank"
             rel="noreferrer"
-            style={{ color: 'var(--brand-color)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
           >
-            <span>microsoft.com/.../log-in</span>
+            <span>teams.microsoft.com</span>
             <ExternalLink size={12} />
           </a>
         </div>
 
         {/* Status / Error feedback */}
         {error && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--danger-bg)',
-              border: '1px solid var(--danger-border)',
-              color: 'var(--danger-crimson)',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <AlertCircle size={16} />
+          <div className="status-badge error" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
+            <AlertCircle size={15} />
             <span>{error}</span>
           </div>
         )}
 
         {successMsg && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--success-bg)',
-              border: '1px solid var(--success-border)',
-              color: 'var(--success-emerald)',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <CheckCircle2 size={16} />
+          <div className="status-badge success" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
+            <CheckCircle2 size={15} />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {step && !error && !successMsg && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-bg)',
-              border: '1px solid var(--brand-border)',
-              color: 'var(--brand-color)',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <RefreshCw size={14} className="animate-spin" />
+        {step && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', color: 'var(--accent-cyan)' }}>
+            <RefreshCw size={13} className="animate-spin" />
             <span>{step}</span>
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              University Microsoft Email
-            </label>
-            <input
-              type="email"
-              placeholder="e.g. pragyan.jain2024@vitstudent.ac.in"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-            />
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="form-group">
+            <label className="form-label">Microsoft Student Email</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name.surname2024@vitstudent.ac.in"
+                className="input-field"
+                style={{ paddingLeft: '38px' }}
+                disabled={loading}
+              />
+              <Mail
+                size={16}
+                style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              Microsoft 365 Password
-            </label>
+          <div className="form-group">
+            <label className="form-label">Microsoft 365 Password</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
                 className="input-field"
-                style={{ paddingRight: '40px' }}
+                style={{ paddingLeft: '38px', paddingRight: '38px' }}
+                disabled={loading}
+              />
+              <Lock
+                size={16}
+                style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
+                style={{ position: 'absolute', right: '12px', top: '13px', color: 'var(--text-muted)' }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-outline"
-              style={{ flex: 1 }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary"
-              style={{ flex: 2 }}
-            >
-              {loading ? 'Authenticating...' : 'Connect Teams'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn-primary"
+            style={{ width: '100%', height: '46px', marginTop: '4px' }}
+          >
+            {loading ? (
+              <>
+                <RefreshCw size={15} className="animate-spin" />
+                <span>Verifying Microsoft Account...</span>
+              </>
+            ) : (
+              <span>Authenticate & Link Teams</span>
+            )}
+          </button>
         </form>
       </div>
     </div>
   );
 };
-
-export default TeamsLoginModal;

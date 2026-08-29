@@ -7,21 +7,21 @@ import {
   CreditCard,
   Briefcase,
   BrainCircuit,
-  Palette,
   ShieldCheck,
   Zap,
 } from 'lucide-react';
-import { ThemeType } from './Header';
 
 export type NavView = 'dashboard' | 'vtop-sync' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
+
+import { ThemeType } from "./Header";
 
 interface SidebarProps {
   activeView: NavView;
   onSelectView: (view: NavView) => void;
   pendingAssignmentsCount: number;
   criticalAttendanceCount: number;
-  currentTheme: ThemeType;
-  onSelectTheme: (theme: ThemeType) => void;
+  currentTheme?: ThemeType;
+  onSelectTheme?: (t: ThemeType) => void;
   onOpenVtopModal?: () => void;
 }
 
@@ -30,11 +30,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectView,
   pendingAssignmentsCount,
   criticalAttendanceCount,
-  currentTheme,
-  onSelectTheme,
   onOpenVtopModal,
 }) => {
-  const navItems = [
+  const mainNavItems = [
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'vtop-sync' as NavView, label: 'VTOP Live Hub', icon: RefreshCw },
     {
@@ -49,39 +47,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: ClipboardList,
       badge: pendingAssignmentsCount > 0 ? { count: pendingAssignmentsCount, alert: false } : undefined,
     },
-    { id: 'fees' as NavView, label: 'Fees & Receipts', icon: CreditCard },
+    { id: 'fees' as NavView, label: 'Fees & Ledger', icon: CreditCard },
     { id: 'placements' as NavView, label: 'Placements & DSA', icon: Briefcase },
-    { id: 'ai-planner' as NavView, label: 'AI Study Planner', icon: BrainCircuit },
+  ];
+
+  const intelligenceNavItems = [
+    { id: 'ai-planner' as NavView, label: 'AI Study Planner', icon: BrainCircuit, badge: { count: 'AI', alert: false } },
   ];
 
   return (
     <aside className="app-sidebar">
-      {/* Brand Header */}
+      {/* Brand Header (Height ~92px) */}
       <div className="sidebar-brand-block">
         <div className="brand-icon-box">
-          <Zap size={20} />
+          <Zap size={19} />
         </div>
         <div className="brand-info">
-          <span className="brand-title">CampusOS</span>
-          <span className="brand-version-badge">v1.0 • VIT Edition</span>
+          <span className="brand-title">
+            Campus<span className="brand-title-os">OS</span>
+          </span>
+          <span className="brand-subtitle">Academic OS • VIT</span>
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="sidebar-nav" aria-label="Main Navigation">
-        {navItems.map((item) => {
+      {/* Navigation List */}
+      <nav className="sidebar-nav-list" aria-label="Main Navigation">
+        <div className="sidebar-section-header">Core Academic</div>
+        {mainNavItems.map((item) => {
           const isActive = activeView === item.id;
           const Icon = item.icon;
           return (
             <button
               key={item.id}
-              className={`nav-link-btn ${isActive ? 'active' : ''}`}
+              className={`nav-item-btn ${isActive ? 'active' : ''}`}
               onClick={() => onSelectView(item.id)}
             >
-              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
-              <span>{item.label}</span>
+              <div className="nav-item-left">
+                <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
+                <span>{item.label}</span>
+              </div>
               {item.badge && (
-                <span className={`nav-badge-count ${item.badge.alert ? 'alert' : ''}`}>
+                <span className={`nav-badge-pill ${item.badge.alert ? 'alert' : ''}`}>
                   {item.badge.count}
                 </span>
               )}
@@ -89,37 +95,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Integrated Theme Selector */}
-        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ padding: '0 10px 8px 10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-            <Palette size={13} />
-            <span>Theme</span>
-          </div>
-
-          <div style={{ padding: '0 4px' }}>
-            <select
-              value={currentTheme}
-              onChange={(e) => onSelectTheme(e.target.value as ThemeType)}
-              className="select-dropdown"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.82rem' }}
+        <div className="sidebar-section-header">Intelligence</div>
+        {intelligenceNavItems.map((item) => {
+          const isActive = activeView === item.id;
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              className={`nav-item-btn ${isActive ? 'active' : ''}`}
+              onClick={() => onSelectView(item.id)}
             >
-              <option value="midnight-slate">Dark Slate (Default)</option>
-              <option value="chaingpt-cyber">Cyber Dark (Refined)</option>
-              <option value="baby-pink">Rose Blossom (Light)</option>
-              <option value="nordic-blue">Nordic Blue (Light)</option>
-            </select>
-          </div>
-        </div>
+              <div className="nav-item-left">
+                <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
+                <span>{item.label}</span>
+              </div>
+              {item.badge && (
+                <span className="nav-badge-pill" style={{ color: 'var(--accent-purple)', background: 'rgba(139, 92, 246, 0.15)' }}>
+                  {item.badge.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      {/* Footer / Connect VTOP CTA */}
-      <div className="sidebar-footer">
+      {/* Footer / Connect VTOP Action */}
+      <div className="sidebar-footer-block">
         <button
-          className="btn btn-secondary"
-          style={{ width: '100%', fontSize: '0.84rem' }}
+          className="btn btn-secondary btn-sm"
+          style={{ width: '100%' }}
           onClick={onOpenVtopModal}
         >
-          <ShieldCheck size={16} />
+          <ShieldCheck size={15} color="var(--accent-cyan)" />
           <span>Connect VTOP</span>
         </button>
       </div>

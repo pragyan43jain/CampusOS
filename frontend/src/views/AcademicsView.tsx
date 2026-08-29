@@ -6,6 +6,7 @@ import {
   User,
   FlaskConical,
   Search,
+  BookMarked,
 } from 'lucide-react';
 import { Course } from '../types';
 import { getStudyMaterialUrl } from '../services/studyMaterialService';
@@ -25,8 +26,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
     { id: 'FALL2025', label: 'Fall Semester 2025-26', isCurrent: false },
   ];
 
-  // In Fall 2026, show active enrolled courses.
-  // In prior semesters, if historic grade data is stored on courses, filter appropriately without leaking current data.
   const semesterCourses = selectedSemester === 'FALL2026' ? courses : [];
 
   const filteredCourses = semesterCourses.filter((course) => {
@@ -48,30 +47,21 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
 
   return (
     <div className="page-container">
-      {/* Header & Controls */}
-      <div
-        className="card"
-        style={{
-          background: 'var(--brand-gradient-soft)',
-          border: '1px solid var(--border-medium)',
-          padding: '24px 28px',
-        }}
-      >
+      {/* Header Hero Section */}
+      <div className="hero-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="status-badge info" style={{ fontSize: '0.7rem' }}>
-                Semester-Aware Registry
-              </span>
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+            <div className="hero-eyebrow">
+              <BookMarked size={13} />
+              <span>ACADEMIC CURRICULUM</span>
+              <span>•</span>
+              <span style={{ color: 'var(--text-muted)' }}>
                 {semesterCourses.length} Registered Courses • {totalCredits} Total Credits
               </span>
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-              Academic Course Curriculum & Materials
-            </h2>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '640px' }}>
-              Detailed course breakdown with continuous assessment weights, credits, faculty directory, and direct subject study resources.
+            <h2 className="hero-heading">Academic Courses & Study Hub</h2>
+            <p className="hero-desc">
+              Course syllabus details, continuous assessment weightage, faculty directory, and direct access to curated study materials.
             </p>
           </div>
 
@@ -83,7 +73,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
             <select
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
-              className="select-dropdown"
+              className="input-field"
+              style={{ height: '40px' }}
             >
               {semesters.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -100,14 +91,14 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
         className="card"
         style={{
           padding: '14px 20px',
-          flexDirection: 'row',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '220px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px' }}>
           <Search size={16} color="var(--text-muted)" />
           <input
             type="text"
@@ -115,17 +106,17 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input-field"
-            style={{ padding: '8px 12px', fontSize: '0.84rem' }}
+            style={{ height: '38px', fontSize: '0.84rem' }}
           />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>Type:</span>
+          <span style={{ fontSize: '0.78rem', fontWeight: 650, color: 'var(--text-muted)' }}>Type:</span>
           {(['all', 'theory', 'lab', 'embedded'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setFilterType(t)}
-              className={`btn btn-sm ${filterType === t ? 'btn-primary' : 'btn-outline'}`}
+              className={`btn btn-sm ${filterType === t ? 'btn-primary' : 'btn-secondary'}`}
               style={{ textTransform: 'capitalize' }}
             >
               {t}
@@ -155,9 +146,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                 key={course.code || course.id}
                 className="card"
                 style={{
+                  display: 'flex',
+                  flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: '16px',
-                  position: 'relative',
                 }}
               >
                 <div>
@@ -169,17 +161,17 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                           fontFamily: 'var(--font-mono)',
                           fontSize: '0.82rem',
                           fontWeight: 800,
-                          color: 'var(--brand-color)',
-                          background: 'var(--brand-bg)',
+                          color: 'var(--accent-cyan)',
+                          background: 'rgba(45, 231, 211, 0.08)',
                           padding: '3px 8px',
                           borderRadius: 'var(--radius-xs)',
-                          border: '1px solid var(--brand-border)',
+                          border: '1px solid rgba(45, 231, 211, 0.2)',
                         }}
                       >
                         {course.code}
                       </span>
                       {course.type && (
-                        <span className="status-badge neutral" style={{ fontSize: '0.7rem' }}>
+                        <span className="status-badge info" style={{ fontSize: '0.70rem' }}>
                           {course.type === 'Lab' ? <FlaskConical size={11} /> : <BookOpen size={11} />}
                           <span>{course.type}</span>
                         </span>
@@ -192,28 +184,28 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                   </div>
 
                   {/* Course Title */}
-                  <h3 style={{ fontSize: '1.08rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px' }}>
+                  <h3 style={{ fontSize: '1.08rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '10px' }}>
                     {course.title}
                   </h3>
 
                   {/* Metadata */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px', fontSize: '0.80rem', color: 'var(--text-secondary)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <User size={13} color="var(--text-muted)" />
                       <span>{course.faculty || 'Instructor unassigned'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span>Slot: <b>{course.slot || 'N/A'}</b></span>
+                      <span>Slot: <b style={{ fontFamily: 'var(--font-mono)' }}>{course.slot || 'N/A'}</b></span>
                       <span>Venue: {course.venue || 'Academic Block'}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom Stats & Actions */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ borderTop: '1px solid var(--border-secondary)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {/* Attendance Bar */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', fontSize: '0.78rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.78rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>
                         Attendance: <b>{hasAtt && att ? `${att.attended} / ${att.total} classes` : 'Not recorded'}</b>
                       </span>
@@ -223,9 +215,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                     </div>
 
                     {attPct !== null && (
-                      <div className="stat-progress-track">
+                      <div className="progress-track">
                         <div
-                          className={`stat-progress-fill ${isCritical ? 'crimson' : 'emerald'}`}
+                          className={`progress-fill ${isCritical ? 'crimson' : 'emerald'}`}
                           style={{ width: `${Math.min(100, Math.max(0, attPct))}%` }}
                         />
                       </div>
@@ -233,26 +225,24 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({ courses }) => {
                   </div>
 
                   {/* Study Material Action */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <a
-                      href={studyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary btn-sm"
-                      style={{ width: '100%', gap: '6px' }}
-                    >
-                      <BookOpen size={14} />
-                      <span>Study Material</span>
-                      <ExternalLink size={12} style={{ opacity: 0.7 }} />
-                    </a>
-                  </div>
+                  <a
+                    href={studyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{ width: '100%', gap: '6px' }}
+                  >
+                    <BookOpen size={14} />
+                    <span>Study Material</span>
+                    <ExternalLink size={12} style={{ opacity: 0.7 }} />
+                  </a>
                 </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="empty-state-card">
+        <div className="empty-state-card card">
           <div className="empty-state-icon-box">
             <GraduationCap size={24} />
           </div>

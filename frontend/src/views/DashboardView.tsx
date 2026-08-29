@@ -7,6 +7,7 @@ import {
   BookOpen,
   Calendar,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { StudentProfile, TimetableSlot, DayOfWeek, OD } from '../types';
 import { MetricCard } from '../components/MetricCard';
@@ -97,30 +98,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="page-container">
       {/* Hero Welcome Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'var(--brand-gradient-soft)',
-          border: '1px solid var(--border-medium)',
-          padding: '24px 28px',
-        }}
-      >
+      <div className="hero-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="status-badge info" style={{ fontSize: '0.7rem' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--brand-color)' }} />
-                {isAuth ? 'VTOP Verified Session' : 'Offline Mode'}
-              </span>
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                {student.program || 'VIT Chennai'} • Semester {student.semester || 'N/A'}
-              </span>
+            <div className="hero-eyebrow">
+              <Sparkles size={13} />
+              <span>{isAuth ? 'VTOP Verified Session' : 'Offline Mode'}</span>
+              <span>•</span>
+              <span style={{ color: 'var(--text-muted)' }}>{student.program || 'VIT Chennai'} • Semester {student.semester || 'N/A'}</span>
             </div>
 
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
+            <h2 className="hero-heading">
               Welcome back, {student.name ? student.name.split(' ')[0] : 'Student'}
             </h2>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '640px' }}>
+            <p className="hero-desc">
               Academic command center tracking timetable slots, attendance safety buffers, continuous assessments, and degree progression.
             </p>
           </div>
@@ -128,9 +119,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <button
             onClick={onOpenSyncModal}
             className="btn btn-primary"
-            style={{ fontSize: '0.86rem' }}
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={14} />
             <span>Sync VTOP Hub</span>
           </button>
         </div>
@@ -142,27 +132,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           label="Overall Attendance"
           value={hasAttendance && attendance ? `${attendance.percentage}%` : 'Data unavailable'}
           subtext={hasAttendance && hasAttCounts ? `${attAttended} / ${attTotal} classes attended` : 'VTOP sync required'}
-          icon={<Percent size={18} />}
+          icon={<Percent size={16} />}
           progressPercent={hasAttendance ? attPct : 0}
-          variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'blue'}
+          variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'cyan'}
         />
 
-        <div onClick={onOpenSyncModal} style={{ cursor: 'pointer' }} title="Click to review or synchronize On-Duty (OD) records">
-          <MetricCard
-            label="On-Duty (OD) Hours"
-            value={odHoursCount !== null && odHoursCount !== undefined ? `${odHoursCount} Hours` : 'Data unavailable'}
-            subtext={odHoursCount !== null && odHoursCount !== undefined ? `✓ ${odRemaining}h safe limit available` : 'VTOP sync required'}
-            icon={<Clock size={18} />}
-            progressPercent={Math.min(100, Math.max(0, ((odHoursCount || 0) / (od?.maxHours || 40)) * 100))}
-            variant="blue"
-          />
-        </div>
+        <MetricCard
+          label="On-Duty (OD) Hours"
+          value={odHoursCount !== null && odHoursCount !== undefined ? `${odHoursCount} Hours` : 'Data unavailable'}
+          subtext={odHoursCount !== null && odHoursCount !== undefined ? `✓ ${odRemaining}h safe limit available` : 'VTOP sync required'}
+          icon={<Clock size={16} />}
+          progressPercent={Math.min(100, Math.max(0, ((odHoursCount || 0) / (od?.maxHours || 40)) * 100))}
+          variant="cyan"
+          onClick={onOpenSyncModal}
+        />
 
         <MetricCard
           label="Cumulative CGPA"
           value={cgpaDisplay}
-          subtext={student.rank ? `Class Rank #${student.rank} • Current performance` : 'Current academic performance'}
-          icon={<GraduationCap size={18} />}
+          subtext={student.rank ? `Class Rank #${student.rank} • Performance` : 'Academic performance'}
+          icon={<GraduationCap size={16} />}
           progressPercent={student.cgpa ? (student.cgpa / 10) * 100 : 0}
           variant="emerald"
         />
@@ -175,22 +164,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ? `${((student.creditsEarned / student.totalCreditsRequired) * 100).toFixed(1)}% degree completed`
               : 'Official degree progress'
           }
-          icon={<Award size={18} />}
+          icon={<Award size={16} />}
           progressPercent={
             student.creditsEarned && student.totalCreditsRequired
               ? (student.creditsEarned / student.totalCreditsRequired) * 100
               : 0
           }
-          variant="blue"
+          variant="cyan"
         />
 
         <MetricCard
           label="Enrolled Courses"
           value={uniqueCoursesCount > 0 ? `${uniqueCoursesCount}` : 'Data unavailable'}
           subtext="Active registered subjects"
-          icon={<BookOpen size={18} />}
+          icon={<BookOpen size={16} />}
           progressPercent={uniqueCoursesCount > 0 ? 100 : 0}
-          variant="blue"
+          variant="cyan"
         />
       </div>
 
@@ -205,7 +194,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calendar size={18} color="var(--brand-color)" />
+            <Calendar size={18} color="var(--accent-cyan)" />
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               {dayTitles[selectedDay]} Classes
             </h3>
@@ -222,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             ))}
           </div>
         ) : (
-          <div className="empty-state-card">
+          <div className="empty-state-card card">
             <div className="empty-state-icon-box">
               <Calendar size={24} />
             </div>

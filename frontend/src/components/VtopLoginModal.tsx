@@ -7,6 +7,8 @@ import {
   AlertCircle,
   X,
   ShieldCheck,
+  Lock,
+  User,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -116,145 +118,101 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop-overlay" onClick={onClose}>
-      <div className="modal-dialog-box" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="brand-icon-box" style={{ width: '38px', height: '38px' }}>
-              <ShieldCheck size={20} />
+              <ShieldCheck size={19} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                VTOP Authentication
-              </h3>
+              <h3 className="modal-title">VTOP Authentication</h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
                 Direct student session synchronization
               </p>
             </div>
           </div>
 
-          <button onClick={onClose} className="btn btn-outline btn-sm" style={{ padding: '6px' }} aria-label="Close">
-            <X size={16} />
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '4px' }} aria-label="Close">
+            <X size={18} />
           </button>
         </div>
 
-        {/* Feedback Messages */}
+        {/* Notifications */}
         {errorMsg && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--danger-bg)',
-              border: '1px solid var(--danger-border)',
-              color: 'var(--danger-crimson)',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <AlertCircle size={16} />
+          <div className="status-badge error" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
+            <AlertCircle size={15} />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--success-bg)',
-              border: '1px solid var(--success-border)',
-              color: 'var(--success-emerald)',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <CheckCircle2 size={16} />
+          <div className="status-badge success" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
+            <CheckCircle2 size={15} />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {statusStep && !errorMsg && !successMsg && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-bg)',
-              border: '1px solid var(--brand-border)',
-              color: 'var(--brand-color)',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <RefreshCw size={14} className="animate-spin" />
-            <span>{statusStep}</span>
-          </div>
-        )}
-
         {/* Form */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              Campus Portal
-            </label>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Campus Selector */}
+          <div className="form-group">
+            <label className="form-label">Campus Portal</label>
             <select
               value={campus}
               onChange={(e) => setCampus(e.target.value as any)}
-              className="select-dropdown"
-              style={{ width: '100%' }}
+              className="input-field"
             >
               <option value="chennai">VIT Chennai (vtopcc.vit.ac.in)</option>
               <option value="vellore">VIT Vellore (vtop.vit.ac.in)</option>
-              <option value="ap">VIT AP (vtop2.vitap.ac.in)</option>
+              <option value="ap">VIT-AP (vtop.vitap.ac.in)</option>
               <option value="bhopal">VIT Bhopal (vtop.vitbhopal.ac.in)</option>
             </select>
           </div>
 
-          <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              VTOP Username / Reg No
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. 24BLC1100"
-              value={username}
-              onChange={(e) => setUsername(e.target.value.toUpperCase())}
-              className="input-field"
-              style={{ fontFamily: 'var(--font-mono)' }}
-            />
+          {/* Registration Number */}
+          <div className="form-group">
+            <label className="form-label">Registration Number / Username</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                placeholder="e.g. 24BLC1100"
+                className="input-field"
+                style={{ paddingLeft: '38px', fontFamily: 'var(--font-mono)' }}
+                autoComplete="username"
+              />
+              <User
+                size={16}
+                style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }}
+              />
+            </div>
           </div>
 
-          <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-              VTOP Password
-            </label>
+          {/* Password */}
+          <div className="form-group">
+            <label className="form-label">VTOP Password</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
                 className="input-field"
-                style={{ paddingRight: '40px' }}
+                style={{ paddingLeft: '38px', paddingRight: '38px' }}
+                autoComplete="current-password"
+              />
+              <Lock
+                size={16}
+                style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
+                style={{ position: 'absolute', right: '12px', top: '13px', color: 'var(--text-muted)' }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -262,74 +220,82 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           </div>
 
           {/* Captcha */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                Captcha Security
-              </label>
+          <div className="form-group">
+            <label className="form-label">Verification Captcha</label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div
+                style={{
+                  height: '44px',
+                  minWidth: '130px',
+                  background: '#FFFFFF',
+                  borderRadius: 'var(--radius-input)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border-primary)',
+                }}
+              >
+                {loadingCaptcha ? (
+                  <RefreshCw size={18} className="animate-spin" color="#111" />
+                ) : captchaImage ? (
+                  <img
+                    src={captchaImage}
+                    alt="Captcha"
+                    style={{ height: '100%', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '0.74rem', color: '#666' }}>No Captcha</span>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => loadCaptcha(campus)}
                 disabled={loadingCaptcha}
-                style={{ fontSize: '0.74rem', color: 'var(--brand-color)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                className="btn btn-secondary"
+                style={{ height: '44px', padding: '0 12px' }}
+                title="Reload captcha image"
               >
-                <RefreshCw size={12} className={loadingCaptcha ? 'animate-spin' : ''} />
-                <span>Reload</span>
+                <RefreshCw size={15} className={loadingCaptcha ? 'animate-spin' : ''} />
               </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              {captchaImage ? (
-                <img
-                  src={captchaImage.startsWith('data:') ? captchaImage : `data:image/png;base64,${captchaImage}`}
-                  alt="Captcha"
-                  style={{
-                    height: '42px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-medium)',
-                    background: '#ffffff',
-                    padding: '2px 6px',
-                  }}
-                />
-              ) : (
-                <div style={{ height: '42px', width: '120px', background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Loading...
-                </div>
-              )}
 
               <input
                 type="text"
-                placeholder="Enter text"
                 value={captcha}
                 onChange={(e) => setCaptcha(e.target.value)}
+                placeholder="Enter text"
                 className="input-field"
-                style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                style={{ flex: 1, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}
               />
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-outline"
-              style={{ flex: 1 }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn btn-primary"
-              style={{ flex: 2 }}
-            >
-              {submitting ? 'Connecting VTOP...' : 'Authenticate & Sync'}
-            </button>
-          </div>
+          {statusStep && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', color: 'var(--accent-cyan)' }}>
+              <RefreshCw size={13} className="animate-spin" />
+              <span>{statusStep}</span>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="btn btn-primary"
+            style={{ width: '100%', height: '46px', marginTop: '4px' }}
+          >
+            {submitting ? (
+              <>
+                <RefreshCw size={15} className="animate-spin" />
+                <span>Authenticating with VTOP...</span>
+              </>
+            ) : (
+              <span>Authenticate & Sync</span>
+            )}
+          </button>
         </form>
       </div>
     </div>
   );
 };
-
-export default VtopLoginModal;
