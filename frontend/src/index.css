@@ -29,6 +29,8 @@
   --border-primary: rgba(255, 255, 255, 0.08);
   --border-secondary: rgba(255, 255, 255, 0.05);
   --border-card: rgba(255, 255, 255, 0.07);
+  --border-medium: rgba(255, 255, 255, 0.10);
+  --border-subtle: rgba(255, 255, 255, 0.06);
   --border-active: rgba(45, 231, 211, 0.55);
   --border-focus: rgba(45, 231, 211, 0.55);
 
@@ -44,6 +46,8 @@
 
   /* Accent Mappings */
   --brand-color: #2DE7D3;
+  --brand-cyan: #2DE7D3;
+  --brand-blue: #4C8DFF;
   --brand-bg: rgba(45, 231, 211, 0.08);
   --brand-border: rgba(45, 231, 211, 0.22);
 
@@ -77,7 +81,8 @@
   --gradient-primary: linear-gradient(135deg, #20E3D0, #4C8DFF, #C56CFF);
   --gradient-secondary: linear-gradient(135deg, #2DE7D3, #8B5CF6);
   --gradient-hero: linear-gradient(135deg, rgba(45, 231, 211, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
-  --gradient-card: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+  --brand-gradient: var(--gradient-primary);
+  --brand-gradient-soft: var(--gradient-hero);
 
   /* 6. Typography / Text Colors */
   --text-primary: #F4F5F7;
@@ -142,7 +147,6 @@ html, body {
   font-size: 14px;
 }
 
-/* Subtle Technical Grid & Ambient Lighting */
 body {
   background-color: var(--bg-primary);
   background-image: 
@@ -152,6 +156,15 @@ body {
     linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
   background-attachment: fixed;
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 
 /* Scrollbars */
@@ -188,7 +201,7 @@ a {
 }
 
 /* ==========================================================================
-   APP SHELL & LAYOUT
+   APP SHELL & MAIN VIEWPORT
    ========================================================================== */
 
 .app-shell {
@@ -198,7 +211,17 @@ a {
   background: var(--bg-primary);
 }
 
-/* Fixed Sidebar Rail (Width: 260px) */
+.main-viewport, .app-main-content-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 260px);
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* Sidebar Rail (Width: 260px) */
 .app-sidebar {
   width: 260px;
   min-width: 260px;
@@ -350,23 +373,9 @@ a {
   border-top: 1px solid var(--border-secondary);
 }
 
-.sidebar-status-card {
-  background: var(--surface-primary);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-md) var(--space-md);
-}
-
 /* ==========================================================================
    HEADER COMPONENT (Height: 68px)
    ========================================================================== */
-
-.app-main-content-wrap {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
 
 .app-header {
   height: 68px;
@@ -449,7 +458,6 @@ a {
   gap: var(--space-3xl);
 }
 
-/* 17. Standard Cards */
 .card {
   background: var(--surface-primary);
   border: 1px solid var(--border-card);
@@ -488,7 +496,7 @@ a {
   margin-top: 2px;
 }
 
-/* 15. Hero Sections */
+/* Hero Sections */
 .hero-card {
   background: var(--gradient-hero);
   border: 1px solid var(--border-card);
@@ -524,7 +532,7 @@ a {
 }
 
 /* ==========================================================================
-   16. METRIC & STAT CARDS (5-Column Structured Grid)
+   METRIC & STAT CARDS (5-Column Structured Grid)
    ========================================================================== */
 
 .metrics-stat-grid {
@@ -598,7 +606,7 @@ a {
 }
 
 /* ==========================================================================
-   18. BUTTON SYSTEM
+   BUTTON SYSTEM
    ========================================================================== */
 
 .btn {
@@ -659,6 +667,19 @@ a {
   color: #FFFFFF;
 }
 
+/* Outline Button */
+.btn-outline {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #E8EAF0;
+}
+
+.btn-outline:hover {
+  background: var(--surface-hover);
+  border-color: rgba(45, 231, 211, 0.3);
+  color: var(--text-primary);
+}
+
 /* Ghost Button */
 .btn-ghost {
   background: transparent;
@@ -682,7 +703,7 @@ a {
 }
 
 /* ==========================================================================
-   19. STATUS BADGES & TAGS
+   STATUS BADGES & TAGS
    ========================================================================== */
 
 .status-badge {
@@ -702,7 +723,7 @@ a {
   color: var(--success-text);
 }
 
-.status-badge.warning, .status-badge.approaching {
+.status-badge.warning, .status-badge.approaching, .status-badge.amber {
   background: var(--warning-bg);
   border: 1px solid var(--warning-border);
   color: var(--warning-text);
@@ -720,6 +741,12 @@ a {
   color: var(--info-text);
 }
 
+.status-badge.neutral {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--text-secondary);
+}
+
 .status-badge.ai {
   background: var(--ai-bg);
   border: 1px solid var(--ai-border);
@@ -727,7 +754,7 @@ a {
 }
 
 /* ==========================================================================
-   20. TABLES
+   TABLES
    ========================================================================== */
 
 .table-responsive-wrapper {
@@ -775,7 +802,7 @@ a {
 }
 
 /* ==========================================================================
-   21. FORMS & INPUTS
+   FORMS, SELECTS & INPUTS
    ========================================================================== */
 
 .form-group {
@@ -790,7 +817,7 @@ a {
   color: var(--text-secondary);
 }
 
-.input-field {
+.input-field, .select-dropdown {
   width: 100%;
   height: 44px;
   padding: 0 var(--space-lg);
@@ -799,11 +826,11 @@ a {
   border-radius: var(--radius-input);
   color: var(--text-primary);
   font-size: 0.88rem;
+  outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.input-field:focus {
-  outline: none;
+.input-field:focus, .select-dropdown:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(45, 231, 211, 0.08);
 }
@@ -812,11 +839,16 @@ a {
   color: #686C78;
 }
 
+.select-dropdown option {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
 /* ==========================================================================
-   22. TABS SYSTEM
+   TABS SYSTEM
    ========================================================================== */
 
-.tabs-container {
+.tabs-container, .segmented-tabs-bar {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -849,7 +881,7 @@ a {
 }
 
 /* ==========================================================================
-   23. PROGRESS BARS
+   PROGRESS BARS
    ========================================================================== */
 
 .progress-track {
@@ -880,7 +912,7 @@ a {
 }
 
 /* ==========================================================================
-   29. EMPTY STATES & 30. SKELETONS
+   EMPTY STATES & SKELETONS
    ========================================================================== */
 
 .empty-state-card {
@@ -935,7 +967,7 @@ a {
    MODALS & GLASS BACKDROP
    ========================================================================== */
 
-.modal-backdrop {
+.modal-backdrop, .modal-backdrop-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
@@ -947,7 +979,7 @@ a {
   padding: var(--space-lg);
 }
 
-.modal-content-glass {
+.modal-content-glass, .modal-dialog-box {
   background: rgba(21, 22, 29, 0.94);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border-primary);
@@ -977,12 +1009,15 @@ a {
 }
 
 /* ==========================================================================
-   34. RESPONSIVE BREAKPOINTS
+   RESPONSIVE BREAKPOINTS
    ========================================================================== */
 
 @media (max-width: 1024px) {
   .app-sidebar {
     display: none;
+  }
+  .main-viewport, .app-main-content-wrap {
+    width: 100%;
   }
   .app-header {
     padding: 0 var(--space-xl);
