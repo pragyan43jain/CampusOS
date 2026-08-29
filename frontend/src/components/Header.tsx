@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
+import {
+  RefreshCw,
+  Smartphone,
+  CheckCircle2,
+  Menu,
+  X,
+} from 'lucide-react';
 import { StudentProfile } from '../types';
 
-export type ThemeType = 'chaingpt-cyber' | 'chaingpt-matrix' | 'chaingpt-solana' | 'midnight-slate' | 'baby-pink' | 'nordic-blue';
+export type ThemeType = 'midnight-slate' | 'chaingpt-cyber' | 'baby-pink' | 'nordic-blue';
 
 interface HeaderProps {
   student: StudentProfile;
@@ -9,6 +16,7 @@ interface HeaderProps {
   onRefresh?: () => void;
   onOpenVtopModal: () => void;
   syncing: boolean;
+  onToggleMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,14 +24,15 @@ export const Header: React.FC<HeaderProps> = ({
   activeView,
   onOpenVtopModal,
   syncing,
+  onToggleMobileMenu,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
 
   const studentName = student?.name || 'Not Connected';
-  const studentRegNo = student?.regNo || 'Sync VTOP';
+  const studentRegNo = student?.regNo || 'Sync Required';
   const studentProgram = student?.program || 'VIT Chennai';
-  const studentSemester = student?.semester || 'N/A';
-  const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
+  const studentSemester = student?.semester ? `Semester ${student.semester}` : 'Fall Semester 2026-27';
+  
   const avatarInitials = student?.name
     ? student.name
         .split(' ')
@@ -34,61 +43,81 @@ export const Header: React.FC<HeaderProps> = ({
         .toUpperCase()
     : 'OS';
 
+  const formatViewTitle = (view: string) => {
+    switch (view) {
+      case 'dashboard':
+        return 'Dashboard';
+      case 'vtop-sync':
+        return 'VTOP Live Hub';
+      case 'academics':
+        return 'Academics';
+      case 'assignments':
+        return 'Assignments';
+      case 'fees':
+        return 'Fees & Receipts';
+      case 'placements':
+        return 'Placements & DSA';
+      case 'ai-planner':
+        return 'AI Study Planner';
+      default:
+        return view.replace('-', ' ');
+    }
+  };
+
   return (
     <>
-      <header className="top-header">
-        <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div className="header-title-block">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ textTransform: 'capitalize' }}>{activeView.replace('-', ' ')}</h1>
-              <span className="badge-chaingpt" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                <span className="pulse-dot" />
-                {isAuth ? 'VTOP SYNC v2.0' : 'OFFLINE'}
-              </span>
-            </div>
-            <p>{studentProgram} • Semester {studentSemester}</p>
+      <header className="app-header">
+        <div className="header-meta" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {onToggleMobileMenu && (
+            <button
+              onClick={onToggleMobileMenu}
+              className="btn-outline btn-sm"
+              style={{ display: 'none', padding: '6px' }}
+              aria-label="Toggle Navigation"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+          <div>
+            <h1 className="header-page-title">{formatViewTitle(activeView)}</h1>
+            <p className="header-subtitle">
+              {studentProgram} • {studentSemester}
+            </p>
           </div>
         </div>
 
-        <div className="header-right">
-          {/* Download App Button */}
+        <div className="header-actions-group">
+          {/* Mobile App Download Action */}
           <button
-            className="btn-outline"
+            className="btn btn-outline btn-sm"
             onClick={() => setShowAppModal(true)}
             title="Download CampusOS Mobile App"
-            style={{ borderColor: 'var(--border-medium)', fontSize: '0.82rem' }}
           >
-            <span>📲</span>
-            <span>App</span>
+            <Smartphone size={15} />
+            <span>Mobile App</span>
           </button>
 
-          {/* VTOP Sync Modal / Force Refresh Button */}
+          {/* Sync VTOP Button */}
           <button
-            className="btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={onOpenVtopModal}
             disabled={syncing}
-            title="Login or sync with VTOP portal"
-            style={{ fontSize: '0.82rem', padding: '8px 16px' }}
+            title="Authenticate or synchronize with live VTOP portal"
           >
-            <span style={{ display: 'inline-block', transform: syncing ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s ease' }}>
-              ⚡
-            </span>
-            {syncing ? 'Syncing...' : 'Sync VTOP'}
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+            <span>{syncing ? 'Syncing...' : 'Sync VTOP'}</span>
           </button>
 
-          {/* User Profile */}
+          {/* User Profile Pill */}
           <div
-            className="user-profile-badge"
+            className="user-profile-pill"
             onClick={onOpenVtopModal}
-            style={{ cursor: 'pointer' }}
-            title="Click to manage VTOP session"
+            title="Click to manage VTOP session & credentials"
           >
-            <div className="user-avatar">
-              {avatarInitials}
-            </div>
-            <div className="user-details">
-              <span className="user-name">{studentName}</span>
-              <span className="user-reg">{studentRegNo}</span>
+            <div className="user-avatar-circle">{avatarInitials}</div>
+            <div className="user-text-info">
+              <span className="user-display-name">{studentName}</span>
+              <span className="user-reg-code">{studentRegNo}</span>
             </div>
           </div>
         </div>
@@ -96,46 +125,49 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* App Coming Soon Modal */}
       {showAppModal && (
-        <div className="modal-backdrop" onClick={() => setShowAppModal(false)}>
-          <div className="login-card" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', alignItems: 'center' }}>
-            <div className="brand-logo-badge" style={{ width: '56px', height: '56px', fontSize: '1.6rem', margin: '0 auto' }}>
-              📲
+        <div className="modal-backdrop-overlay" onClick={() => setShowAppModal(false)}>
+          <div className="modal-dialog-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="brand-icon-box" style={{ width: '42px', height: '42px' }}>
+                <Smartphone size={20} />
+              </div>
+              <button
+                onClick={() => setShowAppModal(false)}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '4px', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '4px 10px', background: 'var(--brand-bg)', color: 'var(--brand-color)', borderRadius: 'var(--radius-full)', textTransform: 'uppercase' }}>
-                Under Development
+              <span className="status-badge info" style={{ marginBottom: '8px' }}>
+                Development Preview
               </span>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '10px' }}>CampusOS Mobile App</h2>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                The native iOS and Android mobile app is currently in build testing.
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                CampusOS Mobile App
+              </h2>
+              <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Native mobile builds for iOS and Android featuring offline timetable widgets, real-time attendance alerts, and automated LMS assignment sync.
               </p>
             </div>
 
-            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px 20px', width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--brand-color)' }}>
-                🚀 Coming Soon
+            <div style={{ background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', fontWeight: 700, color: 'var(--brand-color)' }}>
+                <CheckCircle2 size={16} />
+                <span>Beta Testing in Progress</span>
               </div>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Featuring offline timetable widgets, real-time attendance notification alerts, and automated LMS assignment sync.
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Direct APK and TestFlight builds will be accessible for all registered students.
               </p>
-
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '6px' }}>
-                <div style={{ padding: '6px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 700 }}>
-                  🍏 iOS App Store
-                </div>
-                <div style={{ padding: '6px 12px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 700 }}>
-                  🤖 Google Play
-                </div>
-              </div>
             </div>
 
             <button
-              className="btn-primary"
-              style={{ width: '100%', justifyContent: 'center', padding: '10px' }}
               onClick={() => setShowAppModal(false)}
+              className="btn btn-secondary"
+              style={{ width: '100%' }}
             >
-              Got it!
+              Got it
             </button>
           </div>
         </div>

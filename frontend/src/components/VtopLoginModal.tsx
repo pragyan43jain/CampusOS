@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Eye,
+  EyeOff,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  ShieldCheck,
+} from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
 interface VtopLoginModalProps {
@@ -56,7 +65,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) {
-      setErrorMsg('Please enter your VTOP Username / Registration Number');
+      setErrorMsg('Please enter your VTOP Registration Number');
       return;
     }
     if (!password) {
@@ -64,7 +73,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       return;
     }
     if (!captcha.trim()) {
-      setErrorMsg('Please enter the captcha shown above');
+      setErrorMsg('Please enter the captcha shown');
       return;
     }
 
@@ -73,7 +82,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setErrorMsg('');
       setSuccessMsg('');
 
-      setStatusStep('Connecting to VTOP server...');
+      setStatusStep('Connecting to VTOP portal...');
       await new Promise((r) => setTimeout(r, 200));
 
       setStatusStep('Authenticating & Fetching Profile...');
@@ -89,7 +98,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         setStatusStep('Extracting Timetable, Attendance, Marks & OD...');
         setSuccessMsg(response.message || `VTOP Synchronized for ${username.trim().toUpperCase()}!`);
         setStatusStep('Sync Complete!');
-        
+
         setTimeout(() => {
           onLoginSuccess(response.data);
           onClose();
@@ -99,7 +108,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         loadCaptcha(campus);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error communicating with backend sync engine.');
+      setErrorMsg(err.message || 'Network error communicating with VTOP.');
       loadCaptcha(campus);
     } finally {
       setSubmitting(false);
@@ -107,124 +116,98 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="login-card"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          maxWidth: '480px',
-          width: '90%',
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-          padding: '28px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
-        }}
-      >
+    <div className="modal-backdrop-overlay" onClick={onClose}>
+      <div className="modal-dialog-box" onClick={(e) => e.stopPropagation()}>
         {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="brand-logo-badge" style={{ width: '42px', height: '42px', fontSize: '1.2rem' }}>
-              V
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="brand-icon-box" style={{ width: '38px', height: '38px' }}>
+              <ShieldCheck size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>VTOP Live Sync</h2>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Official VIT Student Portal Connector
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                VTOP Authentication
+              </h3>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                Direct student session synchronization
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-muted)',
-              fontSize: '1.4rem',
-              cursor: 'pointer',
-              lineHeight: 1,
-            }}
-          >
-            ×
+
+          <button onClick={onClose} className="btn btn-outline btn-sm" style={{ padding: '6px' }} aria-label="Close">
+            <X size={16} />
           </button>
         </div>
 
-        {/* Status / Error / Success Alerts */}
+        {/* Feedback Messages */}
         {errorMsg && (
           <div
             style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
               background: 'var(--danger-bg)',
               border: '1px solid var(--danger-border)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
-              fontSize: '0.85rem',
               color: 'var(--danger-crimson)',
-              fontWeight: 600,
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            🚨 {errorMsg}
+            <AlertCircle size={16} />
+            <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
           <div
             style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
               background: 'var(--success-bg)',
               border: '1px solid var(--success-border)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
-              fontSize: '0.85rem',
               color: 'var(--success-emerald)',
-              fontWeight: 600,
-            }}
-          >
-            ✓ {successMsg}
-          </div>
-        )}
-
-        {statusStep && submitting && (
-          <div
-            style={{
-              background: 'var(--brand-bg)',
-              border: '1px solid var(--brand-border)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
-              fontSize: '0.85rem',
-              color: 'var(--brand-color)',
-              fontWeight: 600,
+              fontSize: '0.82rem',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
             }}
           >
-            <span style={{ animation: 'spin 1s infinite linear' }}>🔄</span>
+            <CheckCircle2 size={16} />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {statusStep && !errorMsg && !successMsg && (
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--brand-bg)',
+              border: '1px solid var(--brand-border)',
+              color: 'var(--brand-color)',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <RefreshCw size={14} className="animate-spin" />
             <span>{statusStep}</span>
           </div>
         )}
 
-        {/* Login Form */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Campus Selector */}
+        {/* Form */}
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Select Campus Portal
+            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Campus Portal
             </label>
             <select
               value={campus}
               onChange={(e) => setCampus(e.target.value as any)}
-              style={{
-                width: '100%',
-                background: 'var(--bg-surface-elevated)',
-                color: '#fff',
-                border: '1px solid var(--border-medium)',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.9rem',
-                outline: 'none',
-              }}
+              className="select-dropdown"
+              style={{ width: '100%' }}
             >
               <option value="chennai">VIT Chennai (vtopcc.vit.ac.in)</option>
               <option value="vellore">VIT Vellore (vtop.vit.ac.in)</option>
@@ -233,51 +216,32 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
             </select>
           </div>
 
-          {/* Registration Number / Username */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              VTOP Registration Number / Username
+            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              VTOP Username / Reg No
             </label>
             <input
               type="text"
               placeholder="e.g. 24BLC1100"
               value={username}
               onChange={(e) => setUsername(e.target.value.toUpperCase())}
-              style={{
-                width: '100%',
-                background: 'var(--bg-surface-elevated)',
-                color: '#fff',
-                border: '1px solid var(--border-medium)',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.9rem',
-                outline: 'none',
-                fontFamily: 'var(--font-mono)',
-              }}
+              className="input-field"
+              style={{ fontFamily: 'var(--font-mono)' }}
             />
           </div>
 
-          {/* Password */}
           <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
               VTOP Password
             </label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your VTOP password"
+                placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-surface-elevated)',
-                  color: '#fff',
-                  border: '1px solid var(--border-medium)',
-                  padding: '10px 40px 10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                }}
+                className="input-field"
+                style={{ paddingRight: '40px' }}
               />
               <button
                 type="button"
@@ -287,130 +251,85 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                   right: '10px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
                   color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
               >
-                {showPassword ? '👁️' : '🔒'}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          {/* Captcha Section */}
+          {/* Captcha */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                VTOP Captcha
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                Captcha Security
               </label>
               <button
                 type="button"
                 onClick={() => loadCaptcha(campus)}
                 disabled={loadingCaptcha}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--brand-color)',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
+                style={{ fontSize: '0.74rem', color: 'var(--brand-color)', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                {loadingCaptcha ? 'Refreshing...' : '🔄 Refresh Captcha'}
+                <RefreshCw size={12} className={loadingCaptcha ? 'animate-spin' : ''} />
+                <span>Reload</span>
               </button>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               {captchaImage ? (
-                <div
+                <img
+                  src={captchaImage.startsWith('data:') ? captchaImage : `data:image/png;base64,${captchaImage}`}
+                  alt="Captcha"
                   style={{
-                    background: '#fff',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '4px 8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    border: '1px solid var(--border-medium)',
                     height: '42px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-medium)',
+                    background: '#ffffff',
+                    padding: '2px 6px',
                   }}
-                >
-                  <img
-                    src={captchaImage}
-                    alt="VTOP Captcha"
-                    style={{ maxHeight: '34px', objectFit: 'contain' }}
-                  />
-                </div>
+                />
               ) : (
-                <div
-                  style={{
-                    background: 'var(--bg-surface-elevated)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '8px 12px',
-                    fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
-                    border: '1px solid var(--border-medium)',
-                    height: '42px',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  {loadingCaptcha ? 'Loading Captcha...' : 'Captcha Ready'}
+                <div style={{ height: '42px', width: '120px', background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Loading...
                 </div>
               )}
 
               <input
                 type="text"
-                placeholder="Captcha text"
+                placeholder="Enter text"
                 value={captcha}
                 onChange={(e) => setCaptcha(e.target.value)}
-                style={{
-                  flex: 1,
-                  background: 'var(--bg-surface-elevated)',
-                  color: '#fff',
-                  border: '1px solid var(--border-medium)',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                  fontFamily: 'var(--font-mono)',
-                  letterSpacing: '1px',
-                }}
+                className="input-field"
+                style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}
               />
             </div>
-
-            {captcha && (
-              <span style={{ fontSize: '0.72rem', color: 'var(--success-emerald)', fontWeight: 600, marginTop: '4px', display: 'block' }}>
-                ✓ AI OCR auto-detected: <b>{captcha}</b>
-              </span>
-            )}
           </div>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
             <button
               type="button"
-              className="btn-outline"
               onClick={onClose}
-              style={{ flex: 1, justifyContent: 'center' }}
+              className="btn btn-outline"
+              style={{ flex: 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary"
               disabled={submitting}
-              style={{ flex: 2, justifyContent: 'center', fontWeight: 800 }}
+              className="btn btn-primary"
+              style={{ flex: 2 }}
             >
-              {submitting ? 'Authenticating...' : '🚀 Authenticate & Sync'}
+              {submitting ? 'Connecting VTOP...' : 'Authenticate & Sync'}
             </button>
           </div>
         </form>
-
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.4 }}>
-          🔐 Your credentials are used directly to authenticate with your university's official VTOP portal and sync your academic record.
-        </div>
       </div>
     </div>
   );
 };
+
+export default VtopLoginModal;

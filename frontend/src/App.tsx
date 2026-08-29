@@ -28,7 +28,7 @@ import { AIPlannerView } from './views/AIPlannerView';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('dashboard');
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>('chaingpt-cyber');
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>('midnight-slate');
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
@@ -138,7 +138,6 @@ export const App: React.FC = () => {
     loadAllData();
   }, []);
 
-  // Toggle assignment status
   const handleToggleAssignment = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
     const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
     const updated = await CampusAPI.updateAssignmentStatus(id, nextStatus);
@@ -147,10 +146,25 @@ export const App: React.FC = () => {
 
   if (loading || !student) {
     return (
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-        <div className="brand-logo-badge" style={{ width: '48px', height: '48px', fontSize: '1.4rem', marginBottom: '16px' }}>C</div>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Loading CampusOS Engine...</h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Connecting to VTOP & LMS synchronization layer</p>
+      <div
+        style={{
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'var(--bg-primary)',
+          color: 'var(--text-primary)',
+          gap: '12px',
+        }}
+      >
+        <div className="brand-icon-box" style={{ width: '48px', height: '48px' }}>
+          ⚡
+        </div>
+        <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Initializing CampusOS Workspace...</h2>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          Validating VTOP authentication and academic schedule models
+        </p>
       </div>
     );
   }
@@ -162,7 +176,7 @@ export const App: React.FC = () => {
   const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
   return (
-    <div className="app-container" data-theme={currentTheme}>
+    <div className="app-shell" data-theme={currentTheme}>
       <Sidebar
         activeView={activeView}
         onSelectView={setActiveView}
@@ -173,64 +187,62 @@ export const App: React.FC = () => {
         onOpenVtopModal={() => setShowVtopModal(true)}
       />
 
-      <div className="app-viewport-wrapper">
-        <div className="main-wrapper">
-          <Header
+      <div className="main-viewport">
+        <Header
+          student={student}
+          activeView={activeView}
+          onOpenVtopModal={() => setShowVtopModal(true)}
+          syncing={syncing}
+        />
+
+        {activeView === 'dashboard' && (
+          <DashboardView
             student={student}
-            activeView={activeView}
-            onOpenVtopModal={() => setShowVtopModal(true)}
+            timetable={timetable}
+            od={od}
+            onOpenSyncModal={() => setShowVtopModal(true)}
+          />
+        )}
+
+        {activeView === 'vtop-sync' && (
+          <VtopSyncView
+            student={student}
+            courses={courses}
+            attendance={attendance}
+            marks={marks}
+            od={od}
+            exams={exams}
+            faculty={faculty}
+            timetable={timetable}
+            onOpenSyncModal={() => setShowVtopModal(true)}
+            onForceSync={loadAllData}
             syncing={syncing}
           />
+        )}
 
-          {activeView === 'dashboard' && (
-            <DashboardView
-              student={student}
-              timetable={timetable}
-              od={od}
-              onOpenSyncModal={() => setShowVtopModal(true)}
-            />
-          )}
+        {activeView === 'academics' && (
+          <AcademicsView
+            courses={courses}
+          />
+        )}
 
-          {activeView === 'vtop-sync' && (
-            <VtopSyncView
-              student={student}
-              courses={courses}
-              attendance={attendance}
-              marks={marks}
-              od={od}
-              exams={exams}
-              faculty={faculty}
-              timetable={timetable}
-              onOpenSyncModal={() => setShowVtopModal(true)}
-              onForceSync={loadAllData}
-              syncing={syncing}
-            />
-          )}
+        {activeView === 'assignments' && (
+          <AssignmentsView
+            assignments={assignments}
+            onToggleStatus={handleToggleAssignment}
+            onAssignmentsUpdated={(updated) => setAssignments(updated)}
+            studentEmail={student.email}
+            studentRegNo={student.regNo}
+          />
+        )}
 
-          {activeView === 'academics' && (
-            <AcademicsView
-              courses={courses}
-            />
-          )}
+        {activeView === 'fees' && <FeesView fees={fees} />}
 
-          {activeView === 'assignments' && (
-            <AssignmentsView
-              assignments={assignments}
-              onToggleStatus={handleToggleAssignment}
-              onAssignmentsUpdated={(updated) => setAssignments(updated)}
-              studentEmail={student.email}
-              studentRegNo={student.regNo}
-            />
-          )}
+        {activeView === 'placements' && (
+          <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />
+        )}
 
-          {activeView === 'fees' && <FeesView fees={fees} />}
-
-          {activeView === 'placements' && (
-            <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />
-          )}
-
-          {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
-        </div>
+        {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
       </div>
 
       <VtopLoginModal

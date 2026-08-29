@@ -1,4 +1,16 @@
 import React from 'react';
+import {
+  LayoutDashboard,
+  RefreshCw,
+  GraduationCap,
+  ClipboardList,
+  CreditCard,
+  Briefcase,
+  BrainCircuit,
+  Palette,
+  ShieldCheck,
+  Zap,
+} from 'lucide-react';
 import { ThemeType } from './Header';
 
 export type NavView = 'dashboard' | 'vtop-sync' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
@@ -22,49 +34,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTheme,
   onOpenVtopModal,
 }) => {
-  const navItems: { id: NavView; label: string; icon: string; badge?: { count: number; alert?: boolean } }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⚡' },
-    { id: 'vtop-sync', label: 'VTOP Live Hub', icon: '🔄' },
-    { 
-      id: 'academics', 
-      label: 'Academics', 
-      icon: '📚',
-      badge: criticalAttendanceCount > 0 ? { count: criticalAttendanceCount, alert: true } : undefined
+  const navItems = [
+    { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'vtop-sync' as NavView, label: 'VTOP Live Hub', icon: RefreshCw },
+    {
+      id: 'academics' as NavView,
+      label: 'Academics',
+      icon: GraduationCap,
+      badge: criticalAttendanceCount > 0 ? { count: criticalAttendanceCount, alert: true } : undefined,
     },
-    { 
-      id: 'assignments', 
-      label: 'Assignments', 
-      icon: '📝', 
-      badge: pendingAssignmentsCount > 0 ? { count: pendingAssignmentsCount } : undefined 
+    {
+      id: 'assignments' as NavView,
+      label: 'Assignments',
+      icon: ClipboardList,
+      badge: pendingAssignmentsCount > 0 ? { count: pendingAssignmentsCount, alert: false } : undefined,
     },
-    { id: 'fees', label: 'Fees & Receipts', icon: '💳' },
-    { id: 'placements', label: 'Placements & DSA', icon: '🎯' },
-    { id: 'ai-planner', label: 'AI Study Planner', icon: '🧠' },
+    { id: 'fees' as NavView, label: 'Fees & Receipts', icon: CreditCard },
+    { id: 'placements' as NavView, label: 'Placements & DSA', icon: Briefcase },
+    { id: 'ai-planner' as NavView, label: 'AI Study Planner', icon: BrainCircuit },
   ];
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="brand-logo-badge">C</div>
-        <div>
+    <aside className="app-sidebar">
+      {/* Brand Header */}
+      <div className="sidebar-brand-block">
+        <div className="brand-icon-box">
+          <Zap size={20} />
+        </div>
+        <div className="brand-info">
           <span className="brand-title">CampusOS</span>
-          <span className="brand-version">v1.0</span>
+          <span className="brand-version-badge">v1.0 • VIT Edition</span>
         </div>
       </div>
 
-      <nav className="sidebar-nav">
+      {/* Navigation Links */}
+      <nav className="sidebar-nav" aria-label="Main Navigation">
         {navItems.map((item) => {
           const isActive = activeView === item.id;
+          const Icon = item.icon;
           return (
             <button
               key={item.id}
-              className={`nav-item ${isActive ? 'active' : ''}`}
+              className={`nav-link-btn ${isActive ? 'active' : ''}`}
               onClick={() => onSelectView(item.id)}
             >
-              <span>{item.icon}</span>
+              <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
               <span>{item.label}</span>
               {item.badge && (
-                <span className={`nav-badge ${item.badge.alert ? 'alert' : ''}`}>
+                <span className={`nav-badge-count ${item.badge.alert ? 'alert' : ''}`}>
                   {item.badge.count}
                 </span>
               )}
@@ -72,48 +89,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Dedicated Themes Dropdown in Navigation Sidebar */}
-        <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ padding: '0 12px 8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.74rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-mono)' }}>
-            <span>⚡</span>
-            <span>UI Theme</span>
+        {/* Integrated Theme Selector */}
+        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ padding: '0 10px 8px 10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+            <Palette size={13} />
+            <span>Theme</span>
           </div>
 
-          <div style={{ padding: '0 8px' }}>
+          <div style={{ padding: '0 4px' }}>
             <select
               value={currentTheme}
               onChange={(e) => onSelectTheme(e.target.value as ThemeType)}
-              style={{
-                width: '100%',
-                background: 'var(--bg-surface-elevated)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-medium)',
-                padding: '9px 12px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.84rem',
-                fontWeight: 700,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
+              className="select-dropdown"
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.82rem' }}
             >
-              <option value="chaingpt-cyber">⚡ ChainGPT Cyber (Default)</option>
-              <option value="chaingpt-matrix">🟢 ChainGPT Matrix (Emerald)</option>
-              <option value="chaingpt-solana">🟣 ChainGPT Solana (Violet)</option>
-              <option value="midnight-slate">🌌 Midnight Slate (Dark)</option>
-              <option value="baby-pink">🌸 Baby Pink (Light)</option>
-              <option value="nordic-blue">❄️ Nordic Blue (Light)</option>
+              <option value="midnight-slate">Dark Slate (Default)</option>
+              <option value="chaingpt-cyber">Cyber Dark (Refined)</option>
+              <option value="baby-pink">Rose Blossom (Light)</option>
+              <option value="nordic-blue">Nordic Blue (Light)</option>
             </select>
           </div>
         </div>
       </nav>
 
-      <div style={{ padding: '16px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Footer / Connect VTOP CTA */}
+      <div className="sidebar-footer">
         <button
-          className="btn-primary"
-          style={{ width: '100%', justifyContent: 'center', fontWeight: 800, fontSize: '0.84rem' }}
+          className="btn btn-secondary"
+          style={{ width: '100%', fontSize: '0.84rem' }}
           onClick={onOpenVtopModal}
         >
-          ⚡ Connect VTOP
+          <ShieldCheck size={16} />
+          <span>Connect VTOP</span>
         </button>
       </div>
     </aside>

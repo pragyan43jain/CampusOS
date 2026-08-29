@@ -1,4 +1,5 @@
 import React from 'react';
+import { Calendar, Clock } from 'lucide-react';
 import { DayOfWeek } from '../types';
 
 interface WeekSelectorProps {
@@ -12,42 +13,77 @@ export const WeekSelector: React.FC<WeekSelectorProps> = ({
   onSelectDay,
   dayClassCounts,
 }) => {
-  const days: { day: DayOfWeek; name: string; dateNum: number }[] = [
-    { day: 'MON', name: 'MON', dateNum: 17 },
-    { day: 'TUE', name: 'TUE', dateNum: 18 },
-    { day: 'WED', name: 'WED', dateNum: 19 },
-    { day: 'THU', name: 'THU', dateNum: 20 },
-    { day: 'FRI', name: 'FRI', dateNum: 21 },
-    { day: 'SAT', name: 'SAT', dateNum: 22 },
+  const days: { day: DayOfWeek; shortName: string; fullName: string }[] = [
+    { day: 'MON', shortName: 'Mon', fullName: 'Monday' },
+    { day: 'TUE', shortName: 'Tue', fullName: 'Tuesday' },
+    { day: 'WED', shortName: 'Wed', fullName: 'Wednesday' },
+    { day: 'THU', shortName: 'Thu', fullName: 'Thursday' },
+    { day: 'FRI', shortName: 'Fri', fullName: 'Friday' },
+    { day: 'SAT', shortName: 'Sat', fullName: 'Saturday' },
   ];
 
   return (
-    <div className="week-selector-card">
-      <div className="week-selector-header">
-        <div>
-          <span className="week-title">Weekly Schedule</span>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: '12px' }}>
-            Academic Cycle 2026 • Week 6
-          </span>
+    <div className="card" style={{ padding: '16px 20px', gap: '14px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="brand-icon-box" style={{ width: '32px', height: '32px' }}>
+            <Calendar size={16} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Weekly Timetable & Schedule
+            </h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Select a day to review scheduled lectures, venues, and attendance buffers
+            </p>
+          </div>
         </div>
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-          August 17 – August 22
-        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-surface-elevated)', padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+          <Clock size={13} />
+          <span>Active Semester Schedule</span>
+        </div>
       </div>
 
-      <div className="week-days-strip">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
         {days.map((item) => {
           const isSelected = selectedDay === item.day;
-          const classCount = dayClassCounts[item.day] || 0;
+          const count = dayClassCounts[item.day] || 0;
           return (
             <button
               key={item.day}
-              className={`day-slot-btn ${isSelected ? 'active' : ''} ${classCount > 0 ? 'has-classes' : ''}`}
               onClick={() => onSelectDay(item.day)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: isSelected ? 'var(--brand-bg)' : 'var(--bg-surface-elevated)',
+                border: `1px solid ${isSelected ? 'var(--brand-color)' : 'var(--border-subtle)'}`,
+                color: isSelected ? 'var(--brand-color)' : 'var(--text-secondary)',
+                transition: 'all var(--transition-fast)',
+                cursor: 'pointer',
+                gap: '4px',
+              }}
             >
-              <span className="day-slot-name">{item.name}</span>
-              <span className="day-slot-date">{item.dateNum}</span>
-              {classCount > 0 && <div className="day-dot" title={`${classCount} classes`} />}
+              <span style={{ fontSize: '0.92rem', fontWeight: isSelected ? 800 : 600 }}>
+                {item.fullName}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-mono)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-full)',
+                  background: isSelected ? 'rgba(6, 182, 212, 0.2)' : 'var(--bg-surface)',
+                  color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: `1px solid ${isSelected ? 'var(--brand-border)' : 'var(--border-subtle)'}`,
+                }}
+              >
+                {count} {count === 1 ? 'Class' : 'Classes'}
+              </span>
             </button>
           );
         })}
