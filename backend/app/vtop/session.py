@@ -461,6 +461,19 @@ class VTOPSession:
             fields.insert(1, ("semesterSubId", semester_id))
         return self._post(path, fields).text
 
+    def post_custom(self, path: str, extra_fields: Optional[List[Tuple[str, str]]] = None) -> str:
+        """
+        Post custom fields with authenticated headers, auto-injected CSRF and authorizedID.
+        """
+        csrf, authorized_id = self._require_auth()
+        fields: List[Tuple[str, str]] = [
+            ("_csrf", csrf),
+            ("authorizedID", authorized_id),
+        ]
+        if extra_fields:
+            fields.extend(extra_fields)
+        return self._post(path, fields).text
+
     def logout(self) -> None:
         self.is_authenticated = False
         self.csrf = None

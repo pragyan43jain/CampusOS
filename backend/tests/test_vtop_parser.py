@@ -551,6 +551,8 @@ class TestSpotlight:
 # ---------------------------------------------------------------------------
 
 
+from app.vtop.parser import parse_subject_attendance_details, extract_course_attendance_descriptors
+
 class TestOnDuty:
     def test_parses_od_records_and_calculates_hours(self):
         od = parse_od(pages.OD_PAGE)
@@ -620,3 +622,33 @@ class TestOnDuty:
 
 
 
+
+    def test_parse_subject_attendance_details_extracts_od_lectures(self):
+        sample_html = '''
+        <table class="table">
+          <tr><th>Date</th><th>Slot</th><th>Status</th><th>Remarks</th></tr>
+          <tr><td>10-Aug-2026</td><td>F2</td><td>Present</td><td>Regular</td></tr>
+          <tr><td>17-Aug-2026</td><td>F2</td><td>On Duty</td><td>Riviera 2026 Lead OD</td></tr>
+          <tr><td>24-Aug-2026</td><td>F2</td><td>OD Approved</td><td>SIH 2026 Team Lead</td></tr>
+        </table>
+        '''
+        recs = parse_subject_attendance_details(sample_html, "BCSE302L", "Database Systems", "Dr. Rajesh")
+        assert len(recs) == 2
+        assert recs[0]["date"] == "10-Aug-2026" or recs[0]["date"] == "17-Aug-2026"
+        assert recs[0]["hours"] == 1
+        assert recs[0]["status"] == "Approved"
+        assert recs[0]["subjectCode"] == "BCSE302L"
+
+    def test_extract_course_attendance_descriptors(self):
+        sample_html = '''
+        <table>
+          <tr><td>1</td><td>BCSE302L</td><td>Database Systems</td><td>F2</td><td><input type="radio" name="classId" value="CH2026270100123" onclick="processViewAttendanceDetail('CH2026270100123', 'BCSE302L')"/></td></tr>
+          <tr><td>2</td><td>BCSE308L</td><td>Computer Networks</td><td>A2</td><td><button onclick="processViewAttendanceDetail('CH2026270100456')">View</button></td></tr>
+        </table>
+        '''
+        descs = extract_course_attendance_descriptors(sample_html)
+        assert len(descs) == 2
+        assert descs[0]["courseCode"] == "BCSE302L"
+        assert descs[0]["classId"] == "CH2026270100123"
+        assert descs[1]["courseCode"] == "BCSE308L"
+        assert descs[1]["classId"] == "CH2026270100456"

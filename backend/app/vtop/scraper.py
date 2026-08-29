@@ -207,6 +207,43 @@ def fetch_spotlight(session: VTOPSession) -> List[Dict[str, Any]]:
     return P.parse_spotlight(session.post_simple(C.SPOTLIGHT))
 
 
+def fetch_course_attendance_detail(
+    session: VTOPSession,
+    semester_id: str,
+    class_id: str,
+    course_code: str = "",
+    course_title: str = "",
+    faculty_name: str = "",
+) -> List[Dict[str, Any]]:
+    """
+    Query the subject attendance drill-down modal from VTOP CC to extract
+    every single class with 'On Duty' / 'OD' status.
+    """
+    detail_endpoints = [
+        "processViewAttendanceDetail",
+        "getAttendanceDetail",
+        "processViewStudentAttendanceDetail",
+        "academics/common/processViewAttendanceDetail",
+        "students/processViewAttendanceDetail",
+    ]
+    for ep in detail_endpoints:
+        try:
+            fields = [
+                ("semesterSubId", semester_id),
+                ("classId", class_id),
+                ("courseId", class_id),
+                ("crscd", course_code),
+            ]
+            html = session.post_custom(ep, fields)
+            if html and ("table" in html.lower() or "present" in html.lower() or "absent" in html.lower() or "duty" in html.lower() or "od" in html.lower()):
+                records = P.parse_subject_attendance_details(html, course_code, course_title, faculty_name)
+                if records:
+                    return records
+        except Exception as e:
+            logger.debug("[VTOP OD] Could not query detail endpoint %s for class %s: %s", ep, class_id, e)
+    return []
+
+
 def fetch_od(
     session: VTOPSession,
     semester_id: Optional[str] = None,
@@ -299,6 +336,19 @@ def fetch_od(
             att_od_records.extend(extracted)
             logger.info("[VTOP OD] Extracted %d OD record(s) from class attendance page.", len(extracted))
 
+    # Drill down into individual subject attendance detail pages if semester_id and attendance_html exist
+    if semester_id and attendance_html:
+        descriptors = P.extract_course_attendance_descriptors(attendance_html)
+        for desc in descriptors:
+            c_id = desc.get("classId")
+            c_code = desc.get("courseCode") or ""
+            if c_id:
+                logger.info("[VTOP OD] Querying attendance drilldown for %s (classId=%s)", c_code, c_id)
+                detail_recs = fetch_course_attendance_detail(session, semester_id, c_id, course_code=c_code)
+                if detail_recs:
+                    logger.info("[VTOP OD] Found %d detailed OD lecture(s) in %s", len(detail_recs), c_code)
+                    att_od_records.extend(detail_recs)
+
     if att_od_records:
         total_att_od = sum(r.get("hours", 1) for r in att_od_records)
         logger.info("[VTOP OD] Found %d OD hours across class attendance records.", total_att_od)
@@ -358,7 +408,6 @@ def fetch_od(
             "message": "No sanctioned On-Duty leave records found on VTOP for this semester.",
         }
     else:
-        # Guarantee all alias fields are populated
         used = best_result.get("usedHours")
         records = best_result.get("records") or best_result.get("odRecords") or []
         max_h = best_result.get("maxHours") or best_result.get("maxOdHours") or C.OD_MAX_HOURS
@@ -373,16 +422,10 @@ def fetch_od(
     best_result["diagnostics"] = {
         "probedEndpoints": diagnostics,
         "selectedEndpoint": selected_ep,
+        "candidateCount": len(C.OD_CANDIDATES),
     }
-    logger.info("[VTOP OD] Final backend OD response: state=%s, hasValidData=%s, usedHours=%s, records=%d",
-                best_result.get("state"), best_result.get("hasValidData"), best_result.get("usedHours"), len(best_result.get("records", [])))
+
     return best_result
-
-
-
-# ---------------------------------------------------------------------------
-# course assembly
-# ---------------------------------------------------------------------------
 
 
 def _course_identity(
@@ -474,6 +517,8 @@ def build_attendance(
                 "attendancePercentage": metrics.get("percentage"),
                 "attendanceStatus": metrics.get("status"),
                 "reportedPercentage": reported,
+                "odAttended": row.get("odAttended") or 0,
+                "odHours": row.get("odAttended") or 0,
                 **metrics,
             }
         )
@@ -683,6 +728,7 @@ def build_timetable(
                         "type": _TYPE_LABELS[period_type],
                         "resolved": True,
                         "attendance": attendance,
+                "odHours": attendance.get("odAttended") if attendance else 0,
                     }
                 )
 
@@ -725,6 +771,7 @@ def build_courses(
                 "credits": course.get("credits"),
                 "grade": grades_by_code.get(code) if code else None,
                 "attendance": attendance,
+                "odHours": attendance.get("odAttended") if attendance else 0,
                 "marks": marks["components"] if marks else None,
             }
         )

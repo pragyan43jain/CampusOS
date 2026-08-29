@@ -533,7 +533,7 @@ _ATTENDANCE_RULES = [
     ("course_code", contains("course", "code")),
     ("course_title", contains("course", "title")),
     ("slot", contains("slot")),
-    ("od_attended", lambda t: ("od" in t or "on duty" in t or "on-duty" in t or "leave" in t) and ("attend" in t or "class" in t or "unit" in t or "hr" in t or "hour" in t or t in ("od", "on duty", "on-duty", "od attend", "od attended", "od class", "od classes"))),
+    ("od_attended", lambda t: ("od" in t or "on duty" in t or "on-duty" in t or "duty" in t or "leave" in t) and not ("course" in t and "type" in t)),
     ("attended", lambda t: ("attended" in t or "present" in t) and "od" not in t and "on duty" not in t),
     ("total", lambda t: "total" in t or "conducted" in t or "held" in t),
     ("percentage", lambda t: "percentage" in t or "%" in t),
@@ -712,6 +712,118 @@ def extract_attendance_od_records(
                         })
 
     return records
+
+def parse_subject_attendance_details(
+    html: str,
+    course_code: str = "COURSE",
+    course_title: str = "Subject Class",
+    faculty_name: str = "Course Faculty",
+) -> List[Dict[str, Any]]:
+    """
+    Parse the subject-level day-by-day attendance detail table.
+    Extracts every class lecture marked as 'On Duty' / 'OD'.
+    """
+    records: List[Dict[str, Any]] = []
+    if not html:
+        return records
+
+    soup = soup_of(html)
+    tables = soup.find_all("table")
+    seen_keys = set()
+
+    for table in tables:
+        rows = table.find_all("tr")
+        for tr in rows:
+            tds = tr.find_all(["td", "th"])
+            if not tds:
+                continue
+            row_text = tr.get_text(separator=" ").strip()
+            if re.search(r"\b(?:on\s*duty|od|od\s*approved|od\s*sanctioned|attended\s*od|duty\s*leave)\b", row_text, re.I):
+                found_date = None
+                found_slot = None
+                for td in tds:
+                    t_text = td.get_text().strip()
+                    d_match = re.search(r"(\d{1,2}[-/][A-Za-z0-9]{3,}[-/]\d{2,4})", t_text)
+                    if d_match:
+                        found_date = d_match.group(1)
+                    s_match = re.search(r"\b([A-G][12]\+?T?[A-G]?[12]?|L\d{1,2}(?:\+L\d{1,2})*)\b", t_text)
+                    if s_match:
+                        found_slot = s_match.group(1)
+
+                date_val = found_date or "Active Semester"
+                key = f"{date_val}-{course_code}-{found_slot or ''}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    remarks = tds[-1].get_text().strip() if len(tds) > 1 else f"Class On-Duty Credit ({course_code})"
+                    records.append({
+                        "id": f"od-class-{course_code}-{len(records) + 1}",
+                        "date": date_val,
+                        "fromDate": date_val,
+                        "toDate": date_val,
+                        "fromTime": None,
+                        "toTime": None,
+                        "timeRange": None,
+                        "subjectCode": course_code,
+                        "subjectTitle": course_title,
+                        "hours": 1,
+                        "days": 1,
+                        "slot": found_slot or "",
+                        "reason": remarks or f"Class On-Duty Credit ({course_code})",
+                        "status": "Approved",
+                        "isApproved": True,
+                        "approvedBy": faculty_name,
+                    })
+
+    return records
+
+
+def extract_course_attendance_descriptors(html: str) -> List[Dict[str, Any]]:
+    """
+    Extract course descriptors and class IDs from the main attendance table.
+    """
+    descriptors: List[Dict[str, Any]] = []
+    if not html:
+        return descriptors
+
+    soup = soup_of(html)
+    tables = soup.find_all("table")
+    for table in tables:
+        for tr in table.find_all("tr"):
+            tds = tr.find_all("td")
+            if not tds:
+                continue
+
+            row_text = tr.get_text(separator=" ").strip()
+            c_match = re.search(r"\b([A-Z]{3,4}\d{3,4}[A-Z]?)\b", row_text)
+            if not c_match:
+                continue
+
+            code = c_match.group(1).upper()
+            
+            class_id = None
+            inputs = tr.find_all(["input", "button", "a"])
+            for inp in inputs:
+                val = inp.get("value") or ""
+                onclick = inp.get("onclick") or inp.get("href") or ""
+                m = re.search(r"['\"]([A-Za-z0-9_]{4,})['\"]", onclick)
+                if m:
+                    class_id = m.group(1)
+                    break
+                elif val and len(val) >= 4 and any(c.isdigit() for c in val):
+                    class_id = val
+                    break
+
+            s_match = re.search(r"\b([A-G][12]\+?T?[A-G]?[12]?|L\d{1,2}(?:\+L\d{1,2})*)\b", row_text)
+            slot = s_match.group(1) if s_match else ""
+
+            descriptors.append({
+                "classId": class_id,
+                "courseCode": code,
+                "slot": slot,
+                "rowText": row_text,
+            })
+
+    return descriptors
 
 
 # ---------------------------------------------------------------------------
