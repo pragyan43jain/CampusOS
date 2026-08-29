@@ -106,36 +106,31 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
       {/* VTOP Sync Control Header Bar */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, var(--bg-surface) 100%)',
+          background: 'var(--card-banner-bg)',
           border: '1px solid var(--border-medium)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '20px 24px',
+          borderRadius: 'var(--radius-xl)',
+          padding: '24px 28px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '18px',
+          boxShadow: 'var(--glow-card)',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, #28efce 0%, #6a59e5 50%, #fb7c4f 100%)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div className="brand-logo-badge" style={{ width: '48px', height: '48px', fontSize: '1.4rem' }}>
-            V
+            ⚡
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>VTOP Chennai Integration Hub</h2>
-              <span
-                style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  padding: '3px 8px',
-                  borderRadius: 'var(--radius-full)',
-                  background: (student?.regNo && student.regNo !== 'Not available') ? 'var(--success-bg)' : 'rgba(255,255,255,0.08)',
-                  color: (student?.regNo && student.regNo !== 'Not available') ? 'var(--success-emerald)' : 'var(--text-muted)',
-                  border: `1px solid ${(student?.regNo && student.regNo !== 'Not available') ? 'var(--success-border)' : 'var(--border-subtle)'}`,
-                }}
-              >
-                {(student?.regNo && student.regNo !== 'Not available') ? '● AUTHORITATIVE VTOP DATA' : '○ DISCONNECTED'}
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.3px' }}>VTOP Integration Protocol</h2>
+              <span className="badge-chaingpt" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                <span className="pulse-dot" />
+                {(student?.regNo && student.regNo !== 'Not available') ? 'AUTHORITATIVE VTOP CC' : 'DISCONNECTED'}
               </span>
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
