@@ -25,6 +25,7 @@ import { AssignmentsView } from './views/AssignmentsView';
 import { FeesView } from './views/FeesView';
 import { PlacementsView } from './views/PlacementsView';
 import { AIPlannerView } from './views/AIPlannerView';
+import { LandingPageView } from './views/LandingPageView';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('dashboard');
@@ -32,6 +33,7 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
+  const [showLanding, setShowLanding] = useState<boolean>(false);
 
   // Core Academic Data States
   const [student, setStudent] = useState<StudentProfile | null>(null);
@@ -175,6 +177,27 @@ export const App: React.FC = () => {
   }).length;
   const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
+  if (showLanding) {
+    return (
+      <div data-theme={currentTheme}>
+        <LandingPageView
+          onOpenLogin={() => setShowVtopModal(true)}
+          onEnterApp={() => setShowLanding(false)}
+          studentName={student?.name}
+          isLoggedIn={Boolean(student?.regNo)}
+        />
+        <VtopLoginModal
+          isOpen={showVtopModal}
+          onClose={() => setShowVtopModal(false)}
+          onLoginSuccess={(data) => {
+            handleSyncedData(data);
+            setShowLanding(false);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell" data-theme={currentTheme}>
       <Sidebar
@@ -185,6 +208,7 @@ export const App: React.FC = () => {
         currentTheme={currentTheme}
         onSelectTheme={setCurrentTheme}
         onOpenVtopModal={() => setShowVtopModal(true)}
+        onOpenLanding={() => setShowLanding(true)}
       />
 
       <div className="main-viewport">
@@ -192,6 +216,7 @@ export const App: React.FC = () => {
           student={student}
           activeView={activeView}
           onOpenVtopModal={() => setShowVtopModal(true)}
+          onOpenLanding={() => setShowLanding(true)}
           syncing={syncing}
         />
 

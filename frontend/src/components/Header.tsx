@@ -17,6 +17,7 @@ interface HeaderProps {
   onOpenVtopModal: () => void;
   syncing: boolean;
   onToggleMobileMenu?: () => void;
+  onOpenLanding?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenVtopModal,
   syncing,
   onToggleMobileMenu,
+  onOpenLanding,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
 
@@ -89,6 +91,17 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="header-right-actions">
+          {/* Landing Page Button */}
+          {onOpenLanding && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={onOpenLanding}
+              title="View 3D Landing Page"
+            >
+              <span>Landing Page</span>
+            </button>
+          )}
+
           {/* Mobile App Download Button */}
           <button
             className="btn btn-secondary btn-sm"

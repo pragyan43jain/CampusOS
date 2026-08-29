@@ -23,6 +23,7 @@ interface SidebarProps {
   currentTheme?: ThemeType;
   onSelectTheme?: (t: ThemeType) => void;
   onOpenVtopModal?: () => void;
+  onOpenLanding?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingAssignmentsCount,
   criticalAttendanceCount,
   onOpenVtopModal,
+  onOpenLanding,
 }) => {
   const mainNavItems = [
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
@@ -57,8 +59,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="app-sidebar">
-      {/* Brand Header (Height ~92px) */}
-      <div className="sidebar-brand-block">
+      {/* Brand Header (Height ~92px) - Clickable to open Landing Page */}
+      <div
+        className="sidebar-brand-block"
+        onClick={onOpenLanding}
+        style={{ cursor: onOpenLanding ? 'pointer' : 'default' }}
+        title="View 3D Landing Page"
+      >
         <div className="brand-icon-box">
           <Zap size={19} />
         </div>
