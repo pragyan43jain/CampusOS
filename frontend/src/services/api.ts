@@ -16,22 +16,40 @@ import {
   UnifiedAssignmentsDashboard,
 } from '../types';
 
-const getApiBase = (): string => {
+export const getApiBase = (): string => {
   if (typeof window !== 'undefined') {
+    // 1. Check runtime localStorage override
+    const custom = window.localStorage.getItem('campus_api_url');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/+$/, '');
+    }
+
+    // 2. Check Vite build/env variable
+    const envUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE;
+    if (envUrl && envUrl.trim()) {
+      return envUrl.trim().replace(/\/+$/, '');
+    }
+
     const hostname = window.location.hostname;
     const port = window.location.port;
-    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port && port !== '8000' && port !== '5173') {
+
+    // 3. If running on GitHub Pages (github.io) or external domain without reverse proxy
+    if (hostname.includes('github.io') || (hostname !== 'localhost' && hostname !== '127.0.0.1')) {
+      return 'http://127.0.0.1:8000/api';
+    }
+
+    // 4. If running locally on preview or custom port
+    if (port && port !== '5173' && port !== '8000') {
       return 'http://127.0.0.1:8000/api';
     }
   }
   return '/api';
 };
 
-const API_BASE = getApiBase();
-
 async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(`${base}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -42,7 +60,7 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: 
     }
     return await res.json();
   } catch (err) {
-    console.warn(`[CampusAPI] Request to ${endpoint} failed:`, err);
+    console.warn(`[CampusAPI] Request to ${base}${endpoint} failed:`, err);
     if (fallback !== undefined) {
       return fallback;
     }
@@ -55,6 +73,16 @@ let inFlightLogin: Promise<VtopSyncResponse> | null = null;
 let inFlightSync: Promise<VtopSyncResponse> | null = null;
 
 export const CampusAPI = {
+  getApiBaseUrl: () => getApiBase(),
+  setCustomApiUrl: (url: string) => {
+    if (typeof window !== 'undefined') {
+      if (!url) {
+        window.localStorage.removeItem('campus_api_url');
+      } else {
+        window.localStorage.setItem('campus_api_url', url.trim());
+      }
+    }
+  },
   getActiveSessionId: () => activeSessionId,
   setActiveSessionId: (sid: string | null) => {
     activeSessionId = sid;
@@ -232,7 +260,7 @@ export const CampusAPI = {
   },
 
   updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {
-    const res = await fetch(`${API_BASE}/assignments/${id}/status`, {
+    const res = await fetch(`${getApiBase()}/assignments/${id}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
@@ -287,9 +315,7 @@ export const CampusAPI = {
   // 10. VTOP Auth & Synchronization Endpoints
   getVtopCaptcha: async (campus: string = 'chennai') => {
     const data = await fetchJson<{ sessionId: string; captchaImage: string; solvedCaptcha: string; campus: string }>(
-      `/vtop/captcha?campus=${campus}`,
-      undefined,
-      { sessionId: '', captchaImage: '', solvedCaptcha: '', campus }
+      `/vtop/captcha?campus=${campus}`
     );
     if (data && data.sessionId) {
       activeSessionId = data.sessionId;
@@ -308,7 +334,7 @@ export const CampusAPI = {
           ...req,
           sessionId: req.sessionId || activeSessionId,
         };
-        const res = await fetch(`${API_BASE}/vtop/login`, {
+        const res = await fetch(`${getApiBase()}/vtop/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -340,7 +366,7 @@ export const CampusAPI = {
     inFlightSync = (async () => {
       try {
         const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
-        const res = await fetch(`${API_BASE}/vtop/sync${q}`, { method: 'POST' });
+        const res = await fetch(`${getApiBase()}/vtop/sync${q}`, { method: 'POST' });
         const data = await res.json();
         if (data && data.sessionId) {
           activeSessionId = data.sessionId;
@@ -418,7 +444,7 @@ export const CampusAPI = {
     mfaRequired?: boolean;
   }> => {
     try {
-      const res = await fetch(`${API_BASE}/teams/login`, {
+      const res = await fetch(`${getApiBase()}/teams/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -447,7 +473,7 @@ export const CampusAPI = {
     lastSynced?: string;
   }> => {
     try {
-      const res = await fetch(`${API_BASE}/teams/sync`, {
+      const res = await fetch(`${getApiBase()}/teams/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -515,7 +541,7 @@ export const CampusAPI = {
     lastSynced?: string;
   }> => {
     try {
-      const res = await fetch(`${API_BASE}/lms/login`, {
+      const res = await fetch(`${getApiBase()}/lms/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
@@ -545,7 +571,7 @@ export const CampusAPI = {
     lastSynced?: string;
   }> => {
     try {
-      const res = await fetch(`${API_BASE}/lms/sync`, {
+      const res = await fetch(`${getApiBase()}/lms/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -608,7 +634,7 @@ export const CampusAPI = {
     dashboard?: UnifiedAssignmentsDashboard;
   }> => {
     try {
-      const res = await fetch(`${API_BASE}/academic-accounts/sync-all`, {
+      const res = await fetch(`${getApiBase()}/academic-accounts/sync-all`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

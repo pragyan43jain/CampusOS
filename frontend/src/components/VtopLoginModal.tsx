@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Eye,
-  EyeOff,
-  RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  X,
   ShieldCheck,
+  X,
   Lock,
   User,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
   Sparkles,
+  Settings2,
+  Server,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
 interface VtopLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (syncedData?: any) => void;
+  onLoginSuccess: (data?: any) => void;
 }
 
 export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
@@ -36,19 +38,29 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
 
+  // Backend connection settings toggle
+  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
+  const [customApiUrl, setCustomApiUrl] = useState<string>(CampusAPI.getApiBaseUrl());
+
   const loadCaptcha = async () => {
     try {
       setLoadingCaptcha(true);
       setErrorMsg('');
       const data = await CampusAPI.getVtopCaptcha('chennai');
-      if (data) {
+      if (data && data.captchaImage && data.captchaImage.length > 50) {
         setSessionId(data.sessionId || '');
-        setCaptchaImage(data.captchaImage || '');
+        setCaptchaImage(data.captchaImage);
         setCaptcha(data.solvedCaptcha || '');
+      } else {
+        throw new Error('Received empty captcha from backend engine');
       }
     } catch (e: any) {
       console.warn('Captcha load failed:', e);
-      setErrorMsg('Failed to reach VTOP portal. Please retry.');
+      setCaptchaImage('');
+      const currentUrl = CampusAPI.getApiBaseUrl();
+      setErrorMsg(
+        `Unable to reach backend at "${currentUrl}". Please verify that the FastAPI backend server is running locally (uvicorn app.main:app --port 8000) or configure the backend URL below.`
+      );
     } finally {
       setLoadingCaptcha(false);
     }
@@ -59,9 +71,16 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setErrorMsg('');
       setSuccessMsg('');
       setStatusStep('');
+      setCustomApiUrl(CampusAPI.getApiBaseUrl());
       loadCaptcha();
     }
   }, [isOpen]);
+
+  const handleSaveApiUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    CampusAPI.setCustomApiUrl(customApiUrl);
+    loadCaptcha();
+  };
 
   if (!isOpen) return null;
 
@@ -106,7 +125,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         loadCaptcha();
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Network error communicating with VTOP.');
+      setErrorMsg(err.message || 'Network error communicating with VTOP backend.');
       loadCaptcha();
     } finally {
       setSubmitting(false);
@@ -115,7 +134,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -130,15 +149,64 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
             </div>
           </div>
 
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '4px' }} aria-label="Close">
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => setShowServerConfig(!showServerConfig)}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: '6px' }}
+              title="Configure Backend API URL"
+              aria-label="Server settings"
+            >
+              <Settings2 size={16} color={showServerConfig ? 'var(--accent-cyan)' : 'var(--text-muted)'} />
+            </button>
+            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '6px' }} aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Expandable Server Config Panel */}
+        {showServerConfig && (
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-card)',
+              backgroundColor: 'var(--surface-sunken)',
+              border: '1px solid var(--border-subtle)',
+              marginBottom: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <Server size={14} color="var(--accent-cyan)" />
+              <span>Backend API Server Endpoint</span>
+            </div>
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+              When hosted on GitHub Pages or local preview, ensure this URL points to your running FastAPI backend.
+            </p>
+            <form onSubmit={handleSaveApiUrl} style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={customApiUrl}
+                onChange={(e) => setCustomApiUrl(e.target.value)}
+                placeholder="http://127.0.0.1:8000/api"
+                className="input-field"
+                style={{ flex: 1, fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}
+              />
+              <button type="submit" className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap' }}>
+                Save &amp; Test
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Notifications */}
         {errorMsg && (
-          <div className="status-badge error" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
-            <AlertCircle size={15} />
+          <div className="status-badge error" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', fontSize: '0.80rem', gap: '8px', display: 'flex', alignItems: 'flex-start', lineHeight: 1.4 }}>
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -232,7 +300,13 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                     style={{ height: '100%', objectFit: 'contain' }}
                   />
                 ) : (
-                  <span style={{ fontSize: '0.74rem', color: '#666' }}>Loaded</span>
+                  <button
+                    type="button"
+                    onClick={loadCaptcha}
+                    style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.72rem', cursor: 'pointer' }}
+                  >
+                    Click to load
+                  </button>
                 )}
               </div>
 
@@ -286,3 +360,5 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
     </div>
   );
 };
+
+export default VtopLoginModal;
