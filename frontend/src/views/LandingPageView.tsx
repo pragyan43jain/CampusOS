@@ -412,7 +412,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               }}
             >
               <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#38bdf8' }}>75% Safety</div>
-              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>Bunk & OD Shield</div>
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>Attendance Shield</div>
             </div>
 
             <div
@@ -526,7 +526,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </div>
           </div>
 
-          {/* Floating Feature Chip 2: OD Calculator */}
+          {/* Floating Feature Chip 2: Attendance Radar */}
           <div
             style={{
               position: 'absolute',
@@ -559,7 +559,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <Shield size={16} />
             </div>
             <div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FFFFFF' }}>OD & Bunk Radar</div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FFFFFF' }}>Attendance Radar</div>
               <div style={{ fontSize: '0.68rem', color: '#2de7d3' }}>Active safety calculation</div>
             </div>
           </div>
@@ -648,7 +648,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 <div>
                   <strong style={{ color: '#f1f5f9', fontSize: '0.92rem' }}>Attendance Guesswork:</strong>
                   <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#94a3b8' }}>
-                    No clue how many classes you can afford to miss or whether your On-Duty (OD) hours were credited.
+                    No clue how many classes you can afford to miss before dropping below the 75% threshold.
                   </p>
                 </div>
               </div>
@@ -706,9 +706,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <span style={{ color: '#2de7d3', fontWeight: 700 }}>✓</span>
                 <div>
-                  <strong style={{ color: '#f1f5f9', fontSize: '0.92rem' }}>Live Bunk & OD Mathematics:</strong>
+                  <strong style={{ color: '#f1f5f9', fontSize: '0.92rem' }}>Live Attendance Safety Calculations:</strong>
                   <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#94a3b8' }}>
-                    Instant mathematical projection of safe leaves, remaining OD hours, and required attendance recovery.
+                    Instant mathematical projection of safe leaves and required attendance recovery for every course.
                   </p>
                 </div>
               </div>
@@ -775,7 +775,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </div>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 10px 0' }}>VTOP Academic Portal</h3>
             <p style={{ fontSize: '0.88rem', color: '#94a3b8', lineHeight: 1.6, margin: '0 0 20px 0' }}>
-              Direct automated extraction of weekly timetable, theory/lab attendance, marks ledger, exam schedule, and per-subject OD records.
+              Direct automated extraction of weekly timetable, theory/lab attendance, marks ledger, exam schedule, and academic profile.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               <span style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', background: 'rgba(45, 231, 211, 0.1)', color: '#2de7d3' }}>
@@ -785,7 +785,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 Attendance
               </span>
               <span style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', background: 'rgba(45, 231, 211, 0.1)', color: '#2de7d3' }}>
-                On-Duty Hours
+                Exam Schedules
               </span>
             </div>
           </div>
@@ -908,7 +908,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             gap: '24px',
           }}
         >
-          {/* Bento Item 1: Attendance Shield & OD Calculator (8 cols) */}
+          {/* Bento Item 1: Attendance Shield & Safe Bunk Margins (8 cols) */}
           <div
             style={{
               gridColumn: 'span 8',
@@ -923,14 +923,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2de7d3', marginBottom: '14px' }}>
               <Shield size={22} />
               <span style={{ fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Real-Time Attendance & OD Engine
+                Real-Time Attendance Safety Engine
               </span>
             </div>
             <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 12px 0' }}>
               Never drop below 75%. Safe Bunk Margins Calculated Automatically.
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '0.92rem', lineHeight: 1.6, maxWidth: '580px', margin: '0 0 24px 0' }}>
-              CampusOS calculates exact safe bunks remaining, mandatory classes to attend for recovery, and audits on-duty (OD) credit limits per subject.
+              CampusOS calculates exact safe bunks remaining and mandatory classes to attend for recovery across all registered theory and laboratory components.
             </p>
 
             {/* Visual Mini Tracker */}
@@ -950,8 +950,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#2de7d3' }}>75.0%</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>OD Allowance Cap</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#38bdf8' }}>40 Hours Max</div>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Real-Time Tracking</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#38bdf8' }}>All Registered Courses</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Status Audit</div>

@@ -10,7 +10,6 @@ import {
   AIStudyTask,
   Attendance,
   Marks,
-  OD,
   Exam,
   Faculty,
 } from './types';
@@ -41,14 +40,6 @@ export const App: React.FC = () => {
   const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [marks, setMarks] = useState<Marks[]>([]);
-  const [od, setOd] = useState<OD>({
-    usedHours: 0,
-    maxHours: 40,
-    remainingHours: 40,
-    percentageUsed: 0.0,
-    hasValidData: false,
-    records: [],
-  });
   const [exams, setExams] = useState<Exam[]>([]);
   const [faculty, setFaculty] = useState<Faculty[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -72,7 +63,6 @@ export const App: React.FC = () => {
         timetableData,
         attendanceData,
         marksData,
-        odData,
         examsData,
         facultyData,
         assignmentsData,
@@ -86,7 +76,6 @@ export const App: React.FC = () => {
         CampusAPI.getTimetable(),
         CampusAPI.getAttendance(),
         CampusAPI.getMarks(),
-        CampusAPI.getOD(),
         CampusAPI.getExams(),
         CampusAPI.getFaculty(),
         CampusAPI.getAssignments(),
@@ -101,7 +90,6 @@ export const App: React.FC = () => {
       setTimetable(timetableData);
       setAttendance(attendanceData);
       setMarks(marksData);
-      setOd(odData);
       setExams(examsData);
       setFaculty(facultyData);
       setAssignments(assignmentsData);
@@ -124,7 +112,6 @@ export const App: React.FC = () => {
       if (data.timetable) setTimetable(data.timetable);
       if (data.attendance) setAttendance(data.attendance);
       if (data.marks) setMarks(data.marks);
-      if (data.od) setOd(data.od);
       if (data.exams) setExams(data.exams);
       if (data.faculty) setFaculty(data.faculty);
       if (data.assignments) setAssignments(data.assignments);
@@ -224,7 +211,6 @@ export const App: React.FC = () => {
           <DashboardView
             student={student}
             timetable={timetable}
-            od={od}
             onOpenSyncModal={() => setShowVtopModal(true)}
           />
         )}
@@ -235,11 +221,9 @@ export const App: React.FC = () => {
             courses={courses}
             attendance={attendance}
             marks={marks}
-            od={od}
             exams={exams}
             faculty={faculty}
             timetable={timetable}
-            onOpenSyncModal={() => setShowVtopModal(true)}
             onForceSync={loadAllData}
             syncing={syncing}
           />

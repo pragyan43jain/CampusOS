@@ -9,7 +9,6 @@ import {
   AIStudyTask,
   Attendance,
   Marks,
-  OD,
   Exam,
   Faculty,
   VtopLoginRequest,
@@ -120,61 +119,7 @@ export const CampusAPI = {
     return fetchJson<Course[]>('/courses', undefined, []);
   },
 
-  // 3. OD (On-Duty Hours out of 40)
-  getOD: async (): Promise<OD> => {
-    const res = await fetchJson<OD>('/vtop/od', undefined, {
-      state: 'source_unavailable',
-      usedHours: null,
-      odHours: null,
-      totalOdHours: null,
-      approvedHours: 0,
-      pendingHours: 0,
-      rejectedHours: 0,
-      maxHours: 40,
-      maxOdHours: 40,
-      remainingHours: null,
-      percentageUsed: null,
-      hasValidData: false,
-      records: [],
-      odRecords: [],
-    });
-    const records = res.records || res.odRecords || [];
-    const used = (res.usedHours !== undefined && res.usedHours !== null)
-      ? res.usedHours
-      : (res.odHours !== undefined && res.odHours !== null
-          ? res.odHours
-          : (res.totalOdHours !== undefined && res.totalOdHours !== null ? res.totalOdHours : null));
-    const maxH = res.maxHours || res.maxOdHours || 40;
-    const hasValid = res.hasValidData ?? (used !== null || res.state === 'success_with_records' || res.state === 'success_with_no_records');
-    const remaining = used !== null ? Math.max(0, maxH - used) : null;
-    const pct = used !== null ? Math.round((used / maxH) * 1000) / 10 : null;
-
-    return {
-      ...res,
-      usedHours: used,
-      odHours: used,
-      totalOdHours: used,
-      maxHours: maxH,
-      maxOdHours: maxH,
-      remainingHours: res.remainingHours ?? remaining,
-      percentageUsed: res.percentageUsed ?? pct,
-      hasValidData: hasValid,
-      records,
-      odRecords: records,
-    };
-  },
-
-  syncOD: async (): Promise<{ success: boolean; sessionExpired?: boolean; message: string; od?: OD }> => {
-    try {
-      const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
-      const res = await fetch(`${API_BASE}/vtop/od/sync${q}`, { method: 'POST' });
-      return await res.json();
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Failed to sync OD from VTOP CC' };
-    }
-  },
-
-  // 4. Marks
+  // 3. Marks
   getMarks: async (): Promise<Marks[]> => {
     return fetchJson<Marks[]>('/vtop/marks', undefined, []);
   },

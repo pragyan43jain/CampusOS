@@ -52,8 +52,6 @@ export interface Attendance {
   total?: number;
   classesAttended: number;
   attended?: number;
-  odAttended?: number;
-  odHours?: number;
   attendancePercentage: number;
   percentage?: number;
   rawPercentage?: number;
@@ -71,56 +69,7 @@ export interface Attendance {
   resolved?: boolean;
 }
 
-// 3. OD (On-Duty) Model
-export interface ODRecord {
-  id: string;
-  date: string;
-  fromDate?: string;
-  toDate?: string;
-  fromTime?: string;
-  toTime?: string;
-  timeRange?: string;
-  subjectCode: string;
-  subjectTitle: string;
-  hours: number;
-  days?: number;
-  reason: string;
-  status: 'Approved' | 'Pending' | 'Rejected' | string;
-  isApproved?: boolean;
-  slot?: string;
-  approvedBy?: string;
-  rawFields?: Record<string, string>;
-}
-
-export type ODState =
-  | 'loading'
-  | 'success_with_records'
-  | 'success_with_no_records'
-  | 'authentication_required'
-  | 'endpoint_failed'
-  | 'parser_failed'
-  | 'source_unavailable';
-
-export interface OD {
-  state?: ODState;
-  usedHours?: number | null;
-  odHours?: number | null;
-  totalOdHours?: number | null;
-  approvedHours?: number;
-  pendingHours?: number;
-  rejectedHours?: number;
-  maxHours: number; // Constant 40
-  maxOdHours?: number;
-  remainingHours?: number | null;
-  percentageUsed?: number | null;
-  hasValidData?: boolean;
-  message?: string;
-  records?: ODRecord[];
-  odRecords?: ODRecord[];
-  diagnostics?: any;
-}
-
-// 4. Marks Model
+// 3. Marks Model
 export interface MarksAssessmentItem {
   scored: number | null;
   max: number;
@@ -457,7 +406,6 @@ export interface VtopSyncResponse {
   timetable?: TimetableSlot[];
   attendance?: Attendance[];
   marks?: Marks[];
-  od?: OD;
   exams?: Exam[];
   faculty?: Faculty[];
   receipts?: FeeItem[];

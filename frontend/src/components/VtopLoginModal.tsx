@@ -93,7 +93,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       });
 
       if (response && response.success) {
-        setStatusStep('Extracting Timetable, Attendance, Marks & OD...');
+        setStatusStep('Extracting Timetable, Attendance & Marks...');
         setSuccessMsg(response.message || `VTOP Synchronized for ${username.trim().toUpperCase()}!`);
         setStatusStep('Sync Complete!');
 

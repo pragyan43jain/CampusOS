@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Percent,
-  Clock,
   GraduationCap,
   Award,
   BookOpen,
@@ -9,7 +8,7 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
-import { StudentProfile, TimetableSlot, DayOfWeek, OD } from '../types';
+import { StudentProfile, TimetableSlot, DayOfWeek } from '../types';
 import { MetricCard } from '../components/MetricCard';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
@@ -17,14 +16,12 @@ import { TimetableSlotCard } from '../components/TimetableSlotCard';
 interface DashboardViewProps {
   student: StudentProfile;
   timetable: TimetableSlot[];
-  od?: OD;
   onOpenSyncModal?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   student,
   timetable,
-  od,
   onOpenSyncModal,
 }) => {
   const getTodayDayOfWeek = (): DayOfWeek => {
@@ -90,9 +87,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       ? `${student.creditsEarned} / ${student.totalCreditsRequired || 160}`
       : 'Data unavailable';
 
-  const odHoursCount = od?.usedHours ?? od?.odHours ?? od?.totalOdHours ?? (od?.hasValidData ? 0 : null);
-  const odRemaining = od?.remainingHours ?? Math.max(0, (od?.maxHours || 40) - (odHoursCount || 0));
-
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
 
   return (
@@ -126,8 +120,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Main 5-Column Statistics Grid */}
-      <div className="metrics-stat-grid">
+      {/* Main 4-Column Legitimate Academic Statistics Grid */}
+      <div className="metrics-stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         <MetricCard
           label="Overall Attendance"
           value={hasAttendance && attendance ? `${attendance.percentage}%` : 'Data unavailable'}
@@ -135,15 +129,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           icon={<Percent size={16} />}
           progressPercent={hasAttendance ? attPct : 0}
           variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'cyan'}
-        />
-
-        <MetricCard
-          label="On-Duty (OD) Hours"
-          value={odHoursCount !== null && odHoursCount !== undefined ? `${odHoursCount} Hours` : 'Data unavailable'}
-          subtext={odHoursCount !== null && odHoursCount !== undefined ? `✓ ${odRemaining}h safe limit available` : 'VTOP sync required'}
-          icon={<Clock size={16} />}
-          progressPercent={Math.min(100, Math.max(0, ((odHoursCount || 0) / (od?.maxHours || 40)) * 100))}
-          variant="cyan"
           onClick={onOpenSyncModal}
         />
 

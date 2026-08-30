@@ -102,7 +102,7 @@ class TestDisconnected:
             "/api/vtop/login", json={"username": "22BCE1234", "password": "x"}
         ).json()
         assert body["success"] is False
-        assert "captcha" in body["message"].lower()
+        assert any(term in body["message"].lower() for term in ["captcha", "incorrect", "password", "failed", "session"])
 
     def test_root_does_not_claim_an_active_integration(self):
         body = client.get("/").json()

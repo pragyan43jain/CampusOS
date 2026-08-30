@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import {
   RefreshCw,
-  X,
-  AlertCircle,
-  CheckCircle2,
-  AlertTriangle,
   User,
   GraduationCap,
   Calendar,
   Percent,
   Award,
-  Clock,
   FileText,
   Users,
   ShieldCheck,
@@ -18,30 +13,27 @@ import {
   MapPin,
   BookOpen,
   LayoutDashboard,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   StudentProfile,
   Course,
   Attendance,
   Marks,
-  OD,
   Exam,
   Faculty,
   TimetableSlot,
 } from '../types';
 import { MetricCard } from '../components/MetricCard';
-import { CampusAPI } from '../services/api';
 
 interface VtopSyncViewProps {
   student: StudentProfile;
   courses?: Course[];
   attendance: Attendance[];
   marks: Marks[];
-  od: OD;
   exams: Exam[];
   faculty: Faculty[];
   timetable: TimetableSlot[];
-  onOpenSyncModal: () => void;
   onForceSync: () => void;
   syncing: boolean;
 }
@@ -50,44 +42,13 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
   student,
   attendance,
   marks,
-  od,
   exams,
   faculty,
   timetable,
-  onOpenSyncModal,
   onForceSync,
   syncing,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'marks' | 'exams' | 'faculty' | 'od'>('overview');
-
-  // Live OD Fetch from VTOP CC
-  const [odSyncing, setOdSyncing] = useState(false);
-  const [odActionMessage, setOdActionMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
-
-  // StudentCC OD Attendance Simulator
-
-  const handleFetchOdFromVtop = async () => {
-    setOdSyncing(true);
-    setOdActionMessage({ text: 'Connecting to VTOP portal to query On-Duty records...', type: 'info' });
-    try {
-      const res = await CampusAPI.syncOD();
-      if (res.success) {
-        setOdActionMessage({ text: res.message || 'Successfully fetched OD hours from VTOP!', type: 'success' });
-        onForceSync();
-      } else if (res.sessionExpired) {
-        setOdActionMessage({ text: 'VTOP session expired. Opening authentication modal...', type: 'info' });
-        setTimeout(() => {
-          onOpenSyncModal();
-        }, 800);
-      } else {
-        setOdActionMessage({ text: res.message || 'Failed to fetch OD from VTOP.', type: 'error' });
-      }
-    } catch (err: any) {
-      setOdActionMessage({ text: err.message || 'Error communicating with VTOP backend.', type: 'error' });
-    } finally {
-      setOdSyncing(false);
-    }
-  };
+  const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'marks' | 'exams' | 'faculty'>('overview');
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
   const overallAtt = student.overallAttendance;
@@ -103,31 +64,18 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
       ? `${student.creditsEarned} / ${student.totalCreditsRequired || 160}`
       : 'Data unavailable';
 
-  const odRecordsList = od?.records || od?.odRecords || [];
-  const hasValidOD = Boolean(
-    od &&
-      od.hasValidData &&
-      (od.usedHours !== null && od.usedHours !== undefined ||
-        od.odHours !== null && od.odHours !== undefined ||
-        od.totalOdHours !== null && od.totalOdHours !== undefined ||
-        od.state === 'success_with_records' ||
-        od.state === 'success_with_no_records')
-  );
-  const odHoursCount = od?.usedHours ?? od?.odHours ?? od?.totalOdHours ?? (hasValidOD ? 0 : null);
-
   const verificationChips = [
     { label: 'Profile', count: isAuth ? student.regNo : null, ok: isAuth, icon: User, tab: 'overview' as const },
     { label: 'Attendance', count: attendance.length > 0 ? `${attendance.length} Courses` : null, ok: attendance.length > 0, icon: Percent, tab: 'attendance' as const },
     { label: 'Timetable', count: timetable.length > 0 ? `${timetable.length} Slots` : null, ok: timetable.length > 0, icon: Calendar, tab: 'overview' as const },
     { label: 'Marks', count: marks.length > 0 ? `${marks.length} Subjects` : null, ok: marks.length > 0, icon: Award, tab: 'marks' as const },
-    { label: 'On-Duty', count: hasValidOD ? `${odHoursCount ?? 0}h Logged` : null, ok: hasValidOD, icon: Clock, tab: 'od' as const },
     { label: 'Exams', count: exams.length > 0 ? `${exams.length} Schedules` : null, ok: exams.length > 0, icon: FileText, tab: 'exams' as const },
     { label: 'Faculty', count: faculty.length > 0 ? `${faculty.length} Faculty` : null, ok: faculty.length > 0, icon: Users, tab: 'faculty' as const },
   ];
 
   return (
     <div className="page-container">
-            {/* Top Hero Section */}
+      {/* Top Hero Section */}
       <div className="hero-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
@@ -203,7 +151,6 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
         {[
           { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
           { id: 'attendance', label: `Attendance (${attendance.length})`, icon: Percent },
-          { id: 'od', label: `On-Duty (${hasValidOD ? `${odHoursCount}/40h` : 'OD'})`, icon: Clock },
           { id: 'marks', label: `Continuous Marks (${marks.length})`, icon: Award },
           { id: 'exams', label: `Exams Schedule (${exams.length})`, icon: Calendar },
           { id: 'faculty', label: `Faculty (${faculty.length})`, icon: Users },
@@ -226,7 +173,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
       {/* ===================== TAB: OVERVIEW ===================== */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="metrics-stat-grid">
+          <div className="metrics-stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <MetricCard
               label="Cumulative CGPA"
               value={cgpaDisplay}
@@ -241,7 +188,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               subtext={overallAtt && overallAtt.attended !== null ? `${overallAtt.attended}/${overallAtt.total} classes attended` : 'VTOP sync required'}
               icon={<Percent size={18} />}
               progressPercent={hasAttendance && overallAtt ? overallAtt.percentage : 0}
-              variant={hasAttendance && overallAtt ? (overallAtt.percentage >= 80 ? 'emerald' : overallAtt.percentage >= 75 ? 'amber' : 'crimson') : 'blue'}
+              variant={hasAttendance && overallAtt ? (overallAtt.percentage >= 80 ? 'emerald' : overallAtt.percentage >= 75 ? 'amber' : 'crimson') : 'cyan'}
             />
             <MetricCard
               label="Degree Credits"
@@ -249,15 +196,15 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               subtext="Degree requirements"
               icon={<Award size={18} />}
               progressPercent={student.creditsEarned && student.totalCreditsRequired ? (student.creditsEarned / student.totalCreditsRequired) * 100 : 0}
-              variant="blue"
+              variant="cyan"
             />
             <MetricCard
-              label="On-Duty (OD) Hours"
-              value={hasValidOD ? `${odHoursCount ?? 0} Hours` : 'Data unavailable'}
-              subtext="40h institutional limit"
-              icon={<Clock size={18} />}
-              progressPercent={hasValidOD ? Math.min(100, ((odHoursCount || 0) / 40) * 100) : 0}
-              variant="blue"
+              label="Enrolled Subjects"
+              value={attendance.length > 0 ? `${attendance.length} Courses` : 'Data unavailable'}
+              subtext="Active academic workload"
+              icon={<BookOpen size={18} />}
+              progressPercent={attendance.length > 0 ? 100 : 0}
+              variant="cyan"
             />
           </div>
 
@@ -305,7 +252,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               subtext={overallAtt && overallAtt.attended !== null ? `${overallAtt.attended} of ${overallAtt.total} lectures attended` : 'VTOP sync required'}
               icon={<Percent size={18} />}
               progressPercent={hasAttendance && overallAtt ? overallAtt.percentage : 0}
-              variant={hasAttendance && overallAtt ? (overallAtt.percentage >= 80 ? 'emerald' : overallAtt.percentage >= 75 ? 'amber' : 'crimson') : 'blue'}
+              variant={hasAttendance && overallAtt ? (overallAtt.percentage >= 80 ? 'emerald' : overallAtt.percentage >= 75 ? 'amber' : 'crimson') : 'cyan'}
             />
             <MetricCard
               label="Critical Subjects (<75%)"
@@ -319,7 +266,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               value={attendance.length}
               subtext="Theory, lab & embedded courses"
               icon={<BookOpen size={18} />}
-              variant="blue"
+              variant="cyan"
             />
           </div>
 
@@ -362,24 +309,26 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                           <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--brand-color)' }}>
                             {row.courseCode}
                           </td>
-                          <td style={{ fontWeight: 600 }}>{row.courseName || row.courseTitle}</td>
+                          <td style={{ fontWeight: 600 }}>{row.courseTitle || (row as any).courseName}</td>
                           <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{row.slot || '-'}</td>
-                          <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{row.faculty || row.facultyName || '-'}</td>
-                          <td style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                          <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{row.faculty || '-'}</td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
                             {row.classesAttended ?? row.attended ?? '-'} / {row.classesConducted ?? row.conducted ?? row.total ?? '-'}
                           </td>
-                          <td style={{ fontSize: '0.82rem' }}>
-                            {isCrit ? (
-                              <span style={{ color: 'var(--danger-crimson)', fontWeight: 600 }}>
-                                Need {row.needToAttend || Math.ceil(((0.75 * (row.total || 0)) - (row.attended || 0)) / 0.25)} to 75%
+                          <td>
+                            {row.safeToMiss !== undefined && row.safeToMiss > 0 ? (
+                              <span style={{ color: 'var(--accent-emerald)', fontSize: '0.82rem', fontWeight: 600 }}>
+                                +{row.safeToMiss} safe bunks
+                              </span>
+                            ) : row.needToAttend !== undefined && row.needToAttend > 0 ? (
+                              <span style={{ color: 'var(--accent-crimson)', fontSize: '0.82rem', fontWeight: 600 }}>
+                                Attend {row.needToAttend} classes
                               </span>
                             ) : (
-                              <span style={{ color: 'var(--success-emerald)', fontWeight: 600 }}>
-                                Safe: {row.safeToMiss || Math.floor(((row.attended || 0) - (0.75 * (row.total || 0))) / 0.75)} classes
-                              </span>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>On Track</span>
                             )}
                           </td>
-                          <td style={{ fontWeight: 800, fontSize: '0.92rem' }}>{pct}%</td>
+                          <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{pct}%</td>
                           <td>
                             <span className={`status-badge ${statusVariant}`}>
                               {statusLabel}
@@ -396,194 +345,8 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                 <div className="empty-state-icon-box">
                   <Percent size={24} />
                 </div>
-                <h4 className="empty-state-title">No Attendance Records</h4>
-                <p className="empty-state-desc">Synchronize with your VTOP credentials to load registered subject attendance records.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ===================== TAB: ON-DUTY (OD) ===================== */}
-      {activeTab === 'od' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {odActionMessage && (
-            <div
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                background: odActionMessage.type === 'success' ? 'var(--success-bg)' : odActionMessage.type === 'error' ? 'var(--danger-bg)' : 'var(--brand-bg)',
-                border: `1px solid ${odActionMessage.type === 'success' ? 'var(--success-border)' : odActionMessage.type === 'error' ? 'var(--danger-border)' : 'var(--brand-border)'}`,
-                color: odActionMessage.type === 'success' ? 'var(--success-emerald)' : odActionMessage.type === 'error' ? 'var(--danger-crimson)' : 'var(--brand-color)',
-                fontSize: '0.86rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {odActionMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                <span>{odActionMessage.text}</span>
-              </div>
-              <button onClick={() => setOdActionMessage(null)} style={{ color: 'inherit', padding: '2px' }}>
-                <X size={15} />
-              </button>
-            </div>
-          )}
-
-          <div className="metrics-stat-grid">
-            <MetricCard
-              label="Utilized OD Hours"
-              value={hasValidOD ? `${odHoursCount ?? 0} Hours` : 'Data unavailable'}
-              subtext="40h maximum institutional limit"
-              icon={<Clock size={18} />}
-              progressPercent={hasValidOD ? Math.min(100, ((odHoursCount || 0) / 40) * 100) : 0}
-              variant="blue"
-            />
-            <MetricCard
-              label="Remaining Safe Buffer"
-              value={hasValidOD ? `${od?.remainingHours ?? Math.max(0, 40 - (odHoursCount || 0))} Hours` : '40 Hours'}
-              subtext="Buffer before limit threshold"
-              icon={<CheckCircle2 size={18} />}
-              variant="emerald"
-            />
-            <MetricCard
-              label="Sanctioned OD Records"
-              value={odRecordsList.length}
-              subtext="Approved leave entries"
-              icon={<FileText size={18} />}
-              variant="blue"
-            />
-          </div>
-
-          {/* Itemized OD Records */}
-          <div className="card">
-            <div className="card-header-bar">
-              <div>
-                <h3 className="card-title">
-                  <Clock size={18} color="var(--brand-color)" />
-                  <span>Sanctioned On-Duty Records</span>
-                </h3>
-                <p className="card-description">Extracted directly from VTOP leave modules and subject attendance logs</p>
-              </div>
-
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={handleFetchOdFromVtop}
-                disabled={odSyncing}
-              >
-                <RefreshCw size={13} className={odSyncing ? 'animate-spin' : ''} />
-                <span>Fetch Live VTOP OD</span>
-              </button>
-            </div>
-
-            {odRecordsList.length > 0 ? (
-              <div className="table-responsive-wrapper">
-                <table className="academic-data-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Subject</th>
-                      <th>Hours</th>
-                      <th>Reason / Activity</th>
-                      <th>Approved By</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {odRecordsList.map((rec, idx) => (
-                      <tr key={idx}>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{rec.date || rec.fromDate || '-'}</td>
-                        <td style={{ fontWeight: 600 }}>{rec.subjectCode ? `${rec.subjectCode} - ${rec.subjectTitle}` : 'Institutional Representation'}</td>
-                        <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--brand-color)' }}>{rec.hours}h</td>
-                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>{rec.reason || 'On-Duty Leave'}</td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{rec.approvedBy || 'Academic Office'}</td>
-                        <td>
-                          <span className="status-badge safe">
-                            {rec.status || 'Approved'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="empty-state-card">
-                <div className="empty-state-icon-box">
-                  <Clock size={24} />
-                </div>
-                <h4 className="empty-state-title">No OD Records for Active Semester</h4>
-                <p className="empty-state-desc">
-                  No sanctioned On-Duty leave records found on VTOP for this semester. Click &quot;Fetch Live VTOP OD&quot; to probe leave modules.
-                </p>
-              </div>
-            )}
-          </div>
-          {/* Subject-Wise OD Class Breakdown */}
-          <div className="card">
-            <div className="card-header-bar">
-              <div>
-                <h3 className="card-title">
-                  <Percent size={18} color="var(--accent-cyan)" />
-                  <span>Course-Wise On-Duty (OD) Class Audit</span>
-                </h3>
-                <p className="card-description">
-                  Verification of OD hours credited across each registered lecture and lab component
-                </p>
-              </div>
-            </div>
-
-            {attendance.length > 0 ? (
-              <div className="table-responsive-wrapper">
-                <table className="academic-data-table">
-                  <thead>
-                    <tr>
-                      <th>Course Code</th>
-                      <th>Course Title</th>
-                      <th>Slot</th>
-                      <th>Attended</th>
-                      <th>Total</th>
-                      <th>Credited OD</th>
-                      <th>Effective Attendance %</th>
-                      <th>OD Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendance.map((row, idx) => {
-                      const odCnt = row.odAttended ?? (row as any).odHours ?? 0;
-                      const pct = row.attendancePercentage ?? row.percentage ?? 0;
-                      return (
-                        <tr key={idx}>
-                          <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                            {row.courseCode}
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{row.courseName || row.courseTitle}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{row.slot || '-'}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)' }}>{row.classesAttended ?? row.attended ?? '-'}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)' }}>{row.classesConducted ?? row.conducted ?? row.total ?? '-'}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: odCnt > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)' }}>
-                            {odCnt}h
-                          </td>
-                          <td style={{ fontWeight: 750, fontFamily: 'var(--font-mono)' }}>{pct}%</td>
-                          <td>
-                            <span className={`status-badge ${odCnt > 0 ? 'safe' : 'neutral'}`}>
-                              {odCnt > 0 ? `${odCnt}h Credited` : '0h Logged'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="empty-state-card">
-                <div className="empty-state-icon-box">
-                  <Percent size={24} />
-                </div>
-                <h4 className="empty-state-title">No Enrolled Courses Found</h4>
-                <p className="empty-state-desc">Synchronize with VTOP to view registered course OD audits.</p>
+                <h4 className="empty-state-title">No Attendance Records Found</h4>
+                <p className="empty-state-desc">Synchronize with VTOP to view registered course attendance statistics.</p>
               </div>
             )}
           </div>
@@ -599,7 +362,7 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                 <Award size={18} color="var(--brand-color)" />
                 <span>Continuous Assessment Marks</span>
               </h3>
-              <p className="card-description">Internal evaluation scores for CAT-1, CAT-2, Digital Assignments, and Quizzes</p>
+              <p className="card-description">Internal assessments, CAT-1, CAT-2, DA, quizzes, and lab scores</p>
             </div>
           </div>
 
@@ -610,29 +373,56 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                   <tr>
                     <th>Course Code</th>
                     <th>Course Title</th>
-                    <th>CAT-1</th>
-                    <th>CAT-2</th>
-                    <th>DA-1</th>
-                    <th>DA-2</th>
-                    <th>Quiz</th>
-                    <th>Total Internal</th>
+                    <th>Assessments Log</th>
+                    <th>Scored Weightage</th>
+                    <th>Max Weightage</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {marks.map((m, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--brand-color)' }}>{m.courseCode}</td>
-                      <td style={{ fontWeight: 600 }}>{m.courseName || m.courseTitle}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)' }}>{m.cat1?.scored !== null && m.cat1?.scored !== undefined ? `${m.cat1.scored}/${m.cat1.max}` : '-'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)' }}>{m.cat2?.scored !== null && m.cat2?.scored !== undefined ? `${m.cat2.scored}/${m.cat2.max}` : '-'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)' }}>{m.da1?.scored !== null && m.da1?.scored !== undefined ? `${m.da1.scored}/${m.da1.max}` : '-'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)' }}>{m.da2?.scored !== null && m.da2?.scored !== undefined ? `${m.da2.scored}/${m.da2.max}` : '-'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)' }}>{m.quiz?.scored !== null && m.quiz?.scored !== undefined ? `${m.quiz.scored}/${m.quiz.max}` : '-'}</td>
-                      <td style={{ fontWeight: 800, color: 'var(--brand-color)', fontFamily: 'var(--font-mono)' }}>
-                        {m.totalInternal?.percentage ? `${m.totalInternal.percentage}%` : m.weightageScored ? `${m.weightageScored}%` : 'Grading in progress'}
-                      </td>
-                    </tr>
-                  ))}
+                  {marks.map((m, idx) => {
+                    const components = m.components || [];
+                    const scored = m.weightageScored ?? m.totalInternal?.scored ?? '-';
+                    const max = m.weightageTotal ?? m.totalInternal?.max ?? '100';
+                    return (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--brand-color)' }}>
+                          {m.courseCode}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{m.courseTitle || m.courseName}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {components.length > 0 ? (
+                              components.map((c, cIdx) => (
+                                <span
+                                  key={cIdx}
+                                  style={{
+                                    fontSize: '0.72rem',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    background: 'var(--surface-sunken)',
+                                    border: '1px solid var(--border-subtle)',
+                                    fontFamily: 'var(--font-mono)',
+                                  }}
+                                >
+                                  {c.title}: {c.scored !== null ? `${c.scored}/${c.max}` : '-'}
+                                </span>
+                              ))
+                            ) : (
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Evaluations in progress</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{scored}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{max}</td>
+                        <td>
+                          <span className="status-badge safe">
+                            {m.statusMessage || 'Active'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -641,8 +431,8 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               <div className="empty-state-icon-box">
                 <Award size={24} />
               </div>
-              <h4 className="empty-state-title">No Continuous Marks Published</h4>
-              <p className="empty-state-desc">Marks will populate once uploaded by course instructors to the VTOP evaluation portal.</p>
+              <h4 className="empty-state-title">No Assessment Marks Published</h4>
+              <p className="empty-state-desc">Marks will populate once uploaded by faculty on the institutional portal.</p>
             </div>
           )}
         </div>
@@ -655,9 +445,9 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
             <div>
               <h3 className="card-title">
                 <Calendar size={18} color="var(--brand-color)" />
-                <span>Examination Schedule & Hall Tickets</span>
+                <span>Examination Schedule</span>
               </h3>
-              <p className="card-description">Official examination dates, reporting times, hall venues, and seat allocations</p>
+              <p className="card-description">FAT, CAT, and laboratory exam schedules, session slots, and seating venues</p>
             </div>
           </div>
 
@@ -666,29 +456,23 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               <table className="academic-data-table">
                 <thead>
                   <tr>
-                    <th>Course Code</th>
-                    <th>Exam Type</th>
                     <th>Date</th>
-                    <th>Session & Time</th>
-                    <th>Hall / Venue</th>
-                    <th>Seat Number</th>
-                    <th>Status</th>
+                    <th>Time / Session</th>
+                    <th>Course Code</th>
+                    <th>Course Title</th>
+                    <th>Slot</th>
+                    <th>Venue</th>
                   </tr>
                 </thead>
                 <tbody>
                   {exams.map((ex, idx) => (
                     <tr key={idx}>
-                      <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--brand-color)' }}>{ex.courseCode || ex.subjectCode}</td>
-                      <td style={{ fontWeight: 600 }}>{ex.examType || ex.title}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{ex.date}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{ex.time || `${ex.startTime} - ${ex.endTime}`}</td>
-                      <td>{ex.venue || ex.room || 'Academic Block'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{ex.seatNumber || '-'}</td>
-                      <td>
-                        <span className="status-badge info">
-                          {ex.status || 'Scheduled'}
-                        </span>
-                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{ex.date || '-'}</td>
+                      <td style={{ color: 'var(--brand-color)', fontWeight: 600 }}>{ex.time || '-'}</td>
+                      <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{ex.courseCode || ex.subjectCode}</td>
+                      <td style={{ fontWeight: 600 }}>{ex.courseTitle || ex.courseName || ex.subject}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{ex.slot || '-'}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{ex.venue || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -699,23 +483,23 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               <div className="empty-state-icon-box">
                 <Calendar size={24} />
               </div>
-              <h4 className="empty-state-title">No Exam Schedules Published</h4>
-              <p className="empty-state-desc">Examination timetables are published by the Controller of Examinations prior to CAT and FAT cycles.</p>
+              <h4 className="empty-state-title">No Exam Schedules Released</h4>
+              <p className="empty-state-desc">Examination dates and venues will appear after official timetable notification.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* ===================== TAB: FACULTY ===================== */}
+      {/* ===================== TAB: FACULTY DIRECTORY ===================== */}
       {activeTab === 'faculty' && (
         <div className="card">
           <div className="card-header-bar">
             <div>
               <h3 className="card-title">
                 <Users size={18} color="var(--brand-color)" />
-                <span>Faculty Directory & Course Instructors</span>
+                <span>Faculty Directory</span>
               </h3>
-              <p className="card-description">Contact details, department affiliations, and cabin office locations</p>
+              <p className="card-description">Course instructors, cabin locations, and academic email contacts</p>
             </div>
           </div>
 
@@ -725,42 +509,58 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
                 <div
                   key={idx}
                   style={{
-                    background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
                     padding: '18px',
+                    borderRadius: 'var(--radius-card)',
+                    backgroundColor: 'var(--surface-sunken)',
+                    border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '10px',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="user-avatar-circle" style={{ width: '36px', height: '36px' }}>
-                      {f.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--surface-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--brand-color)',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      {f.name ? f.name.split(' ').map((n) => n[0]).slice(0, 2).join('') : 'FAC'}
                     </div>
                     <div>
-                      <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>{f.name}</h4>
-                      <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{f.designation || 'Faculty Member'}</span>
+                      <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                        {f.name}
+                      </h4>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{f.designation || 'Faculty Member'}</span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
-                    {f.courseCode && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <BookOpen size={13} color="var(--brand-color)" />
-                        <span>Course: <b>{f.courseCode}</b></span>
-                      </div>
-                    )}
-                    {f.venue && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <MapPin size={13} color="var(--text-muted)" />
-                        <span>Venue: {f.venue}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.8rem', marginTop: '4px' }}>
+                    {f.cabin && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
+                        <MapPin size={14} color="var(--text-muted)" />
+                        <span>Cabin: {f.cabin}</span>
                       </div>
                     )}
                     {f.email && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Mail size={13} color="var(--text-muted)" />
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{f.email}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand-color)' }}>
+                        <Mail size={14} />
+                        <a href={`mailto:${f.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                          {f.email}
+                        </a>
+                      </div>
+                    )}
+                    {f.department && (
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {f.department}
                       </div>
                     )}
                   </div>
@@ -772,8 +572,8 @@ export const VtopSyncView: React.FC<VtopSyncViewProps> = ({
               <div className="empty-state-icon-box">
                 <Users size={24} />
               </div>
-              <h4 className="empty-state-title">No Faculty Directory Data</h4>
-              <p className="empty-state-desc">Synchronize with VTOP to populate faculty instructor details for active registered courses.</p>
+              <h4 className="empty-state-title">No Faculty Records Available</h4>
+              <p className="empty-state-desc">Synchronize with VTOP to view registered faculty details.</p>
             </div>
           )}
         </div>
