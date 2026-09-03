@@ -635,7 +635,7 @@ export const App: React.FC = () => {
             syncingAll={syncingAll}
             teamsAccount={teamsAccount}
             lmsAccount={lmsAccount}
-            studentEmail={student.email}
+            studentEmail={student.email || undefined}
             studentRegNo={student.regNo}
           />
         )}

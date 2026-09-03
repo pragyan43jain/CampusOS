@@ -23,25 +23,26 @@ export type AttendanceStats = AttendanceRecord;
 export interface Student {
   name: string;
   regNo: string;
-  email?: string;
-  program: string;
-  branch: string;
-  semester: number;
-  batch?: string;
-  cgpa: number;
-  creditsEarned: number;
-  totalCreditsRequired: number;
-  rank?: number;
-  lastSynced?: string;
+  email?: string | null;
+  program?: string | null;
+  branch?: string | null;
+  semester?: number | string | null;
+  batch?: string | null;
+  cgpa?: number | null;
+  creditsEarned?: number | null;
+  totalCreditsRequired?: number | null;
+  registeredCredits?: number | null;
+  rank?: number | null;
+  lastSynced?: string | null;
   semesterGpa?: SemesterGpaRecord[];
-  overallAttendance?: AttendanceRecord;
+  overallAttendance?: AttendanceRecord | null;
   proctor?: {
-    name?: string;
-    email?: string;
-    designation?: string;
-    cabin?: string;
-    phone?: string;
-  };
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    cabin?: string | null;
+    designation?: string | null;
+  } | null;
 }
 
 export type StudentProfile = Student;

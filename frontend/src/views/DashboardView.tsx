@@ -101,10 +101,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const cgpaDisplay =
     student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : 'Unavailable';
 
-  const earnedCredits = student.creditsEarned ?? (student.cgpa ? 96 : 0);
+  const earnedCredits = student.creditsEarned ?? null;
   const totalCredits = student.totalCreditsRequired || 160;
-  const creditsPct = totalCredits > 0 ? Math.round((earnedCredits / totalCredits) * 100) : 0;
-  const creditsDisplay = `${earnedCredits} / ${totalCredits}`;
+  const creditsPct = earnedCredits !== null && totalCredits > 0 ? Math.round((earnedCredits / totalCredits) * 100) : 0;
+  const creditsDisplay = earnedCredits !== null ? `${earnedCredits} / ${totalCredits}` : 'Unavailable';
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
   const studentFirstName = student?.name && student.name !== 'Student' && student.name !== 'Not connected'
@@ -161,11 +161,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 1: Overall Attendance */}
         <MetricCard
           label="Overall Attendance"
-          value={hasAttendance && attendance ? `${attendance.percentage}%` : '88.2%'}
-          subtext={hasAttendance && hasAttCounts ? `${attAttended} / ${attTotal} classes attended` : '195 / 221 classes attended'}
+          value={hasAttendance && attendance && attendance.percentage !== undefined ? `${attendance.percentage}%` : 'Unavailable'}
+          subtext={hasAttendance && hasAttCounts ? `${attAttended} / ${attTotal} classes attended` : 'Sync attendance records'}
           icon={<Percent size={17} />}
-          progressPercent={hasAttendance ? attPct : 88.2}
-          variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : 'emerald'}
+          progressPercent={hasAttendance ? attPct : undefined}
+          variant={hasAttendance ? (attPct >= 80 ? 'emerald' : attPct >= 75 ? 'amber' : 'crimson') : undefined}
           onClick={onOpenSyncModal}
         />
 
@@ -180,17 +180,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           }
           icon={<GraduationCap size={17} />}
           progressPercent={student.cgpa ? (student.cgpa / 10) * 100 : undefined}
-          variant="emerald"
+          variant={student.cgpa ? "emerald" : undefined}
         />
 
         {/* Card 3: Degree Credits */}
         <MetricCard
           label="Degree Credits"
           value={creditsDisplay}
-          subtext={`${creditsPct}% degree completion`}
+          subtext={earnedCredits !== null ? `${creditsPct}% degree completion` : 'Sync degree audit'}
           icon={<Award size={17} />}
-          progressPercent={creditsPct}
-          variant="cyan"
+          progressPercent={earnedCredits !== null ? creditsPct : undefined}
+          variant={earnedCredits !== null ? "cyan" : undefined}
         />
       </div>
 

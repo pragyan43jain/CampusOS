@@ -218,14 +218,19 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           console.warn('[VTOP Login] Backend not directly reachable, fallback to direct session:', backendErr);
         }
 
-        if (response && response.success) {
-          setStatusStep('Sync Complete!');
-          setSuccessMsg(response.message || `VTOP Synchronized for ${cleanUsername}!`);
-          setTimeout(() => {
-            onLoginSuccess(response.data);
-            onClose();
-          }, 350);
-          return;
+        if (response) {
+          if (response.success) {
+            setStatusStep('Sync Complete!');
+            setSuccessMsg(response.message || `VTOP Synchronized for ${cleanUsername}!`);
+            setTimeout(() => {
+              onLoginSuccess(response.data);
+              onClose();
+            }, 350);
+            return;
+          } else {
+            setErrorMsg(response.message || 'Authentication failed. Please verify your registration number and password.');
+            return;
+          }
         }
 
         // Standalone Web / Netlify fallback when local backend is not attached over HTTPS
@@ -236,12 +241,13 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           branch: 'CSE',
           school: 'School of Computer Science and Engineering (SCOPE)',
           campus: 'Chennai',
-          semester: 4,
-          cgpa: 8.81,
-          creditsEarned: 96.0,
+          semester: 1,
+          cgpa: null,
+          creditsEarned: null,
           totalCreditsRequired: 160.0,
           lastSynced: new Date().toISOString(),
-          proctor: { name: 'Dr. Faculty Advisor', email: 'faculty@vit.ac.in' },
+          proctor: null,
+          overallAttendance: null,
         };
         CampusAPI.setActiveStudent(sessionStudent);
         CampusAPI.setActiveSessionId('local-' + cleanUsername);
