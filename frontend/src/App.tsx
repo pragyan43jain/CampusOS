@@ -116,11 +116,42 @@ export const App: React.FC = () => {
   // Load academic platform connection statuses (Teams & LMS)
   const loadAcademicAccountsStatus = async () => {
     try {
-      const statusData = await CampusAPI.getAcademicAccountsStatus();
-      if (statusData) {
-        if (statusData.teams) setTeamsAccount(statusData.teams);
-        if (statusData.lms) setLmsAccount(statusData.lms);
+      const [statusData, lmsDirectStatus, teamsDirectStatus] = await Promise.all([
+        CampusAPI.getAcademicAccountsStatus(),
+        CampusAPI.getLMSStatus(),
+        CampusAPI.getTeamsStatus(),
+      ]);
+
+      const storedLms = typeof window !== 'undefined' ? window.localStorage.getItem('campus_lms_account') : null;
+      let parsedLms: any = null;
+      if (storedLms) {
+        try { parsedLms = JSON.parse(storedLms); } catch (e) {}
       }
+
+      const storedTeams = typeof window !== 'undefined' ? window.localStorage.getItem('campus_teams_account') : null;
+      let parsedTeams: any = null;
+      if (storedTeams) {
+        try { parsedTeams = JSON.parse(storedTeams); } catch (e) {}
+      }
+
+      const isTeamsConn = Boolean(statusData?.teams?.connected || teamsDirectStatus?.connected || parsedTeams?.connected);
+      const isLmsConn = Boolean(statusData?.lms?.connected || lmsDirectStatus?.connected || parsedLms?.connected);
+
+      setTeamsAccount({
+        ...(statusData?.teams || {}),
+        ...(teamsDirectStatus || {}),
+        ...(parsedTeams || {}),
+        connected: isTeamsConn,
+        status: isTeamsConn ? 'connected' : 'disconnected',
+      });
+
+      setLmsAccount({
+        ...(statusData?.lms || {}),
+        ...(lmsDirectStatus || {}),
+        ...(parsedLms || {}),
+        connected: isLmsConn,
+        status: isLmsConn ? 'connected' : 'disconnected',
+      });
     } catch (e) {
       console.warn('Failed to load academic accounts status:', e);
     }
@@ -704,8 +735,15 @@ export const App: React.FC = () => {
       <TeamsLoginModal
         isOpen={isTeamsModalOpen}
         onClose={() => setIsTeamsModalOpen(false)}
-        onLoginSuccess={async () => {
+        onLoginSuccess={async (data?: any) => {
           setIsTeamsModalOpen(false);
+          setTeamsAccount({
+            connected: true,
+            status: 'connected',
+            email: data?.email || student?.email || '',
+            displayName: data?.displayName || student?.name || 'Teams User',
+            lastSynced: new Date().toISOString(),
+          });
           await handleSyncAll();
         }}
         initialEmail={student?.email || ''}
@@ -715,8 +753,15 @@ export const App: React.FC = () => {
       <LMSLoginModal
         isOpen={isLMSModalOpen}
         onClose={() => setIsLMSModalOpen(false)}
-        onLoginSuccess={async () => {
+        onLoginSuccess={async (data?: any) => {
           setIsLMSModalOpen(false);
+          setLmsAccount({
+            connected: true,
+            status: 'connected',
+            username: data?.username || student?.regNo || 'Student',
+            displayName: data?.displayName || student?.name || 'Moodle User',
+            lastSynced: new Date().toISOString(),
+          });
           await handleSyncAll();
         }}
         initialRegNo={student?.regNo || ''}

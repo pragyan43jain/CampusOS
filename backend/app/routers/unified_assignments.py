@@ -13,7 +13,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 
 from app.storage import load_store, save_store
@@ -639,11 +639,17 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @router.get("/academic-accounts/status")
-def get_academic_accounts_status() -> Dict[str, Any]:
+def get_academic_accounts_status(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Returns connection status and metadata for all connected academic platforms.
     """
-    store = load_store()
+    reg = regNo or x_reg_no
+    store = load_store(reg)
     teams_connected = bool(store.get("teamsConnected"))
     lms_connected = bool(store.get("lmsConnected"))
 

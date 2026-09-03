@@ -16,7 +16,7 @@ import { CampusAPI } from '../services/api';
 interface LMSLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (data?: any) => void;
   initialRegNo?: string;
   initialUsername?: string;
 }
@@ -87,7 +87,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       setSuccessMsg('Successfully linked VIT Moodle LMS.');
 
       setTimeout(() => {
-        onLoginSuccess();
+        onLoginSuccess(res);
         onClose();
       }, 800);
     } catch (err: any) {

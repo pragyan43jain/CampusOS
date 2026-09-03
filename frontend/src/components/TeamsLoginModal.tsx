@@ -19,7 +19,7 @@ import { CampusAPI } from '../services/api';
 interface TeamsLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (data?: any) => void;
   initialEmail?: string;
 }
 
@@ -99,7 +99,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       setSuccessMsg(res.message || '✓ Microsoft Teams Connected');
 
       setTimeout(() => {
-        onLoginSuccess();
+        onLoginSuccess(res);
         onClose();
       }, 700);
     } catch (err: any) {
