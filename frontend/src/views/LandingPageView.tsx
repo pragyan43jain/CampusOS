@@ -29,12 +29,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   onSignIn,
   onExplore,
   studentName: _studentName,
-  isLoggedIn,
-  authStatus,
+  isLoggedIn: _isLoggedIn,
+  authStatus: _authStatus,
 }) => {
   const handleLogin = onOpenLogin || onSignIn || (() => {});
   const handleEnter = onEnterApp || onExplore || (() => {});
-  const isAuth = Boolean(isLoggedIn || authStatus?.authenticated);
 
   const marqueeItems = [
     'GDPR & FERPA Compliant Local Extraction',
@@ -95,22 +94,13 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           {/* Action CTAs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {isAuth ? (
-              <button onClick={handleEnter} className="btn btn-primary btn-sm">
-                <span>Open Dashboard</span>
-                <ArrowRight size={14} />
-              </button>
-            ) : (
-              <>
-                <button onClick={handleLogin} className="btn btn-secondary btn-sm">
-                  Sign In (VTOP)
-                </button>
-                <button onClick={handleEnter} className="btn btn-primary btn-sm">
-                  <span>Explore Demo</span>
-                  <ArrowRight size={14} />
-                </button>
-              </>
-            )}
+            <button onClick={handleLogin} className="btn btn-primary btn-sm">
+              <span>Sign In (VTOP)</span>
+              <ArrowRight size={14} />
+            </button>
+            <button onClick={handleEnter} className="btn btn-secondary btn-sm">
+              <span>Explore Demo</span>
+            </button>
           </div>
         </div>
       </header>
