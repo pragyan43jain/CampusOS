@@ -275,22 +275,54 @@ export const App: React.FC = () => {
         const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
         const initialRoute = getRouteFromPath(initialPath);
 
-        const status = await CampusAPI.getVtopStatus();
-        const authed = Boolean(
-          status &&
-          status.authenticated &&
-          status.student?.regNo &&
-          status.student.regNo !== 'Not available' &&
-          status.student.regNo !== 'Sync Required'
-        );
+        const savedRegNo = typeof window !== 'undefined' ? window.localStorage.getItem('campus_current_reg_no') : null;
+        let cachedUserData: any = null;
+        if (savedRegNo) {
+          try {
+            const raw = window.localStorage.getItem('campus_user_data_' + savedRegNo);
+            if (raw) cachedUserData = JSON.parse(raw);
+          } catch (e) {}
+        }
+
+        let authed = false;
+        let studentProfile: any = null;
+
+        if (cachedUserData && (cachedUserData.student?.regNo || cachedUserData.regNo)) {
+          authed = true;
+          studentProfile = cachedUserData.student || (cachedUserData.regNo ? cachedUserData : null);
+          CampusAPI.setActiveStudent(studentProfile);
+          if (cachedUserData.sessionId) CampusAPI.setActiveSessionId(cachedUserData.sessionId);
+
+          if (isMounted) {
+            setStudent(studentProfile);
+            if (cachedUserData.courses?.length > 0) setCourses(cachedUserData.courses);
+            if (cachedUserData.timetable?.length > 0) setTimetable(cachedUserData.timetable);
+            if (cachedUserData.attendance?.length > 0) setAttendance(cachedUserData.attendance);
+            if (cachedUserData.marks?.length > 0) setMarks(cachedUserData.marks);
+            if (cachedUserData.exams && Object.keys(cachedUserData.exams).length > 0) setExams(cachedUserData.exams);
+            if (cachedUserData.faculty?.length > 0) setFaculty(cachedUserData.faculty);
+          }
+        } else {
+          const status = await CampusAPI.getVtopStatus();
+          authed = Boolean(
+            status &&
+            status.authenticated &&
+            status.student?.regNo &&
+            status.student.regNo !== 'Not available' &&
+            status.student.regNo !== 'Sync Required'
+          );
+          if (authed && status.student) {
+            studentProfile = status.student;
+          }
+        }
 
         if (!isMounted) return;
 
         setIsAuthenticated(authed);
 
         if (authed) {
-          if (status.student) {
-            setStudent(status.student);
+          if (studentProfile) {
+            setStudent(studentProfile);
           }
           await loadAllData();
 
@@ -356,6 +388,7 @@ export const App: React.FC = () => {
   }, [applyRoute]);
 
   const handleSignOut = async () => {
+    const currentReg = student?.regNo;
     try {
       setSyncing(true);
       await CampusAPI.logoutVtop();
@@ -390,8 +423,11 @@ export const App: React.FC = () => {
       setDsaTopics([]);
       setAiTasks([]);
 
-      // 3. Clear all cached browser credentials and session storage
+      // 3. Clear all cached browser credentials and user-scoped storage
       if (typeof window !== 'undefined') {
+        if (currentReg) {
+          window.localStorage.removeItem('campus_user_data_' + currentReg);
+        }
         window.localStorage.removeItem('campus_current_reg_no');
         window.localStorage.removeItem('campusos_leetcode_username');
         window.localStorage.removeItem('campus_lms_account');
@@ -424,6 +460,9 @@ export const App: React.FC = () => {
       setStudent(studentObj);
       if (typeof window !== 'undefined' && studentObj.regNo) {
         window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
+        if (data) {
+          window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(data));
+        }
       }
     }
 
