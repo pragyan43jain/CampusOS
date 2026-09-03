@@ -390,8 +390,9 @@ export const App: React.FC = () => {
       setDsaTopics([]);
       setAiTasks([]);
 
-      // 3. Navigate canonical root "/" and update browser history
+      // 3. Clear all cached browser credentials and session storage
       if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('campus_current_reg_no');
         window.localStorage.removeItem('campusos_leetcode_username');
         window.localStorage.removeItem('campus_lms_account');
         window.localStorage.removeItem('campus_teams_account');
@@ -401,6 +402,19 @@ export const App: React.FC = () => {
   };
 
   const handleLoginSuccess = async (data?: any) => {
+    // 1. Instantly reset all previous academic state to guarantee zero cross-user leakage
+    setCourses([]);
+    setTimetable([]);
+    setAttendance([]);
+    setMarks([]);
+    setExams([]);
+    setFaculty([]);
+    setAssignments([]);
+    setFees([]);
+    setPlacements([]);
+    setDsaTopics([]);
+    setAiTasks([]);
+
     setShowVtopModal(false);
     setIsAuthenticated(true);
 
@@ -408,18 +422,22 @@ export const App: React.FC = () => {
     if (studentObj) {
       CampusAPI.setActiveStudent(studentObj);
       setStudent(studentObj);
+      if (typeof window !== 'undefined' && studentObj.regNo) {
+        window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
+      }
     }
-    if (data && data.courses) setCourses(data.courses);
-    if (data && data.timetable) setTimetable(data.timetable);
-    if (data && data.attendance) setAttendance(data.attendance);
-    if (data && data.marks) setMarks(data.marks);
-    if (data && data.exams) setExams(data.exams);
-    if (data && data.faculty) setFaculty(data.faculty);
-    if (data && data.assignments) setAssignments(data.assignments);
-    if (data && data.fees) setFees(data.fees);
-    if (data && data.placements) setPlacements(data.placements);
-    if (data && data.dsaTopics) setDsaTopics(data.dsaTopics);
-    if (data && data.aiTasks) setAiTasks(data.aiTasks);
+
+    if (data && data.courses && data.courses.length > 0) setCourses(data.courses);
+    if (data && data.timetable && data.timetable.length > 0) setTimetable(data.timetable);
+    if (data && data.attendance && data.attendance.length > 0) setAttendance(data.attendance);
+    if (data && data.marks && data.marks.length > 0) setMarks(data.marks);
+    if (data && data.exams && Object.keys(data.exams).length > 0) setExams(data.exams);
+    if (data && data.faculty && data.faculty.length > 0) setFaculty(data.faculty);
+    if (data && data.assignments && data.assignments.length > 0) setAssignments(data.assignments);
+    if (data && data.fees && data.fees.length > 0) setFees(data.fees);
+    if (data && data.placements && data.placements.length > 0) setPlacements(data.placements);
+    if (data && data.dsaTopics && data.dsaTopics.length > 0) setDsaTopics(data.dsaTopics);
+    if (data && data.aiTasks && data.aiTasks.length > 0) setAiTasks(data.aiTasks);
 
     await loadAllData();
     setShowLanding(false);

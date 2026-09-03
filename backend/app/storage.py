@@ -20,35 +20,23 @@ from app.vtop.math_engine import calculate_attendance_metrics, calculate_od_metr
 
 logger = logging.getLogger("vtop.storage")
 
-DATA_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "data", "store.json"
-)
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+DATA_FILE = os.path.join(DATA_DIR, "store.json")
+
+
+def _data_file_for(reg_no: Optional[str] = None) -> str:
+    if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
+        safe_reg = "".join(c for c in reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
+        return os.path.join(DATA_DIR, f"store_{safe_reg}.json")
+    return DATA_FILE
 
 # Bumped whenever the payload shape changes incompatibly.
-#
-# 1 = the original build (exams was a list; student carried invented defaults like
-#     cgpa and totalCreditsRequired=160; no syncReport or registry).
-# 2 = the VTOP-sync rewrite (exams grouped by type, strict nulls, syncReport).
-#
-# A store written by an older version is discarded rather than served. Without
-# this, an existing store.json full of the old placeholder data would be read back
-# as though it were a real sync — the dashboard would show a CGPA of 8.85 and a
-# room called "Academic Block 1" while /status correctly reported "not connected".
-# Silently plausible stale data is the exact failure this rewrite exists to remove.
 STORE_VERSION = 2
 
 NOT_CONNECTED_MESSAGE = "VTOP is not connected. Sign in to sync your data."
 
 
 def empty_student() -> Dict[str, Any]:
-    """
-    A student header with no data in it.
-
-    Every field is ``None`` — not "Not available", not 0, not 160. A string
-    placeholder in a data field eventually gets rendered as though it were a
-    value, or compared against as though it were a real registration number,
-    which is exactly what the previous version did.
-    """
     return {
         "name": None,
         "regNo": None,
@@ -82,8 +70,6 @@ def empty_store() -> Dict[str, Any]:
         "attendance": [],
         "marks": [],
         "timetable": [],
-        # Grouped by exam type ("CAT 1", "FAT", ...), so a mapping rather than a
-        # list. An empty mapping means nothing was published.
         "exams": {},
         "faculty": [],
         "receipts": [],
@@ -101,110 +87,88 @@ def empty_store() -> Dict[str, Any]:
     }
 
 
-def _retire_incompatible(reason: str) -> None:
-    """
-    Move an unusable store aside instead of deleting it.
-
-    Renaming rather than removing means a store written by a future version — or
-    one we misjudged — is still on disk to inspect, and the user's own data is
-    never destroyed by an upgrade.
-    """
-    backup = f"{DATA_FILE}.old"
+def _retire_incompatible(path: str, reason: str) -> None:
+    backup = f"{path}.old"
     try:
-        os.replace(DATA_FILE, backup)
+        os.replace(path, backup)
         logger.warning(
-            "[Storage] %s — moved to %s and starting from a clean, empty store. "
-            "Sign in to VTOP to sync real data.",
+            "[Storage] %s — moved to %s and starting from a clean, empty store.",
             reason,
             os.path.basename(backup),
         )
     except Exception as exc:
-        logger.error("[Storage] Could not set aside the old store: %s", exc)
+        logger.error("[Storage] Could not set aside old store %s: %s", path, exc)
 
 
-def load_store() -> Dict[str, Any]:
+def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     """
-    Return the last synced payload, or the shaped empty payload.
-
-    A corrupt file is treated as absent rather than raising: losing the cache is
-    recoverable by syncing again, whereas a 500 on every read is not. A store from
-    an incompatible version is treated the same way — see ``STORE_VERSION``.
+    Return the synced payload for the specific student regNo, or fallback to active store,
+    or return the shaped empty payload.
     """
-    if os.path.exists(DATA_FILE):
+    target_path = _data_file_for(reg_no)
+    if not os.path.exists(target_path) and target_path != DATA_FILE:
+        target_path = DATA_FILE
+
+    if os.path.exists(target_path):
         try:
-            with open(DATA_FILE, "r", encoding="utf-8") as handle:
+            with open(target_path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
-            if not isinstance(data, dict) or not data:
-                logger.warning(
-                    "[Storage] store.json held %s, ignoring", type(data).__name__
-                )
-            elif data.get("storeVersion") != STORE_VERSION:
-                _retire_incompatible(
-                    f"store.json was written by an incompatible version "
-                    f"(found {data.get('storeVersion')!r}, need {STORE_VERSION})"
-                )
-            else:
+            if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
+                # Ownership validation: if reg_no was requested, ensure the store belongs to that reg_no
+                if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
+                    store_reg = (data.get("student") or {}).get("regNo")
+                    if store_reg and store_reg.strip().upper() != reg_no.strip().upper():
+                        logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
+                        return empty_store()
                 return data
+            elif isinstance(data, dict) and data:
+                _retire_incompatible(target_path, f"store version mismatch in {target_path}")
         except Exception as exc:
-            _retire_incompatible(f"store.json was unreadable or corrupt: {exc}")
+            _retire_incompatible(target_path, f"unreadable store {target_path}: {exc}")
 
     return empty_store()
 
 
-def save_store(data: Dict[str, Any]) -> None:
+def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
     """
-    Write the payload atomically, stamped with the current shape version.
-
-    The temp-file-then-rename dance matters: a crash midway through a plain write
-    leaves truncated JSON, and the next read would silently fall back to the
-    empty store — the user would see their whole dashboard blank with no
-    explanation.
+    Write the payload atomically to the student-specific store and active store.
     """
     try:
-        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-        temp_path = f"{DATA_FILE}.tmp"
-        with open(temp_path, "w", encoding="utf-8") as handle:
-            json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
-        os.replace(temp_path, DATA_FILE)
-        logger.info("[Storage] Saved VTOP sync to store.json")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        student_reg = reg_no or (data.get("student") or {}).get("regNo")
+        targets = [DATA_FILE]
+        if student_reg and student_reg.strip() and student_reg.strip() != "Not available":
+            user_path = _data_file_for(student_reg)
+            if user_path not in targets:
+                targets.append(user_path)
+
+        for target in targets:
+            temp_path = f"{target}.tmp"
+            with open(temp_path, "w", encoding="utf-8") as handle:
+                json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
+            os.replace(temp_path, target)
+        logger.info("[Storage] Saved VTOP sync for %s", student_reg or "active user")
     except Exception as exc:
-        logger.error("[Storage] Could not write store.json: %s", exc)
+        logger.error("[Storage] Could not write store: %s", exc)
 
 
-def clear_store() -> None:
+def clear_store(reg_no: Optional[str] = None) -> None:
     """
-    Remove the synced data on logout.
-
-    If the file cannot be unlinked, it is overwritten with the empty store rather
-    than left alone. Deletion fails for ordinary reasons — a read-only mount, a
-    synced folder, Windows holding the handle open — and the old code logged the
-    error and returned, so ``POST /vtop/logout`` reported success while the
-    previous student's name, registration number, CGPA and attendance stayed
-    readable on disk and were served again on the next request. Overwriting is the
-    weaker guarantee but it is the one that actually clears the data.
+    Remove the synced data on logout for the user and globally.
     """
-    if not os.path.exists(DATA_FILE):
-        return
+    targets = [DATA_FILE]
+    if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
+        targets.append(_data_file_for(reg_no))
 
-    try:
-        os.remove(DATA_FILE)
-        logger.info("[Storage] Cleared store.json")
-        return
-    except Exception as exc:
-        logger.warning(
-            "[Storage] Could not delete store.json (%s) — overwriting it instead", exc
-        )
-
-    try:
-        with open(DATA_FILE, "w", encoding="utf-8") as handle:
-            json.dump(empty_store(), handle, indent=2)
-        logger.info("[Storage] Overwrote store.json with an empty store")
-    except Exception as exc:
-        # Both paths failed, so the data is still on disk. This must be loud: the
-        # caller has told the user they are logged out.
-        logger.error(
-            "[Storage] COULD NOT CLEAR store.json (%s). Synced academic data is "
-            "still on disk at %s — delete it manually.",
-            exc,
-            DATA_FILE,
-        )
+    for target in targets:
+        if os.path.exists(target):
+            try:
+                os.remove(target)
+                logger.info("[Storage] Cleared %s", target)
+            except Exception as exc:
+                try:
+                    with open(target, "w", encoding="utf-8") as handle:
+                        json.dump(empty_store(), handle, indent=2)
+                    logger.info("[Storage] Overwrote %s with empty store", target)
+                except Exception:
+                    pass
