@@ -217,6 +217,7 @@ class VTOPClientManager:
             for attempt in range(max_retries):
                 try:
                     fresh_session = VTOPSession()
+                    fresh_session.start_handshake()
                     cap_meta = fresh_session.fetch_captcha()
                     b64 = cap_meta.get("captchaImage", "").split("base64,")[-1]
                     if not b64:

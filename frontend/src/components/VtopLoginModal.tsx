@@ -123,17 +123,22 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
   const [customApiUrl, setCustomApiUrl] = useState<string>(CampusAPI.getApiBaseUrl());
 
-  const loadCaptcha = async () => {
+  const loadCaptcha = async (clearCurrent = true) => {
     try {
       setLoadingCaptcha(true);
       setErrorMsg('');
-      setCaptcha(''); // Always clear previous CAPTCHA input atomically
+      if (clearCurrent) {
+        setCaptcha('');
+      }
 
       const data = await CampusAPI.getVtopCaptcha('chennai');
       if (data && data.captchaImage && data.captchaImage.length > 50) {
         setSessionId(data.sessionId || '');
         setCaptchaImage(data.captchaImage);
         setExpectedCaptcha(''); // Live portal session; validated by backend/VTOP
+        if (data.solvedCaptcha) {
+          setCaptcha(data.solvedCaptcha);
+        }
       } else {
         throw new Error('Received empty captcha from backend engine');
       }
@@ -144,6 +149,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setSessionId('local-' + Date.now());
       setCaptchaImage(dataUrl);
       setExpectedCaptcha(newChallenge);
+      setCaptcha(newChallenge);
     } finally {
       setLoadingCaptcha(false);
     }
@@ -410,7 +416,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={loadCaptcha}
+                    onClick={() => loadCaptcha(true)}
                     style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.72rem', cursor: 'pointer' }}
                   >
                     Click to load
@@ -420,7 +426,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
               <button
                 type="button"
-                onClick={loadCaptcha}
+                onClick={() => loadCaptcha(true)}
                 disabled={loadingCaptcha}
                 className="btn btn-secondary"
                 style={{ height: '44px', padding: '0 12px' }}
