@@ -35,13 +35,27 @@ logger = logging.getLogger("vtop.routes.lms")
 
 router = APIRouter(prefix="/api/lms", tags=["lms"])
 
+def get_lms_urls(campus: Optional[str] = "chennai") -> Dict[str, str]:
+    c = (campus or "chennai").lower().strip()
+    if "vellore" in c:
+        base = "https://lms.vit.ac.in"
+    else:
+        base = "https://lmscc.vit.ac.in"
+    return {
+        "base": base,
+        "login": f"{base}/login/index.php",
+        "my": f"{base}/my/",
+        "courses": f"{base}/my/courses.php",
+        "calendar": f"{base}/calendar/view.php?view=upcoming",
+    }
+
 LMS_BASE_URL = "https://lms.vit.ac.in"
 LMS_LOGIN_URL = "https://lms.vit.ac.in/login/index.php"
 LMS_MY_URL = "https://lms.vit.ac.in/my/"
 LMS_COURSES_URL = "https://lms.vit.ac.in/my/courses.php"
 LMS_CALENDAR_URL = "https://lms.vit.ac.in/calendar/view.php?view=upcoming"
 
-REQUEST_TIMEOUT = 10
+REQUEST_TIMEOUT = 12
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
@@ -49,6 +63,7 @@ class LMSLoginRequest(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     sessionCookie: Optional[str] = None  # MoodleSession cookie
+    campus: Optional[str] = "chennai"
 
 
 def normalize_code(code: Optional[str]) -> str:
@@ -167,6 +182,7 @@ def authenticate_lms_session(
     username: Optional[str],
     password: Optional[str],
     session_cookie: Optional[str],
+    campus: Optional[str] = "chennai",
 ) -> Tuple[requests.Session, Dict[str, Any]]:
     """
     Authenticates with VIT LMS and returns an active HTTP session and user info.
@@ -174,16 +190,18 @@ def authenticate_lms_session(
     """
     s = requests.Session()
     s.headers.update({"User-Agent": USER_AGENT})
+    urls = get_lms_urls(campus)
+    domain_host = urls["base"].replace("https://", "").replace("http://", "").split("/")[0]
 
     # Mode 1: Validate provided session cookie (MoodleSession)
     if session_cookie:
         clean_cookie = session_cookie.strip()
         if clean_cookie.startswith("MoodleSession="):
             clean_cookie = clean_cookie.split("MoodleSession=")[1].split(";")[0].strip()
-        s.cookies.set("MoodleSession", clean_cookie, domain="lms.vit.ac.in")
+        s.cookies.set("MoodleSession", clean_cookie, domain=domain_host)
 
         try:
-            r = s.get(LMS_MY_URL, verify=False, allow_redirects=False, timeout=REQUEST_TIMEOUT)
+            r = s.get(urls["my"], verify=False, allow_redirects=False, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
                 user_elem = soup.find(class_=lambda x: x and ("usertext" in x or "userbutton" in x or "username" in x))
@@ -193,13 +211,14 @@ def authenticate_lms_session(
                     "displayName": display_name,
                     "authMethod": "cookie",
                     "sessionCookie": clean_cookie,
+                    "campus": campus or "chennai",
                 }
             elif r.status_code in (302, 303):
                 loc = r.headers.get("Location") or ""
                 if "login" in loc:
                     raise HTTPException(
                         status_code=401,
-                        detail="The provided VIT LMS session cookie has expired. Please re-authenticate.",
+                        detail=f"The provided VIT LMS ({urls['base']}) session cookie has expired. Please re-authenticate.",
                     )
         except HTTPException:
             raise
@@ -207,7 +226,7 @@ def authenticate_lms_session(
             logger.warning("LMS connectivity error during cookie auth: %s", e)
             raise HTTPException(
                 status_code=503,
-                detail="VIT LMS server (https://lms.vit.ac.in) is currently unreachable. Please try again later.",
+                detail=f"VIT LMS server ({urls['base']}) is currently unreachable. Please try again later.",
             )
 
     # Mode 2: Username and password login
@@ -219,11 +238,11 @@ def authenticate_lms_session(
 
     try:
         # Step 1: GET login page to retrieve logintoken & initial cookies
-        r_get = s.get(LMS_LOGIN_URL, verify=False, timeout=REQUEST_TIMEOUT)
+        r_get = s.get(urls["login"], verify=False, timeout=REQUEST_TIMEOUT)
         if r_get.status_code != 200:
             raise HTTPException(
                 status_code=503,
-                detail="VIT LMS login gateway is currently unreachable. Please check if https://lms.vit.ac.in is online.",
+                detail=f"VIT LMS login gateway is currently unreachable. Please check if {urls['base']} is online.",
             )
 
         soup_get = BeautifulSoup(r_get.text, "html.parser")
@@ -238,7 +257,7 @@ def authenticate_lms_session(
         }
 
         r_post = s.post(
-            LMS_LOGIN_URL,
+            urls["login"],
             data=post_data,
             verify=False,
             allow_redirects=True,
@@ -744,7 +763,7 @@ def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
     and extracts authentic assignments.
     """
     session, auth_info = authenticate_lms_session(
-        payload.username, payload.password, payload.sessionCookie
+        payload.username, payload.password, payload.sessionCookie, payload.campus
     )
 
     store = load_store()

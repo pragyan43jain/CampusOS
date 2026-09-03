@@ -255,7 +255,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>Registration Number</span>
                 <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', fontSize: '0.94rem' }}>
-                  {student.regNo || '24BLC1100'}
+                  {student.regNo || 'Not available'}
                 </span>
               </div>
 

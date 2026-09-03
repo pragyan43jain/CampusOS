@@ -230,15 +230,20 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
         // Standalone Web / Netlify fallback when local backend is not attached over HTTPS
         const sessionStudent = {
-          name: cleanUsername === '24BLC1100' ? 'Pragyan Jain' : cleanUsername,
+          name: cleanUsername,
           regNo: cleanUsername,
           program: 'B.Tech - Computer Science and Engineering',
+          branch: 'CSE',
           school: 'School of Computer Science and Engineering (SCOPE)',
           campus: 'Chennai',
-          semester: 'Fall Semester 2026-27',
-          cgpa: 9.42,
-          proctor: 'Dr. Faculty Advisor',
+          semester: 4,
+          cgpa: 8.81,
+          creditsEarned: 96.0,
+          totalCreditsRequired: 160.0,
+          lastSynced: new Date().toISOString(),
+          proctor: { name: 'Dr. Faculty Advisor', email: 'faculty@vit.ac.in' },
         };
+        CampusAPI.setActiveStudent(sessionStudent);
         CampusAPI.setActiveSessionId('local-' + cleanUsername);
         setStatusStep('Authentication Successful!');
         setSuccessMsg(`Welcome, ${cleanUsername}!`);

@@ -364,6 +364,7 @@ export const App: React.FC = () => {
     } finally {
       // 1. Invalidate session & reset auth state
       CampusAPI.setActiveSessionId(null);
+      CampusAPI.setActiveStudent(null);
       setIsAuthenticated(false);
       setShowLanding(true);
       setShowVtopModal(false);
@@ -392,6 +393,8 @@ export const App: React.FC = () => {
       // 3. Navigate canonical root "/" and update browser history
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem('campusos_leetcode_username');
+        window.localStorage.removeItem('campus_lms_account');
+        window.localStorage.removeItem('campus_teams_account');
         window.history.replaceState(null, '', '/');
       }
     }
@@ -403,6 +406,7 @@ export const App: React.FC = () => {
 
     const studentObj = data?.student || (data?.regNo ? data : null);
     if (studentObj) {
+      CampusAPI.setActiveStudent(studentObj);
       setStudent(studentObj);
     }
     if (data && data.courses) setCourses(data.courses);

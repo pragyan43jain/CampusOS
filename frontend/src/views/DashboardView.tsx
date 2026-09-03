@@ -107,7 +107,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const creditsDisplay = `${earnedCredits} / ${totalCredits}`;
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
-  const studentFirstName = student?.name ? student.name.split(' ')[0] : 'PRAGYAN';
+  const studentFirstName = student?.name && student.name !== 'Student' && student.name !== 'Not connected'
+    ? student.name.split(' ')[0]
+    : (student?.regNo && student.regNo !== 'Not available' ? student.regNo : 'Student');
 
   const teamsConnected = Boolean(teamsAccount?.connected);
   const lmsConnected = Boolean(lmsAccount?.connected);
