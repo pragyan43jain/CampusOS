@@ -400,20 +400,21 @@ export const App: React.FC = () => {
     setShowVtopModal(false);
     setIsAuthenticated(true);
 
-    if (data && data.student) {
-      setStudent(data.student);
-      if (data.courses) setCourses(data.courses);
-      if (data.timetable) setTimetable(data.timetable);
-      if (data.attendance) setAttendance(data.attendance);
-      if (data.marks) setMarks(data.marks);
-      if (data.exams) setExams(data.exams);
-      if (data.faculty) setFaculty(data.faculty);
-      if (data.assignments) setAssignments(data.assignments);
-      if (data.fees) setFees(data.fees);
-      if (data.placements) setPlacements(data.placements);
-      if (data.dsaTopics) setDsaTopics(data.dsaTopics);
-      if (data.aiTasks) setAiTasks(data.aiTasks);
+    const studentObj = data?.student || (data?.regNo ? data : null);
+    if (studentObj) {
+      setStudent(studentObj);
     }
+    if (data && data.courses) setCourses(data.courses);
+    if (data && data.timetable) setTimetable(data.timetable);
+    if (data && data.attendance) setAttendance(data.attendance);
+    if (data && data.marks) setMarks(data.marks);
+    if (data && data.exams) setExams(data.exams);
+    if (data && data.faculty) setFaculty(data.faculty);
+    if (data && data.assignments) setAssignments(data.assignments);
+    if (data && data.fees) setFees(data.fees);
+    if (data && data.placements) setPlacements(data.placements);
+    if (data && data.dsaTopics) setDsaTopics(data.dsaTopics);
+    if (data && data.aiTasks) setAiTasks(data.aiTasks);
 
     await loadAllData();
     setShowLanding(false);
