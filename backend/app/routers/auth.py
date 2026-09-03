@@ -20,7 +20,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.storage import clear_store, empty_store, load_store, save_store
@@ -29,6 +29,23 @@ from app.vtop.client import client_manager
 logger = logging.getLogger("vtop.routes")
 
 router = APIRouter(prefix="/api/vtop", tags=["vtop"])
+
+
+def resolve_student_reg(
+    x_session_id: Optional[str] = None,
+    x_reg_no: Optional[str] = None,
+    session_id: Optional[str] = None,
+    reg_no: Optional[str] = None,
+) -> Optional[str]:
+    reg = reg_no or x_reg_no
+    if reg and reg.strip() and reg.strip() != "Not available":
+        return reg.strip()
+    sid = session_id or x_session_id
+    if sid:
+        handle = client_manager._get(sid)
+        if handle and handle.reg_no:
+            return handle.reg_no
+    return None
 
 
 class LoginRequest(BaseModel):
@@ -126,10 +143,17 @@ def switch_semester(
 
 
 @router.post("/logout")
-def logout(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
+def logout(
+    sessionId: Optional[str] = Query(None),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """End the VTOP session(s) and clear the local store."""
-    result = client_manager.logout(sessionId)
-    clear_store()
+    resolved_sid = sessionId or x_session_id
+    resolved_reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    result = client_manager.logout(resolved_sid)
+    clear_store(resolved_reg)
     return {**result, "message": "Signed out of VTOP and cleared local data."}
 
 
@@ -139,13 +163,24 @@ def logout(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
 
 
 @router.get("/profile")
-def get_vtop_profile() -> Dict[str, Any]:
-    store = load_store()
+def get_vtop_profile(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     return store.get("student") or empty_store()["student"]
 
 
 @router.get("/cgpa")
-def get_vtop_cgpa() -> Dict[str, Any]:
+def get_vtop_cgpa(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Cumulative academic standing.
 
@@ -158,7 +193,8 @@ def get_vtop_cgpa() -> Dict[str, Any]:
     That is a programme-dependent figure nobody had checked, and it fed a progress
     bar that therefore meant nothing.
     """
-    student = load_store().get("student") or {}
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    student = load_store(reg).get("student") or {}
     return {
         "currentCgpa": student.get("cgpa"),
         "creditsEarned": student.get("creditsEarned"),
@@ -176,8 +212,14 @@ def get_vtop_cgpa() -> Dict[str, Any]:
 
 
 @router.get("/attendance")
-def get_vtop_attendance() -> List[Dict[str, Any]]:
-    return load_store().get("attendance") or []
+def get_vtop_attendance(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("attendance") or []
 
 
 def normalize_marks_item(m: Dict[str, Any], courses: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -296,17 +338,29 @@ def normalize_faculty_item(fac: Dict[str, Any], courses: List[Dict[str, Any]]) -
 
 
 @router.get("/marks")
-def get_vtop_marks() -> List[Dict[str, Any]]:
-    store = load_store()
+def get_vtop_marks(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
     return [normalize_marks_item(m, courses) for m in raw_marks]
 
 
 @router.get("/marks/summary")
-def get_vtop_marks_summary() -> List[Dict[str, Any]]:
+def get_vtop_marks_summary(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
     """Returns continuous marks status for all enrolled courses."""
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
     marks_by_code = {m.get("courseCode"): m for m in raw_marks if m.get("courseCode")}
@@ -338,17 +392,29 @@ def get_vtop_marks_summary() -> List[Dict[str, Any]]:
 
 
 @router.get("/courses")
-def get_vtop_courses() -> List[Dict[str, Any]]:
+def get_vtop_courses(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
     """Registered courses with their attendance and marks attached."""
-    return load_store().get("courses") or []
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("courses") or []
 
 
 @router.get("/od")
-def get_vtop_od() -> Dict[str, Any]:
+def get_vtop_od(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     On-duty hours extracted directly from VTOP leave modules.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
     
@@ -379,172 +445,80 @@ def get_vtop_od() -> Dict[str, Any]:
     }
 
 
-@router.post("/od/sync")
-def sync_od(sessionId: Optional[str] = Query(None)) -> Dict[str, Any]:
-    """
-    Directly query VTOP CC for On-Duty (OD) hours using the live session.
-
-    Critical: we re-fetch the live attendance page so that per-subject
-    drill-down (processViewAttendanceDetail) can run with valid classIds.
-    Without this, odAttended is always 0 from cached rows because the main
-    attendance summary table on VTOP CC does not carry an OD column.
-    """
-    resolved = sessionId or client_manager._authenticated_handle()
-    handle = client_manager._get(resolved) if resolved else None
-
-    if handle is None or not handle.session.is_authenticated:
-        return {
-            "success": False,
-            "sessionExpired": True,
-            "message": "VTOP CC session expired. Please sync VTOP again to re-authenticate.",
-        }
-
-    store = load_store()
-    semester = store.get("selectedSemester") or {}
-    semester_id = semester.get("id")
-
-    try:
-        from app.vtop.scraper import fetch_od, fetch_attendance_page
-        from app.vtop import parser as P
-
-        # Re-fetch the live attendance page so drill-down class IDs are available.
-        # This is the key fix: the cached att rows have odAttended=0 because the
-        # summary page doesn't have an OD column — the OD status lives only inside
-        # the per-subject lecture log (processViewAttendanceDetail).
-        att_html: Optional[str] = None
-        att_rows = store.get("attendance") or []
-
-        if semester_id:
-            try:
-                logger.info("[VTOP OD] Fetching live attendance page for classId extraction…")
-                att_html = fetch_attendance_page(handle.session, semester_id)
-                fresh_rows = P.parse_attendance(att_html) if att_html else []
-                if fresh_rows:
-                    att_rows = fresh_rows
-                    logger.info("[VTOP OD] Refreshed %d attendance rows from live VTOP page.", len(fresh_rows))
-            except Exception as e:
-                logger.warning("[VTOP OD] Could not fetch live attendance page: %s. Proceeding with cached rows.", e)
-
-        od_data = fetch_od(
-            handle.session,
-            semester_id,
-            attendance_rows=att_rows,
-            attendance_html=att_html,
-        )
-
-        store["od"] = od_data
-        save_store(store)
-
-        used = od_data.get("usedHours") or od_data.get("odHours") or 0
-        records_count = len(od_data.get("records") or od_data.get("odRecords") or [])
-        return {
-            "success": True,
-            "message": f"OD fetch complete — {used}h used across {records_count} record(s) from VTOP CC.",
-            "od": od_data,
-        }
-    except Exception as exc:
-        logger.exception("[VTOP OD] Live fetch failed: %s", exc)
-        return {
-            "success": False,
-            "message": f"Failed to query VTOP CC OD endpoints: {exc}",
-        }
-
-
 @router.get("/exams")
-def get_vtop_exams() -> Dict[str, List[Dict[str, Any]]]:
+def get_vtop_exams(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, List[Dict[str, Any]]]:
     """
     Exam schedule grouped by exam type ("CAT 1", "FAT", ...), as VTOP groups it.
     """
-    exams = load_store().get("exams")
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    exams = load_store(reg).get("exams")
     return exams if isinstance(exams, dict) else {}
 
 
-@router.get("/exams-list")
-def get_vtop_exams_list() -> List[Dict[str, Any]]:
-    """
-    Normalized flat array of scheduled examinations for card/timeline rendering.
-    """
-    store = load_store()
-    exams_list = store.get("examsList")
-    if isinstance(exams_list, list):
-        return exams_list
-    exams = store.get("exams")
-    if isinstance(exams, dict):
-        cards = []
-        idx = 1
-        for etype, items in exams.items():
-            for it in items:
-                cards.append({
-                    "id": f"exam-{idx}",
-                    "examType": etype,
-                    "title": f"{etype} - {it.get('slot') or 'Exam'}",
-                    **it,
-                })
-                idx += 1
-        return cards
-    return []
-
-
-@router.get("/debug")
-def get_vtop_debug() -> Dict[str, Any]:
-    """
-    Development debug telemetry for VTOP scraping & module state.
-    """
-    store = load_store()
-    od = store.get("od") or {}
-    report = store.get("syncReport") or {}
-    return {
-        "syncReport": report,
-        "odState": {
-            "state": od.get("state"),
-            "usedHours": od.get("usedHours"),
-            "maxHours": od.get("maxHours"),
-            "remainingHours": od.get("remainingHours"),
-            "recordCount": len(od.get("records", [])),
-            "diagnostics": od.get("diagnostics"),
-        },
-        "sessionStatus": client_manager.status(),
-        "modules": {
-            "coursesCount": len(store.get("courses") or []),
-            "timetableCount": len(store.get("timetable") or []),
-            "attendanceCount": len(store.get("attendance") or []),
-            "marksCount": len(store.get("marks") or []),
-            "examsCount": len(store.get("exams") or []),
-            "facultyCount": len(store.get("faculty") or []),
-        },
-        "lastSynced": store.get("lastSynced"),
-    }
-
-
 @router.get("/timetable")
-def get_vtop_timetable() -> List[Dict[str, Any]]:
-    return load_store().get("timetable") or []
+def get_vtop_timetable(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("timetable") or []
 
 
 @router.get("/faculty")
-def get_vtop_faculty() -> List[Dict[str, Any]]:
+def get_vtop_faculty(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
     """
     The student's faculty, projected from the registered-course table and university staff records.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     raw_fac = store.get("faculty") or []
     return [normalize_faculty_item(f, courses) for f in raw_fac]
 
 
 @router.get("/receipts")
-def get_vtop_receipts() -> List[Dict[str, Any]]:
-    return load_store().get("receipts") or []
+def get_vtop_receipts(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("receipts") or []
 
 
 @router.get("/dues")
-def get_vtop_dues() -> Dict[str, Any]:
-    return load_store().get("dues") or {"hasDues": False, "totalDue": 0.0, "items": []}
+def get_vtop_dues(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("dues") or {"hasDues": False, "totalDue": 0.0, "items": []}
 
 
 @router.get("/fees")
-def get_vtop_fees() -> List[Dict[str, Any]]:
-    return load_store().get("fees") or []
+def get_vtop_fees(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("fees") or []
 
 
 @router.get("/spotlight")

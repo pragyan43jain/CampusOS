@@ -101,14 +101,30 @@ export const fetchWithTimeout = async (
   }
 };
 
+let activeSessionId: string | null = null;
+let activeStudent: StudentProfile | null = null;
+let inFlightLogin: Promise<VtopSyncResponse> | null = null;
+let inFlightSync: Promise<VtopSyncResponse> | null = null;
+
 async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
   const base = getApiBase();
   try {
+    const authHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (activeSessionId) {
+      authHeaders['X-Session-ID'] = activeSessionId;
+    }
+    if (activeStudent?.regNo && activeStudent.regNo !== 'Not available') {
+      authHeaders['X-Reg-No'] = activeStudent.regNo;
+    }
+
     const res = await fetchWithTimeout(`${base}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
       ...options,
+      headers: {
+        ...authHeaders,
+        ...(options?.headers as any),
+      },
     });
     if (!res.ok) {
       throw new Error(`API HTTP ${res.status}: ${res.statusText}`);
@@ -122,11 +138,6 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: 
     throw err;
   }
 }
-
-let activeSessionId: string | null = null;
-let activeStudent: StudentProfile | null = null;
-let inFlightLogin: Promise<VtopSyncResponse> | null = null;
-let inFlightSync: Promise<VtopSyncResponse> | null = null;
 
 export const CampusAPI = {
   getApiBaseUrl: () => getApiBase(),

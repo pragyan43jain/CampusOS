@@ -18,12 +18,12 @@ Two groups:
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from app.storage import empty_store, load_store, save_store
 from app.vtop.hostel import fetch_laundry_schedule, fetch_mess_menu
-from app.routers.auth import normalize_marks_item, normalize_faculty_item
+from app.routers.auth import normalize_marks_item, normalize_faculty_item, resolve_student_reg
 
 logger = logging.getLogger("vtop.routes.academics")
 
@@ -40,37 +40,73 @@ class AssignmentStatusUpdate(BaseModel):
 
 
 @router.get("/student")
-def get_student_profile() -> Dict[str, Any]:
-    store = load_store()
+def get_student_profile(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     return store.get("student") or empty_store()["student"]
 
 
 @router.get("/courses")
-def get_courses() -> List[Dict[str, Any]]:
-    return load_store().get("courses") or []
+def get_courses(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("courses") or []
 
 
 @router.get("/timetable")
-def get_timetable() -> List[Dict[str, Any]]:
-    return load_store().get("timetable") or []
+def get_timetable(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("timetable") or []
 
 
 @router.get("/attendance")
-def get_attendance() -> List[Dict[str, Any]]:
-    return load_store().get("attendance") or []
+def get_attendance(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("attendance") or []
 
 
 @router.get("/marks")
-def get_marks() -> List[Dict[str, Any]]:
-    store = load_store()
+def get_marks(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
     return [normalize_marks_item(m, courses) for m in raw_marks]
 
 
 @router.get("/marks/summary")
-def get_marks_summary() -> List[Dict[str, Any]]:
-    store = load_store()
+def get_marks_summary(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
     marks_by_code = {m.get("courseCode"): m for m in raw_marks if m.get("courseCode")}
@@ -102,11 +138,17 @@ def get_marks_summary() -> List[Dict[str, Any]]:
 
 
 @router.get("/od")
-def get_od() -> Dict[str, Any]:
+def get_od(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     On-duty hours extracted directly from VTOP leave modules.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
     
@@ -138,20 +180,33 @@ def get_od() -> Dict[str, Any]:
 
 
 @router.get("/faculty")
-def get_faculty() -> List[Dict[str, Any]]:
-    store = load_store()
+def get_faculty(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     raw_fac = store.get("faculty") or []
     return [normalize_faculty_item(f, courses) for f in raw_fac]
 
 
 @router.get("/academics/subject/{course_code}")
-def get_subject_details(course_code: str) -> Dict[str, Any]:
+def get_subject_details(
+    course_code: str,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Returns authentic academic details specifically for one enrolled course code.
     Prevents cross-subject contamination.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     courses = store.get("courses") or []
     matched = next((c for c in courses if (c.get("code") or "").upper() == course_code.upper()), None)
     if not matched:
@@ -198,9 +253,15 @@ def get_subject_details(course_code: str) -> Dict[str, Any]:
 
 
 @router.get("/exams")
-def get_exams() -> Dict[str, List[Dict[str, Any]]]:
+def get_exams(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, List[Dict[str, Any]]]:
     """Grouped by exam type, matching ``/api/vtop/exams``."""
-    exams = load_store().get("exams")
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    exams = load_store(reg).get("exams")
     return exams if isinstance(exams, dict) else {}
 
 

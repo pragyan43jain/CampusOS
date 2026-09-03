@@ -167,17 +167,17 @@ export const App: React.FC = () => {
 
       if (isAuthed) {
         setStudent(studentData);
-        setCourses(coursesData);
-        setTimetable(timetableData);
-        setAttendance(attendanceData);
-        setMarks(marksData);
-        setExams(examsData);
-        setFaculty(facultyData);
-        setAssignments(assignmentsData);
-        setFees(feesData);
-        setPlacements(placementsData);
-        setDsaTopics(dsaData);
-        setAiTasks(aiData);
+        if (coursesData && coursesData.length > 0) setCourses(coursesData);
+        if (timetableData && timetableData.length > 0) setTimetable(timetableData);
+        if (attendanceData && attendanceData.length > 0) setAttendance(attendanceData);
+        if (marksData && marksData.length > 0) setMarks(marksData);
+        if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
+        if (facultyData && facultyData.length > 0) setFaculty(facultyData);
+        if (assignmentsData && assignmentsData.length > 0) setAssignments(assignmentsData);
+        if (feesData && feesData.length > 0) setFees(feesData);
+        if (placementsData && placementsData.length > 0) setPlacements(placementsData);
+        if (dsaData && dsaData.length > 0) setDsaTopics(dsaData);
+        if (aiData && aiData.length > 0) setAiTasks(aiData);
         setIsAuthenticated(true);
       }
 
