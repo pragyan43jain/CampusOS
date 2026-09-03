@@ -36,11 +36,7 @@ logger = logging.getLogger("vtop.routes.lms")
 router = APIRouter(prefix="/api/lms", tags=["lms"])
 
 def get_lms_urls(campus: Optional[str] = "chennai") -> Dict[str, str]:
-    c = (campus or "chennai").lower().strip()
-    if "vellore" in c:
-        base = "https://lms.vit.ac.in"
-    else:
-        base = "https://lmscc.vit.ac.in"
+    base = "https://lms.vit.ac.in"
     return {
         "base": base,
         "login": f"{base}/login/index.php",
