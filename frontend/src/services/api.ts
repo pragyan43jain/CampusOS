@@ -158,10 +158,10 @@ export const CampusAPI = {
     return prof || fallback;
   },
 
-  getCgpaDetails: async (): Promise<{ currentCgpa?: number; creditsEarned?: number; totalCreditsRequired: number; rank?: number; semesterGpa: any[] }> => {
+  getCgpaDetails: async (): Promise<{ currentCgpa?: number | null; creditsEarned?: number | null; totalCreditsRequired: number; rank?: number; semesterGpa: any[] }> => {
     return fetchJson('/vtop/cgpa', undefined, {
-      currentCgpa: activeStudent?.cgpa || (DEFAULT_STUDENT_PROFILE as any)?.cgpa || 8.81,
-      creditsEarned: activeStudent?.creditsEarned || (DEFAULT_STUDENT_PROFILE as any)?.creditsEarned || 96.0,
+      currentCgpa: activeStudent?.cgpa ?? null,
+      creditsEarned: activeStudent?.creditsEarned ?? null,
       totalCreditsRequired: 160,
       semesterGpa: [],
     });
