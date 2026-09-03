@@ -10,6 +10,9 @@ import {
   EyeOff,
   Mail,
   Lock,
+  Settings2,
+  Server,
+  RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -34,46 +37,78 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [step, setStep] = useState<string | null>(null);
 
+  // Backend connection settings toggle
+  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
+  const [customApiUrl, setCustomApiUrl] = useState<string>(CampusAPI.getApiBaseUrl());
+
   useEffect(() => {
     if (initialEmail && !email) {
       setEmail(initialEmail);
     }
   }, [initialEmail]);
 
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      setSuccessMsg(null);
+      setStep(null);
+      setCustomApiUrl(CampusAPI.getApiBaseUrl());
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleSaveApiUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    CampusAPI.setCustomApiUrl(customApiUrl);
+    setError(null);
+    setSuccessMsg('API URL updated successfully');
+    setTimeout(() => setSuccessMsg(null), 2000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
+    const cleanEmail = email.trim();
+    const cleanPassword = password;
+
+    if (!cleanEmail) {
       setError('Please enter your university Microsoft email address.');
       return;
     }
-    if (!password.trim()) {
+    if (!cleanPassword) {
       setError('Please enter your Microsoft 365 password.');
       return;
     }
 
+    // Security requirement: Clear raw password from state immediately
+    setPassword('');
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
-    setStep('Verifying university tenant & authenticating with Microsoft Online...');
+    setStep('Authenticating with Microsoft...');
 
     try {
-      const res = await CampusAPI.loginTeams(email.trim(), password.trim());
+      setStep('Linking Microsoft Teams & verifying tenant...');
+      const res = await CampusAPI.loginTeams(cleanEmail, cleanPassword);
 
       if (!res.success) {
         throw new Error(res.message || 'Authentication failed. Please check your credentials.');
       }
 
-      setStep('Synchronizing class coursework & assignments...');
-      setSuccessMsg('Successfully authenticated with Microsoft Teams.');
+      setStep('Syncing Teams assignments & coursework...');
+      setSuccessMsg(res.message || '✓ Microsoft Teams Connected');
 
       setTimeout(() => {
         onLoginSuccess();
         onClose();
-      }, 800);
+      }, 700);
     } catch (err: any) {
-      setError(err.message || 'Failed to authenticate with Microsoft Teams.');
+      const errMsg = err?.message || '';
+      if (errMsg.toLowerCase().includes('failed to fetch') || errMsg.toLowerCase().includes('networkerror') || errMsg.toLowerCase().includes('unable to connect')) {
+        setError('Unable to connect to Microsoft Teams right now. Check your network connection and backend API status.');
+      } else {
+        setError(errMsg || 'Failed to authenticate with Microsoft Teams.');
+      }
     } finally {
       setLoading(false);
       setStep(null);
@@ -82,7 +117,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -97,10 +132,59 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             </div>
           </div>
 
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '4px' }} aria-label="Close">
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => setShowServerConfig(!showServerConfig)}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: '6px' }}
+              title="Configure Backend API URL"
+              aria-label="Server settings"
+            >
+              <Settings2 size={16} color={showServerConfig ? 'var(--accent-cyan)' : 'var(--text-muted)'} />
+            </button>
+            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '6px' }} aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Expandable Server Config Panel */}
+        {showServerConfig && (
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-card)',
+              backgroundColor: 'var(--surface-sunken)',
+              border: '1px solid var(--border-subtle)',
+              marginBottom: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <Server size={14} color="var(--accent-cyan)" />
+              <span>CampusOS Backend Endpoint</span>
+            </div>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+              When connecting from a deployed web interface, configure your backend URL (e.g. your local or cloud HTTPS endpoint).
+            </p>
+            <form onSubmit={handleSaveApiUrl} style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={customApiUrl}
+                onChange={(e) => setCustomApiUrl(e.target.value)}
+                placeholder="http://127.0.0.1:8000/api"
+                className="input-field"
+                style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'var(--font-mono)' }}
+              />
+              <button type="submit" className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap' }}>
+                Save
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Portal info badge */}
         <div
@@ -130,9 +214,22 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
         {/* Status / Error feedback */}
         {error && (
-          <div className="status-badge error" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
-            <AlertCircle size={15} />
-            <span>{error}</span>
+          <div className="status-badge error" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', fontSize: '0.80rem', gap: '8px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%' }}>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.72rem', padding: '4px 10px', height: '28px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              >
+                <RotateCcw size={12} />
+                <span>Try Again</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -163,6 +260,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
                 className="input-field"
                 style={{ paddingLeft: '38px' }}
                 disabled={loading}
+                autoComplete="email"
               />
               <Mail
                 size={16}
@@ -178,10 +276,11 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder="Enter Microsoft password"
                 className="input-field"
                 style={{ paddingLeft: '38px', paddingRight: '38px' }}
                 disabled={loading}
+                autoComplete="current-password"
               />
               <Lock
                 size={16}
@@ -207,10 +306,10 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             {loading ? (
               <>
                 <RefreshCw size={15} className="animate-spin" />
-                <span>Verifying Microsoft Account...</span>
+                <span>{step || 'Authenticating with Microsoft...'}</span>
               </>
             ) : (
-              <span>Authenticate & Link Teams</span>
+              <span>Authenticate &amp; Link Teams</span>
             )}
           </button>
         </form>

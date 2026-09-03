@@ -35,7 +35,15 @@ app = FastAPI(
 # all it needs, since the frontend runs on the same machine.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.github\.io|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?$",
+    allow_origins=[
+        "https://campus-o.netlify.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        "http://localhost:3000",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.netlify\.app|.*\.github\.io|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -31,11 +31,12 @@ export const getApiBase = (): string => {
     }
 
     const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
     const port = window.location.port;
 
-    // 3. If running on GitHub Pages (github.io) or external domain without reverse proxy
-    if (hostname.includes('github.io') || (hostname !== 'localhost' && hostname !== '127.0.0.1')) {
-      return 'http://127.0.0.1:8000/api';
+    // 3. If running on HTTPS production domain (e.g. Netlify)
+    if (protocol === 'https:' && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+      return '/api';
     }
 
     // 4. If running locally on preview or custom port
@@ -46,10 +47,37 @@ export const getApiBase = (): string => {
   return '/api';
 };
 
+export const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 20000
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. The service is taking too long to respond.');
+    }
+    const msg = (err?.message || '').toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('networkerror')) {
+      throw new Error('Unable to connect to the backend server. Please verify your connection or API server status.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
   const base = getApiBase();
   try {
-    const res = await fetch(`${base}${endpoint}`, {
+    const res = await fetchWithTimeout(`${base}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -444,11 +472,11 @@ export const CampusAPI = {
     mfaRequired?: boolean;
   }> => {
     try {
-      const res = await fetch(`${getApiBase()}/teams/login`, {
+      const res = await fetchWithTimeout(`${getApiBase()}/teams/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-      });
+      }, 20000);
       const data = await res.json();
       if (!res.ok) {
         return {
@@ -460,7 +488,7 @@ export const CampusAPI = {
     } catch (err: any) {
       return {
         success: false,
-        message: err.message || 'Failed to connect to Microsoft Online authentication service',
+        message: err.message || 'Unable to connect to Microsoft Online authentication service. Check your connection.',
       };
     }
   },
@@ -473,10 +501,10 @@ export const CampusAPI = {
     lastSynced?: string;
   }> => {
     try {
-      const res = await fetch(`${getApiBase()}/teams/sync`, {
+      const res = await fetchWithTimeout(`${getApiBase()}/teams/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      });
+      }, 20000);
       const data = await res.json();
       if (!res.ok) {
         return {
@@ -488,7 +516,7 @@ export const CampusAPI = {
     } catch (err: any) {
       return {
         success: false,
-        message: err.message || 'Failed to sync with Microsoft Teams',
+        message: err.message || 'Unable to sync coursework with Microsoft Teams. Check your connection.',
       };
     }
   },
