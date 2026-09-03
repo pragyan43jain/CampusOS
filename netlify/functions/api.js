@@ -110,14 +110,16 @@ class NodeVTOPSession {
 
   async login(username, password, captcha) {
     this.username = username.toUpperCase().trim();
-    const loginParams = new URLSearchParams({
-      _csrf: this.csrf || '',
-      username: this.username,
-      uname: this.username,
-      password: password,
-      passwd: password,
-      captchaCheck: captcha,
-    });
+    const loginParams = new URLSearchParams([
+      ['_csrf', this.csrf || ''],
+      ['username', this.username],
+      ['password', password],
+      ['captchaStr', captcha || ''],
+      ['gResponse', captcha || ''],
+      ['uname', this.username],
+      ['passwd', password],
+      ['captchaCheck', captcha || ''],
+    ]);
 
     const res = await this.request('login', {
       method: 'POST',
@@ -126,19 +128,33 @@ class NodeVTOPSession {
     });
 
     const html = res.html;
-    if (html.includes('authorizedIDX') || html.includes('Logout') || html.includes('Sign Out') || html.includes('processViewStudentProfile')) {
+    if (
+      html.includes('authorizedIDX') ||
+      html.includes('Logout') ||
+      html.includes('Sign Out') ||
+      html.includes('processViewStudentProfile') ||
+      html.includes('content') ||
+      html.includes('StudentProfileAllView')
+    ) {
       this.isAuthenticated = true;
+      try {
+        await this.request('content');
+      } catch (e) {}
       return { success: true };
     }
 
-    if (html.includes('Invalid Captcha') || html.includes('Captcha does not match')) {
-      return { success: false, message: 'Invalid CAPTCHA characters entered.' };
+    const lowered = html.toLowerCase();
+    if (lowered.includes('invalid') && lowered.includes('captcha')) {
+      return { success: false, message: 'Invalid CAPTCHA characters. Please verify the characters from the image and try again.' };
     }
-    if (html.includes('Invalid UserID / Password') || html.includes('Invalid Login Credentials')) {
+    if (lowered.includes('invalid') && (lowered.includes('password') || lowered.includes('user') || lowered.includes('credentials') || lowered.includes('userid'))) {
       return { success: false, message: 'Invalid Registration Number or Password.' };
     }
+    if (lowered.includes('account is locked') || lowered.includes('locked')) {
+      return { success: false, message: 'Your VTOP account is temporarily locked. Please try again later or contact VTOP admin.' };
+    }
 
-    return { success: false, message: 'VTOP login rejected. Please check your credentials.' };
+    return { success: false, message: 'VTOP login rejected. Please check your credentials and CAPTCHA.' };
   }
 
   async scrapeAll() {
