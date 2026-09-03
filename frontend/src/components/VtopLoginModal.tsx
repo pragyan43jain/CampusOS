@@ -291,20 +291,24 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         const isCaptchaError = /captcha/i.test(msg);
         setErrorMsg(
           isCaptchaError
-            ? 'Invalid CAPTCHA. A new challenge has been loaded below.'
+            ? 'Invalid CAPTCHA characters. Please verify the characters from the image and try again.'
             : (msg || 'Authentication failed. Please check your registration number and password.')
         );
-        loadCaptcha(true);
+        if (isCaptchaError) {
+          loadCaptcha(true);
+        }
       }
     } catch (err: any) {
       const errMsg = err?.message || '';
       const isCaptchaError = /captcha/i.test(errMsg);
       setErrorMsg(
         isCaptchaError
-          ? 'Invalid CAPTCHA. A new challenge has been loaded below.'
+          ? 'Invalid CAPTCHA characters. Please check the image and try again.'
           : (errMsg || 'Network error communicating with VTOP portal.')
       );
-      loadCaptcha(true);
+      if (isCaptchaError) {
+        loadCaptcha(true);
+      }
     } finally {
       setSubmitting(false);
     }
