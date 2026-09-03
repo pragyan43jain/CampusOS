@@ -327,6 +327,166 @@ export const CampusAPI = {
     return fetchJson<DSACategory[]>('/dsa', undefined, []);
   },
 
+  // 8.1 LeetCode DSA Profile & Placement Intelligence
+  getLeetCodeProfile: async (handle: string, signal?: AbortSignal): Promise<any> => {
+    const raw = (handle || '').trim().replace(/^@+/, '');
+    if (!raw) {
+      throw new Error('Please enter a valid LeetCode username.');
+    }
+    let username = raw;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      try {
+        const u = new URL(raw);
+        const parts = u.pathname.split('/').filter(Boolean);
+        if (parts.length >= 2 && (parts[0] === 'u' || parts[0] === 'user')) {
+          username = parts[1];
+        } else if (parts.length >= 1) {
+          username = parts[0];
+        }
+      } catch (e) {}
+    }
+
+    // 1. First attempt to call the backend API endpoint
+    try {
+      const base = getApiBase();
+      const res = await fetchWithTimeout(`${base}/leetcode/profile?user=${encodeURIComponent(username)}`, {
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+      }, 15000);
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        throw new Error('Server returned HTML instead of JSON');
+      }
+
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Expected JSON but received ${contentType || 'unknown content type'}`);
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || data.message || `LeetCode user '${username}' not found.`);
+      }
+      return data;
+    } catch (err: any) {
+      const msg = (err?.message || '').toLowerCase();
+      // If the backend specifically reported user not found, surface that error cleanly
+      if (msg.includes('not found') || msg.includes('does not exist') || msg.includes('verify the handle')) {
+        throw new Error(`LeetCode user '${username}' was not found. Please verify the handle.`);
+      }
+
+      // 2. Client-side fallback for static Netlify or disconnected backend
+      try {
+        const graphqlQuery = `
+          query getUserProfile($username: String!) {
+            allQuestionsCount { difficulty count }
+            matchedUser(username: $username) {
+              username
+              profile { realName userAvatar ranking reputation }
+              badges { id displayName icon }
+              submitStats { acSubmissionNum { difficulty count } }
+              tagProblemCounts {
+                advanced { tagName problemsSolved }
+                intermediate { tagName problemsSolved }
+                fundamental { tagName problemsSolved }
+              }
+            }
+            userContestRanking(username: $username) {
+              attendedContestsCount
+              rating
+              globalRanking
+              topPercentage
+              badge { name }
+            }
+            userContestRankingHistory(username: $username) {
+              attended
+              rating
+              ranking
+              contest { title startTime }
+            }
+          }
+        `;
+
+        const gqlRes = await fetchWithTimeout('https://leetcode.com/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: graphqlQuery, variables: { username } }),
+          signal,
+        }, 12000);
+
+        if (gqlRes.ok && gqlRes.headers.get('content-type')?.includes('application/json')) {
+          const gqlData = await gqlRes.json();
+          if (gqlData.data?.matchedUser) {
+            const mu = gqlData.data.matchedUser;
+            const submitStats = mu.submitStats?.acSubmissionNum || [];
+            const solvedMap: Record<string, number> = { All: 0, Easy: 0, Medium: 0, Hard: 0 };
+            submitStats.forEach((s: any) => {
+              if (s.difficulty && s.count !== undefined) {
+                solvedMap[s.difficulty] = s.count;
+              }
+            });
+
+            const contest = gqlData.data.userContestRanking || {};
+            const contestRating = Math.round(contest.rating || 0);
+
+            return {
+              username: mu.username || username,
+              realName: mu.profile?.realName || username,
+              avatar: mu.profile?.userAvatar || `https://assets.leetcode.com/users/${username}/avatar.png`,
+              ranking: mu.profile?.ranking || 'Unranked',
+              reputation: mu.profile?.reputation || 0,
+              badges: mu.badges || [],
+              solved: solvedMap,
+              platformTotals: { All: 4042, Easy: 962, Medium: 2109, Hard: 971 },
+              contest: {
+                attended: contest.attendedContestsCount || 0,
+                rating: contestRating,
+                globalRanking: contest.globalRanking || 'Unranked',
+                topPercentage: contest.topPercentage ? `${contest.topPercentage}%` : null,
+                badge: contest.badge?.name || null,
+                history: (gqlData.data.userContestRankingHistory || [])
+                  .filter((h: any) => h.attended)
+                  .map((h: any) => ({
+                    title: h.contest?.title || 'Weekly Contest',
+                    date: h.contest?.startTime ? new Date(h.contest.startTime * 1000).toLocaleDateString() : 'Recent',
+                    rating: Math.round(h.rating || 0),
+                    rank: h.ranking || 0,
+                  })),
+              },
+              topicMastery: [
+                ...(mu.tagProblemCounts?.advanced || []).map((t: any) => ({ topic: t.tagName, count: t.problemsSolved })),
+                ...(mu.tagProblemCounts?.intermediate || []).map((t: any) => ({ topic: t.tagName, count: t.problemsSolved })),
+                ...(mu.tagProblemCounts?.fundamental || []).map((t: any) => ({ topic: t.tagName, count: t.problemsSolved })),
+              ].slice(0, 12),
+              weakSpots: [],
+              actionPlan: [
+                `Solve 5 additional Medium problems in advanced data structures.`,
+                `Target regular participation in live weekly contests to build contest rating.`,
+                `Practice timed mock interview assessments (45-minute limit).`,
+              ],
+              readiness: {
+                finalScore: Math.min(100, Math.round(((solvedMap.Medium * 2 + solvedMap.Hard * 3 + solvedMap.Easy * 0.5) / 500) * 100)),
+                tier: solvedMap.Medium >= 150 ? 'Super Dream / Tier-1 Ready' : 'Dream Tier Ready',
+                tierColor: solvedMap.Medium >= 150 ? '#10b981' : '#06b6d4',
+                description: 'Placement algorithm readiness calculated from verified problem volume and difficulty.',
+              },
+              companySimulations: [
+                { id: 'google', name: 'Google', matchScore: Math.min(100, Math.round((solvedMap.Medium / 220) * 100)), benchmark: { minMedium: 220, minHard: 65, minTotal: 450, minRating: 1950 }, mediumGap: Math.max(0, 220 - solvedMap.Medium), hardGap: Math.max(0, 65 - solvedMap.Hard), totalGap: Math.max(0, 450 - solvedMap.All) },
+                { id: 'meta', name: 'Meta', matchScore: Math.min(100, Math.round((solvedMap.Medium / 250) * 100)), benchmark: { minMedium: 250, minHard: 50, minTotal: 420, minRating: 1900 }, mediumGap: Math.max(0, 250 - solvedMap.Medium), hardGap: Math.max(0, 50 - solvedMap.Hard), totalGap: Math.max(0, 420 - solvedMap.All) },
+                { id: 'amazon', name: 'Amazon', matchScore: Math.min(100, Math.round((solvedMap.Medium / 180) * 100)), benchmark: { minMedium: 180, minHard: 35, minTotal: 320, minRating: 1750 }, mediumGap: Math.max(0, 180 - solvedMap.Medium), hardGap: Math.max(0, 35 - solvedMap.Hard), totalGap: Math.max(0, 320 - solvedMap.All) },
+                { id: 'microsoft', name: 'Microsoft', matchScore: Math.min(100, Math.round((solvedMap.Medium / 160) * 100)), benchmark: { minMedium: 160, minHard: 30, minTotal: 300, minRating: 1700 }, mediumGap: Math.max(0, 160 - solvedMap.Medium), hardGap: Math.max(0, 30 - solvedMap.Hard), totalGap: Math.max(0, 300 - solvedMap.All) },
+              ],
+            };
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn('[CampusAPI] Direct LeetCode fallback notice:', fallbackErr);
+      }
+
+      throw new Error(`LeetCode user '${username}' was not found. Please verify the handle.`);
+    }
+  },
+
   getAIStudyTasks: async (): Promise<AIStudyTask[]> => {
     return fetchJson<AIStudyTask[]>('/ai-tasks', undefined, []);
   },

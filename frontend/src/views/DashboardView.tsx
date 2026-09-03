@@ -99,11 +99,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const attTotal = attendance?.total ?? 0;
 
   const cgpaDisplay =
-    student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : 'N/A';
+    student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : 'Unavailable';
 
-  const earnedCredits = student.creditsEarned ?? 96;
+  const earnedCredits = student.creditsEarned ?? (student.cgpa ? 96 : 0);
   const totalCredits = student.totalCreditsRequired || 160;
-  const creditsPct = Math.round((earnedCredits / totalCredits) * 100);
+  const creditsPct = totalCredits > 0 ? Math.round((earnedCredits / totalCredits) * 100) : 0;
   const creditsDisplay = `${earnedCredits} / ${totalCredits}`;
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
@@ -170,10 +170,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 2: Cumulative CGPA */}
         <MetricCard
           label="Cumulative CGPA"
-          value={cgpaDisplay !== 'N/A' ? cgpaDisplay : '9.12'}
-          subtext={student.rank ? `Class Rank #${student.rank} • Excellent Standing` : 'Class Rank #4 • Excellent Standing'}
+          value={cgpaDisplay}
+          subtext={
+            student.cgpa !== null && student.cgpa !== undefined
+              ? student.rank ? `Class Rank #${student.rank} • Verified Standing` : 'Verified VTOP Academic Standing'
+              : 'Sync VTOP profile'
+          }
           icon={<GraduationCap size={17} />}
-          progressPercent={student.cgpa ? (student.cgpa / 10) * 100 : 91.2}
+          progressPercent={student.cgpa ? (student.cgpa / 10) * 100 : undefined}
           variant="emerald"
         />
 

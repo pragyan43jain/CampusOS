@@ -17,6 +17,7 @@ import {
   RefreshCw,
   UserCheck
 } from 'lucide-react';
+import { CampusAPI } from '../services/api';
 
 export interface LeetCodeProfile {
   username: string;
@@ -117,6 +118,8 @@ const CircularProgressRing: React.FC<{
   );
 };
 
+import { useRef } from 'react';
+
 export const LeetCodeDashboard: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [profile, setProfile] = useState<LeetCodeProfile | null>(null);
@@ -124,31 +127,46 @@ export const LeetCodeDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('google');
   const [exporting, setExporting] = useState(false);
+  const inFlightRef = useRef<AbortController | null>(null);
 
   const fetchProfile = async (targetHandle: string) => {
-    if (!targetHandle.trim()) return;
+    const handle = targetHandle.trim();
+    if (!handle) return;
+
+    if (inFlightRef.current) {
+      inFlightRef.current.abort();
+    }
+    const controller = new AbortController();
+    inFlightRef.current = controller;
+
     setLoading(true);
     setError(null);
+    setProfile(null);
 
     try {
-      const res = await fetch(`/api/leetcode/profile?user=${encodeURIComponent(targetHandle.trim())}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || data.error || 'Failed to fetch LeetCode profile');
-      }
+      const data = await CampusAPI.getLeetCodeProfile(handle, controller.signal);
 
       setProfile(data);
-      localStorage.setItem('campusos_leetcode_username', data.username);
+      if (typeof window !== 'undefined' && data.username) {
+        localStorage.setItem('campusos_leetcode_username', data.username);
+      }
 
       if (data.companySimulations && data.companySimulations.length > 0) {
         setSelectedCompanyId(data.companySimulations[0].id);
       }
     } catch (err: any) {
-      setError(err.message || 'Could not connect to LeetCode API service.');
+      if (err.name === 'AbortError') return;
+      const rawMsg = err.message || '';
+      if (rawMsg.includes('<!DOCTYPE') || rawMsg.includes('Unexpected token')) {
+        setError('Unable to load LeetCode data. Please try again.');
+      } else {
+        setError(rawMsg || 'Could not connect to LeetCode API service.');
+      }
       setProfile(null);
     } finally {
-      setLoading(false);
+      if (inFlightRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 
@@ -159,8 +177,8 @@ export const LeetCodeDashboard: React.FC = () => {
 
   // On mount, load previously searched profile if present in localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('campusos_leetcode_username');
-    if (savedUser) {
+    const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campusos_leetcode_username') : null;
+    if (savedUser && savedUser.trim()) {
       setSearchInput(savedUser);
       fetchProfile(savedUser);
     }
@@ -379,14 +397,35 @@ export const LeetCodeDashboard: React.FC = () => {
               color: 'var(--danger-crimson)',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
               gap: '12px',
               fontSize: '0.88rem',
             }}
           >
-            <AlertTriangle size={20} color="var(--danger-crimson)" />
-            <div>
-              <b>Error:</b> {error}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AlertTriangle size={18} color="var(--danger-crimson)" />
+              <div>
+                <b>Error:</b> {error}
+              </div>
             </div>
+
+            <button
+              onClick={() => fetchProfile(searchInput)}
+              disabled={loading || !searchInput.trim()}
+              className="btn btn-secondary btn-sm"
+              style={{
+                fontSize: '0.80rem',
+                padding: '6px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              <span>Try Again</span>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

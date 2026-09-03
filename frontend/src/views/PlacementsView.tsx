@@ -3,27 +3,16 @@ import { PlacementDrive, DSACategory, StudentProfile } from '../types';
 import { LeetCodeDashboard } from '../components/LeetCodeDashboard';
 import { Building2, ShieldCheck, Award, CheckCircle2, Briefcase, ExternalLink, Calendar } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
+import { calculatePlacementEligibility } from '../services/placementService';
 
 interface PlacementsViewProps {
   drives: PlacementDrive[];
   dsaTopics: DSACategory[];
-  student?: StudentProfile;
+  student?: StudentProfile | null;
 }
 
 export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student }) => {
-  const cgpa = student?.cgpa ?? null;
-  const isSuperDreamEligible = cgpa !== null ? cgpa >= 8.0 : null;
-  const isDreamEligible = cgpa !== null ? cgpa >= 7.0 : null;
-  const cgpaText = cgpa !== null ? Number(cgpa).toFixed(2) : 'Data unavailable';
-
-  const eligibilityTier =
-    isSuperDreamEligible === true
-      ? 'Super Dream & Dream Tier Eligible'
-      : isDreamEligible === true
-      ? 'Dream & Regular Tier Eligible'
-      : cgpa !== null
-      ? 'Regular & Core Tier Eligible'
-      : 'VTOP synchronization required';
+  const eligibility = calculatePlacementEligibility(student);
 
   return (
     <div className="page-container">
@@ -36,7 +25,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student 
               <span>CAREER DEVELOPMENT CENTRE (PAT)</span>
               <span>•</span>
               <span style={{ color: 'var(--text-muted)' }}>
-                {student?.program || 'B.Tech CSE'} • Batch 2024-2028
+                {student?.program || 'B.Tech CSE'} • Batch {student?.batch || '2024-2028'}
               </span>
             </div>
             <h2 className="hero-heading">Placements &amp; Career Readiness</h2>
@@ -47,11 +36,11 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student 
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span
-              className={`status-badge ${isSuperDreamEligible ? 'safe' : isDreamEligible ? 'warning' : 'neutral'}`}
+              className={`status-badge ${eligibility.isSuperDreamEligible ? 'safe' : eligibility.isDreamEligible ? 'warning' : eligibility.tier === 'Unavailable' ? 'neutral' : 'safe'}`}
               style={{ padding: '8px 16px', fontSize: '0.86rem' }}
             >
               <ShieldCheck size={15} />
-              <span>{eligibilityTier}</span>
+              <span>{eligibility.tierDisplay}</span>
             </span>
           </div>
         </div>
@@ -61,30 +50,24 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student 
       <div className="metrics-stat-grid">
         <MetricCard
           label="Cumulative CGPA"
-          value={cgpaText}
-          subtext={
-            cgpa !== null
-              ? cgpa >= 8.0
-                ? '✓ Exceeds 8.00 Super Dream cutoff'
-                : 'Cutoff: ≥ 8.00 for Super Dream'
-              : 'Sync VTOP profile'
-          }
+          value={eligibility.cgpaDisplay}
+          subtext={eligibility.statusText}
           icon={<Award size={18} />}
-          variant={cgpa !== null && cgpa >= 8.0 ? 'emerald' : 'blue'}
+          variant={eligibility.variant === 'crimson' ? 'crimson' : eligibility.isSuperDreamEligible ? 'emerald' : 'blue'}
         />
         <MetricCard
           label="Standing Arrears"
-          value={0}
-          subtext="Zero active university standing arrears"
+          value={eligibility.standingArrears}
+          subtext={eligibility.standingArrears === 0 ? 'Zero active university standing arrears' : eligibility.standingArrearsDisplay}
           icon={<CheckCircle2 size={18} />}
-          variant="emerald"
+          variant={eligibility.standingArrears === 0 ? 'emerald' : 'crimson'}
         />
         <MetricCard
           label="Placement Tier"
-          value={isSuperDreamEligible ? 'Super Dream' : isDreamEligible ? 'Dream' : 'Core'}
-          subtext={isSuperDreamEligible ? 'CTC Range: 10 LPA to 50+ LPA' : 'CTC Range: 6 LPA to 10 LPA'}
+          value={eligibility.tier}
+          subtext={eligibility.ctcRange}
           icon={<Briefcase size={18} />}
-          variant="cyan"
+          variant={eligibility.isSuperDreamEligible ? 'emerald' : eligibility.isDreamEligible ? 'cyan' : 'blue'}
         />
       </div>
 
