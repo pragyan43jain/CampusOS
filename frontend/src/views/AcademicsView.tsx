@@ -150,6 +150,28 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const [marksFilter, setMarksFilter] = useState<'ALL' | 'CAT 1' | 'CAT 2' | 'FAT' | 'DA'>('ALL');
   const [courseSearch, setCourseSearch] = useState('');
 
+  const filteredMarks = useMemo(() => {
+    if (!marks || marks.length === 0) return [];
+    if (marksFilter === 'ALL') return marks;
+    return marks.filter((m) => {
+      if (m.components && m.components.length > 0) {
+        return m.components.some((c) => {
+          const t = (c.title || '').toUpperCase();
+          if (marksFilter === 'CAT 1') return t.includes('CAT 1') || t.includes('CAT-1') || t.includes('TEST - I') || t.includes('TEST 1');
+          if (marksFilter === 'CAT 2') return t.includes('CAT 2') || t.includes('CAT-2') || t.includes('TEST - II') || t.includes('TEST 2');
+          if (marksFilter === 'FAT') return t.includes('FAT') || t.includes('FINAL');
+          if (marksFilter === 'DA') return t.includes('ASSIGNMENT') || t.includes('DA') || t.includes('QUIZ');
+          return true;
+        });
+      }
+      if (marksFilter === 'CAT 1') return m.cat1 && m.cat1.scored !== null && m.cat1.scored !== undefined;
+      if (marksFilter === 'CAT 2') return m.cat2 && m.cat2.scored !== null && m.cat2.scored !== undefined;
+      if (marksFilter === 'FAT') return m.fat && m.fat.scored !== null && m.fat.scored !== undefined;
+      if (marksFilter === 'DA') return Boolean(m.da1 || m.da2 || m.quiz || (m as any).quiz1 || (m as any).quiz2);
+      return true;
+    });
+  }, [marks, marksFilter]);
+
   const navTabs: { id: AcademicsSubTab; label: string; icon: React.ComponentType<any>; count?: number | string }[] = [
     { id: 'profile', label: 'Profile', icon: User, count: student.regNo || undefined },
     { id: 'attendance', label: 'Attendance', icon: Percent, count: attendance.length ? `${attendance.length}` : undefined },
@@ -484,54 +506,196 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
             </div>
           </div>
 
-          {marks.length === 0 ? (
+          {filteredMarks.length === 0 ? (
             <div className="empty-state-card">
               <div className="empty-state-icon">
                 <Award size={26} />
               </div>
               <div className="empty-state-title">No Marks Records Available</div>
-              <p className="empty-state-desc">Marks will appear here once published on VTOP and synchronized.</p>
+              <p className="empty-state-desc">No assessment marks matching "{marksFilter}" found for this semester.</p>
             </div>
           ) : (
-            <div className="table-responsive-wrapper">
-              <table className="academic-data-table">
-                <thead>
-                  <tr>
-                    <th>Course Code</th>
-                    <th>Course Title</th>
-                    <th>CAT 1 Scored</th>
-                    <th>CAT 2 Scored</th>
-                    <th>FAT / Final</th>
-                    <th>Total Internal</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {marks.map((m, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                        {m.courseCode || 'COURSE'}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>{m.courseTitle || m.courseName || 'Subject Title'}</td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {m.cat1?.scored !== null && m.cat1?.scored !== undefined ? `${m.cat1.scored} / ${m.cat1.max}` : '-'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {m.cat2?.scored !== null && m.cat2?.scored !== undefined ? `${m.cat2.scored} / ${m.cat2.max}` : '-'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {m.fat?.scored !== null && m.fat?.scored !== undefined ? `${m.fat.scored} / ${m.fat.max || 100}` : '-'}
-                      </td>
-                      <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                        {m.totalInternal?.scored !== undefined ? `${m.totalInternal.scored} / ${m.totalInternal.max}` : '-'}
-                      </td>
-                      <td>
-                        <span className="status-badge safe">Published</span>
-                      </td>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="table-responsive-wrapper">
+                <table className="academic-data-table">
+                  <thead>
+                    <tr>
+                      <th>Course Code</th>
+                      <th>Course Title</th>
+                      <th>Faculty</th>
+                      <th>CAT 1 Score</th>
+                      <th>CAT 2 Score</th>
+                      <th>FAT / Final</th>
+                      <th>Weightage Scored</th>
+                      <th>Status</th>
                     </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMarks.map((m, idx) => {
+                      const cat1Comp = m.components?.find((c) => {
+                        const t = (c.title || '').toUpperCase();
+                        return t.includes('CAT 1') || t.includes('CAT-1') || t.includes('TEST - I') || t.includes('TEST 1');
+                      });
+                      const cat1Score = cat1Comp
+                        ? `${cat1Comp.scored ?? '-'} / ${cat1Comp.max}`
+                        : (m.cat1?.scored !== null && m.cat1?.scored !== undefined ? `${m.cat1.scored} / ${m.cat1.max}` : '-');
+                      const cat1Wt = cat1Comp?.weightage !== undefined ? `(Wt: ${cat1Comp.weightage} / ${cat1Comp.maxWeightage || 15})` : '';
+
+                      const cat2Comp = m.components?.find((c) => {
+                        const t = (c.title || '').toUpperCase();
+                        return t.includes('CAT 2') || t.includes('CAT-2') || t.includes('TEST - II') || t.includes('TEST 2');
+                      });
+                      const cat2Score = cat2Comp
+                        ? `${cat2Comp.scored ?? '-'} / ${cat2Comp.max}`
+                        : (m.cat2?.scored !== null && m.cat2?.scored !== undefined ? `${m.cat2.scored} / ${m.cat2.max}` : '-');
+
+                      const fatComp = m.components?.find((c) => {
+                        const t = (c.title || '').toUpperCase();
+                        return t.includes('FAT') || t.includes('FINAL');
+                      });
+                      const fatScore = fatComp
+                        ? `${fatComp.scored ?? '-'} / ${fatComp.max}`
+                        : (m.fat?.scored !== null && m.fat?.scored !== undefined ? `${m.fat.scored} / ${m.fat.max || 100}` : '-');
+
+                      const totalScore = m.weightageScored !== undefined
+                        ? `${m.weightageScored} / ${m.weightageGraded || m.weightageTotal || 15}`
+                        : (m.totalInternal?.scored !== undefined ? `${m.totalInternal.scored} / ${m.totalInternal.max}` : '-');
+
+                      return (
+                        <tr key={m.id || idx}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                            {m.courseCode || 'COURSE'}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{m.courseTitle || m.courseName || 'Subject Title'}</td>
+                          <td style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>{m.faculty || 'Assigned Professor'}</td>
+                          <td>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {cat1Score}
+                            </div>
+                            {cat1Wt && (
+                              <div style={{ fontSize: '0.74rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                                {cat1Wt}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {cat2Score}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {fatScore}
+                          </td>
+                          <td style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald, #10b981)' }}>
+                            {totalScore}
+                          </td>
+                          <td>
+                            <span className="status-badge safe">Published</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Assessment Components Breakdown Cards */}
+              <div>
+                <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Award size={16} color="var(--accent-cyan)" />
+                  <span>Individual Evaluation Breakdown</span>
+                </h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                  {filteredMarks.map((courseMark, cIdx) => (
+                    <div
+                      key={courseMark.id || cIdx}
+                      style={{
+                        backgroundColor: 'var(--surface-input)',
+                        border: '1px solid var(--border-card)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                            {courseMark.courseCode}
+                          </span>
+                          <h5 style={{ margin: '2px 0 0 0', fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {courseMark.courseTitle || courseMark.courseName}
+                          </h5>
+                          {courseMark.faculty && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              Faculty: {courseMark.faculty}
+                            </div>
+                          )}
+                        </div>
+
+                        {courseMark.weightageScored !== undefined && (
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Weightage</div>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald, #10b981)' }}>
+                              {courseMark.weightageScored} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>/ {courseMark.weightageGraded || courseMark.weightageTotal || 15}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {courseMark.components && courseMark.components.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                          {courseMark.components.map((comp, k) => {
+                            const pct = comp.scored !== null && comp.max ? Math.round((comp.scored / comp.max) * 100) : 0;
+                            return (
+                              <div
+                                key={k}
+                                style={{
+                                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                  borderRadius: '6px',
+                                  padding: '10px 12px',
+                                  border: '1px solid rgba(255, 255, 255, 0.04)',
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    {comp.title}
+                                  </span>
+                                  <span style={{ fontSize: '0.88rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                                    {comp.scored !== null ? comp.scored : '-'} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>/ {comp.max}</span>
+                                  </span>
+                                </div>
+
+                                <div style={{ height: '5px', borderRadius: '3px', backgroundColor: 'var(--surface-input)', overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      width: `${pct}%`,
+                                      height: '100%',
+                                      backgroundColor: pct >= 80 ? 'var(--accent-emerald, #10b981)' : pct >= 60 ? 'var(--accent-cyan)' : 'var(--accent-orange, #f59e0b)',
+                                      borderRadius: '3px',
+                                    }}
+                                  />
+                                </div>
+
+                                {comp.weightage !== undefined && (
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
+                                    <span>Weightage: {comp.weightage} / {comp.maxWeightage || 15}</span>
+                                    <span>{comp.status || 'Graded'}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.80rem', color: 'var(--text-muted)', fontStyle: 'italic', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                          No individual component evaluations published yet.
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
             </div>
           )}
         </div>
