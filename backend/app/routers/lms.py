@@ -395,31 +395,27 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
     for url in [LMS_MY_URL, LMS_COURSES_URL]:
         try:
             r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
-            if r.status_code != 200:
-                continue
-            soup = BeautifulSoup(r.text, "html.parser")
-
-            for a in soup.find_all("a", href=re.compile(r"/course/view\.php\?id=\d+")):
-                href = a.get("href") or ""
-                m = re.search(r"id=(\d+)", href)
-                if not m:
-                    continue
-                c_id = m.group(1)
-                if c_id in seen_ids or c_id == "1":
-                    continue
-
-                text = a.get_text().strip()
-                if not text or len(text) < 3 or text.lower() in ("dashboard", "home", "my courses"):
-                    continue
-
-                seen_ids.add(c_id)
-                courses.append({
-                    "id": c_id,
-                    "title": text,
-                    "url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
-                })
-        except Exception as e:
-            logger.warning("Error fetching LMS courses from %s: %s", url, e)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "html.parser")
+                for a in soup.find_all("a", href=re.compile(r"/course/view\.php\?id=\d+")):
+                    href = a.get("href") or ""
+                    m = re.search(r"id=(\d+)", href)
+                    if not m:
+                        continue
+                    c_id = m.group(1)
+                    if c_id in seen_ids or c_id == "1":
+                        continue
+                    title = a.get_text().strip()
+                    if not title or title.lower() in ["home", "dashboard", "courses", "my courses", "site home"]:
+                        continue
+                    seen_ids.add(c_id)
+                    courses.append({
+                        "id": c_id,
+                        "title": title,
+                        "url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                    })
+        except Exception as exc:
+            logger.warning("Failed to fetch LMS courses from %s: %s", url, exc)
 
     return courses
 
@@ -452,17 +448,34 @@ def fetch_assignments_for_lms_course(
         if not table:
             return assignments
 
+        # Parse table headers if available
+        header_map: Dict[str, int] = {}
+        thead = table.find("thead")
+        if thead:
+            th_row = thead.find("tr")
+            if th_row:
+                for idx, th in enumerate(th_row.find_all(["th", "td"])):
+                    th_txt = th.get_text().strip().lower()
+                    if any(k in th_txt for k in ["assignment", "activity", "name"]):
+                        header_map["title"] = idx
+                    elif any(k in th_txt for k in ["due", "deadline", "date"]):
+                        header_map["due"] = idx
+                    elif any(k in th_txt for k in ["submission", "status"]):
+                        header_map["status"] = idx
+                    elif "grade" in th_txt:
+                        header_map["grade"] = idx
+
         all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
         for row in all_trs:
             cols = row.find_all(["td", "th"])
-            if len(cols) < 3:
+            if len(cols) < 2:
                 continue
 
             # Skip pure header rows without links
             if not row.find("a") and row.find_all("th") and not row.find_all("td"):
                 continue
 
-            link = row.find("a")
+            link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a")
             if not link:
                 continue
 
@@ -474,18 +487,44 @@ def fetch_assignments_for_lms_course(
             activity_id = m_cm.group(1) if m_cm else str(len(assignments) + 1)
             assign_id = f"lms-{course_id}-{activity_id}"
 
-            due_raw = cols[2].get_text().strip()
+            # Identify which column index holds the assignment link
+            link_col_idx = 0
+            for i, col in enumerate(cols):
+                if col.find("a") == link or col.get_text().strip() == title:
+                    link_col_idx = i
+                    break
+
+            due_raw = ""
+            status_raw = ""
+
+            if "due" in header_map and header_map["due"] < len(cols):
+                due_raw = cols[header_map["due"]].get_text().strip()
+            if "status" in header_map and header_map["status"] < len(cols):
+                status_raw = cols[header_map["status"]].get_text().strip()
+
+            # Dynamic column heuristic fallback
+            if not due_raw or not status_raw:
+                other_cols = [(i, c.get_text().strip()) for i, c in enumerate(cols) if i != link_col_idx]
+                for idx_c, text in other_cols:
+                    lower_txt = text.lower()
+                    if any(kw in lower_txt for kw in ["submitted", "no submission", "not submitted", "graded", "turnedin", "turned in", "draft", "complete"]):
+                        if not status_raw:
+                            status_raw = text
+                    elif any(m in lower_txt for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
+                        if not due_raw:
+                            due_raw = text
+
             due_date_str, due_time_str = parse_moodle_date(due_raw)
 
-            status_raw = cols[3].get_text().strip() if len(cols) >= 4 else "Unknown"
-            is_submitted = any(
-                kw in status_raw.lower()
-                for kw in ["submitted", "graded", "turnedin", "complete"]
+            # Accurate Moodle status evaluation
+            status_lower = status_raw.lower()
+            is_submitted = (
+                any(kw in status_lower for kw in ["submitted for grading", "graded", "turnedin", "turned in", "complete"])
+                or ("submitted" in status_lower and "not submitted" not in status_lower and "draft" not in status_lower)
             )
 
             is_pending = not is_submitted
 
-            # Requirement 12 & 18: Full Canonical Ownership & Verified Relationship metadata
             assignments.append({
                 "id": assign_id,
                 "activityId": activity_id,
@@ -557,11 +596,9 @@ def fetch_vit_lms_coursework(
         c_title = lms_c["title"]
         c_teachers = list(lms_c.get("teachers") or [])
 
-        # If teachers were not in AJAX metadata, scrape course page for teacher names
         if not c_teachers and session:
             c_teachers = fetch_lms_course_teachers(session, c_id)
 
-        # Stage 1: Exact course code match; Stage 2: Exact faculty identity match; Semester isolation
         is_verified, matched_rec, match_meta = verify_external_course(
             enrolled_records=verified_enrolled,
             source="LMS",
@@ -572,7 +609,6 @@ def fetch_vit_lms_coursework(
         )
         course_matches.append(match_meta.model_dump())
 
-        # Debug logging per Requirement 19 & 20
         if matched_rec:
             logger.info(
                 "\n[LMS COURSE VERIFICATION]\n"
@@ -677,8 +713,11 @@ def get_lms_status() -> Dict[str, Any]:
     assignments = store.get("assignments") or []
     lms_assignments = [a for a in assignments if a.get("source") == "LMS" or "LMS" in (a.get("source") or "")]
 
-    pending = [a for a in lms_assignments if a.get("status") in ("Pending", "Overdue", "Due Soon")]
-    submitted = [a for a in lms_assignments if a.get("status") == "Submitted"]
+    submitted = [
+        a for a in lms_assignments
+        if a.get("isDone") or a.get("isSubmitted") or (a.get("displayStatus") or a.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
+    ]
+    pending = [a for a in lms_assignments if a not in submitted]
 
     return {
         "connected": is_connected,
@@ -739,8 +778,11 @@ def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
 
     save_store(store)
 
-    pending = [a for a in assignments if a.get("status") in ("Pending", "Overdue", "Due Soon")]
-    submitted = [a for a in assignments if a.get("status") == "Submitted"]
+    submitted = [
+        a for a in assignments
+        if a.get("isDone") or a.get("isSubmitted") or (a.get("displayStatus") or a.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
+    ]
+    pending = [a for a in assignments if a not in submitted]
 
     return {
         "success": True,

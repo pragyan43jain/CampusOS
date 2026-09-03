@@ -5,10 +5,13 @@ import {
   Clock,
   ExternalLink,
   RefreshCw,
-  AlertTriangle,
   Search,
+  BookOpen,
+  CheckSquare,
+  Square,
+  AlertCircle,
 } from 'lucide-react';
-import { Assignment, SubjectAssignmentGroup, UnifiedAssignmentsDashboard, AcademicAccount } from '../types';
+import { Assignment, SubjectAssignmentGroup, UnifiedAssignmentsDashboard } from '../types';
 import { CampusAPI } from '../services/api';
 import { TeamsLoginModal } from '../components/TeamsLoginModal';
 import { LMSLoginModal } from '../components/LMSLoginModal';
@@ -18,6 +21,12 @@ interface AssignmentsViewProps {
   assignments?: Assignment[];
   onToggleStatus: (id: string, currentStatus: 'Pending' | 'Submitted') => void;
   onAssignmentsUpdated?: (newAssignments: Assignment[]) => void;
+  onLinkTeams?: () => void;
+  onLinkLMS?: () => void;
+  onSyncAll?: () => void;
+  syncingAll?: boolean;
+  teamsAccount?: any;
+  lmsAccount?: any;
   studentEmail?: string;
   studentRegNo?: string;
 }
@@ -28,10 +37,27 @@ interface EnrichedAssignment extends Assignment {
   facultyName?: string;
 }
 
+const isAssignmentDone = (a: Assignment): boolean => {
+  const st = (a.displayStatus || a.status || '').toUpperCase().trim();
+  return Boolean(
+    a.isDone ||
+    a.isSubmitted ||
+    st === 'DONE' ||
+    st === 'SUBMITTED' ||
+    st === 'COMPLETED'
+  );
+};
+
 export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   assignments: _assignments,
   onToggleStatus,
   onAssignmentsUpdated,
+  onLinkTeams: _onLinkTeams,
+  onLinkLMS: _onLinkLMS,
+  onSyncAll,
+  syncingAll: externalSyncingAll,
+  teamsAccount: _teamsAccount,
+  lmsAccount: _lmsAccount,
   studentEmail,
   studentRegNo,
 }) => {
@@ -41,20 +67,19 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   // Accounts & Dashboard State
   const [dashboard, setDashboard] = useState<UnifiedAssignmentsDashboard | null>(null);
-    const [syncingAll, setSyncingAll] = useState(false);
-  const [syncingTeams, setSyncingTeams] = useState(false);
-  const [syncingLMS, setSyncingLMS] = useState(false);
-  
+  const [syncingAll, setSyncingAll] = useState(false);
+
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'SUBMITTED'>('ALL');
   const [sortOrder, setSortOrder] = useState<'DUE_SOON' | 'COURSE'>('DUE_SOON');
+
+  const isSyncing = externalSyncingAll || syncingAll;
 
   // Fetch unified dashboard from backend
   const loadUnifiedData = async () => {
     try {
-      
-      
       const data = await CampusAPI.getUnifiedAssignments();
       setDashboard(data);
 
@@ -67,19 +92,20 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load unified assignments:', err);
-      
-    } finally {
-      
     }
   };
 
   useEffect(() => {
     loadUnifiedData();
-  }, []);
+  }, [_assignments]);
 
   const handleRefreshAll = async () => {
+    if (onSyncAll) {
+      onSyncAll();
+      await loadUnifiedData();
+      return;
+    }
     setSyncingAll(true);
-    
     try {
       const res = await CampusAPI.syncAllAcademicAccounts();
       if (res.dashboard) {
@@ -89,627 +115,344 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
           onAssignmentsUpdated(flatList);
         }
-      } else {
-        await loadUnifiedData();
       }
-    } catch (err: any) {
-      
+    } catch (err) {
+      console.error(err);
     } finally {
       setSyncingAll(false);
     }
   };
 
-  const handleToggleAssignmentStatus = async (id: string, currentlyDone: boolean) => {
-    const nextStatus = currentlyDone ? 'Pending' : 'Submitted';
-    const nextAppStatus = currentlyDone ? 'PENDING' : 'DONE';
-
-    setDashboard((prev) => {
-      if (!prev) return prev;
-      const newSubjects = prev.subjects.map((sub) => {
-        let changed = false;
-        const newAssignments = sub.assignments.map((a) => {
-          if (a.id === id) {
-            changed = true;
-            return {
-              ...a,
-              status: nextAppStatus as any,
-              applicationStatus: nextAppStatus as any,
-              displayStatus: nextAppStatus,
-              isDone: !currentlyDone,
-              isSubmitted: !currentlyDone,
-              isOverdue: false,
-              isDueSoon: false,
-            };
-          }
-          return a;
-        });
-        if (!changed) return sub;
-        const pCount = newAssignments.filter((a) => (a.displayStatus || a.status) !== 'DONE' && (a.displayStatus || a.status) !== 'Submitted').length;
-        const sCount = newAssignments.filter((a) => (a.displayStatus || a.status) === 'DONE' || (a.displayStatus || a.status) === 'Submitted').length;
-        return {
-          ...sub,
-          assignments: newAssignments,
-          pendingCount: pCount,
-          submittedCount: sCount,
-        };
-      });
-      return {
-        ...prev,
-        subjects: newSubjects,
-        totalPendingAssignments: newSubjects.reduce((acc, s) => acc + s.pendingCount, 0),
-        totalSubmittedAssignments: newSubjects.reduce((acc, s) => acc + s.submittedCount, 0),
-      };
-    });
-
-    try {
-      onToggleStatus(id, nextStatus as 'Pending' | 'Submitted');
-    } catch {
-      // Handled
-    }
-  };
-
-  const handleSyncTeams = async () => {
-    setSyncingTeams(true);
-    try {
-      await CampusAPI.syncTeams();
-      await loadUnifiedData();
-    } catch {
-      
-    } finally {
-      setSyncingTeams(false);
-    }
-  };
-
-  const handleDisconnectTeams = async () => {
-    if (window.confirm('Are you sure you want to disconnect Microsoft Teams?')) {
-      try {
-        await CampusAPI.disconnectTeams();
-        await loadUnifiedData();
-      } catch (err) {
-        console.error('Failed to disconnect Teams:', err);
-      }
-    }
-  };
-
-  const handleSyncLMS = async () => {
-    setSyncingLMS(true);
-    try {
-      await CampusAPI.syncLMS();
-      await loadUnifiedData();
-    } catch {
-      
-    } finally {
-      setSyncingLMS(false);
-    }
-  };
-
-  const handleDisconnectLMS = async () => {
-    if (window.confirm('Are you sure you want to disconnect VIT LMS?')) {
-      try {
-        await CampusAPI.disconnectLMS();
-        await loadUnifiedData();
-      } catch (err) {
-        console.error('Failed to disconnect LMS:', err);
-      }
-    }
-  };
-
-  // 1. Flatten all assignments
-  const allVerifiedAssignments: EnrichedAssignment[] = useMemo(() => {
-    if (!dashboard?.subjects) return [];
+  // Flatten & Enrich assignments
+  const allAssignments = useMemo(() => {
     const list: EnrichedAssignment[] = [];
-    dashboard.subjects.forEach((sub) => {
-      (sub.assignments || []).forEach((a) => {
-        list.push({
-          ...a,
-          courseCode: a.courseCode || sub.courseCode,
-          subject: a.subject || a.courseTitle || sub.courseTitle,
-          subjectName: sub.courseTitle,
-          faculty: a.faculty || sub.faculty,
-          facultyName: sub.faculty,
+    if (dashboard && dashboard.subjects && dashboard.subjects.length > 0) {
+      dashboard.subjects.forEach((subj) => {
+        subj.assignments.forEach((a) => {
+          list.push({
+            ...a,
+            subject: subj.courseTitle,
+            subjectName: subj.courseTitle,
+            courseCode: a.courseCode || subj.courseCode,
+            facultyName: subj.faculty,
+          });
         });
       });
-    });
-    return list;
-  }, [dashboard]);
-
-  // 2. Filtered list
-  const filteredAssignments = useMemo(() => {
-    return allVerifiedAssignments.filter((a) => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
-        !q ||
-        (a.courseCode && a.courseCode.toLowerCase().includes(q)) ||
-        (a.subject && a.subject.toLowerCase().includes(q)) ||
-        (a.faculty && a.faculty.toLowerCase().includes(q)) ||
-        (a.title && a.title.toLowerCase().includes(q));
-
-      if (!matchesSearch) return false;
-
-      if (sourceFilter === 'TEAMS' && a.source !== 'Teams' && !a.sourceList?.includes('Teams')) return false;
-      if (sourceFilter === 'LMS' && a.source !== 'LMS' && !a.sourceList?.includes('LMS')) return false;
-
-      return true;
-    });
-  }, [allVerifiedAssignments, searchQuery, sourceFilter]);
-
-  // 3. Two Major Columns: Pending vs Completed
-  const completedAssignments = useMemo(() => {
-    const list = filteredAssignments.filter((a) =>
-      Boolean(
-        a.isDone ||
-        (a.status || '').toUpperCase() === 'DONE' ||
-        (a.displayStatus || '').toUpperCase() === 'DONE' ||
-        (a.status || '').toUpperCase() === 'SUBMITTED' ||
-        (a.displayStatus || '').toUpperCase() === 'SUBMITTED'
-      )
-    );
-    return list.sort((x, y) => {
-      const xTime = x.submittedAt ? new Date(x.submittedAt).getTime() : 0;
-      const yTime = y.submittedAt ? new Date(y.submittedAt).getTime() : 0;
-      return yTime - xTime;
-    });
-  }, [filteredAssignments]);
-
-  const pendingAssignments = useMemo(() => {
-    const list = filteredAssignments.filter((a) =>
-      !Boolean(
-        a.isDone ||
-        (a.status || '').toUpperCase() === 'DONE' ||
-        (a.displayStatus || '').toUpperCase() === 'DONE' ||
-        (a.status || '').toUpperCase() === 'SUBMITTED' ||
-        (a.displayStatus || '').toUpperCase() === 'SUBMITTED'
-      )
-    );
-    return list.sort((x, y) => {
-      if (sortOrder === 'COURSE') {
-        return (x.courseCode || '').localeCompare(y.courseCode || '');
+      if (dashboard.unmatchedAssignments) {
+        dashboard.unmatchedAssignments.forEach((a) => {
+          list.push({
+            ...a,
+            subject: a.courseTitle || a.courseCode || 'General Task',
+            subjectName: a.courseTitle || a.courseCode || 'General Task',
+            courseCode: a.courseCode || 'GENERAL',
+            facultyName: a.faculty,
+          });
+        });
       }
-      const xOverdue = Boolean(x.isOverdue || (x.displayStatus || '').toUpperCase() === 'OVERDUE');
-      const yOverdue = Boolean(y.isOverdue || (y.displayStatus || '').toUpperCase() === 'OVERDUE');
-      if (xOverdue && !yOverdue) return -1;
-      if (!xOverdue && yOverdue) return 1;
-      return (x.dueDate || '').localeCompare(y.dueDate || '');
-    });
-  }, [filteredAssignments, sortOrder]);
+      if (list.length > 0) return list;
+    }
+    return (_assignments || []).map((a) => ({
+      ...a,
+      subject: a.courseTitle || a.subject || a.courseCode || 'Course',
+      subjectName: a.courseTitle || a.subject || a.courseCode || 'Course',
+      courseCode: a.courseCode || 'COURSE',
+    }));
+  }, [dashboard, _assignments]);
 
-  const teamsAccount: AcademicAccount = dashboard?.connectedAccounts?.teams || { connected: false };
-  const lmsAccount: AcademicAccount = dashboard?.connectedAccounts?.lms || { connected: false };
-  const isAnyAccountConnected = teamsAccount.connected || lmsAccount.connected;
+  const handleToggle = (a: EnrichedAssignment) => {
+    const isDone = isAssignmentDone(a);
+    const nextStatus = isDone ? 'Pending' : 'Submitted';
+    onToggleStatus(a.id, isDone ? 'Submitted' : 'Pending');
 
-  const totalVerifiedCount = allVerifiedAssignments.length;
-  const totalCompletedCount = allVerifiedAssignments.filter((a) => a.isDone || (a.status || '').toUpperCase() === 'DONE').length;
-  const totalPendingCount = allVerifiedAssignments.filter((a) => !a.isDone && (a.status || '').toUpperCase() !== 'DONE').length;
-  const totalOverdueCount = allVerifiedAssignments.filter((a) => !a.isDone && (a.isOverdue || (a.displayStatus || '').toUpperCase() === 'OVERDUE')).length;
+    if (dashboard && dashboard.subjects) {
+      setDashboard({
+        ...dashboard,
+        subjects: dashboard.subjects.map((s) => ({
+          ...s,
+          assignments: s.assignments.map((item) =>
+            item.id === a.id
+              ? {
+                  ...item,
+                  status: nextStatus,
+                  displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
+                  applicationStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
+                  isDone: nextStatus === 'Submitted',
+                  isSubmitted: nextStatus === 'Submitted',
+                }
+              : item
+          ),
+        })),
+      });
+    }
+  };
+
+  // Filtered & Sorted
+  const filteredAssignments = useMemo(() => {
+    return allAssignments
+      .filter((a) => {
+        const srcUpper = (a.source || '').toUpperCase();
+        if (sourceFilter === 'TEAMS' && !srcUpper.includes('TEAMS')) return false;
+        if (sourceFilter === 'LMS' && !srcUpper.includes('LMS')) return false;
+
+        const isDone = isAssignmentDone(a);
+        if (statusFilter === 'PENDING' && isDone) return false;
+        if (statusFilter === 'SUBMITTED' && !isDone) return false;
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchTitle = (a.title || '').toLowerCase().includes(q);
+          const matchCourse = (a.courseCode || '').toLowerCase().includes(q);
+          const matchSubject = (a.subject || '').toLowerCase().includes(q);
+          if (!matchTitle && !matchCourse && !matchSubject) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortOrder === 'DUE_SOON') {
+          return (a.dueDate || '').localeCompare(b.dueDate || '');
+        }
+        return (a.courseCode || '').localeCompare(b.courseCode || '');
+      });
+  }, [allAssignments, sourceFilter, statusFilter, searchQuery, sortOrder]);
+
+  const pendingCount = useMemo(() => {
+    return allAssignments.filter((a) => !isAssignmentDone(a)).length;
+  }, [allAssignments]);
+
+  const completedCount = useMemo(() => {
+    return allAssignments.filter((a) => isAssignmentDone(a)).length;
+  }, [allAssignments]);
 
   return (
     <div className="page-container">
-      {/* Header & Platform Connections Banner */}
-      <div
-        className="card"
-        style={{
-          background: 'var(--brand-gradient-soft)',
-          border: '1px solid var(--border-medium)',
-          padding: '24px 28px',
-        }}
-      >
+      {/* 1. Header Banner */}
+      <div className="hero-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="status-badge info" style={{ fontSize: '0.7rem' }}>
-                Multi-Platform Aggregator
-              </span>
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                {dashboard?.currentSemester?.name || 'Fall Semester 2026-27'}
-              </span>
+            <div className="hero-eyebrow">
+              <Layers size={14} />
+              <span>UNIFIED DEADLINE RADAR</span>
+              <span>•</span>
+              <span style={{ color: 'var(--text-muted)' }}>MICROSOFT TEAMS &amp; MOODLE LMS</span>
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-              Academic Assignment Dashboard
-            </h2>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '640px' }}>
-              Aggregated assignments, digital submissions, and deadline tracks from Microsoft Teams and VIT Moodle LMS.
+            <h2 className="hero-heading">Assignments &amp; Submissions</h2>
+            <p className="hero-desc">
+              Direct digital extraction of homework deadlines, quiz timers, and project submissions across all connected platforms.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={handleRefreshAll}
-              disabled={syncingAll || !isAnyAccountConnected}
-              className="btn btn-primary btn-sm"
+              disabled={isSyncing}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              <RefreshCw size={14} className={syncingAll ? 'animate-spin' : ''} />
-              <span>{syncingAll ? 'Syncing...' : 'Sync Assignments'}</span>
+              <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync All Platforms'}</span>
             </button>
           </div>
         </div>
-
-        {/* Dedicated Connected Academic Platform Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px', marginTop: '20px' }}>
-          {/* Card 1: Microsoft Teams */}
-          <div
-            style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px 18px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h4 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Microsoft Teams
-                  </h4>
-                  <span className={`status-badge ${teamsAccount.connected ? 'safe' : 'neutral'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                    {teamsAccount.connected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                  {teamsAccount.connected ? teamsAccount.email : 'University Microsoft O365 account'}
-                </p>
-              </div>
-
-              <a
-                href="https://teams.microsoft.com"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px' }}
-              >
-                <span>Portal</span>
-                <ExternalLink size={11} />
-              </a>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              {teamsAccount.connected ? (
-                <>
-                  <button onClick={handleSyncTeams} disabled={syncingTeams} className="btn btn-outline btn-sm" style={{ padding: '4px 10px', fontSize: '0.76rem' }}>
-                    <RefreshCw size={12} className={syncingTeams ? 'animate-spin' : ''} />
-                    <span>{syncingTeams ? 'Syncing...' : 'Re-sync'}</span>
-                  </button>
-                  <button onClick={handleDisconnectTeams} className="btn btn-danger btn-sm" style={{ padding: '4px 10px', fontSize: '0.76rem' }}>
-                    Disconnect
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => setIsTeamsModalOpen(true)} className="btn btn-secondary btn-sm" style={{ width: '100%', fontSize: '0.8rem' }}>
-                  Connect Teams
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Card 2: VIT LMS */}
-          <div
-            style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px 18px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h4 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    VIT Moodle LMS
-                  </h4>
-                  <span className={`status-badge ${lmsAccount.connected ? 'safe' : 'neutral'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                    {lmsAccount.connected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                  {lmsAccount.connected ? lmsAccount.username : 'VIT Moodle VTOP credentials'}
-                </p>
-              </div>
-
-              <a
-                href="https://lms.vit.ac.in"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--text-muted)', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '3px' }}
-              >
-                <span>Portal</span>
-                <ExternalLink size={11} />
-              </a>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              {lmsAccount.connected ? (
-                <>
-                  <button onClick={handleSyncLMS} disabled={syncingLMS} className="btn btn-outline btn-sm" style={{ padding: '4px 10px', fontSize: '0.76rem' }}>
-                    <RefreshCw size={12} className={syncingLMS ? 'animate-spin' : ''} />
-                    <span>{syncingLMS ? 'Syncing...' : 'Re-sync'}</span>
-                  </button>
-                  <button onClick={handleDisconnectLMS} className="btn btn-danger btn-sm" style={{ padding: '4px 10px', fontSize: '0.76rem' }}>
-                    Disconnect
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => setIsLMSModalOpen(true)} className="btn btn-secondary btn-sm" style={{ width: '100%', fontSize: '0.8rem' }}>
-                  Connect LMS
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Metrics Row */}
+      {/* 2. Summary Metrics Grid */}
       <div className="metrics-stat-grid">
         <MetricCard
-          label="Total Verified"
-          value={totalVerifiedCount}
-          subtext="Coursework tasks indexed"
-          icon={<Layers size={18} />}
-          variant="blue"
+          label="Pending Submissions"
+          value={pendingCount}
+          subtext={pendingCount > 0 ? `${pendingCount} tasks requiring action` : 'All tasks completed'}
+          icon={<Clock size={17} />}
+          variant={pendingCount > 0 ? 'amber' : 'emerald'}
         />
         <MetricCard
-          label="Pending Submission"
-          value={totalPendingCount}
-          subtext="Awaiting completion"
-          icon={<Clock size={18} />}
-          variant={totalPendingCount > 0 ? 'amber' : 'emerald'}
-        />
-        <MetricCard
-          label="Completed Tasks"
-          value={totalCompletedCount}
-          subtext="Successfully submitted"
-          icon={<CheckCircle2 size={18} />}
+          label="Completed &amp; Turned In"
+          value={completedCount}
+          subtext="Verified digital submissions"
+          icon={<CheckCircle2 size={17} />}
           variant="emerald"
         />
         <MetricCard
-          label="Overdue Assignments"
-          value={totalOverdueCount}
-          subtext={totalOverdueCount === 0 ? 'Zero overdue coursework' : 'Immediate submission required'}
-          icon={<AlertTriangle size={18} />}
-          variant={totalOverdueCount === 0 ? 'emerald' : 'crimson'}
+          label="Connected Subjects"
+          value={dashboard?.subjects ? dashboard.subjects.length : 0}
+          subtext="Teams &amp; LMS course channels"
+          icon={<BookOpen size={17} />}
+          variant="cyan"
         />
       </div>
 
-      {/* Search & Filter Bar */}
-      <div
-        className="card"
-        style={{
-          padding: '14px 20px',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '220px' }}>
-          <Search size={16} color="var(--text-muted)" />
-          <input
-            type="text"
-            placeholder="Search assignments by subject, title, or instructor..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field"
-            style={{ padding: '8px 12px', fontSize: '0.84rem' }}
-          />
-        </div>
+      {/* 3. Filter & Search Control Bar */}
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          {/* Search Input */}
+          <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search assignments or course code..."
+              className="input-field"
+              style={{ paddingLeft: '38px', height: '44px' }}
+            />
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }} />
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Source:</span>
-            {(['ALL', 'TEAMS', 'LMS'] as const).map((s) => (
+          {/* Platform Source Tabs */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {(['ALL', 'TEAMS', 'LMS'] as const).map((src) => (
               <button
-                key={s}
-                onClick={() => setSourceFilter(s)}
-                className={`btn btn-sm ${sourceFilter === s ? 'btn-primary' : 'btn-outline'}`}
+                key={src}
+                className={`btn btn-sm ${sourceFilter === src ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setSourceFilter(src)}
               >
-                {s}
+                {src === 'ALL' ? 'All Platforms' : src === 'TEAMS' ? 'Teams' : 'Moodle LMS'}
               </button>
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Sort:</span>
+          {/* Status & Sort Dropdowns */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="custom-select-control"
+              style={{ height: '44px' }}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="PENDING">Pending Only</option>
+              <option value="SUBMITTED">Submitted / Done Only</option>
+            </select>
+
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
-              className="select-dropdown"
-              style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+              className="custom-select-control"
+              style={{ height: '44px' }}
             >
-              <option value="DUE_SOON">Due Soonest</option>
-              <option value="COURSE">By Course Code</option>
+              <option value="DUE_SOON">Sort: Due Soonest</option>
+              <option value="COURSE">Sort: By Course</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Two Major Columns: PENDING vs COMPLETED */}
-      {!isAnyAccountConnected ? (
-        <div className="empty-state-card">
-          <div className="empty-state-icon-box">
-            <Layers size={24} />
-          </div>
-          <h4 className="empty-state-title">No Academic Accounts Connected</h4>
-          <p className="empty-state-desc">
-            Connect Microsoft Teams or VIT LMS above to pull and aggregate course assignments, deadlines, and digital files.
-          </p>
+      {/* 4. Assignment Cards Stream */}
+      <div className="card">
+        <div className="card-header-bar">
+          <h3 className="card-title">
+            <Layers size={19} color="var(--accent-cyan)" />
+            <span>Assignment Ledger ({filteredAssignments.length} Items)</span>
+          </h3>
         </div>
-      ) : allVerifiedAssignments.length === 0 ? (
-        <div className="empty-state-card">
-          <div className="empty-state-icon-box">
-            <CheckCircle2 size={24} />
-          </div>
-          <h4 className="empty-state-title">No Assignments Found for Current Semester</h4>
-          <p className="empty-state-desc">
-            All connected accounts are synchronized, but no assignments were published by instructors for this semester cycle.
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
-          {/* COLUMN 1: PENDING ASSIGNMENTS */}
-          <div className="card" style={{ gap: '14px' }}>
-            <div className="card-header-bar" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', marginBottom: '4px' }}>
-              <div>
-                <h3 className="card-title">
-                  <Clock size={18} color="var(--warning-amber)" />
-                  <span>Pending Assignments</span>
-                </h3>
-                <p className="card-description">{pendingAssignments.length} tasks awaiting submission</p>
-              </div>
-            </div>
 
-            {pendingAssignments.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {pendingAssignments.map((a) => {
-                  const isOverdue = Boolean(a.isOverdue || (a.displayStatus || '').toUpperCase() === 'OVERDUE');
-                  return (
-                    <div
-                      key={a.id}
-                      style={{
-                        background: 'var(--bg-surface-elevated)',
-                        border: `1px solid ${isOverdue ? 'var(--danger-border)' : 'var(--border-subtle)'}`,
-                        borderRadius: 'var(--radius-md)',
-                        padding: '14px 16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
-                      }}
+        {filteredAssignments.length === 0 ? (
+          <div className="empty-state-card">
+            <div className="empty-state-icon">
+              <CheckCircle2 size={26} color="var(--accent-emerald)" />
+            </div>
+            <div className="empty-state-title">No Assignments Found</div>
+            <p className="empty-state-desc">
+              You are completely caught up! No pending deadlines match your current search and filters.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {filteredAssignments.map((a) => {
+              const isDone = isAssignmentDone(a);
+              const isOverdue = !isDone && (Boolean(a.isOverdue) || (a.displayStatus || '').toUpperCase() === 'OVERDUE');
+              const isDueSoon = !isDone && !isOverdue && (Boolean(a.isDueSoon) || (a.displayStatus || '').toUpperCase() === 'DUE SOON');
+
+              return (
+                <div
+                  key={a.id}
+                  style={{
+                    padding: '20px 24px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--surface-input)',
+                    border: '1px solid var(--border-card)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    transition: 'all var(--transition-fast)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '280px' }}>
+                    <button
+                      onClick={() => handleToggle(a)}
+                      style={{ color: isDone ? 'var(--accent-emerald)' : 'var(--text-muted)', cursor: 'pointer' }}
+                      title={isDone ? 'Mark as Pending' : 'Mark as Submitted'}
+                      aria-label="Toggle submission status"
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.76rem', fontWeight: 800, color: 'var(--brand-color)' }}>
-                            {a.courseCode}
-                          </span>
-                          <span className={`status-badge ${isOverdue ? 'critical' : 'warning'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                            {isOverdue ? 'Overdue' : 'Pending'}
-                          </span>
-                          <span className="status-badge neutral" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                            {a.source}
-                          </span>
-                        </div>
+                      {isDone ? <CheckSquare size={22} /> : <Square size={22} />}
+                    </button>
 
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          onChange={() => handleToggleAssignmentStatus(a.id, false)}
-                          title="Mark as completed"
-                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--success-emerald)' }}
-                        />
-                      </div>
-
-                      <h4 style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                        {a.title}
-                      </h4>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        <span>Due: <b style={{ color: isOverdue ? 'var(--danger-crimson)' : 'var(--text-primary)' }}>{a.formattedDeadline || `${a.dueDate}, ${a.dueTime}`}</b></span>
-                        {a.platformUrl || a.submissionUrl ? (
-                          <a
-                            href={a.platformUrl || a.submissionUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-secondary btn-sm"
-                            style={{ padding: '3px 8px', fontSize: '0.72rem', gap: '4px' }}
-                          >
-                            <span>Submit</span>
-                            <ExternalLink size={10} />
-                          </a>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-state-card" style={{ padding: '32px 16px' }}>
-                <CheckCircle2 size={20} color="var(--success-emerald)" />
-                <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>All assignments completed!</span>
-              </div>
-            )}
-          </div>
-
-          {/* COLUMN 2: COMPLETED ASSIGNMENTS (Must remain visible) */}
-          <div className="card" style={{ gap: '14px' }}>
-            <div className="card-header-bar" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', marginBottom: '4px' }}>
-              <div>
-                <h3 className="card-title">
-                  <CheckCircle2 size={18} color="var(--success-emerald)" />
-                  <span>Completed Assignments</span>
-                </h3>
-                <p className="card-description">{completedAssignments.length} submitted coursework records</p>
-              </div>
-            </div>
-
-            {completedAssignments.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {completedAssignments.map((a) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      background: 'var(--bg-surface-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '14px 16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      opacity: 0.85,
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.76rem', fontWeight: 800, color: 'var(--brand-color)' }}>
-                          {a.courseCode}
+                        <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                          {a.courseCode || 'COURSE'}
                         </span>
-                        <span className="status-badge safe" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                          ✓ Done
+                        <span className={`status-badge ${a.source?.toUpperCase().includes('TEAMS') ? 'info' : 'warning'}`}>
+                          {a.source?.toUpperCase().includes('TEAMS') ? 'Teams' : 'Moodle LMS'}
                         </span>
-                        <span className="status-badge neutral" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                          {a.source}
-                        </span>
+                        {a.subject && (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            • {a.subject}
+                          </span>
+                        )}
                       </div>
 
-                      <input
-                        type="checkbox"
-                        checked={true}
-                        onChange={() => handleToggleAssignmentStatus(a.id, true)}
-                        title="Unmark completed"
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--success-emerald)' }}
-                      />
-                    </div>
+                      <div style={{ fontSize: '1.02rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
+                        {a.title}
+                      </div>
 
-                    <h4 style={{ fontSize: '0.94rem', fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'line-through', margin: 0 }}>
-                      {a.title}
-                    </h4>
-
-                    <div style={{ fontSize: '0.76rem', color: 'var(--success-emerald)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <CheckCircle2 size={12} />
-                      <span>Verified submitted</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: isDone ? 'var(--text-muted)' : isOverdue ? 'var(--accent-crimson)' : isDueSoon ? 'var(--accent-orange)' : 'var(--text-secondary)' }}>
+                        {isOverdue ? <AlertCircle size={13} /> : <Clock size={13} />}
+                        <span>
+                          {isDone
+                            ? `Completed (Due: ${a.dueDate || '11:59 PM'})`
+                            : isOverdue
+                            ? `Overdue: ${a.dueDate || 'Passed'}`
+                            : `Deadline: ${a.dueDate || '11:59 PM'}`}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state-card" style={{ padding: '32px 16px' }}>
-                <Clock size={20} color="var(--text-muted)" />
-                <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>No completed assignments marked yet.</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Modals */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span className={`status-badge ${isDone ? 'safe' : isOverdue ? 'critical' : 'warning'}`}>
+                      {isDone ? 'Submitted ✓' : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
+                    </span>
+
+                    {a.submissionUrl && (
+                      <a
+                        href={a.submissionUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                      >
+                        <span>Open Portal</span>
+                        <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Account Login Modals */}
       {isTeamsModalOpen && (
         <TeamsLoginModal
           isOpen={isTeamsModalOpen}
           onClose={() => setIsTeamsModalOpen(false)}
-          onLoginSuccess={loadUnifiedData}
+          onLoginSuccess={() => {
+            setIsTeamsModalOpen(false);
+            loadUnifiedData();
+          }}
           initialEmail={studentEmail}
         />
       )}
@@ -718,12 +461,13 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         <LMSLoginModal
           isOpen={isLMSModalOpen}
           onClose={() => setIsLMSModalOpen(false)}
-          onLoginSuccess={loadUnifiedData}
-          initialUsername={studentRegNo}
+          onLoginSuccess={() => {
+            setIsLMSModalOpen(false);
+            loadUnifiedData();
+          }}
+          initialRegNo={studentRegNo}
         />
       )}
     </div>
   );
 };
-
-export default AssignmentsView;

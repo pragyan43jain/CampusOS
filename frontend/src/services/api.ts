@@ -527,7 +527,7 @@ export const CampusAPI = {
     });
   },
 
-  loginLMS: async (credentials: { username?: string; password?: string; sessionCookie?: string }): Promise<{
+  loginLMS: async (credentials: { username?: string; password?: string; sessionCookie?: string; campus?: string }): Promise<{
     success: boolean;
     message: string;
     username?: string;

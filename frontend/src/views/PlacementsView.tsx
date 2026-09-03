@@ -1,7 +1,7 @@
 import React from 'react';
 import { PlacementDrive, DSACategory, StudentProfile } from '../types';
 import { LeetCodeDashboard } from '../components/LeetCodeDashboard';
-import { Building2, ShieldCheck, Award, CheckCircle2, Briefcase } from 'lucide-react';
+import { Building2, ShieldCheck, Award, CheckCircle2, Briefcase, ExternalLink, Calendar } from 'lucide-react';
 import { MetricCard } from '../components/MetricCard';
 
 interface PlacementsViewProps {
@@ -27,142 +27,133 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student 
 
   return (
     <div className="page-container">
-      {/* SECTION 1: PLACEMENT ELIGIBILITY */}
-      <div
-        className="card"
-        style={{
-          background: 'var(--brand-gradient-soft)',
-          border: '1px solid var(--border-medium)',
-          padding: '24px 28px',
-        }}
-      >
+      {/* 1. Placement Standing Hero Banner */}
+      <div className="hero-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span className="status-badge info" style={{ fontSize: '0.7rem' }}>
-                Career Development Center (PAT)
-              </span>
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                {student?.program || 'B.Tech Program'} • 2024-2028 Batch
+            <div className="hero-eyebrow">
+              <Briefcase size={14} />
+              <span>CAREER DEVELOPMENT CENTRE (PAT)</span>
+              <span>•</span>
+              <span style={{ color: 'var(--text-muted)' }}>
+                {student?.program || 'B.Tech CSE'} • Batch 2024-2028
               </span>
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-              Placement Eligibility & Standing
-            </h2>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '640px' }}>
-              Institutional placement standing calculated from authoritative VTOP CGPA, history of standing arrears, and registered academic credits.
+            <h2 className="hero-heading">Placements &amp; Career Readiness</h2>
+            <p className="hero-desc">
+              Institutional placement standing calculated from verified VTOP CGPA, history of standing arrears, and DSA coding readiness.
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span className={`status-badge ${isSuperDreamEligible ? 'safe' : isDreamEligible ? 'warning' : 'neutral'}`} style={{ padding: '6px 14px', fontSize: '0.82rem' }}>
-              <ShieldCheck size={14} />
+            <span
+              className={`status-badge ${isSuperDreamEligible ? 'safe' : isDreamEligible ? 'warning' : 'neutral'}`}
+              style={{ padding: '8px 16px', fontSize: '0.86rem' }}
+            >
+              <ShieldCheck size={15} />
               <span>{eligibilityTier}</span>
             </span>
           </div>
         </div>
-
-        {/* Institutional Eligibility Metrics */}
-        <div className="metrics-stat-grid" style={{ marginTop: '20px' }}>
-          <MetricCard
-            label="Cumulative CGPA"
-            value={cgpaText}
-            subtext={cgpa !== null ? (cgpa >= 8.0 ? '✓ Exceeds 8.00 Super Dream threshold' : 'Cutoff: ≥ 8.00 for Super Dream') : 'Sync VTOP'}
-            icon={<Award size={18} />}
-            variant={cgpa !== null && cgpa >= 8.0 ? 'emerald' : 'blue'}
-          />
-          <MetricCard
-            label="Standing Arrears"
-            value={0}
-            subtext="Zero active standing arrears"
-            icon={<CheckCircle2 size={18} />}
-            variant="emerald"
-          />
-          <MetricCard
-            label="Placement Tier"
-            value={isSuperDreamEligible ? 'Super Dream' : isDreamEligible ? 'Dream' : 'Core'}
-            subtext={isSuperDreamEligible ? 'CTC Range: 10 LPA to 50+ LPA' : 'CTC Range: 6 LPA to 10 LPA'}
-            icon={<Briefcase size={18} />}
-            variant="blue"
-          />
-        </div>
       </div>
 
-      {/* SECTION 2: DSA & LEETCODE INTELLIGENCE */}
+      {/* 2. Institutional Standing Metrics */}
+      <div className="metrics-stat-grid">
+        <MetricCard
+          label="Cumulative CGPA"
+          value={cgpaText}
+          subtext={
+            cgpa !== null
+              ? cgpa >= 8.0
+                ? '✓ Exceeds 8.00 Super Dream cutoff'
+                : 'Cutoff: ≥ 8.00 for Super Dream'
+              : 'Sync VTOP profile'
+          }
+          icon={<Award size={18} />}
+          variant={cgpa !== null && cgpa >= 8.0 ? 'emerald' : 'blue'}
+        />
+        <MetricCard
+          label="Standing Arrears"
+          value={0}
+          subtext="Zero active university standing arrears"
+          icon={<CheckCircle2 size={18} />}
+          variant="emerald"
+        />
+        <MetricCard
+          label="Placement Tier"
+          value={isSuperDreamEligible ? 'Super Dream' : isDreamEligible ? 'Dream' : 'Core'}
+          subtext={isSuperDreamEligible ? 'CTC Range: 10 LPA to 50+ LPA' : 'CTC Range: 6 LPA to 10 LPA'}
+          icon={<Briefcase size={18} />}
+          variant="cyan"
+        />
+      </div>
+
+      {/* 3. DSA & LeetCode Practice Cockpit */}
       <LeetCodeDashboard />
 
-      {/* SECTION 3: CAMPUS RECRUITMENT DRIVES */}
+      {/* 4. Active Campus Recruitment Drives */}
       {drives && drives.length > 0 && (
-        <div className="card" style={{ gap: '16px' }}>
+        <div className="card">
           <div className="card-header-bar">
             <div>
               <h3 className="card-title">
-                <Building2 size={18} color="var(--brand-color)" />
-                <span>Upcoming Campus Recruitment Drives</span>
+                <Building2 size={19} color="var(--accent-cyan)" />
+                <span>Active Campus Recruitment Drives ({drives.length})</span>
               </h3>
-              <p className="card-description">Verified company drives registered through the placement portal</p>
+              <p className="card-description">
+                Upcoming company assessments, shortlist announcements, and application deadlines.
+              </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {drives.map((drive) => {
-              const tags = drive.tags || ['Super Dream'];
-              const driveLocation = drive.location || 'VIT Campus / Online';
-              const deadlineText = drive.deadline || drive.deadlineToApply || 'Upcoming';
-
-              return (
-                <div
-                  key={drive.id}
-                  style={{
-                    background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '16px 18px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '14px',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                      <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                        {drive.companyName}
-                      </h4>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        {tags.map((t) => (
-                          <span key={t} className="status-badge info" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                      {drive.role} • 📍 {driveLocation}
-                    </div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {drive.driveDate && <span>Drive Date: <b>{drive.driveDate}</b> • </span>}
-                      Deadline: <b>{deadlineText}</b>
-                    </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+            {drives.map((drive) => (
+              <div
+                key={drive.id}
+                style={{
+                  padding: '20px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--surface-input)',
+                  border: '1px solid var(--border-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h4 style={{ fontSize: '1.10rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                      {drive.companyName}
+                    </h4>
+                    <span className="status-badge info">{drive.ctc || '12-18 LPA'}</span>
                   </div>
 
-                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--success-emerald)' }}>
-                      {drive.ctc}
-                    </div>
-                    <span className="status-badge safe" style={{ fontSize: '0.72rem' }}>
-                      {drive.status}
-                    </span>
+                  <div style={{ fontSize: '0.90rem', color: 'var(--accent-cyan)', fontWeight: 600, marginBottom: '6px' }}>
+                    {drive.role || 'Software Development Engineer'}
+                  </div>
+
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={13} />
+                    <span>Drive Date: {drive.driveDate || drive.deadlineToApply || 'Upcoming'}</span>
                   </div>
                 </div>
-              );
-            })}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+                  <span className="status-badge neutral">
+                    Min CGPA: {drive.eligibilityCgpa ? `${drive.eligibilityCgpa}` : '7.50'}
+                  </span>
+
+                  <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Details</span>
+                    <ExternalLink size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
     </div>
   );
 };
-
-export default PlacementsView;

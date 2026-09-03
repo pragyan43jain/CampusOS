@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  RefreshCw,
   GraduationCap,
   ClipboardList,
   CreditCard,
@@ -9,9 +8,10 @@ import {
   BrainCircuit,
   ShieldCheck,
   Zap,
+  LogOut,
 } from 'lucide-react';
 
-export type NavView = 'dashboard' | 'vtop-sync' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
+export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
 
 import { ThemeType } from "./Header";
 
@@ -24,6 +24,7 @@ interface SidebarProps {
   onSelectTheme?: (t: ThemeType) => void;
   onOpenVtopModal?: () => void;
   onOpenLanding?: () => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -33,10 +34,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   criticalAttendanceCount,
   onOpenVtopModal,
   onOpenLanding,
+  onLogout,
 }) => {
   const mainNavItems = [
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'vtop-sync' as NavView, label: 'VTOP Live Hub', icon: RefreshCw },
     {
       id: 'academics' as NavView,
       label: 'Academics',
@@ -126,8 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Footer / Connect VTOP Action */}
-      <div className="sidebar-footer-block">
+      {/* Footer / Connect VTOP & Sign Out Actions */}
+      <div className="sidebar-footer-block" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button
           className="btn btn-secondary btn-sm"
           style={{ width: '100%' }}
@@ -136,6 +137,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <ShieldCheck size={15} color="var(--accent-cyan)" />
           <span>Connect VTOP</span>
         </button>
+
+        {onLogout && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ width: '100%', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+            onClick={onLogout}
+            title="Sign out of current session"
+          >
+            <LogOut size={14} />
+            <span>Sign Out</span>
+          </button>
+        )}
       </div>
     </aside>
   );

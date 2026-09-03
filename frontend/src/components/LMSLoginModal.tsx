@@ -76,6 +76,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
         username: loginMode === 'credentials' ? username.trim().toUpperCase() : undefined,
         password: loginMode === 'credentials' ? password.trim() : undefined,
         sessionCookie: loginMode === 'session_cookie' ? sessionCookie.trim() : undefined,
+        campus: campus,
       });
 
       if (!res.success) {
@@ -135,12 +136,12 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
         >
           <span>Official Portal:</span>
           <a
-            href="https://lmscc.vit.ac.in"
+            href="https://lms.vit.ac.in"
             target="_blank"
             rel="noreferrer"
             style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
           >
-            <span>lmscc.vit.ac.in</span>
+            <span>lms.vit.ac.in</span>
             <ExternalLink size={12} />
           </a>
         </div>

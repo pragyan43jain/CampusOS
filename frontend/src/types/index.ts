@@ -35,6 +35,13 @@ export interface Student {
   lastSynced?: string;
   semesterGpa?: SemesterGpaRecord[];
   overallAttendance?: AttendanceRecord;
+  proctor?: {
+    name?: string;
+    email?: string;
+    designation?: string;
+    cabin?: string;
+    phone?: string;
+  };
 }
 
 export type StudentProfile = Student;

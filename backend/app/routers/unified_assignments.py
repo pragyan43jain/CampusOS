@@ -370,24 +370,25 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         enrolled_fac = canonicalize_faculty_name(matched_rec.facultyName)
         assign_fac = canonicalize_faculty_name(a.get("faculty"))
         
-        # Fail closed on faculty mismatch or missing faculty
-        if not assign_fac or assign_fac != enrolled_fac:
-            logger.warning(
-                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
-                "Source: %s\n"
-                "Assignment: %s (ID: %s)\n"
-                "Assignment Faculty: %s\n"
-                "Current VTOP Course: %s\n"
-                "Current VTOP Faculty: %s\n"
-                "Reason: FACULTY MISMATCH",
-                a.get("source"),
-                a.get("title"),
-                a.get("id"),
-                a.get("faculty"),
-                matched_rec.courseCode,
-                matched_rec.facultyName,
-            )
-            continue
+        # Only reject if there is an explicit mismatched faculty name
+        if assign_fac and assign_fac not in ("unassigned", "none", "tba", "") and enrolled_fac and enrolled_fac not in ("unassigned", "none", "tba", ""):
+            if assign_fac != enrolled_fac and assign_fac not in enrolled_fac and enrolled_fac not in assign_fac:
+                logger.warning(
+                    "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                    "Source: %s\n"
+                    "Assignment: %s (ID: %s)\n"
+                    "Assignment Faculty: %s\n"
+                    "Current VTOP Course: %s\n"
+                    "Current VTOP Faculty: %s\n"
+                    "Reason: FACULTY MISMATCH",
+                    a.get("source"),
+                    a.get("title"),
+                    a.get("id"),
+                    a.get("faculty"),
+                    matched_rec.courseCode,
+                    matched_rec.facultyName,
+                )
+                continue
 
         raw_assignments.append({
             **a,
@@ -728,3 +729,63 @@ def sync_all_academic_accounts() -> Dict[str, Any]:
         "message": msg,
         "dashboard": dashboard,
     }
+
+
+class AssignmentStatusUpdateRequest(BaseModel):
+    status: str
+
+
+@router.get("/assignments")
+def get_all_assignments_endpoint() -> List[Dict[str, Any]]:
+    """
+    Returns all assignments in store.
+    """
+    store = load_store()
+    return store.get("assignments") or []
+
+
+@router.post("/assignments/{assignment_id}/status")
+def update_assignment_status_endpoint(assignment_id: str, payload: AssignmentStatusUpdateRequest) -> Dict[str, Any]:
+    """
+    Updates the completion status of an assignment in the store.
+    """
+    store = load_store()
+    assignments = list(store.get("assignments") or [])
+    new_status = payload.status
+    is_done = new_status.upper() in ("SUBMITTED", "DONE", "COMPLETED")
+
+    updated_assignment = None
+    new_assignments = []
+    found = False
+
+    for a in assignments:
+        a_id = str(a.get("id"))
+        if a_id == str(assignment_id) or assignment_id in a_id:
+            found = True
+            a["status"] = "Submitted" if is_done else "Pending"
+            a["displayStatus"] = "DONE" if is_done else "PENDING"
+            a["applicationStatus"] = "DONE" if is_done else "PENDING"
+            a["isDone"] = is_done
+            a["isSubmitted"] = is_done
+            if is_done:
+                a["submittedAt"] = datetime.now(timezone.utc).isoformat()
+            else:
+                a["submittedAt"] = None
+            updated_assignment = a
+        new_assignments.append(a)
+
+    if not found:
+        updated_assignment = {
+            "id": assignment_id,
+            "status": "Submitted" if is_done else "Pending",
+            "displayStatus": "DONE" if is_done else "PENDING",
+            "applicationStatus": "DONE" if is_done else "PENDING",
+            "isDone": is_done,
+            "isSubmitted": is_done,
+            "submittedAt": datetime.now(timezone.utc).isoformat() if is_done else None,
+        }
+        new_assignments.append(updated_assignment)
+
+    store["assignments"] = new_assignments
+    save_store(store)
+    return updated_assignment or {}

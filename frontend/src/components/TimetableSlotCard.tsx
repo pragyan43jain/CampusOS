@@ -36,10 +36,12 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
 
   return (
     <div
-      className="card"
       style={{
         padding: '18px 22px',
-        flexDirection: 'row',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--surface-input)',
+        border: '1px solid var(--border-card)',
+        display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
@@ -48,10 +50,10 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
       }}
     >
       {/* Time & Slot Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '160px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            <Clock size={14} color="var(--brand-color)" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '150px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+            <Clock size={14} color="var(--accent-cyan)" />
             <span>{slot.startTime}</span>
           </div>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '20px' }}>
@@ -61,14 +63,14 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
 
         <div
           style={{
-            padding: '4px 10px',
+            padding: '3px 9px',
             borderRadius: 'var(--radius-sm)',
-            background: 'var(--bg-surface-elevated)',
+            background: 'var(--surface-secondary)',
             border: '1px solid var(--border-medium)',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.78rem',
             fontWeight: 800,
-            color: 'var(--brand-color)',
+            color: 'var(--accent-cyan)',
           }}
         >
           {slotName}
@@ -78,27 +80,27 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
       {/* Main Course Info */}
       <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--brand-color)' }}>
+          <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
             {courseCode}
           </span>
           {slot.isLab ? (
-            <span className="status-badge amber" style={{ fontSize: '0.7rem' }}>
+            <span className="status-badge warning" style={{ fontSize: '0.72rem' }}>
               <FlaskConical size={11} />
               <span>Lab Practical</span>
             </span>
           ) : (
-            <span className="status-badge neutral" style={{ fontSize: '0.7rem' }}>
+            <span className="status-badge neutral" style={{ fontSize: '0.72rem' }}>
               <BookOpen size={11} />
               <span>Theory Lecture</span>
             </span>
           )}
         </div>
 
-        <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+        <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
           {courseTitle}
         </h4>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <MapPin size={13} color="var(--text-muted)" />
             <span>{venueText}</span>

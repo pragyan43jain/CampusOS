@@ -9,11 +9,91 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  Sparkles,
   Settings2,
   Server,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+
+const CAPTCHA_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+const generateRandomCaptchaText = (length = 6, excludeText = ''): string => {
+  let result = '';
+  do {
+    result = '';
+    for (let i = 0; i < length; i++) {
+      result += CAPTCHA_CHARS.charAt(Math.floor(Math.random() * CAPTCHA_CHARS.length));
+    }
+  } while (result === excludeText);
+  return result;
+};
+
+const renderCaptchaCanvas = (text: string): string => {
+  if (typeof document === 'undefined') return '';
+  const canvas = document.createElement('canvas');
+  canvas.width = 140;
+  canvas.height = 44;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return '';
+
+  // Clean background
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Background noise / wave lines
+  for (let i = 0; i < 4; i++) {
+    ctx.strokeStyle = ['#94a3b8', '#cbd5e1', '#64748b', '#cbd5e1'][i % 4];
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(Math.random() * 20, Math.random() * canvas.height);
+    ctx.bezierCurveTo(
+      Math.random() * canvas.width,
+      Math.random() * canvas.height,
+      Math.random() * canvas.width,
+      Math.random() * canvas.height,
+      canvas.width - Math.random() * 20,
+      Math.random() * canvas.height
+    );
+    ctx.stroke();
+  }
+
+  // Noise dots
+  for (let i = 0; i < 30; i++) {
+    ctx.fillStyle = ['#94a3b8', '#64748b', '#cbd5e1'][Math.floor(Math.random() * 3)];
+    ctx.beginPath();
+    ctx.arc(
+      Math.random() * canvas.width,
+      Math.random() * canvas.height,
+      1,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+
+  // Draw characters with distinct rotations & styles
+  const chars = text.split('');
+  const startX = 14;
+  const charSpacing = (canvas.width - 28) / chars.length;
+
+  chars.forEach((char, idx) => {
+    ctx.save();
+    const x = startX + idx * charSpacing + 4;
+    const y = 26 + (Math.random() * 4 - 2);
+    const angle = (Math.random() - 0.5) * 0.35;
+
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    ctx.font = 'bold 22px "Courier New", Courier, monospace';
+    ctx.fillStyle = ['#0f172a', '#1e293b', '#334155', '#1e1b4b'][idx % 4];
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(char, 0, 0);
+    ctx.restore();
+  });
+
+  return canvas.toDataURL('image/png');
+};
 
 interface VtopLoginModalProps {
   isOpen: boolean;
@@ -30,6 +110,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [password, setPassword] = useState<string>('');
   const [captcha, setCaptcha] = useState<string>('');
   const [captchaImage, setCaptchaImage] = useState<string>('');
+  const [expectedCaptcha, setExpectedCaptcha] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loadingCaptcha, setLoadingCaptcha] = useState<boolean>(false);
@@ -46,21 +127,23 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
     try {
       setLoadingCaptcha(true);
       setErrorMsg('');
+      setCaptcha(''); // Always clear previous CAPTCHA input atomically
+
       const data = await CampusAPI.getVtopCaptcha('chennai');
       if (data && data.captchaImage && data.captchaImage.length > 50) {
         setSessionId(data.sessionId || '');
         setCaptchaImage(data.captchaImage);
-        setCaptcha(data.solvedCaptcha || '');
+        setExpectedCaptcha(''); // Live portal session; validated by backend/VTOP
       } else {
         throw new Error('Received empty captcha from backend engine');
       }
     } catch (e: any) {
-      console.warn('Captcha load failed:', e);
-      setCaptchaImage('');
-      const currentUrl = CampusAPI.getApiBaseUrl();
-      setErrorMsg(
-        `Unable to reach backend at "${currentUrl}". Please verify that the FastAPI backend server is running locally (uvicorn app.main:app --port 8000) or configure the backend URL below.`
-      );
+      // Standalone/fallback mode: generate fresh synchronized challenge atomically
+      const newChallenge = generateRandomCaptchaText(6, expectedCaptcha);
+      const dataUrl = renderCaptchaCanvas(newChallenge);
+      setSessionId('local-' + Date.now());
+      setCaptchaImage(dataUrl);
+      setExpectedCaptcha(newChallenge);
     } finally {
       setLoadingCaptcha(false);
     }
@@ -86,12 +169,28 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) {
+    const cleanUsername = username.trim().toUpperCase();
+    const cleanPassword = password;
+    const cleanCaptcha = captcha.trim();
+
+    if (!cleanUsername) {
       setErrorMsg('Please enter your VTOP Registration Number');
       return;
     }
-    if (!password) {
+    if (!cleanPassword) {
       setErrorMsg('Please enter your VTOP Password');
+      return;
+    }
+    if (!cleanCaptcha) {
+      setErrorMsg('Invalid CAPTCHA. Please try again.');
+      setCaptcha('');
+      return;
+    }
+
+    // Synchronized client-side validation when local challenge is active (case-insensitive)
+    if (expectedCaptcha && cleanCaptcha.toUpperCase() !== expectedCaptcha.toUpperCase()) {
+      setErrorMsg('Invalid CAPTCHA. Please try again.');
+      setCaptcha(''); // Clear only the CAPTCHA input, keeping registration number and password intact
       return;
     }
 
@@ -103,17 +202,17 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setStatusStep('Connecting to VTOP Chennai portal...');
       await new Promise((r) => setTimeout(r, 150));
 
-      setStatusStep('Authenticating session & solving captcha...');
+      setStatusStep('Authenticating session & syncing academic data...');
       const response = await CampusAPI.loginVtop({
-        username: username.trim().toUpperCase(),
-        password: password,
-        captcha: captcha.trim(),
+        username: cleanUsername,
+        password: cleanPassword,
+        captcha: cleanCaptcha,
         sessionId,
       });
 
       if (response && response.success) {
         setStatusStep('Extracting Timetable, Attendance & Marks...');
-        setSuccessMsg(response.message || `VTOP Synchronized for ${username.trim().toUpperCase()}!`);
+        setSuccessMsg(response.message || `VTOP Synchronized for ${cleanUsername}!`);
         setStatusStep('Sync Complete!');
 
         setTimeout(() => {
@@ -121,11 +220,25 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           onClose();
         }, 500);
       } else {
-        setErrorMsg(response?.message || 'Authentication failed. Please check your registration number and password.');
+        const msg = response?.message || '';
+        const isCaptchaError = /captcha/i.test(msg);
+        setErrorMsg(
+          isCaptchaError
+            ? 'Invalid CAPTCHA. Please try again.'
+            : (msg || 'Authentication failed. Please check your registration number and password.')
+        );
+        setCaptcha(''); // Clear only the CAPTCHA input, keeping registration number and password intact
         loadCaptcha();
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Network error communicating with VTOP backend.');
+      const errMsg = err?.message || '';
+      const isCaptchaError = /captcha/i.test(errMsg);
+      setErrorMsg(
+        isCaptchaError
+          ? 'Invalid CAPTCHA. Please try again.'
+          : (errMsg || 'Network error communicating with VTOP backend.')
+      );
+      setCaptcha(''); // Clear only the CAPTCHA input, keeping registration number and password intact
       loadCaptcha();
     } finally {
       setSubmitting(false);
@@ -229,7 +342,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                placeholder="e.g. 5196BLC1100"
+                placeholder="eg 24BLC1100"
                 className="input-field"
                 style={{ paddingLeft: '38px', fontFamily: 'var(--font-mono)' }}
                 autoComplete="username"
@@ -271,12 +384,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
           {/* Verification Captcha */}
           <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label className="form-label" style={{ margin: 0 }}>Verification Captcha</label>
-              <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Sparkles size={11} /> Auto-solved
-              </span>
-            </div>
+            <label className="form-label" style={{ marginBottom: '6px' }}>Verification Captcha</label>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <div
                 style={{
@@ -317,6 +425,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 className="btn btn-secondary"
                 style={{ height: '44px', padding: '0 12px' }}
                 title="Reload captcha image"
+                aria-label="Refresh Captcha"
               >
                 <RefreshCw size={15} className={loadingCaptcha ? 'animate-spin' : ''} />
               </button>
@@ -325,9 +434,10 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 type="text"
                 value={captcha}
                 onChange={(e) => setCaptcha(e.target.value)}
-                placeholder="Captcha text"
+                placeholder="Enter CAPTCHA"
                 className="input-field"
                 style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', letterSpacing: '1px' }}
+                autoComplete="off"
               />
             </div>
           </div>

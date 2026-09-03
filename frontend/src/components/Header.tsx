@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Menu,
   X,
+  LogOut,
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 
@@ -18,6 +19,7 @@ interface HeaderProps {
   syncing: boolean;
   onToggleMobileMenu?: () => void;
   onOpenLanding?: () => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -27,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   syncing,
   onToggleMobileMenu,
   onOpenLanding,
+  onLogout,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
 
@@ -49,8 +52,6 @@ export const Header: React.FC<HeaderProps> = ({
     switch (view) {
       case 'dashboard':
         return 'Dashboard';
-      case 'vtop-sync':
-        return 'VTOP Live Hub';
       case 'academics':
         return 'Academics';
       case 'assignments':
@@ -140,6 +141,19 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Sign Out Button */}
+          {onLogout && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={onLogout}
+              title="Sign out of current session"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <LogOut size={13} />
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
       </header>
 

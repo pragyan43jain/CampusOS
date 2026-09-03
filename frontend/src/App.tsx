@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StudentProfile,
   Course,
@@ -12,12 +12,14 @@ import {
   Marks,
   Exam,
   Faculty,
+  SubjectAssignmentGroup,
 } from './types';
 import { CampusAPI } from './services/api';
 import { Header, ThemeType } from './components/Header';
 import { Sidebar, NavView } from './components/Sidebar';
 import { VtopLoginModal } from './components/VtopLoginModal';
-import { VtopSyncView } from './views/VtopSyncView';
+import { TeamsLoginModal } from './components/TeamsLoginModal';
+import { LMSLoginModal } from './components/LMSLoginModal';
 import { DashboardView } from './views/DashboardView';
 import { AcademicsView } from './views/AcademicsView';
 import { AssignmentsView } from './views/AssignmentsView';
@@ -26,13 +28,71 @@ import { PlacementsView } from './views/PlacementsView';
 import { AIPlannerView } from './views/AIPlannerView';
 import { LandingPageView } from './views/LandingPageView';
 
+interface RouteInfo {
+  isLanding: boolean;
+  isLogin: boolean;
+  view: NavView;
+}
+
+const getRouteFromPath = (path: string): RouteInfo => {
+  const clean = (path || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  if (clean === '' || clean === '/' || clean === '/home' || clean === '/landing') {
+    return { isLanding: true, isLogin: false, view: 'dashboard' };
+  }
+  if (clean === '/login') {
+    return { isLanding: true, isLogin: true, view: 'dashboard' };
+  }
+  if (clean === '/dashboard') {
+    return { isLanding: false, isLogin: false, view: 'dashboard' };
+  }
+  if (
+    clean === '/vtop-sync' ||
+    clean === '/vtop' ||
+    clean === '/sync' ||
+    clean === '/academics' ||
+    clean.startsWith('/academics/') ||
+    clean === '/attendance' ||
+    clean === '/timetable' ||
+    clean === '/marks' ||
+    clean === '/exams' ||
+    clean === '/faculty' ||
+    clean === '/profile' ||
+    clean === '/courses'
+  ) {
+    return { isLanding: false, isLogin: false, view: 'academics' };
+  }
+  if (clean === '/assignments' || clean === '/tasks') {
+    return { isLanding: false, isLogin: false, view: 'assignments' };
+  }
+  if (clean === '/fees' || clean === '/receipts' || clean === '/dues') {
+    return { isLanding: false, isLogin: false, view: 'fees' };
+  }
+  if (clean === '/placements' || clean === '/dsa') {
+    return { isLanding: false, isLogin: false, view: 'placements' };
+  }
+  if (clean === '/ai-planner' || clean === '/planner') {
+    return { isLanding: false, isLogin: false, view: 'ai-planner' };
+  }
+  return { isLanding: true, isLogin: false, view: 'dashboard' };
+};
+
 export const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<NavView>('dashboard');
+  // Navigation & Theme States
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('midnight-slate');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [syncing, setSyncing] = useState<boolean>(false);
+  const [authInitializing, setAuthInitializing] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [showLanding, setShowLanding] = useState<boolean>(true);
+  const [activeView, setActiveView] = useState<NavView>('dashboard');
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
-  const [showLanding, setShowLanding] = useState<boolean>(false);
+  const [syncing, setSyncing] = useState<boolean>(false);
+
+  // Teams & LMS Integration States
+  const [isTeamsModalOpen, setIsTeamsModalOpen] = useState<boolean>(false);
+  const [isLMSModalOpen, setIsLMSModalOpen] = useState<boolean>(false);
+  const [teamsAccount, setTeamsAccount] = useState<any>({ connected: false, status: 'disconnected' });
+  const [lmsAccount, setLmsAccount] = useState<any>({ connected: false, status: 'disconnected' });
+  const [syncingAll, setSyncingAll] = useState<boolean>(false);
+  const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null);
 
   // Core Academic Data States
   const [student, setStudent] = useState<StudentProfile | null>(null);
@@ -52,6 +112,19 @@ export const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
   }, [currentTheme]);
+
+  // Load academic platform connection statuses (Teams & LMS)
+  const loadAcademicAccountsStatus = async () => {
+    try {
+      const statusData = await CampusAPI.getAcademicAccountsStatus();
+      if (statusData) {
+        if (statusData.teams) setTeamsAccount(statusData.teams);
+        if (statusData.lms) setLmsAccount(statusData.lms);
+      }
+    } catch (e) {
+      console.warn('Failed to load academic accounts status:', e);
+    }
+  };
 
   // Load all initial academic modules from backend
   const loadAllData = async () => {
@@ -85,27 +158,248 @@ export const App: React.FC = () => {
         CampusAPI.getAIStudyTasks(),
       ]);
 
-      setStudent(studentData);
-      setCourses(coursesData);
-      setTimetable(timetableData);
-      setAttendance(attendanceData);
-      setMarks(marksData);
-      setExams(examsData);
-      setFaculty(facultyData);
-      setAssignments(assignmentsData);
-      setFees(feesData);
-      setPlacements(placementsData);
-      setDsaTopics(dsaData);
-      setAiTasks(aiData);
+      const isAuthed = Boolean(
+        studentData &&
+        studentData.regNo &&
+        studentData.regNo !== 'Not available' &&
+        studentData.regNo !== 'Sync Required'
+      );
+
+      if (isAuthed) {
+        setStudent(studentData);
+        setCourses(coursesData);
+        setTimetable(timetableData);
+        setAttendance(attendanceData);
+        setMarks(marksData);
+        setExams(examsData);
+        setFaculty(facultyData);
+        setAssignments(assignmentsData);
+        setFees(feesData);
+        setPlacements(placementsData);
+        setDsaTopics(dsaData);
+        setAiTasks(aiData);
+        setIsAuthenticated(true);
+      }
+
+      await loadAcademicAccountsStatus();
     } catch (err) {
       console.error('Failed to load campus data:', err);
     } finally {
-      setLoading(false);
       setSyncing(false);
     }
   };
 
-  const handleSyncedData = async (data?: any) => {
+  // Unified Sync All Handler (Runs across Teams and LMS concurrently)
+  const handleSyncAll = async () => {
+    if (syncingAll) return; // Prevent duplicate requests
+    setSyncingAll(true);
+    setSyncResultMsg(null);
+
+    try {
+      const res = await CampusAPI.syncAllAcademicAccounts();
+
+      // Refresh accounts status
+      await loadAcademicAccountsStatus();
+
+      // Extract unified assignments and update shared state instantly
+      if (res.dashboard) {
+        const flatList: Assignment[] = [];
+        if (res.dashboard.subjects) {
+          res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
+            if (s.assignments) flatList.push(...s.assignments);
+          });
+        }
+        if (res.dashboard.unmatchedAssignments) {
+          flatList.push(...res.dashboard.unmatchedAssignments);
+        }
+        if (flatList.length > 0) {
+          setAssignments(flatList);
+        }
+      } else {
+        const freshAssignments = await CampusAPI.getAssignments();
+        if (freshAssignments) {
+          setAssignments(freshAssignments);
+        }
+      }
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setSyncResultMsg(res.message ? `✓ ${res.message} (${timeStr})` : `✓ Synced all accounts successfully (${timeStr})`);
+    } catch (err: any) {
+      console.error('Failed to sync all accounts:', err);
+      setSyncResultMsg(`⚠️ Sync encountered an error: ${err.message || 'Network error'}`);
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
+  const applyRoute = useCallback((path: string, overrideAuth?: boolean) => {
+    const authed = overrideAuth !== undefined ? overrideAuth : isAuthenticated;
+    const route = getRouteFromPath(path);
+
+    if (route.isLanding) {
+      setShowLanding(true);
+      if (route.isLogin) {
+        setShowVtopModal(true);
+      }
+      return;
+    }
+
+    // Protected Route
+    if (authed) {
+      setShowLanding(false);
+      setActiveView(route.view);
+      const clean = (path || '').toLowerCase().replace(/\/+$/, '');
+      if (clean === '/vtop-sync' || clean === '/vtop' || clean === '/sync') {
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', '/academics');
+        }
+      }
+    } else {
+      // Unauthenticated user attempting to access protected route -> Redirect to "/"
+      if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+        window.history.replaceState(null, '', '/');
+      }
+      setShowLanding(true);
+      if (route.isLogin) {
+        setShowVtopModal(true);
+      }
+    }
+  }, [isAuthenticated]);
+
+  // Initial Auth & Route Detection
+  useEffect(() => {
+    let isMounted = true;
+
+    const initAuthAndRouting = async () => {
+      try {
+        const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+        const initialRoute = getRouteFromPath(initialPath);
+
+        const status = await CampusAPI.getVtopStatus();
+        const authed = Boolean(
+          status &&
+          status.authenticated &&
+          status.student?.regNo &&
+          status.student.regNo !== 'Not available' &&
+          status.student.regNo !== 'Sync Required'
+        );
+
+        if (!isMounted) return;
+
+        setIsAuthenticated(authed);
+
+        if (authed) {
+          if (status.student) {
+            setStudent(status.student);
+          }
+          await loadAllData();
+
+          if (!isMounted) return;
+
+          // If directly opened a protected route while authenticated, display it
+          if (!initialRoute.isLanding) {
+            setShowLanding(false);
+            setActiveView(initialRoute.view);
+          } else {
+            setShowLanding(true);
+            if (initialRoute.isLogin) {
+              setShowVtopModal(true);
+            }
+          }
+        } else {
+          // Unauthenticated -> ensure landing page is displayed
+          setStudent(null);
+          if (!initialRoute.isLanding) {
+            if (typeof window !== 'undefined') {
+              window.history.replaceState(null, '', '/');
+            }
+          }
+          setShowLanding(true);
+          if (initialRoute.isLogin) {
+            setShowVtopModal(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Auth init failed, defaulting to landing page:', e);
+        if (isMounted) {
+          setIsAuthenticated(false);
+          setShowLanding(true);
+          if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+            window.history.replaceState(null, '', '/');
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setAuthInitializing(false);
+        }
+      }
+    };
+
+    initAuthAndRouting();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Handle Browser Back/Forward buttons (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+      applyRoute(currentPath);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [applyRoute]);
+
+  const handleSignOut = async () => {
+    try {
+      setSyncing(true);
+      await CampusAPI.logoutVtop();
+    } catch (err) {
+      console.warn('Logout API error:', err);
+    } finally {
+      // 1. Invalidate session & reset auth state
+      CampusAPI.setActiveSessionId(null);
+      setIsAuthenticated(false);
+      setShowLanding(true);
+      setShowVtopModal(false);
+      setIsTeamsModalOpen(false);
+      setIsLMSModalOpen(false);
+      setSyncing(false);
+      setSyncingAll(false);
+      setSyncResultMsg(null);
+      setTeamsAccount({ connected: false, status: 'disconnected' });
+      setLmsAccount({ connected: false, status: 'disconnected' });
+
+      // 2. Clear all sensitive user/academic dataset
+      setStudent(null);
+      setCourses([]);
+      setTimetable([]);
+      setAttendance([]);
+      setMarks([]);
+      setExams([]);
+      setFaculty([]);
+      setAssignments([]);
+      setFees([]);
+      setPlacements([]);
+      setDsaTopics([]);
+      setAiTasks([]);
+
+      // 3. Navigate canonical root "/" and update browser history
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/');
+      }
+    }
+  };
+
+  const handleLoginSuccess = async (data?: any) => {
+    setShowVtopModal(false);
+    setIsAuthenticated(true);
+
     if (data && data.student) {
       setStudent(data.student);
       if (data.courses) setCourses(data.courses);
@@ -120,20 +414,51 @@ export const App: React.FC = () => {
       if (data.dsaTopics) setDsaTopics(data.dsaTopics);
       if (data.aiTasks) setAiTasks(data.aiTasks);
     }
-    await loadAllData();
-  };
 
-  useEffect(() => {
-    loadAllData();
-  }, []);
+    await loadAllData();
+    setShowLanding(false);
+    setActiveView('dashboard');
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/dashboard');
+    }
+  };
 
   const handleToggleAssignment = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
     const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
-    const updated = await CampusAPI.updateAssignmentStatus(id, nextStatus);
-    setAssignments((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    try {
+      const updated = await CampusAPI.updateAssignmentStatus(id, nextStatus);
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                ...updated,
+                status: nextStatus,
+                isDone: nextStatus === 'Submitted',
+                isSubmitted: nextStatus === 'Submitted',
+                displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
+              }
+            : a
+        )
+      );
+    } catch {
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                status: nextStatus,
+                isDone: nextStatus === 'Submitted',
+                isSubmitted: nextStatus === 'Submitted',
+                displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
+              }
+            : a
+        )
+      );
+    }
   };
 
-  if (loading || !student) {
+  if (authInitializing) {
     return (
       <div
         style={{
@@ -159,27 +484,48 @@ export const App: React.FC = () => {
   }
 
   const pendingAssignmentsCount = assignments.filter((a) => {
-    const st = (a.displayStatus || a.status || '').toUpperCase();
-    return st === 'PENDING' || st === 'DUE SOON' || st === 'OVERDUE';
+    const st = (a.displayStatus || a.status || '').toUpperCase().trim();
+    const isDone = Boolean(a.isDone || a.isSubmitted || st === 'DONE' || st === 'SUBMITTED' || st === 'COMPLETED');
+    return !isDone;
   }).length;
   const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
-  if (showLanding) {
+  if (showLanding || !isAuthenticated || !student) {
     return (
       <div data-theme={currentTheme}>
         <LandingPageView
-          onOpenLogin={() => setShowVtopModal(true)}
-          onEnterApp={() => setShowLanding(false)}
+          onOpenLogin={() => {
+            setShowVtopModal(true);
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+              window.history.pushState(null, '', '/login');
+            }
+          }}
+          onEnterApp={() => {
+            if (isAuthenticated && student) {
+              setShowLanding(false);
+              setActiveView('dashboard');
+              if (typeof window !== 'undefined') {
+                window.history.pushState(null, '', '/dashboard');
+              }
+            } else {
+              setShowVtopModal(true);
+              if (typeof window !== 'undefined') {
+                window.history.pushState(null, '', '/login');
+              }
+            }
+          }}
           studentName={student?.name}
-          isLoggedIn={Boolean(student?.regNo)}
+          isLoggedIn={isAuthenticated}
         />
         <VtopLoginModal
           isOpen={showVtopModal}
-          onClose={() => setShowVtopModal(false)}
-          onLoginSuccess={(data) => {
-            handleSyncedData(data);
-            setShowLanding(false);
+          onClose={() => {
+            setShowVtopModal(false);
+            if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+              window.history.replaceState(null, '', '/');
+            }
           }}
+          onLoginSuccess={handleLoginSuccess}
         />
       </div>
     );
@@ -189,13 +535,24 @@ export const App: React.FC = () => {
     <div className="app-shell" data-theme={currentTheme}>
       <Sidebar
         activeView={activeView}
-        onSelectView={setActiveView}
+        onSelectView={(view) => {
+          setActiveView(view);
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', `/${view}`);
+          }
+        }}
         pendingAssignmentsCount={pendingAssignmentsCount}
         criticalAttendanceCount={criticalAttendanceCount}
         currentTheme={currentTheme}
         onSelectTheme={setCurrentTheme}
         onOpenVtopModal={() => setShowVtopModal(true)}
-        onOpenLanding={() => setShowLanding(true)}
+        onOpenLanding={() => {
+          setShowLanding(true);
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/');
+          }
+        }}
+        onLogout={handleSignOut}
       />
 
       <div className="main-viewport">
@@ -203,7 +560,13 @@ export const App: React.FC = () => {
           student={student}
           activeView={activeView}
           onOpenVtopModal={() => setShowVtopModal(true)}
-          onOpenLanding={() => setShowLanding(true)}
+          onOpenLanding={() => {
+            setShowLanding(true);
+            if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', '/');
+            }
+          }}
+          onLogout={handleSignOut}
           syncing={syncing}
         />
 
@@ -211,27 +574,29 @@ export const App: React.FC = () => {
           <DashboardView
             student={student}
             timetable={timetable}
+            assignments={assignments}
             onOpenSyncModal={() => setShowVtopModal(true)}
-          />
-        )}
-
-        {activeView === 'vtop-sync' && (
-          <VtopSyncView
-            student={student}
-            courses={courses}
-            attendance={attendance}
-            marks={marks}
-            exams={exams}
-            faculty={faculty}
-            timetable={timetable}
-            onForceSync={loadAllData}
-            syncing={syncing}
+            teamsAccount={teamsAccount}
+            lmsAccount={lmsAccount}
+            onLinkTeams={() => setIsTeamsModalOpen(true)}
+            onLinkLMS={() => setIsLMSModalOpen(true)}
+            onSyncAll={handleSyncAll}
+            syncingAll={syncingAll}
+            syncResultMsg={syncResultMsg}
           />
         )}
 
         {activeView === 'academics' && (
           <AcademicsView
+            student={student}
             courses={courses}
+            attendance={attendance}
+            timetable={timetable}
+            marks={marks}
+            exams={exams}
+            faculty={faculty}
+            onForceSync={loadAllData}
+            syncing={syncing}
           />
         )}
 
@@ -240,6 +605,12 @@ export const App: React.FC = () => {
             assignments={assignments}
             onToggleStatus={handleToggleAssignment}
             onAssignmentsUpdated={(updated) => setAssignments(updated)}
+            onLinkTeams={() => setIsTeamsModalOpen(true)}
+            onLinkLMS={() => setIsLMSModalOpen(true)}
+            onSyncAll={handleSyncAll}
+            syncingAll={syncingAll}
+            teamsAccount={teamsAccount}
+            lmsAccount={lmsAccount}
             studentEmail={student.email}
             studentRegNo={student.regNo}
           />
@@ -254,10 +625,39 @@ export const App: React.FC = () => {
         {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
       </div>
 
+      {/* VTOP Auth & Sync Modal */}
       <VtopLoginModal
         isOpen={showVtopModal}
-        onClose={() => setShowVtopModal(false)}
-        onLoginSuccess={handleSyncedData}
+        onClose={() => {
+          setShowVtopModal(false);
+          if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+            window.history.replaceState(null, '', '/');
+          }
+        }}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Microsoft Teams Auth & Coursework Modal */}
+      <TeamsLoginModal
+        isOpen={isTeamsModalOpen}
+        onClose={() => setIsTeamsModalOpen(false)}
+        onLoginSuccess={async () => {
+          setIsTeamsModalOpen(false);
+          await handleSyncAll();
+        }}
+        initialEmail={student?.email || ''}
+      />
+
+      {/* Moodle LMS Auth & Coursework Modal */}
+      <LMSLoginModal
+        isOpen={isLMSModalOpen}
+        onClose={() => setIsLMSModalOpen(false)}
+        onLoginSuccess={async () => {
+          setIsLMSModalOpen(false);
+          await handleSyncAll();
+        }}
+        initialRegNo={student?.regNo || ''}
+        initialUsername={student?.regNo || ''}
       />
     </div>
   );
