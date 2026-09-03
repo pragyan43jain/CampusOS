@@ -1,5 +1,5 @@
 // Netlify Serverless API Function for CampusOS
-// Implements full live VTOP portal scraping, Teams/LMS auth, and LeetCode intelligence
+// Implements full live VTOP portal scraping for VIT Chennai (vtopcc.vit.ac.in) & VIT Vellore (vtop.vit.ac.in)
 
 const userSessions = new Map();
 
@@ -24,7 +24,6 @@ function jsonResponse(statusCode, data) {
   };
 }
 
-// Simple regex-based HTML parsers for VTOP responses
 function extractCsrf(html) {
   const match = html.match(/name=["']_csrf["'][^>]*value=["']([^"']+)["']/i) ||
                 html.match(/value=["']([^"']+)["'][^>]*name=["']_csrf["']/i);
@@ -52,7 +51,6 @@ function parseCoursesAndTimetable(html) {
   const courses = [];
   const timetable = [];
   
-  // Extract registered courses from table
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let row;
   while ((row = rowRegex.exec(html)) !== null) {
@@ -64,7 +62,6 @@ function parseCoursesAndTimetable(html) {
       cells.push(cell[1].replace(/<[^>]+>/g, '').trim());
     }
 
-    // Typical VTOP Course Row: [No, Code, Title, Type, L, T, P, J, C, Slot, Venue, Faculty, Status]
     if (cells.length >= 8 && /^[A-Z]{2,4}[0-9]{3,4}[A-Z]?$/i.test(cells[1] || '')) {
       const code = cells[1];
       const title = cells[2];
@@ -104,7 +101,6 @@ function parseAttendance(html) {
       cells.push(cell[1].replace(/<[^>]+>/g, '').trim());
     }
 
-    // Typical Attendance Row: [No, Code, Title, Type, Slot, Attended, Total, Percentage, ...]
     if (cells.length >= 7 && /^[A-Z]{2,4}[0-9]{3,4}[A-Z]?$/i.test(cells[1] || '')) {
       const code = cells[1];
       const title = cells[2];
@@ -202,7 +198,7 @@ exports.handler = async (event) => {
   try {
     // 1. VTOP Captcha
     if (path === '/vtop/captcha' && method === 'GET') {
-      const campus = query.campus || 'chennai';
+      const campus = (query.campus || 'chennai').toLowerCase();
       const baseUrl = campus === 'vellore' ? 'https://vtop.vit.ac.in/vtop' : 'https://vtopcc.vit.ac.in/vtop';
       const activeSid = 'vtop-sess-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -236,7 +232,7 @@ exports.handler = async (event) => {
           });
         }
       } catch (err) {
-        console.warn('[VTOP Captcha Proxy Notice]', err.message);
+        console.warn('[VTOP Captcha Notice]', err.message);
       }
 
       return jsonResponse(200, {
@@ -253,7 +249,7 @@ exports.handler = async (event) => {
       const username = (body.username || '').toUpperCase().trim();
       const password = body.password || '';
       const captcha = (body.captcha || '').trim();
-      const campus = body.campus || 'chennai';
+      const campus = (body.campus || 'chennai').toLowerCase();
 
       if (!username) {
         return jsonResponse(400, { success: false, message: 'Please enter your VTOP Registration Number.' });
@@ -289,7 +285,7 @@ exports.handler = async (event) => {
       let faculty = [];
 
       try {
-        // Step 1: Login to VTOP
+        // Step 1: Login to VTOP (VIT Chennai / Vellore)
         const loginRes = await fetch(`${baseVtopUrl}/processLogin`, {
           method: 'POST',
           headers: {
@@ -308,9 +304,10 @@ exports.handler = async (event) => {
         const csrf = extractCsrf(homeHtml);
 
         if (csrf && (homeHtml.includes('Logout') || homeHtml.includes('Sign Out') || homeHtml.includes('authorizedIDX'))) {
-          // Step 2: Fetch Profile
+          // Step 2: Fetch Profile (Student Profile All View / processViewStudentProfile)
           try {
-            const profRes = await fetch(`${baseVtopUrl}/processViewStudentProfile`, {
+            const profUrl = campus === 'chennai' ? `${baseVtopUrl}/studentsRecord/StudentProfileAllView` : `${baseVtopUrl}/processViewStudentProfile`;
+            const profRes = await fetch(profUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -320,13 +317,13 @@ exports.handler = async (event) => {
               body: new URLSearchParams({ _csrf: csrf }).toString(),
             });
             const profHtml = await profRes.text();
-            const nameMatch = profHtml.match(/Student Name[^<]*<\/td>[^<]*<td[^>]*>([^<]+)<\/td>/i);
+            const nameMatch = profHtml.match(/Student Name[^<]*<\/td>[^<]*<td[^>]*>([^<]+)<\/td>/i) || profHtml.match(/<td[^>]*>([A-Z\s]{4,40})<\/td>/i);
             if (nameMatch) {
               studentProfile.name = nameMatch[1].trim();
             }
           } catch (e) {}
 
-          // Step 3: Fetch Timetable & Courses
+          // Step 3: Fetch Timetable & Courses (academics/common/StudentTimeTableChn / processViewTimeTable)
           try {
             const ttRes = await fetch(`${baseVtopUrl}/processViewTimeTable`, {
               method: 'POST',
@@ -343,7 +340,7 @@ exports.handler = async (event) => {
             timetable = parsed.timetable;
           } catch (e) {}
 
-          // Step 4: Fetch Attendance
+          // Step 4: Fetch Attendance (processViewStudentAttendance)
           try {
             const attRes = await fetch(`${baseVtopUrl}/processViewStudentAttendance`, {
               method: 'POST',
@@ -373,9 +370,10 @@ exports.handler = async (event) => {
             }
           } catch (e) {}
 
-          // Step 5: Fetch Marks
+          // Step 5: Fetch Marks (examinations/doStudentMarkView / examinations/StudentMarkView)
           try {
-            const marksRes = await fetch(`${baseVtopUrl}/examinations/StudentMarkView`, {
+            const marksUrl = campus === 'chennai' ? `${baseVtopUrl}/examinations/doStudentMarkView` : `${baseVtopUrl}/examinations/StudentMarkView`;
+            const marksRes = await fetch(marksUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -417,7 +415,7 @@ exports.handler = async (event) => {
 
       return jsonResponse(200, {
         success: true,
-        message: `VTOP Synchronized for ${username}`,
+        message: `VTOP Synchronized for ${username} (${campus === 'chennai' ? 'VIT Chennai' : 'VIT Vellore'})`,
         sessionId: activeSession,
         data: userPayload,
       });
