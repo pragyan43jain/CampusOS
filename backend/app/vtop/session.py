@@ -110,6 +110,30 @@ class VTOPSession:
         self.username: Optional[str] = None
         self.last_login_at: Optional[datetime.datetime] = None
 
+    def serialize_state(self) -> Dict[str, Any]:
+        """Serialize session state for stateless serverless persistence."""
+        return {
+            "cookies": self.http.cookies.get_dict(),
+            "csrf": self.csrf,
+            "authorized_id": self.authorized_id,
+            "win_image": self.win_image,
+            "captcha_kind": self.captcha_kind,
+            "is_authenticated": self.is_authenticated,
+            "username": self.username,
+        }
+
+    def restore_state(self, state: Dict[str, Any]) -> None:
+        """Restore session state across serverless invocations."""
+        cookies = state.get("cookies") or {}
+        for k, v in cookies.items():
+            self.http.cookies.set(k, v)
+        self.csrf = state.get("csrf")
+        self.authorized_id = state.get("authorized_id")
+        self.win_image = state.get("win_image")
+        self.captcha_kind = state.get("captcha_kind") or "default"
+        self.is_authenticated = bool(state.get("is_authenticated", False))
+        self.username = state.get("username")
+
     # -- low level ---------------------------------------------------------
 
     def _url(self, path: str) -> str:

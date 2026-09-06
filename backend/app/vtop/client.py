@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import base64
+import json
 from app.storage import empty_store, save_store
 from app.vtop import scraper
 from app.vtop.ocr import solve_captcha_bytes
@@ -92,7 +93,14 @@ class VTOPClientManager:
                 pass
 
     def _put(self, session: VTOPSession) -> str:
-        session_id = secrets.token_urlsafe(24)
+        try:
+            state = session.serialize_state()
+            state_json = json.dumps(state)
+            b64_token = base64.urlsafe_b64encode(state_json.encode("utf-8")).decode("utf-8")
+            session_id = f"vtop_{b64_token}"
+        except Exception:
+            session_id = secrets.token_urlsafe(24)
+
         with self._lock:
             self._prune()
             self._sessions[session_id] = _Handle(session)
@@ -105,6 +113,25 @@ class VTOPClientManager:
                 handle = self._sessions[session_id]
                 handle.touch()
                 return handle
+
+            # If not in local memory, attempt stateless reconstruction from encoded token
+            if session_id and session_id.startswith("vtop_"):
+                try:
+                    raw_b64 = session_id[5:]
+                    # Fix padding if needed
+                    padding = 4 - (len(raw_b64) % 4)
+                    if padding and padding < 4:
+                        raw_b64 += "=" * padding
+                    state_json = base64.urlsafe_b64decode(raw_b64.encode("utf-8")).decode("utf-8")
+                    state = json.loads(state_json)
+                    session = VTOPSession()
+                    session.restore_state(state)
+                    handle = _Handle(session)
+                    self._sessions[session_id] = handle
+                    return handle
+                except Exception as exc:
+                    logger.warning("[VTOP] Failed to restore stateless session %s: %s", session_id[:12], exc)
+
             if self._sessions:
                 most_recent_sid = max(self._sessions.keys(), key=lambda s: self._sessions[s].last_used)
                 handle = self._sessions[most_recent_sid]
