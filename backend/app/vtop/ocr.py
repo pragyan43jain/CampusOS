@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import shutil
 from typing import Callable, List, Optional
 
 from PIL import Image, ImageEnhance, ImageFilter
@@ -23,6 +24,8 @@ try:
     import pytesseract
 except ImportError:  # pragma: no cover - optional dependency
     pytesseract = None  # type: ignore[assignment]
+
+_TESSERACT_AVAILABLE = bool(pytesseract is not None and shutil.which("tesseract"))
 
 logger = logging.getLogger("vtop.ocr")
 
@@ -42,13 +45,13 @@ def _is_plausible(text: str) -> bool:
 
 
 def _ocr(image: Image.Image, psm: int) -> str:
-    if pytesseract is None:
+    if not _TESSERACT_AVAILABLE or pytesseract is None:
         return ""
     config = f"--psm {psm} -c tessedit_char_whitelist={_WHITELIST}"
     try:
-        return _clean(pytesseract.image_to_string(image, config=config).strip())
-    except Exception as exc:  # pragma: no cover - tesseract missing/broken
-        logger.warning("[OCR] Tesseract failed: %s", exc)
+        return _clean(pytesseract.image_to_string(image, config=config, timeout=3).strip())
+    except Exception as exc:  # pragma: no cover - tesseract missing/broken/timeout
+        logger.debug("[OCR] Tesseract skipped or timed out: %s", exc)
         return ""
 
 
@@ -93,9 +96,10 @@ def solve_captcha_bytes(image_bytes: bytes) -> Optional[str]:
     """
     High-accuracy captcha reader for VTOP captchas (which are 6 alphanumeric characters).
     Prioritizes exact 6-character results across preprocessing pipelines.
+    Safe against missing tesseract binary in serverless runtimes.
     """
-    if pytesseract is None:
-        logger.info("[OCR] pytesseract unavailable; skipping captcha pre-solve")
+    if not _TESSERACT_AVAILABLE:
+        logger.info("[OCR] Tesseract binary unavailable in runtime; user will enter captcha manually")
         return None
 
     try:
