@@ -85,7 +85,18 @@ def get_captcha() -> Dict[str, Any]:
     When VTOP is serving Google reCAPTCHA instead of its own image, this returns
     ``success: false`` with an explanation rather than an unusable blank box.
     """
-    return client_manager.issue_captcha()
+    try:
+        return client_manager.issue_captcha()
+    except Exception as exc:
+        logger.exception("[Auth] get_captcha exception: %s", exc)
+        return {
+            "success": False,
+            "message": f"Could not connect to VTOP server ({type(exc).__name__}: {str(exc)})",
+            "code": 113,
+            "sessionId": None,
+            "captchaImage": None,
+            "solvedCaptcha": None,
+        }
 
 
 @router.post("/login")
@@ -101,13 +112,22 @@ def login(req: LoginRequest) -> Dict[str, Any]:
     or kept on the session, which is why a later ``/sync`` needs the session to
     still be alive rather than being able to silently re-authenticate.
     """
-    return client_manager.login_and_sync(
-        session_id=req.sessionId,
-        username=req.username,
-        password=req.password,
-        captcha=req.captcha,
-        semester_id=req.semesterId,
-    )
+    try:
+        return client_manager.login_and_sync(
+            session_id=req.sessionId,
+            username=req.username,
+            password=req.password,
+            captcha=req.captcha,
+            semester_id=req.semesterId,
+        )
+    except Exception as exc:
+        logger.exception("[Auth] login exception: %s", exc)
+        return {
+            "success": False,
+            "message": f"Login process failed ({type(exc).__name__}: {str(exc)})",
+            "code": 113,
+            "retryable": True,
+        }
 
 
 @router.post("/sync")

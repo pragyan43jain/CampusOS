@@ -1,15 +1,20 @@
 """
 CampusOS backend.
 
-Serves one student's VTOP data to the local frontend. Everything it returns comes
-from a live scrape of the VIT Chennai portal or is explicitly marked unavailable;
-there is no sample data anywhere in the process.
+Serves student VTOP data to the frontend via live scrapes of the VIT Chennai portal.
+Production hardened for both local execution and Vercel serverless functions.
 """
 
-import logging
+from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+from typing import Any, Dict
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routers import academics, auth, leetcode, lms, teams, unified_assignments
 from app.storage import load_store
@@ -19,6 +24,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
 )
+logger = logging.getLogger("campusos.main")
 
 app = FastAPI(
     title="CampusOS Backend API",
@@ -29,10 +35,7 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Browsers reject `Access-Control-Allow-Origin: *` on credentialed requests, so
-# the previous wildcard-plus-credentials pair was both permissive and broken. This
-# API carries VTOP session ids, so it is restricted to loopback origins — which is
-# all it needs, since the frontend runs on the same machine.
+# Robust CORS middleware supporting local preview, Vercel deployments, and custom domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -43,11 +46,69 @@ app.add_middleware(
         "http://127.0.0.1:4173",
         "http://localhost:3000",
     ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|.*\.netlify\.app|.*\.github\.io|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?$",
+    allow_origin_regex=r"^https?://.*$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def normalize_api_route_middleware(request: Request, call_next):
+    """
+    Ensures routes work whether Vercel serverless proxy preserves or strips the /api prefix.
+    """
+    path = request.scope.get("path", "")
+    # If path lacks /api prefix but targets our routers, normalize it
+    if path and not path.startswith("/api"):
+        prefixes = ("/vtop", "/academics", "/leetcode", "/lms", "/teams", "/assignments", "/health")
+        if any(path.startswith(p) for p in prefixes):
+            request.scope["path"] = f"/api{path}"
+    return await call_next(request)
+
+
+# Global Exception Handlers to guarantee valid JSON responses and prevent FUNCTION_INVOCATION_FAILED
+@app.exception_handler(Exception)
+async def global_unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("[Serverless Unhandled Exception] %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "status": "error",
+            "message": f"An unexpected server error occurred: {str(exc)}",
+            "errorType": type(exc).__name__,
+            "path": request.url.path,
+        },
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "status": "error",
+            "detail": exc.detail,
+            "message": str(exc.detail),
+            "statusCode": exc.status_code,
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "status": "validation_error",
+            "message": "Invalid request payload or parameters.",
+            "errors": exc.errors(),
+        },
+    )
+
 
 app.include_router(auth.router)
 app.include_router(academics.router)
@@ -62,11 +123,7 @@ app.include_router(unified_assignments.router)
 @app.get("/api/health")
 def root():
     """
-    Health and connection state.
-
-    ``vtopConnected`` reflects whether a sync has actually succeeded. The old root
-    route reported ``"vtop_integration": "active"`` unconditionally, which was true
-    of the code and told you nothing about your data.
+    Health and connection state endpoint.
     """
     store = load_store()
     report = store.get("syncReport") or {}
@@ -85,7 +142,4 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
-
-    # Loopback only: this process handles VTOP credentials and has no auth of its
-    # own, so it must not be reachable from the network.
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

@@ -11,24 +11,34 @@ values. That matters because it means every consumer sees one shape whether or
 not VTOP has ever been reached, so "not synced" cannot be mistaken for data.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
-from typing import Any, Dict
+import tempfile
+from typing import Any, Dict, Optional
 
 from app.vtop.math_engine import calculate_attendance_metrics, calculate_od_metrics
 
 logger = logging.getLogger("vtop.storage")
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+# Determine writable directory safely across local and serverless runtimes
+if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    DATA_DIR = os.path.join(tempfile.gettempdir(), "campusos_data")
+else:
+    DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+
 DATA_FILE = os.path.join(DATA_DIR, "store.json")
 
 
 def _data_file_for(reg_no: Optional[str] = None) -> str:
+    target_dir = os.path.dirname(DATA_FILE) or DATA_DIR
     if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
         safe_reg = "".join(c for c in reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
-        return os.path.join(DATA_DIR, f"store_{safe_reg}.json")
+        return os.path.join(target_dir, f"store_{safe_reg}.json")
     return DATA_FILE
+
 
 # Bumped whenever the payload shape changes incompatibly.
 STORE_VERSION = 2
@@ -106,7 +116,7 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     or return the shaped empty payload.
     """
     target_path = _data_file_for(reg_no)
-    if not os.path.exists(target_path) and target_path != DATA_FILE:
+    if not os.path.exists(target_path) and target_path != DATA_FILE and os.path.exists(DATA_FILE):
         target_path = DATA_FILE
 
     if os.path.exists(target_path):
@@ -134,7 +144,9 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
     Write the payload atomically to the student-specific store and active store.
     """
     try:
-        os.makedirs(DATA_DIR, exist_ok=True)
+        data_dir = os.path.dirname(DATA_FILE) or DATA_DIR
+        if data_dir:
+            os.makedirs(data_dir, exist_ok=True)
         student_reg = reg_no or (data.get("student") or {}).get("regNo")
         targets = [DATA_FILE]
         if student_reg and student_reg.strip() and student_reg.strip() != "Not available":
