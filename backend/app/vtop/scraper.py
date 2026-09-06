@@ -23,6 +23,7 @@ reported empty, not backfilled. If a value isn't here, VTOP didn't give it to us
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -1099,6 +1100,7 @@ def choose_semester(
 def sync(
     session: VTOPSession,
     semester_id: Optional[str] = None,
+    fast_mode: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Run a full scrape against an already-authenticated session.
@@ -1106,6 +1108,9 @@ def sync(
     Returns the complete store payload plus a ``syncReport``. Raises only if the
     session is unusable; individual module failures are captured in the report.
     """
+    if fast_mode is None:
+        fast_mode = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
     report = SyncReport()
 
     semesters = _step(report, "semesters", lambda: fetch_semesters(session)) or []
@@ -1117,12 +1122,21 @@ def sync(
         )
 
     profile = _step(report, "profile", lambda: fetch_profile(session))
-    grade_history = _step(report, "gradeHistory", lambda: fetch_grade_history(session))
-    receipts = _step(report, "receipts", lambda: fetch_receipts(session)) or []
-    payments = _step(report, "payments", lambda: fetch_payments(session)) or {"hasDues": False, "totalDue": 0.0, "items": []}
-    proctor = _step(report, "proctor", lambda: fetch_proctor(session))
-    dean_hod = _step(report, "deanHod", lambda: fetch_dean_hod(session)) or []
-    spotlight = _step(report, "spotlight", lambda: fetch_spotlight(session)) or []
+    
+    if not fast_mode:
+        grade_history = _step(report, "gradeHistory", lambda: fetch_grade_history(session))
+        receipts = _step(report, "receipts", lambda: fetch_receipts(session)) or []
+        payments = _step(report, "payments", lambda: fetch_payments(session)) or {"hasDues": False, "totalDue": 0.0, "items": []}
+        proctor = _step(report, "proctor", lambda: fetch_proctor(session))
+        dean_hod = _step(report, "deanHod", lambda: fetch_dean_hod(session)) or []
+        spotlight = _step(report, "spotlight", lambda: fetch_spotlight(session)) or []
+    else:
+        grade_history = None
+        receipts = []
+        payments = {"hasDues": False, "totalDue": 0.0, "items": []}
+        proctor = None
+        dean_hod = []
+        spotlight = []
 
     registry = build_registry([])
     grid: Dict[str, List[Dict[str, Any]]] = {}
@@ -1169,23 +1183,27 @@ def sync(
             )
             or []
         )
-        exams = (
-            _step(
-                report,
-                "exams",
-                lambda: P.parse_exam_schedule(fetch_exam_page(session, sem_id)),
-                count_of=lambda e: sum(len(v) for v in (e or {}).values()),
+        if not fast_mode:
+            exams = (
+                _step(
+                    report,
+                    "exams",
+                    lambda: P.parse_exam_schedule(fetch_exam_page(session, sem_id)),
+                    count_of=lambda e: sum(len(v) for v in (e or {}).values()),
+                )
+                or {}
             )
-            or {}
-        )
-        semester_grades = (
-            _step(
-                report,
-                "semesterGrades",
-                lambda: fetch_semester_grades(session, sem_id),
+            semester_grades = (
+                _step(
+                    report,
+                    "semesterGrades",
+                    lambda: fetch_semester_grades(session, sem_id),
+                )
+                or {"grades": [], "gpa": None}
             )
-            or {"grades": [], "gpa": None}
-        )
+        else:
+            exams = {}
+            semester_grades = {"grades": [], "gpa": None}
 
     # -- assemble ----------------------------------------------------------
 
