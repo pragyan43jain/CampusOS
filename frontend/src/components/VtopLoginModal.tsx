@@ -123,7 +123,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
   const [customApiUrl, setCustomApiUrl] = useState<string>(CampusAPI.getApiBaseUrl());
 
-  const loadCaptcha = async (clearCurrent = true) => {
+  const loadCaptcha = async (clearCurrent = false) => {
     try {
       setLoadingCaptcha(true);
       setErrorMsg('');
@@ -149,7 +149,9 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setSessionId('local-' + Date.now());
       setCaptchaImage(dataUrl);
       setExpectedCaptcha(newChallenge);
-      setCaptcha(newChallenge);
+      if (!captcha || clearCurrent) {
+        setCaptcha(newChallenge);
+      }
     } finally {
       setLoadingCaptcha(false);
     }
@@ -161,14 +163,14 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setSuccessMsg('');
       setStatusStep('');
       setCustomApiUrl(CampusAPI.getApiBaseUrl());
-      loadCaptcha();
+      loadCaptcha(false);
     }
   }, [isOpen]);
 
   const handleSaveApiUrl = (e: React.FormEvent) => {
     e.preventDefault();
     CampusAPI.setCustomApiUrl(customApiUrl);
-    loadCaptcha();
+    loadCaptcha(false);
   };
 
   if (!isOpen) return null;
@@ -188,14 +190,14 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       return;
     }
     if (!cleanCaptcha) {
-      setErrorMsg('Please enter the CAPTCHA characters shown above');
+      setErrorMsg('Please enter the CAPTCHA characters shown in the image');
       return;
     }
 
     // 1. Local challenge verification when local challenge mode is active
     if (expectedCaptcha) {
       if (cleanCaptcha.toUpperCase() !== expectedCaptcha.toUpperCase()) {
-        setErrorMsg('Incorrect CAPTCHA. Please enter the characters shown in the image.');
+        setErrorMsg('Incorrect CAPTCHA. Please enter the exact characters shown in the image.');
         return;
       }
 
@@ -291,24 +293,18 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         const isCaptchaError = /captcha/i.test(msg);
         setErrorMsg(
           isCaptchaError
-            ? 'Invalid CAPTCHA characters. Please verify the characters from the image and try again.'
+            ? 'Invalid CAPTCHA characters. Please verify the characters from the image, or click 🔄 to refresh.'
             : (msg || 'Authentication failed. Please check your registration number and password.')
         );
-        if (isCaptchaError) {
-          loadCaptcha(true);
-        }
       }
     } catch (err: any) {
       const errMsg = err?.message || '';
       const isCaptchaError = /captcha/i.test(errMsg);
       setErrorMsg(
         isCaptchaError
-          ? 'Invalid CAPTCHA characters. Please check the image and try again.'
+          ? 'Invalid CAPTCHA characters. Please verify the characters from the image, or click 🔄 to refresh.'
           : (errMsg || 'Network error communicating with VTOP portal.')
       );
-      if (isCaptchaError) {
-        loadCaptcha(true);
-      }
     } finally {
       setSubmitting(false);
     }

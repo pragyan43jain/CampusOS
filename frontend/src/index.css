@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CAMPUSOS x CAIDE.IO MASTER DESIGN SYSTEM
+   CAMPUSOS MASTER DESIGN SYSTEM (DARK THEME)
    ========================================================================== */
 
 :root {
@@ -137,11 +137,11 @@ a {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #242838;
+  background: #CBD5E1;
   border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #383E54;
+  background: #94A3B8;
 }
 
 /* Animations */
@@ -1211,3 +1211,146 @@ a {
   transform-origin: left;
   transform: scaleX(1);
 }
+
+/* ==========================================================================
+   MOBILE & TABLET APPLICATION RESPONSIVE OVERHAUL (< 768px)
+   ========================================================================== */
+
+/* Desktop defaults */
+@media (min-width: 768px) {
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+  .mobile-hamburger-btn {
+    display: none !important;
+  }
+}
+
+/* Mobile & Touch App Experience */
+@media (max-width: 767px) {
+  .app-sidebar {
+    display: none !important;
+  }
+
+  .main-viewport, .app-main-content-wrap {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin-left: 0 !important;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 16px)) !important;
+  }
+
+  .app-header {
+    height: 58px;
+    padding: 0 14px;
+  }
+
+  .mobile-hamburger-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+  }
+
+  .desktop-only-btn {
+    display: none !important;
+  }
+
+  .user-profile-text-block {
+    display: none !important;
+  }
+
+  .header-sync-btn {
+    padding: 0 10px;
+    height: 34px;
+    font-size: 0.80rem;
+  }
+
+  .header-page-title {
+    font-size: 1.05rem;
+  }
+
+  .header-context-meta {
+    font-size: 0.70rem;
+  }
+
+  .page-container {
+    padding: 16px 14px;
+    gap: 16px;
+  }
+
+  /* Metric cards single column stack on phones */
+  .metrics-stat-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 16px 18px;
+    min-height: 120px;
+  }
+
+  .stat-card-value {
+    font-size: 1.75rem;
+  }
+
+  .stat-card-label {
+    font-size: 0.74rem;
+  }
+
+  .card {
+    padding: 18px 16px;
+    border-radius: 14px;
+  }
+
+  .card-title {
+    font-size: 1.05rem;
+  }
+
+  .hero-card {
+    padding: 20px 18px;
+    border-radius: 16px;
+  }
+
+  .hero-heading {
+    font-size: 1.55rem;
+    line-height: 1.25;
+  }
+
+  .hero-desc {
+    font-size: 0.86rem;
+  }
+
+  /* Horizontal scroll on mobile segmented nav with momentum */
+  .academic-nav-bar {
+    padding: 6px;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .academic-nav-btn {
+    padding: 8px 12px;
+    font-size: 0.84rem;
+  }
+
+  /* Table cell touch scaling */
+  .academic-data-table th, .academic-data-table td {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+
+  /* Modals full touch responsive */
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal-content-glass {
+    padding: 22px 18px;
+    border-radius: 18px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+}
+

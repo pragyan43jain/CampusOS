@@ -17,6 +17,8 @@ import {
 import { CampusAPI } from './services/api';
 import { Header, ThemeType } from './components/Header';
 import { Sidebar, NavView } from './components/Sidebar';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileMoreDrawer } from './components/MobileMoreDrawer';
 import { VtopLoginModal } from './components/VtopLoginModal';
 import { TeamsLoginModal } from './components/TeamsLoginModal';
 import { LMSLoginModal } from './components/LMSLoginModal';
@@ -84,6 +86,7 @@ export const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [activeView, setActiveView] = useState<NavView>('dashboard');
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
+  const [showMobileMore, setShowMobileMore] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
 
   // Teams & LMS Integration States
@@ -122,36 +125,53 @@ export const App: React.FC = () => {
         CampusAPI.getTeamsStatus(),
       ]);
 
-      const storedLms = typeof window !== 'undefined' ? window.localStorage.getItem('campus_lms_account') : null;
+      const currentReg = student?.regNo || (typeof window !== 'undefined' ? window.localStorage.getItem('campus_current_reg_no') : null);
+      
+      const storedLms = typeof window !== 'undefined'
+        ? (currentReg ? window.localStorage.getItem(`campus_lms_account_${currentReg}`) : null) || window.localStorage.getItem('campus_lms_account')
+        : null;
       let parsedLms: any = null;
       if (storedLms) {
         try { parsedLms = JSON.parse(storedLms); } catch (e) {}
       }
 
-      const storedTeams = typeof window !== 'undefined' ? window.localStorage.getItem('campus_teams_account') : null;
+      const storedTeams = typeof window !== 'undefined'
+        ? (currentReg ? window.localStorage.getItem(`campus_teams_account_${currentReg}`) : null) || window.localStorage.getItem('campus_teams_account')
+        : null;
       let parsedTeams: any = null;
       if (storedTeams) {
         try { parsedTeams = JSON.parse(storedTeams); } catch (e) {}
       }
 
-      const isTeamsConn = Boolean(statusData?.teams?.connected || teamsDirectStatus?.connected || parsedTeams?.connected);
-      const isLmsConn = Boolean(statusData?.lms?.connected || lmsDirectStatus?.connected || parsedLms?.connected);
+      const isTeamsConn = Boolean(
+        (statusData?.teams?.connected && statusData?.teams?.email) ||
+        (teamsDirectStatus?.connected && teamsDirectStatus?.email) ||
+        (parsedTeams?.connected && parsedTeams?.email)
+      );
 
-      setTeamsAccount({
+      const isLmsConn = Boolean(
+        (statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName)) ||
+        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName)) ||
+        (parsedLms?.connected && (parsedLms?.username || parsedLms?.displayName))
+      );
+
+      setTeamsAccount((prev: any) => ({
+        ...prev,
         ...(statusData?.teams || {}),
         ...(teamsDirectStatus || {}),
         ...(parsedTeams || {}),
         connected: isTeamsConn,
-        status: isTeamsConn ? 'connected' : 'disconnected',
-      });
+        status: isTeamsConn ? 'connected' : (prev.status === 'failed' ? 'failed' : 'disconnected'),
+      }));
 
-      setLmsAccount({
+      setLmsAccount((prev: any) => ({
+        ...prev,
         ...(statusData?.lms || {}),
         ...(lmsDirectStatus || {}),
         ...(parsedLms || {}),
         connected: isLmsConn,
-        status: isLmsConn ? 'connected' : 'disconnected',
-      });
+        status: isLmsConn ? 'connected' : (prev.status === 'failed' ? 'failed' : 'disconnected'),
+      }));
     } catch (e) {
       console.warn('Failed to load academic accounts status:', e);
     }
@@ -660,6 +680,7 @@ export const App: React.FC = () => {
               window.history.pushState(null, '', '/');
             }
           }}
+          onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
           syncing={syncing}
         />
@@ -737,6 +758,15 @@ export const App: React.FC = () => {
         onClose={() => setIsTeamsModalOpen(false)}
         onLoginSuccess={async (data?: any) => {
           setIsTeamsModalOpen(false);
+          const currentReg = student?.regNo || 'user';
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem(`campus_teams_account_${currentReg}`, JSON.stringify({
+              connected: true,
+              email: data?.email || student?.email || '',
+              displayName: data?.displayName || student?.name || 'Teams User',
+              connectedAt: new Date().toISOString(),
+            }));
+          }
           setTeamsAccount({
             connected: true,
             status: 'connected',
@@ -745,6 +775,13 @@ export const App: React.FC = () => {
             lastSynced: new Date().toISOString(),
           });
           await handleSyncAll();
+        }}
+        onLoginFailure={(errMsg) => {
+          setTeamsAccount({
+            connected: false,
+            status: 'failed',
+            error: errMsg,
+          });
         }}
         initialEmail={student?.email || ''}
       />
@@ -755,6 +792,15 @@ export const App: React.FC = () => {
         onClose={() => setIsLMSModalOpen(false)}
         onLoginSuccess={async (data?: any) => {
           setIsLMSModalOpen(false);
+          const currentReg = student?.regNo || 'user';
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem(`campus_lms_account_${currentReg}`, JSON.stringify({
+              connected: true,
+              username: data?.username || student?.regNo || 'Student',
+              displayName: data?.displayName || student?.name || 'Moodle User',
+              connectedAt: new Date().toISOString(),
+            }));
+          }
           setLmsAccount({
             connected: true,
             status: 'connected',
@@ -764,8 +810,44 @@ export const App: React.FC = () => {
           });
           await handleSyncAll();
         }}
+        onLoginFailure={(errMsg) => {
+          setLmsAccount({
+            connected: false,
+            status: 'failed',
+            error: errMsg,
+          });
+        }}
         initialRegNo={student?.regNo || ''}
         initialUsername={student?.regNo || ''}
+      />
+
+      {/* Mobile Bottom Navigation Bar (< 768px) */}
+      <MobileBottomNav
+        activeView={activeView}
+        onSelectView={(view) => {
+          setActiveView(view);
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', `/${view}`);
+          }
+        }}
+        onOpenMore={() => setShowMobileMore(true)}
+        pendingAssignmentsCount={pendingAssignmentsCount}
+        criticalAttendanceCount={criticalAttendanceCount}
+      />
+
+      {/* Mobile Slide-Up More Actions Drawer */}
+      <MobileMoreDrawer
+        isOpen={showMobileMore}
+        onClose={() => setShowMobileMore(false)}
+        activeView={activeView}
+        onSelectView={(view) => {
+          setActiveView(view);
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', `/${view}`);
+          }
+        }}
+        onOpenVtopModal={() => setShowVtopModal(true)}
+        onLogout={handleSignOut}
       />
     </div>
   );

@@ -31,20 +31,28 @@ export const getApiBase = (): string => {
     // 1. Check runtime localStorage override
     const custom = window.localStorage.getItem('campus_api_url');
     if (custom && custom.trim()) {
-      return custom.trim().replace(/\/+$/, '');
+      let base = custom.trim().replace(/\/+$/, '');
+      if (!base.endsWith('/api') && !base.includes('/api/')) {
+        base = `${base}/api`;
+      }
+      return base;
     }
 
-    // 2. Check Vite build/env variable
+    // 2. Check Vite build/env variable (VITE_API_URL)
     const envUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE;
     if (envUrl && envUrl.trim()) {
-      return envUrl.trim().replace(/\/+$/, '');
+      let base = envUrl.trim().replace(/\/+$/, '');
+      if (!base.endsWith('/api') && !base.includes('/api/')) {
+        base = `${base}/api`;
+      }
+      return base;
     }
 
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
     const port = window.location.port;
 
-    // 3. If running on HTTPS production domain (e.g. Netlify)
+    // 3. If running on HTTPS production domain (e.g. Netlify) and no VITE_API_URL was set
     if (protocol === 'https:' && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
       return '/api';
     }

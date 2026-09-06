@@ -20,6 +20,7 @@ interface TeamsLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (data?: any) => void;
+  onLoginFailure?: (errorMsg: string) => void;
   initialEmail?: string;
 }
 
@@ -27,6 +28,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  onLoginFailure,
   initialEmail = '',
 }) => {
   const [email, setEmail] = useState(initialEmail);
@@ -68,28 +70,22 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = email.trim();
-    const cleanPassword = password;
-
-    if (!cleanEmail) {
+    if (!email.trim()) {
       setError('Please enter your university Microsoft email address.');
       return;
     }
-    if (!cleanPassword) {
-      setError('Please enter your Microsoft 365 password.');
+    if (!password.trim()) {
+      setError('Please enter your Microsoft account password.');
       return;
     }
 
-    // Security requirement: Clear raw password from state immediately
-    setPassword('');
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
-    setStep('Authenticating with Microsoft...');
+    setStep('Authenticating with Microsoft Online Services...');
 
     try {
-      setStep('Linking Microsoft Teams & verifying tenant...');
-      const res = await CampusAPI.loginTeams(cleanEmail, cleanPassword);
+      const res = await CampusAPI.loginTeams(email.trim(), password.trim());
 
       if (!res.success) {
         throw new Error(res.message || 'Authentication failed. Please check your credentials.');
@@ -104,11 +100,11 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       }, 700);
     } catch (err: any) {
       const errMsg = err?.message || '';
-      if (errMsg.toLowerCase().includes('failed to fetch') || errMsg.toLowerCase().includes('networkerror') || errMsg.toLowerCase().includes('unable to connect')) {
-        setError('Unable to connect to Microsoft Teams right now. Check your network connection and backend API status.');
-      } else {
-        setError(errMsg || 'Failed to authenticate with Microsoft Teams.');
-      }
+      const finalMsg = (errMsg.toLowerCase().includes('failed to fetch') || errMsg.toLowerCase().includes('networkerror') || errMsg.toLowerCase().includes('unable to connect'))
+        ? 'Unable to connect to Microsoft Teams right now. Check your network connection.'
+        : (errMsg || 'Failed to authenticate with Microsoft Teams.');
+      setError(finalMsg);
+      onLoginFailure?.(finalMsg);
     } finally {
       setLoading(false);
       setStep(null);

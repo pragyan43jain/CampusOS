@@ -128,11 +128,11 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
             </div>
 
             {isCritical ? (
-              <span style={{ fontSize: '0.74rem', color: 'var(--danger-crimson)', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.74rem', color: 'var(--accent-crimson)', fontWeight: 600 }}>
                 Attend next {attendance.needToAttend} classes for 75%
               </span>
             ) : (
-              <span style={{ fontSize: '0.74rem', color: 'var(--success-emerald)', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.74rem', color: 'var(--accent-emerald)', fontWeight: 600 }}>
                 {attendance.safeToMiss > 0 ? `${attendance.safeToMiss} safe classes available` : 'Borderline attendance'}
               </span>
             )}

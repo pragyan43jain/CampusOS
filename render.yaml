@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: campusos-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    region: singapore
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"

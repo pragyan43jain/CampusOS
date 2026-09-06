@@ -75,11 +75,10 @@ export const Header: React.FC<HeaderProps> = ({
             {onToggleMobileMenu && (
               <button
                 onClick={onToggleMobileMenu}
-                className="btn btn-ghost btn-sm"
-                style={{ display: 'none', padding: '4px' }}
-                aria-label="Toggle Navigation"
+                className="mobile-hamburger-btn btn btn-ghost btn-sm"
+                aria-label="Open Actions Drawer"
               >
-                <Menu size={18} />
+                <Menu size={20} />
               </button>
             )}
             <h1 className="header-page-title">{formatViewTitle(activeView)}</h1>
@@ -92,36 +91,26 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="header-right-actions">
-          {/* Landing Page Button */}
+          {/* Landing Page Button (Desktop Only) */}
           {onOpenLanding && (
             <button
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-sm desktop-only-btn"
               onClick={onOpenLanding}
               title="View 3D Landing Page"
             >
-              <span>Landing Page</span>
+              <span>Landing</span>
             </button>
           )}
 
-          {/* Mobile App Download Button */}
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowAppModal(true)}
-            title="Download CampusOS Mobile App"
-          >
-            <Smartphone size={14} />
-            <span>Mobile App</span>
-          </button>
-
           {/* Sync VTOP Primary Action Button */}
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm header-sync-btn"
             onClick={onOpenVtopModal}
             disabled={syncing}
             title="Authenticate or synchronize with live VTOP portal"
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            <span>{syncing ? 'Syncing...' : 'Sync VTOP'}</span>
+            <span className="sync-btn-label">{syncing ? 'Syncing...' : 'Sync'}</span>
           </button>
 
           {/* User Profile Capsule */}
@@ -132,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Click to manage VTOP session & credentials"
           >
             <div className="user-avatar-circle">{avatarInitials}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+            <div className="user-profile-text-block" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
               <span style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {studentName.split(' ')[0]}
               </span>
@@ -142,10 +131,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Sign Out Button */}
+          {/* Sign Out Button (Desktop Only) */}
           {onLogout && (
             <button
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-sm desktop-only-btn"
               onClick={onLogout}
               title="Sign out of current session"
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}

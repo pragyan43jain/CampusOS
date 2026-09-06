@@ -7,9 +7,7 @@ import {
   Calendar,
   RefreshCw,
   Sparkles,
-  Layers,
   MessageSquare,
-  CheckCircle2,
   Clock,
 } from 'lucide-react';
 import { StudentProfile, TimetableSlot, DayOfWeek, Assignment } from '../types';
@@ -112,7 +110,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     : (student?.regNo && student.regNo !== 'Not available' ? student.regNo : 'Student');
 
   const teamsConnected = Boolean(teamsAccount?.connected);
+  const teamsFailed = Boolean(teamsAccount?.status === 'failed' || teamsAccount?.failed);
+
   const lmsConnected = Boolean(lmsAccount?.connected);
+  const lmsFailed = Boolean(lmsAccount?.status === 'failed' || lmsAccount?.failed);
 
   const pendingAssignments = assignments.filter((a) => {
     const st = (a.displayStatus || a.status || '').toUpperCase().trim();
@@ -194,42 +195,45 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         />
       </div>
 
-      {/* 3. Connected Services (Teams + Moodle LMS + Global Sync All) */}
+      {/* 3. Platform Integrations Row */}
       <div className="card">
         <div className="card-header-bar">
           <div>
             <h3 className="card-title">
-              <Layers size={19} color="var(--accent-cyan)" />
-              <span>Connected Services &amp; Global Sync</span>
+              <Sparkles size={19} color="var(--accent-cyan)" />
+              <span>Connected Academic Hubs</span>
             </h3>
             <p className="card-description">
-              Unify Microsoft Teams and Moodle LMS coursework into your academic radar with one-click synchronization.
+              Cross-sync coursework from official learning systems into your unified dashboard.
             </p>
           </div>
 
-          <button
-            onClick={onSyncAll}
-            disabled={syncingAll || (!teamsConnected && !lmsConnected)}
-            className="btn btn-primary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            title={
-              !teamsConnected && !lmsConnected
-                ? 'Link Microsoft Teams or Moodle LMS to enable global sync'
-                : 'Synchronize coursework across all connected platforms'
-            }
-          >
-            <RefreshCw size={14} className={syncingAll ? 'animate-spin' : ''} />
-            <span>{syncingAll ? 'Syncing Platforms...' : 'Sync All Accounts'}</span>
-          </button>
+          {(teamsConnected || lmsConnected) && (
+            <button
+              onClick={onSyncAll}
+              disabled={syncingAll}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCw size={14} className={syncingAll ? 'animate-spin' : ''} />
+              <span>{syncingAll ? 'Syncing...' : 'Sync All'}</span>
+            </button>
+          )}
         </div>
 
         {syncResultMsg && (
           <div
-            className="status-badge safe"
-            style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.82rem',
+              backgroundColor: syncResultMsg.includes('✓') ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              color: syncResultMsg.includes('✓') ? 'var(--accent-emerald)' : 'var(--accent-crimson)',
+              border: `1px solid ${syncResultMsg.includes('✓') ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+              marginBottom: '16px',
+            }}
           >
-            <CheckCircle2 size={16} />
-            <span>{syncResultMsg}</span>
+            {syncResultMsg}
           </div>
         )}
 
@@ -240,7 +244,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               padding: '18px 20px',
               borderRadius: 'var(--radius-md)',
               backgroundColor: 'var(--surface-input)',
-              border: '1px solid var(--border-card)',
+              border: teamsFailed ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid var(--border-card)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -269,14 +273,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   Microsoft Teams
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {teamsConnected ? 'Active • Course Assignments Synced' : 'Not Connected'}
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    color: teamsFailed ? 'var(--accent-crimson)' : teamsConnected ? 'var(--accent-emerald)' : 'var(--text-muted)',
+                    fontWeight: 500,
+                  }}
+                >
+                  {teamsFailed
+                    ? 'Connection Failed • Click to retry'
+                    : teamsConnected
+                    ? 'Active • Course Assignments Synced'
+                    : 'Not Connected'}
                 </div>
               </div>
             </div>
 
-            {teamsConnected ? (
-              <span className="status-badge safe" style={{ flexShrink: 0 }}>Connected ✓</span>
+            {teamsFailed ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span className="status-badge critical" style={{ fontSize: '0.74rem' }}>
+                  Failed ⚠️
+                </span>
+                <button onClick={onLinkTeams} className="btn btn-secondary btn-sm" style={{ padding: '0 10px' }}>
+                  Retry
+                </button>
+              </div>
+            ) : teamsConnected ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span className="status-badge safe" style={{ fontSize: '0.74rem' }}>
+                  Connected ✓
+                </span>
+              </div>
             ) : (
               <button onClick={onLinkTeams} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
                 Link Teams
@@ -290,7 +317,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               padding: '18px 20px',
               borderRadius: 'var(--radius-md)',
               backgroundColor: 'var(--surface-input)',
-              border: '1px solid var(--border-card)',
+              border: lmsFailed ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid var(--border-card)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -319,14 +346,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   Moodle LMS
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {lmsConnected ? 'Active • Quizzes & Dropboxes Synced' : 'Not Connected'}
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    color: lmsFailed ? 'var(--accent-crimson)' : lmsConnected ? 'var(--accent-emerald)' : 'var(--text-muted)',
+                    fontWeight: 500,
+                  }}
+                >
+                  {lmsConnected
+                    ? 'Active • Quizzes & Dropboxes Synced'
+                    : lmsFailed
+                    ? 'Connection Failed • Click to retry'
+                    : 'Not Connected'}
                 </div>
               </div>
             </div>
 
             {lmsConnected ? (
-              <span className="status-badge safe" style={{ flexShrink: 0 }}>Connected ✓</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span className="status-badge safe" style={{ fontSize: '0.74rem' }}>
+                  Connected ✓
+                </span>
+              </div>
+            ) : lmsFailed ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span className="status-badge critical" style={{ fontSize: '0.74rem' }}>
+                  Failed ⚠️
+                </span>
+                <button onClick={onLinkLMS} className="btn btn-secondary btn-sm" style={{ padding: '0 10px' }}>
+                  Retry
+                </button>
+              </div>
             ) : (
               <button onClick={onLinkLMS} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
                 Link Moodle

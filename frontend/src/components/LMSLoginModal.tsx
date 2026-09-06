@@ -17,6 +17,7 @@ interface LMSLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (data?: any) => void;
+  onLoginFailure?: (errorMsg: string) => void;
   initialRegNo?: string;
   initialUsername?: string;
 }
@@ -25,6 +26,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  onLoginFailure,
   initialRegNo = '',
   initialUsername = '',
 }) => {
@@ -91,7 +93,9 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
         onClose();
       }, 800);
     } catch (err: any) {
-      setError(err.message || 'Failed to authenticate with LMS.');
+      const errMsg = err?.message || 'Failed to authenticate with LMS.';
+      setError(errMsg);
+      onLoginFailure?.(errMsg);
     } finally {
       setLoading(false);
       setStep(null);

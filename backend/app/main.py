@@ -43,7 +43,7 @@ app.add_middleware(
         "http://127.0.0.1:4173",
         "http://localhost:3000",
     ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.netlify\.app|.*\.github\.io|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|.*\.netlify\.app|.*\.github\.io|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,6 +58,8 @@ app.include_router(unified_assignments.router)
 
 
 @app.get("/")
+@app.get("/health")
+@app.get("/api/health")
 def root():
     """
     Health and connection state.
@@ -69,9 +71,9 @@ def root():
     store = load_store()
     report = store.get("syncReport") or {}
     return {
+        "status": "ok",
         "system": "CampusOS Backend Engine",
         "version": "2.0.0",
-        "status": "online",
         "campus": C.CAMPUS,
         "portal": C.BASE_URL,
         "vtopConnected": bool(store.get("authenticated")),
