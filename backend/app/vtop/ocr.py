@@ -27,6 +27,11 @@ except ImportError:  # pragma: no cover - optional dependency
 
 _TESSERACT_AVAILABLE = bool(pytesseract is not None and shutil.which("tesseract"))
 
+
+def is_ocr_available() -> bool:
+    """True when pytesseract and the tesseract binary are present."""
+    return _TESSERACT_AVAILABLE
+
 logger = logging.getLogger("vtop.ocr")
 
 _WHITELIST = (

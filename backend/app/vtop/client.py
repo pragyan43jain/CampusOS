@@ -29,7 +29,7 @@ import base64
 import json
 from app.storage import empty_store, save_store
 from app.vtop import scraper
-from app.vtop.ocr import solve_captcha_bytes
+from app.vtop.ocr import is_ocr_available, solve_captcha_bytes
 from app.vtop.session import VTOPAuthError, VTOPSession
 
 logger = logging.getLogger("vtop.client")
@@ -238,8 +238,8 @@ class VTOPClientManager:
                     retryable=True,
                 )
 
-        # 2. If not yet authenticated, run automatic background solver (bounded for serverless)
-        if not authenticated:
+        # 2. If not yet authenticated, run automatic background solver only if OCR is available
+        if not authenticated and is_ocr_available():
             max_retries = 2
             for attempt in range(max_retries):
                 try:

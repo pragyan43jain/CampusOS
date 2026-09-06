@@ -250,23 +250,25 @@ def fetch_od(
     semester_id: Optional[str] = None,
     attendance_rows: Optional[List[Dict[str, Any]]] = None,
     attendance_html: Optional[str] = None,
+    fast_mode: bool = False,
 ) -> Dict[str, Any]:
     """
     Fetch and parse student On-Duty (OD) hours.
-    Probes multiple candidate VTOP endpoints, searches the class attendance page
-    and all subject attendance tables for OD credits and detailed lecture logs.
+    Extracts credited OD lectures from class attendance and probes primary OD endpoint.
+    Optimized for rapid serverless response times.
     """
-    diagnostics: List[Dict[str, Any]] = []
     best_result: Optional[Dict[str, Any]] = None
     selected_ep: Optional[str] = None
 
-    logger.info("[VTOP OD] Starting OD fetch (semester_id=%s, candidate_count=%d)", semester_id, len(C.OD_CANDIDATES))
+    # 1. Primary candidate endpoint probe (bounded to 1-2 calls max)
+    primary_candidates = [
+        (C.OD, "semester", True),
+        ("processViewStudentOD", "semester", True),
+    ] if not fast_mode else [(C.OD, "semester", True)]
 
-    for endpoint, req_type, csrf_first in C.OD_CANDIDATES:
+    for endpoint, req_type, csrf_first in primary_candidates:
         try:
-            logger.info("[VTOP OD] Probing endpoint: '%s' (type=%s, csrf_first=%s)", endpoint, req_type, csrf_first)
             html: Optional[str] = None
-
             if req_type == "semester" and semester_id:
                 html = session.post_semester(endpoint, semester_id, csrf_first=csrf_first)
             elif req_type == "od":
@@ -276,60 +278,22 @@ def fetch_od(
             else:
                 html = session.post_simple(endpoint)
 
-            resp_len = len(html) if html else 0
-            snippet = (html[:160].replace("\n", " ") if html else "")
-            logger.info("[VTOP OD] Raw VTOP response for '%s': length=%d, snippet='%s'", endpoint, resp_len, snippet)
-
-            status_info = {
-                "endpoint": endpoint,
-                "requestType": req_type,
-                "responseLength": resp_len,
-                "hasHtml": bool(html),
-                "containsAuthMarker": "authorizedIDX" in (html or ""),
-                "containsTable": "<table" in (html or "").lower(),
-            }
-
-            if not html or P.body_says(html, "not authorized", "http status 404", "session expired", "please login"):
-                status_info["status"] = "rejected_or_empty"
-                diagnostics.append(status_info)
-                continue
-
-            parsed = P.parse_od(html)
-            records = parsed.get("records") or parsed.get("odRecords") or []
-            used_hours = parsed.get("usedHours")
-            state = parsed.get("state", "unknown")
-
-            logger.info("[VTOP OD] Parsed '%s' -> state=%s, records=%d, calculated OD hours=%s", endpoint, state, len(records), used_hours)
-
-            status_info["status"] = state
-            status_info["recordCount"] = len(records)
-            status_info["usedHours"] = used_hours
-            diagnostics.append(status_info)
-
-            # If we found real records, prioritize and stop probing immediately
-            if state == "success_with_records" and records:
-                best_result = parsed
-                selected_ep = endpoint
-                logger.info("[VTOP OD] Found %d active OD record(s) on endpoint '%s'. Stopping probe.", len(records), endpoint)
-                break
-            elif state == "success_with_no_records":
-                if best_result is None or best_result.get("state") != "success_with_records":
+            if html and not P.body_says(html, "not authorized", "http status 404", "session expired", "please login"):
+                parsed = P.parse_od(html)
+                records = parsed.get("records") or parsed.get("odRecords") or []
+                state = parsed.get("state", "unknown")
+                if state == "success_with_records" and records:
                     best_result = parsed
                     selected_ep = endpoint
-            elif best_result is None and state not in ("source_unavailable", "authentication_required"):
-                best_result = parsed
-                selected_ep = endpoint
-
+                    break
+                elif state == "success_with_no_records":
+                    if best_result is None:
+                        best_result = parsed
+                        selected_ep = endpoint
         except Exception as e:
-            logger.warning("[VTOP OD] Exception querying '%s': %s", endpoint, e)
-            diagnostics.append({
-                "endpoint": endpoint,
-                "requestType": req_type,
-                "status": "exception",
-                "error": str(e),
-            })
+            logger.debug("[VTOP OD] Probe '%s' exception: %s", endpoint, e)
 
-    # Search attendance page and subject attendance for OD credits
+    # 2. Search attendance page for credited OD classes (0 extra network requests)
     att_od_records: List[Dict[str, Any]] = []
     if attendance_html or attendance_rows:
         extracted = P.extract_attendance_od_records(attendance_html or "", attendance_rows or [])
@@ -337,48 +301,21 @@ def fetch_od(
             att_od_records.extend(extracted)
             logger.info("[VTOP OD] Extracted %d OD record(s) from class attendance page.", len(extracted))
 
-    # Drill down into individual subject attendance detail pages if semester_id is available.
-    # Strategy 1: extract classIds from onclick attributes in attendance_html
-    tried_class_ids: set = set()
-    if semester_id and attendance_html:
+    # 3. Optional deep drill-down only when not in fast_mode and attendance_html is present
+    if not fast_mode and semester_id and attendance_html:
         descriptors = P.extract_course_attendance_descriptors(attendance_html)
-        for desc in descriptors:
+        tried_class_ids = set()
+        for desc in descriptors[:3]:  # Bound to at most 3 classes
             c_id = desc.get("classId")
             c_code = desc.get("courseCode") or ""
             if c_id and c_id not in tried_class_ids:
                 tried_class_ids.add(c_id)
-                logger.info("[VTOP OD] Querying attendance drilldown for %s (classId=%s)", c_code, c_id)
                 detail_recs = fetch_course_attendance_detail(session, semester_id, c_id, course_code=c_code)
                 if detail_recs:
-                    logger.info("[VTOP OD] Found %d detailed OD lecture(s) in %s", len(detail_recs), c_code)
-                    att_od_records.extend(detail_recs)
-
-    # Strategy 2: fall back to courseId from attendance rows as classId.
-    # VTOP CC uses numeric courseIds in processViewAttendanceDetail that often match
-    # the sequential row IDs — this catches cases where HTML onclick parsing yields nothing.
-    if semester_id and attendance_rows:
-        for row in attendance_rows:
-            c_id_raw = row.get("courseId") or row.get("id")
-            c_code = (row.get("courseCode") or "").upper()
-            c_title = row.get("courseTitle") or row.get("courseName") or ""
-            fac = row.get("facultyName") or row.get("faculty") or ""
-            c_id = str(c_id_raw) if c_id_raw is not None else None
-            if c_id and c_id not in tried_class_ids and c_code:
-                tried_class_ids.add(c_id)
-                logger.info("[VTOP OD] Fallback drill-down for %s using courseId=%s", c_code, c_id)
-                detail_recs = fetch_course_attendance_detail(
-                    session, semester_id, c_id,
-                    course_code=c_code,
-                    course_title=c_title,
-                    faculty_name=fac,
-                )
-                if detail_recs:
-                    logger.info("[VTOP OD] Fallback found %d OD class(es) in %s", len(detail_recs), c_code)
                     att_od_records.extend(detail_recs)
 
     if att_od_records:
         total_att_od = sum(r.get("hours", 1) for r in att_od_records)
-        logger.info("[VTOP OD] Found %d OD hours across class attendance records.", total_att_od)
         if best_result is None or not (best_result.get("records") or best_result.get("odRecords")):
             best_result = {
                 "state": "success_with_records",
@@ -398,14 +335,10 @@ def fetch_od(
                 "message": f"Found {total_att_od} approved On-Duty hours credited in class attendance.",
             }
         else:
-            # Merge non-duplicate records
-            existing_dates_courses = {
-                (r.get("date"), r.get("subjectCode"))
-                for r in best_result.get("records", [])
-            }
+            existing = {(r.get("date"), r.get("subjectCode")) for r in best_result.get("records", [])}
             for r in att_od_records:
                 key = (r.get("date"), r.get("subjectCode"))
-                if key not in existing_dates_courses:
+                if key not in existing:
                     best_result.setdefault("records", []).append(r)
                     best_result.setdefault("odRecords", []).append(r)
                     best_result["usedHours"] = (best_result.get("usedHours") or 0) + r.get("hours", 1)
@@ -416,7 +349,6 @@ def fetch_od(
             best_result["percentageUsed"] = round(((best_result.get("usedHours") or 0) / C.OD_MAX_HOURS) * 100, 1)
 
     if best_result is None:
-        logger.info("[VTOP OD] No dedicated OD records found on candidate endpoints; authenticated student has 0 utilized OD hours.")
         best_result = {
             "state": "success_with_no_records",
             "hasValidData": True,
@@ -435,7 +367,7 @@ def fetch_od(
             "message": "No sanctioned On-Duty leave records found on VTOP for this semester.",
         }
     else:
-        used = best_result.get("usedHours")
+        used = best_result.get("usedHours") or 0
         records = best_result.get("records") or best_result.get("odRecords") or []
         max_h = best_result.get("maxHours") or best_result.get("maxOdHours") or C.OD_MAX_HOURS
         best_result["usedHours"] = used
@@ -447,9 +379,7 @@ def fetch_od(
         best_result["odRecords"] = records
 
     best_result["diagnostics"] = {
-        "probedEndpoints": diagnostics,
         "selectedEndpoint": selected_ep,
-        "candidateCount": len(C.OD_CANDIDATES),
     }
 
     return best_result
@@ -1246,6 +1176,7 @@ def sync(
             semester["id"] if semester else None,
             attendance_rows=attendance_rows,
             attendance_html=att_page if semester else None,
+            fast_mode=fast_mode,
         ),
     ) or {
         "state": "source_unavailable",
