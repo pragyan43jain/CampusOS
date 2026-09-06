@@ -135,7 +135,7 @@ class VTOPSession:
             self.win_image = win_image
 
     def _get(self, path: str, **kwargs: Any) -> requests.Response:
-        timeout = kwargs.pop("timeout", 10)
+        timeout = kwargs.pop("timeout", 4.0)
         response = self.http.get(self._url(path), timeout=timeout, **kwargs)
         self._absorb(response.text)
         return response
@@ -143,7 +143,7 @@ class VTOPSession:
     def _post(
         self, path: str, data: List[Tuple[str, str]], **kwargs: Any
     ) -> requests.Response:
-        timeout = kwargs.pop("timeout", 12)
+        timeout = kwargs.pop("timeout", 4.5)
         response = self.http.post(self._url(path), data=data, timeout=timeout, **kwargs)
         self._absorb(response.text)
         return response
@@ -161,7 +161,7 @@ class VTOPSession:
         logger.info("[VTOP] Starting pre-login handshake")
         response = self._get(C.LOGIN_PAGE)
 
-        for attempt in range(4):
+        for attempt in range(2):
             if self._is_login_page(response.text):
                 self.captcha_kind = self._detect_captcha_kind(response.text)
                 logger.info(

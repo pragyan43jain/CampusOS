@@ -211,9 +211,9 @@ class VTOPClientManager:
                     retryable=True,
                 )
 
-        # 2. If not yet authenticated, run automatic background solver
+        # 2. If not yet authenticated, run automatic background solver (bounded for serverless)
         if not authenticated:
-            max_retries = 6
+            max_retries = 2
             for attempt in range(max_retries):
                 try:
                     fresh_session = VTOPSession()
