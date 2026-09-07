@@ -1,26 +1,21 @@
 {
-  "services": {
-    "frontend": {
-      "root": "frontend/",
-      "framework": "vite"
-    },
-    "backend": {
-      "root": "backend/",
-      "entrypoint": "main:app"
-    }
-  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": {
-        "service": "backend"
-      }
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
       "source": "/(.*)",
-      "destination": {
-        "service": "frontend"
-      }
+      "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "regions": ["bom1"]
 }
