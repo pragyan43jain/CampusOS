@@ -38,8 +38,8 @@ export const getApiBase = (): string => {
       return base;
     }
 
-    // 2. Check Vite build/env variable (VITE_API_URL)
-    const envUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE;
+    // 2. Check Vite build/env variable (VITE_API_URL, VITE_API_BASE_URL, VITE_API_BASE)
+    const envUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_BASE;
     if (envUrl && envUrl.trim()) {
       let base = envUrl.trim().replace(/\/+$/, '');
       if (!base.endsWith('/api') && !base.includes('/api/')) {
