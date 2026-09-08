@@ -10,6 +10,7 @@ import {
   EyeOff,
   User,
   Lock,
+  RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -152,9 +153,26 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
 
         {/* Status / Error feedback */}
         {error && (
-          <div className="status-badge error" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
-            <AlertCircle size={15} />
-            <span>{error}</span>
+          <div className="status-badge error" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', fontSize: '0.80rem', gap: '8px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%' }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  setError(null);
+                  handleSubmit(e);
+                }}
+                disabled={loading}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.72rem', padding: '4px 10px', height: '28px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              >
+                <RotateCcw size={12} />
+                <span>Try Again</span>
+              </button>
+            </div>
           </div>
         )}
 

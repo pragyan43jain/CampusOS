@@ -273,8 +273,12 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         />
         <MetricCard
           label="Connected Subjects"
-          value={dashboard?.subjects ? dashboard.subjects.length : 0}
-          subtext="Teams &amp; LMS course channels"
+          value={dashboard?.subjects ? dashboard.subjects.filter((s) => s.teamsMatched || s.lmsMatched).length : 0}
+          subtext={
+            dashboard?.subjects && dashboard.subjects.some((s) => s.teamsMatched || s.lmsMatched)
+              ? "Teams & LMS synced channels"
+              : "No external platforms connected"
+          }
           icon={<BookOpen size={17} />}
           variant="cyan"
         />

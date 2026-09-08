@@ -218,7 +218,11 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%' }}>
               <button
                 type="button"
-                onClick={() => setError(null)}
+                onClick={(e) => {
+                  setError(null);
+                  handleSubmit(e);
+                }}
+                disabled={loading}
                 className="btn btn-secondary btn-sm"
                 style={{ fontSize: '0.72rem', padding: '4px 10px', height: '28px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
               >

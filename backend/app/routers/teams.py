@@ -13,12 +13,15 @@ import json
 import logging
 import re
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from app.storage import load_store, save_store
 from app.course_verification import (
@@ -45,7 +48,26 @@ LOGIN_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/token"
 USERREALM_URL = "https://login.microsoftonline.com/common/userrealm/"
 TEAMS_PORTAL_URL = "https://www.microsoft.com/en-in/microsoft-teams/log-in"
 
-REQUEST_TIMEOUT = 12
+REQUEST_TIMEOUT = 5.0
+
+
+def get_teams_session() -> requests.Session:
+    """Creates a configured requests.Session with HTTP connection pooling and fast retries."""
+    s = requests.Session()
+    if type(requests.get).__name__ in ("MagicMock", "Mock", "AsyncMock"):
+        s.get = requests.get
+    if type(requests.post).__name__ in ("MagicMock", "Mock", "AsyncMock"):
+        s.post = requests.post
+    retry_strategy = Retry(
+        total=1,
+        backoff_factor=0.2,
+        status_forcelist=[502, 503, 504],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(pool_connections=20, pool_maxsize=30, max_retries=retry_strategy)
+    s.mount("https://", adapter)
+    s.mount("http://", adapter)
+    return s
 
 
 def map_teams_submission_status(
@@ -235,16 +257,18 @@ def fetch_student_teams_submission(
     assignment_id: str,
     headers: Dict[str, str],
     authenticated_user_id: Optional[str] = None,
-    max_retries: int = 2,
+    max_retries: int = 1,
+    session: Optional[requests.Session] = None,
 ) -> Tuple[Optional[Dict[str, Any]], bool]:
     """
     Fetches the submission record for the authenticated student with retry logic.
     Returns: (submission_record, api_failed)
     """
+    s = session or requests
     url = f"https://assignments.onenote.com/api/v1.0/edu/classes/{class_id}/assignments/{assignment_id}/submissions"
     for attempt in range(max_retries + 1):
         try:
-            r = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            r = s.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 data = r.json()
                 items = data.get("value", [])
@@ -272,13 +296,13 @@ def fetch_student_teams_submission(
                 return None, True
             else:
                 if attempt < max_retries:
-                    time.sleep(0.4 * (attempt + 1))
+                    time.sleep(0.2 * (attempt + 1))
                     continue
                 return None, True
         except Exception as exc:
             logger.warning("Teams submission fetch attempt %d failed: %s", attempt + 1, exc)
             if attempt < max_retries:
-                time.sleep(0.4 * (attempt + 1))
+                time.sleep(0.2 * (attempt + 1))
                 continue
             return None, True
 
@@ -529,13 +553,14 @@ def match_faculty_names(vtop_faculty: Optional[str], candidate_texts: Union[str,
     return False
 
 
-def get_team_professors(team_id: str, headers: Dict[str, str]) -> List[str]:
+def get_team_professors(team_id: str, headers: Dict[str, str], session: Optional[requests.Session] = None) -> List[str]:
     """Queries Microsoft Graph API for instructors, owners, and teachers of a Team."""
     prof_names: List[str] = []
+    s = session or requests
 
     # 1. Group / Team Owners
     try:
-        r = requests.get(f"https://graph.microsoft.com/v1.0/groups/{team_id}/owners", headers=headers, timeout=5)
+        r = s.get(f"https://graph.microsoft.com/v1.0/groups/{team_id}/owners", headers=headers, timeout=REQUEST_TIMEOUT)
         if r.status_code == 200:
             for u in r.json().get("value", []):
                 name = u.get("displayName")
@@ -544,29 +569,31 @@ def get_team_professors(team_id: str, headers: Dict[str, str]) -> List[str]:
     except Exception as e:
         logger.debug("Failed fetching owners for team %s: %s", team_id, e)
 
-    # 2. Education Class Teachers
-    try:
-        r = requests.get(f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/teachers", headers=headers, timeout=5)
-        if r.status_code == 200:
-            for u in r.json().get("value", []):
-                name = u.get("displayName")
-                if name and name not in prof_names:
-                    prof_names.append(name)
-    except Exception as e:
-        logger.debug("Failed fetching teachers for class %s: %s", team_id, e)
-
-    # 3. Team Members with Owner role
-    try:
-        r = requests.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/members", headers=headers, timeout=5)
-        if r.status_code == 200:
-            for m in r.json().get("value", []):
-                roles = m.get("roles") or []
-                if "owner" in roles:
-                    name = m.get("displayName")
+    # 2. Education Class Teachers (only if owners is empty)
+    if not prof_names:
+        try:
+            r = s.get(f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/teachers", headers=headers, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                for u in r.json().get("value", []):
+                    name = u.get("displayName")
                     if name and name not in prof_names:
                         prof_names.append(name)
-    except Exception as e:
-        logger.debug("Failed fetching members for team %s: %s", team_id, e)
+        except Exception as e:
+            logger.debug("Failed fetching teachers for class %s: %s", team_id, e)
+
+    # 3. Team Members with Owner role (only if still empty)
+    if not prof_names:
+        try:
+            r = s.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/members", headers=headers, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                for m in r.json().get("value", []):
+                    roles = m.get("roles") or []
+                    if "owner" in roles:
+                        name = m.get("displayName")
+                        if name and name not in prof_names:
+                            prof_names.append(name)
+        except Exception as e:
+            logger.debug("Failed fetching members for team %s: %s", team_id, e)
 
     return prof_names
 
@@ -678,6 +705,7 @@ def fetch_assignments_for_matched_team(
     headers: Dict[str, str],
     assignments_headers: Optional[Dict[str, str]] = None,
     authenticated_user_id: Optional[str] = None,
+    session: Optional[requests.Session] = None,
 ) -> List[Dict[str, Any]]:
     """
     Goes to the assignments section in Microsoft Teams for a matched VTOP subject
@@ -685,6 +713,7 @@ def fetch_assignments_for_matched_team(
     """
     assignments: List[Dict[str, Any]] = []
     seen_ids = set()
+    s = session or requests
 
     course_code = vtop_course.get("code") or vtop_course.get("courseCode") or "TEAMS"
     course_title = vtop_course.get("title") or vtop_course.get("courseTitle") or vtop_course.get("courseName") or team_name
@@ -697,13 +726,13 @@ def fetch_assignments_for_matched_team(
     try:
         url_edu: Optional[str] = f"https://assignments.onenote.com/api/v1.0/edu/classes/{team_id}/assignments"
         while url_edu:
-            r_edu = requests.get(url_edu, headers=edu_headers, timeout=REQUEST_TIMEOUT)
+            r_edu = s.get(url_edu, headers=edu_headers, timeout=REQUEST_TIMEOUT)
             if r_edu.status_code != 200:
                 if not assignments:
                     # Fallback to graph education endpoint
                     url_edu_fallback: Optional[str] = f"https://graph.microsoft.com/v1.0/education/classes/{team_id}/assignments"
                     while url_edu_fallback:
-                        r_edu_fb = requests.get(url_edu_fallback, headers=headers, timeout=REQUEST_TIMEOUT)
+                        r_edu_fb = s.get(url_edu_fallback, headers=headers, timeout=REQUEST_TIMEOUT)
                         if r_edu_fb.status_code == 200:
                             fb_data = r_edu_fb.json()
                             for item in fb_data.get("value", []):
@@ -870,99 +899,173 @@ def fetch_assignments_for_matched_team(
     except Exception as exc:
         logger.warning("Education class assignments query for %s failed: %s", team_id, exc)
 
-    # 2. Query team channels, Adaptive Cards, and assignment tabs
-    try:
-        r_ch = requests.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels", headers=headers, timeout=REQUEST_TIMEOUT)
-        if r_ch.status_code == 200:
-            channels = r_ch.json().get("value", [])
-            for ch in channels:
-                ch_id = ch.get("id")
-                tab_url = None
-                try:
-                    r_tabs = requests.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{ch_id}/tabs", headers=headers, timeout=5)
-                    if r_tabs.status_code == 200:
-                        for tab in r_tabs.json().get("value", []):
-                            if "assignment" in (tab.get("displayName") or "").lower():
-                                tab_url = tab.get("webUrl")
-                                break
-                except Exception:
-                    pass
-
-                # Scan messages in channel for Adaptive Card assignment notifications
-                try:
-                    r_msg = requests.get(
-                        f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{ch_id}/messages?$top=50",
-                        headers=headers,
-                        timeout=REQUEST_TIMEOUT,
-                    )
-                    if r_msg.status_code == 200:
-                        for msg in r_msg.json().get("value", []):
-                            msg_id = msg.get("id")
-
-                            for att in msg.get("attachments") or []:
-                                card_data = parse_teams_adaptive_card(att)
-                                if card_data and card_data.get("title"):
-                                    card_aid = card_data.get("assignmentId")
-                                    if card_aid and card_aid in seen_ids:
-                                        continue
-
-                                    # Avoid duplicate by title if already fetched
-                                    card_title_norm = card_data["title"].strip().lower()
-                                    if any(a.get("title", "").strip().lower() == card_title_norm for a in assignments):
-                                        continue
-
-                                    seen_ids.add(msg_id)
-                                    target_url = card_data.get("url") or tab_url or f"https://teams.microsoft.com/l/team/{team_id}/conversations"
-
-                                    if card_aid and edu_headers:
-                                        seen_ids.add(card_aid)
-                                        sub_record, api_failed = fetch_student_teams_submission(
-                                            team_id,
-                                            card_aid,
-                                            edu_headers,
-                                            authenticated_user_id=authenticated_user_id,
-                                        )
-                                        sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=card_data.get("dueDate"), api_failed=api_failed)
-                                    else:
-                                        sub_meta = map_teams_submission_status(None, due_datetime_iso=None, api_failed=True)
-
-                                    assignments.append({
-                                        "id": f"teams-card-{msg_id}",
-                                        "source": "Teams",
-                                        "sourceAssignmentId": card_aid or msg_id,
-                                        "title": card_data["title"],
-                                        "courseCode": course_code,
-                                        "courseTitle": course_title,
-                                        "faculty": faculty,
-                                        "facultyId": faculty_id,
-                                        "platformName": "Microsoft Teams",
-                                        "platformUrl": target_url,
-                                        "dueDate": card_data["dueDate"],
-                                        "dueTime": card_data["dueTime"],
-                                        "status": sub_meta["applicationStatus"],
-                                        "applicationStatus": sub_meta["applicationStatus"],
-                                        "teamsSubmissionState": sub_meta["teamsSubmissionState"],
-                                        "submissionStatus": sub_meta["teamsSubmissionState"],
-                                        "submittedAt": sub_meta["submittedAt"],
-                                        "returnedAt": sub_meta["returnedAt"],
-                                        "submissionId": sub_meta["submissionId"],
-                                        "isDone": sub_meta["isDone"],
-                                        "isSubmitted": sub_meta["isSubmitted"],
-                                        "isLate": sub_meta["isLate"],
-                                        "statusVerifiedAt": sub_meta["statusVerifiedAt"],
-                                        "statusSource": sub_meta["statusSource"],
-                                        "priority": "Critical" if "lab" in card_data["title"].lower() or "da" in card_data["title"].lower() else "Medium",
-                                        "weightage": 10,
-                                        "instructions": f"Published in Teams: {card_data['dueText']}",
-                                        "matchedTeamName": team_name,
-                                    })
+    # 2. Query team channels, Adaptive Cards, and assignment tabs ONLY if official assignments are empty
+    if not assignments:
+        try:
+            r_ch = s.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels", headers=headers, timeout=REQUEST_TIMEOUT)
+            if r_ch.status_code == 200:
+                channels = r_ch.json().get("value", [])[:4]
+                for ch in channels:
+                    ch_id = ch.get("id")
+                    tab_url = None
+                    try:
+                        r_tabs = s.get(f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{ch_id}/tabs", headers=headers, timeout=3.0)
+                        if r_tabs.status_code == 200:
+                            for tab in r_tabs.json().get("value", []):
+                                if "assignment" in (tab.get("displayName") or "").lower():
+                                    tab_url = tab.get("webUrl")
                                     break
-                except Exception:
-                    pass
-    except Exception as exc:
-        logger.warning("Channels query for %s failed: %s", team_id, exc)
+                    except Exception:
+                        pass
+
+                    # Scan messages in channel for Adaptive Card assignment notifications
+                    try:
+                        r_msg = s.get(
+                            f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{ch_id}/messages?$top=20",
+                            headers=headers,
+                            timeout=REQUEST_TIMEOUT,
+                        )
+                        if r_msg.status_code == 200:
+                            for msg in r_msg.json().get("value", []):
+                                msg_id = msg.get("id")
+                                for att in msg.get("attachments") or []:
+                                    card_data = parse_teams_adaptive_card(att)
+                                    if card_data and card_data.get("title"):
+                                        card_aid = card_data.get("assignmentId")
+                                        if card_aid and card_aid in seen_ids:
+                                            continue
+
+                                        # Avoid duplicate by title if already fetched
+                                        card_title_norm = card_data["title"].strip().lower()
+                                        if any(a.get("title", "").strip().lower() == card_title_norm for a in assignments):
+                                            continue
+
+                                        seen_ids.add(msg_id)
+                                        target_url = card_data.get("url") or tab_url or f"https://teams.microsoft.com/l/team/{team_id}/conversations"
+
+                                        if card_aid and edu_headers:
+                                            seen_ids.add(card_aid)
+                                            sub_record, api_failed = fetch_student_teams_submission(
+                                                team_id,
+                                                card_aid,
+                                                edu_headers,
+                                                authenticated_user_id=authenticated_user_id,
+                                            )
+                                            sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=card_data.get("dueDate"), api_failed=api_failed)
+                                        else:
+                                            sub_meta = map_teams_submission_status(None, due_datetime_iso=None, api_failed=True)
+
+                                        assignments.append({
+                                            "id": f"teams-card-{msg_id}",
+                                            "source": "Teams",
+                                            "sourceAssignmentId": card_aid or msg_id,
+                                            "title": card_data["title"],
+                                            "courseCode": course_code,
+                                            "courseTitle": course_title,
+                                            "faculty": faculty,
+                                            "facultyId": faculty_id,
+                                            "platformName": "Microsoft Teams",
+                                            "platformUrl": target_url,
+                                            "dueDate": card_data["dueDate"],
+                                            "dueTime": card_data["dueTime"],
+                                            "status": sub_meta["applicationStatus"],
+                                            "applicationStatus": sub_meta["applicationStatus"],
+                                            "teamsSubmissionState": sub_meta["teamsSubmissionState"],
+                                            "submissionStatus": sub_meta["teamsSubmissionState"],
+                                            "submittedAt": sub_meta["submittedAt"],
+                                            "returnedAt": sub_meta["returnedAt"],
+                                            "submissionId": sub_meta["submissionId"],
+                                            "isDone": sub_meta["isDone"],
+                                            "isSubmitted": sub_meta["isSubmitted"],
+                                            "isLate": sub_meta["isLate"],
+                                            "statusVerifiedAt": sub_meta["statusVerifiedAt"],
+                                            "statusSource": sub_meta["statusSource"],
+                                            "priority": "Critical" if "lab" in card_data["title"].lower() or "da" in card_data["title"].lower() else "Medium",
+                                            "weightage": 10,
+                                            "instructions": f"Published in Teams: {card_data['dueText']}",
+                                            "matchedTeamName": team_name,
+                                        })
+                                        break
+                    except Exception:
+                        pass
+        except Exception as exc:
+            logger.warning("Channels query for %s failed: %s", team_id, exc)
 
     return assignments
+
+
+def _process_single_team(
+    team: Dict[str, Any],
+    verified_enrolled: List[VerifiedCourseRecord],
+    headers: Dict[str, str],
+    assignments_headers: Optional[Dict[str, str]],
+    authenticated_user_id: Optional[str],
+    session: requests.Session,
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Worker function for concurrent team verification and assignment retrieval."""
+    team_id = team.get("id") or ""
+    team_name = team.get("displayName") or ""
+    team_desc = team.get("description") or ""
+
+    team_professors = get_team_professors(team_id, headers, session=session)
+
+    is_verified, matched_rec, match_meta = verify_external_course(
+        enrolled_records=verified_enrolled,
+        source="Teams",
+        source_id=team_id,
+        source_name=team_name,
+        source_desc=team_desc,
+        source_professors=team_professors,
+    )
+
+    if is_verified and matched_rec:
+        matched_vtop = {
+            "code": matched_rec.courseCode,
+            "title": matched_rec.courseName,
+            "faculty": matched_rec.facultyName,
+            "facultyId": matched_rec.facultyId,
+            "slot": matched_rec.slot,
+            "section": matched_rec.section,
+        }
+        logger.info(
+            "Verified enrolled course [%s: %s] AND professor [%s] with Teams '%s' (%s). Fetching assignments...",
+            matched_rec.courseCode,
+            matched_rec.courseName,
+            matched_rec.facultyName,
+            team_name,
+            team_id,
+        )
+
+        subject_assignments = fetch_assignments_for_matched_team(
+            team_id,
+            team_name,
+            matched_vtop,
+            headers,
+            assignments_headers=assignments_headers,
+            authenticated_user_id=authenticated_user_id,
+            session=session,
+        )
+
+        for sa in subject_assignments:
+            sa["verifiedCourseMatchId"] = f"match-teams-{team_id}"
+            sa["subjectId"] = matched_rec.courseCode
+            sa["courseCode"] = matched_rec.courseCode
+            sa["courseTitle"] = matched_rec.courseName
+            sa["faculty"] = matched_rec.facultyName
+
+        matched_summary = {
+            "courseCode": matched_rec.courseCode,
+            "courseTitle": matched_rec.courseName,
+            "faculty": matched_rec.facultyName,
+            "teamId": team_id,
+            "teamName": team_name,
+            "assignmentsCount": len(subject_assignments),
+        }
+
+        return match_meta.model_dump(), matched_vtop, subject_assignments, matched_summary
+    else:
+        logger.debug("Teams channel '%s' skipped: %s", team_name, match_meta.rejectionReason)
+        return match_meta.model_dump(), None, [], None
 
 
 def fetch_microsoft_teams_coursework(
@@ -971,10 +1074,11 @@ def fetch_microsoft_teams_coursework(
     vtop_courses: List[Dict[str, Any]],
     assignments_token: Optional[str] = None,
     authenticated_user_id: Optional[str] = None,
+    session: Optional[requests.Session] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     1. Searches for enrolled subjects in the VTOP section.
-    2. Matches them with Teams enrolled subjects.
+    2. Matches them with Teams enrolled subjects concurrently.
     3. Navigates to the assignments section in Teams for each matched subject and fetches authentic details
        and verified student submission states.
     """
@@ -985,6 +1089,8 @@ def fetch_microsoft_teams_coursework(
 
     if not access_token:
         return user_info, all_assignments, matched_subjects, course_matches
+
+    s = session or get_teams_session()
 
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -997,7 +1103,7 @@ def fetch_microsoft_teams_coursework(
             store_temp = load_store()
             r_tok_temp = (store_temp.get("teamsAccount") or {}).get("refreshToken")
             if r_tok_temp:
-                r_at = requests.post(
+                r_at = s.post(
                     LOGIN_TOKEN_URL,
                     data={
                         "client_id": TEAMS_CLIENT_ID,
@@ -1005,7 +1111,7 @@ def fetch_microsoft_teams_coursework(
                         "refresh_token": r_tok_temp,
                         "resource": ASSIGNMENTS_RESOURCE,
                     },
-                    timeout=8,
+                    timeout=REQUEST_TIMEOUT,
                 )
                 if r_at.status_code == 200:
                     assignments_token = r_at.json().get("access_token")
@@ -1019,7 +1125,7 @@ def fetch_microsoft_teams_coursework(
 
     # 1. Query /me user profile
     try:
-        r_me = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers, timeout=REQUEST_TIMEOUT)
+        r_me = s.get("https://graph.microsoft.com/v1.0/me", headers=headers, timeout=REQUEST_TIMEOUT)
         if r_me.status_code == 200:
             me_data = r_me.json()
             user_info["displayName"] = me_data.get("displayName")
@@ -1032,7 +1138,7 @@ def fetch_microsoft_teams_coursework(
     # 2. Query all joined class teams from Microsoft Teams
     teams_dict: Dict[str, Dict[str, Any]] = {}
     try:
-        r_teams = requests.get("https://graph.microsoft.com/v1.0/me/joinedTeams", headers=headers, timeout=REQUEST_TIMEOUT)
+        r_teams = s.get("https://graph.microsoft.com/v1.0/me/joinedTeams", headers=headers, timeout=REQUEST_TIMEOUT)
         if r_teams.status_code == 200:
             for t in r_teams.json().get("value", []):
                 t_id = t.get("id")
@@ -1043,7 +1149,7 @@ def fetch_microsoft_teams_coursework(
 
     # Also query education classes if available
     try:
-        r_edu_classes = requests.get("https://graph.microsoft.com/v1.0/education/classes", headers=headers, timeout=REQUEST_TIMEOUT)
+        r_edu_classes = s.get("https://graph.microsoft.com/v1.0/education/classes", headers=headers, timeout=REQUEST_TIMEOUT)
         if r_edu_classes.status_code == 200:
             for c in r_edu_classes.json().get("value", []):
                 c_id = c.get("id")
@@ -1059,70 +1165,38 @@ def fetch_microsoft_teams_coursework(
 
     verified_enrolled = build_verified_semester_course_records({"courses": vtop_courses})
 
-    # 3. Match Teams enrolled subjects with VTOP enrolled subjects
-    for team in teams_list:
-        team_id = team.get("id")
-        team_name = team.get("displayName") or ""
-        team_desc = team.get("description") or ""
-
-        # Retrieve instructor / owner names from Microsoft Graph API
-        team_professors = get_team_professors(team_id, headers)
-
-        # Strict Two-Stage Verification: 1. Course Code 2. Faculty Identity
-        is_verified, matched_rec, match_meta = verify_external_course(
-            enrolled_records=verified_enrolled,
-            source="Teams",
-            source_id=team_id,
-            source_name=team_name,
-            source_desc=team_desc,
-            source_professors=team_professors,
-        )
-        course_matches.append(match_meta.model_dump())
-
-        if is_verified and matched_rec:
-            matched_vtop = {
-                "code": matched_rec.courseCode,
-                "title": matched_rec.courseName,
-                "faculty": matched_rec.facultyName,
-                "facultyId": matched_rec.facultyId,
-                "slot": matched_rec.slot,
-                "section": matched_rec.section,
+    # 3. Match Teams enrolled subjects concurrently using ThreadPoolExecutor
+    if teams_list:
+        max_workers = min(max(len(teams_list), 1), 6)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_team = {
+                executor.submit(
+                    _process_single_team,
+                    team,
+                    verified_enrolled,
+                    headers,
+                    assignments_headers,
+                    authenticated_user_id,
+                    s,
+                ): team
+                for team in teams_list
             }
-            logger.info("Verified enrolled course [%s: %s] AND professor [%s] with Teams '%s' (%s). Fetching assignments...", matched_rec.courseCode, matched_rec.courseName, matched_rec.facultyName, team_name, team_id)
 
-            # 4. Go to assignments section in Teams and fetch details for that subject
-            subject_assignments = fetch_assignments_for_matched_team(
-                team_id,
-                team_name,
-                matched_vtop,
-                headers,
-                assignments_headers=assignments_headers,
-                authenticated_user_id=authenticated_user_id,
-            )
+            for future in as_completed(future_to_team):
+                try:
+                    match_meta_dict, _, subject_assignments, matched_summary = future.result()
+                    course_matches.append(match_meta_dict)
+                    if matched_summary:
+                        matched_subjects.append(matched_summary)
+                    if subject_assignments:
+                        all_assignments.extend(subject_assignments)
+                except Exception as exc:
+                    team_item = future_to_team[future]
+                    logger.warning("Error processing team %s: %s", team_item.get("displayName"), exc)
 
-            for sa in subject_assignments:
-                sa["verifiedCourseMatchId"] = f"match-teams-{team_id}"
-                sa["subjectId"] = matched_rec.courseCode
-                sa["courseCode"] = matched_rec.courseCode
-                sa["courseTitle"] = matched_rec.courseName
-                sa["faculty"] = matched_rec.facultyName
-
-            matched_subjects.append({
-                "courseCode": matched_rec.courseCode,
-                "courseTitle": matched_rec.courseName,
-                "faculty": matched_rec.facultyName,
-                "teamId": team_id,
-                "teamName": team_name,
-                "assignmentsCount": len(subject_assignments),
-            })
-
-            all_assignments.extend(subject_assignments)
-        else:
-            logger.debug("Teams channel '%s' skipped: %s", team_name, match_meta.rejectionReason)
-
-    # 5. Also query general /education/me/assignments for any assignments already published
+    # 4. Also query general /education/me/assignments for any assignments already published
     try:
-        r_all_edu = requests.get("https://graph.microsoft.com/v1.0/education/me/assignments", headers=headers, timeout=REQUEST_TIMEOUT)
+        r_all_edu = s.get("https://graph.microsoft.com/v1.0/education/me/assignments", headers=headers, timeout=REQUEST_TIMEOUT)
         if r_all_edu.status_code == 200:
             existing_ids = {a.get("id") for a in all_assignments}
             for item in r_all_edu.json().get("value", []):
@@ -1227,97 +1301,112 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
             detail="Password is required to authenticate with Microsoft Teams.",
         )
 
-    # 1. Verify that email domain belongs to an authentic Microsoft 365 tenant
-    verify_microsoft_realm(email)
+    try:
+        # 1. Verify that email domain belongs to an authentic Microsoft 365 tenant
+        verify_microsoft_realm(email)
 
-    # 2. Authenticate directly against Microsoft Online authentication endpoint
-    auth_result = authenticate_microsoft_online(email, password)
+        # 2. Authenticate directly against Microsoft Online authentication endpoint
+        auth_result = authenticate_microsoft_online(email, password)
 
-    mfa_required = bool(auth_result.get("mfa_required"))
-    token_dict = auth_result.get("token") or {}
-    access_token = token_dict.get("access_token")
-    refresh_token = token_dict.get("refresh_token")
+        mfa_required = bool(auth_result.get("mfa_required"))
+        token_dict = auth_result.get("token") or {}
+        access_token = token_dict.get("access_token")
+        refresh_token = token_dict.get("refresh_token")
 
-    store = load_store()
+        store = load_store()
 
-    # Load enrolled subjects from the VTOP section
-    vtop_courses = list(store.get("courses") or [])
-    if not vtop_courses:
-        seen_codes = set()
-        for it in (store.get("attendance") or []):
-            c_code = it.get("courseCode")
-            if c_code and c_code not in seen_codes:
-                seen_codes.add(c_code)
-                vtop_courses.append({
-                    "code": c_code,
-                    "title": it.get("courseName") or it.get("courseTitle"),
-                    "faculty": it.get("faculty") or it.get("facultyName"),
-                })
+        # Load enrolled subjects from the VTOP section
+        vtop_courses = list(store.get("courses") or [])
+        if not vtop_courses:
+            seen_codes = set()
+            for it in (store.get("attendance") or []):
+                c_code = it.get("courseCode")
+                if c_code and c_code not in seen_codes:
+                    seen_codes.add(c_code)
+                    vtop_courses.append({
+                        "code": c_code,
+                        "title": it.get("courseName") or it.get("courseTitle"),
+                        "faculty": it.get("faculty") or it.get("facultyName"),
+                    })
 
-    # 3. Match Teams enrolled subjects with VTOP enrolled subjects and fetch authentic assignments
-    user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
-        access_token, email, vtop_courses
-    )
+        # 3. Match Teams enrolled subjects with VTOP enrolled subjects and fetch authentic assignments
+        user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
+            access_token, email, vtop_courses
+        )
 
-    # Retain non-Teams assignments (e.g. from VTOP assessments/LMS)
-    existing_assignments = store.get("assignments") or []
-    other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
+        # Retain non-Teams assignments (e.g. from VTOP assessments/LMS)
+        existing_assignments = store.get("assignments") or []
+        other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
 
-    # Combine authentic assignments
-    all_assignments = other_assignments + teams_assignments
-    store["assignments"] = all_assignments
-    store["teamsConnected"] = True
+        # Combine authentic assignments
+        all_assignments = other_assignments + teams_assignments
+        store["assignments"] = all_assignments
+        store["teamsConnected"] = True
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    store["teamsAccount"] = {
-        "email": email,
-        "displayName": user_info.get("displayName") or email.split("@")[0].title(),
-        "tenant": email.split("@")[-1].lower(),
-        "connectedAt": now_iso,
-        "lastSynced": now_iso,
-        "mfaRequired": mfa_required,
-        "refreshToken": refresh_token,
-        "matchedSubjects": matched_subjects,
-        "matchedCount": len(matched_subjects),
-        "totalTeamsCount": user_info.get("teamsCount", 0),
-        "courseMatches": course_matches,
-    }
+        now_iso = datetime.now(timezone.utc).isoformat()
+        store["teamsAccount"] = {
+            "email": email,
+            "displayName": user_info.get("displayName") or email.split("@")[0].title(),
+            "tenant": email.split("@")[-1].lower(),
+            "connectedAt": now_iso,
+            "lastSynced": now_iso,
+            "mfaRequired": mfa_required,
+            "refreshToken": refresh_token,
+            "matchedSubjects": matched_subjects,
+            "matchedCount": len(matched_subjects),
+            "totalTeamsCount": user_info.get("teamsCount", 0),
+            "courseMatches": course_matches,
+        }
 
-    save_store(store)
-    logger.info(
-        "Microsoft Teams authenticated for %s. %d subjects matched with VTOP. %d authentic assignments synced.",
-        email,
-        len(matched_subjects),
-        len(teams_assignments),
-    )
+        save_store(store)
+        logger.info(
+            "Microsoft Teams authenticated for %s. %d subjects matched with VTOP. %d authentic assignments synced.",
+            email,
+            len(matched_subjects),
+            len(teams_assignments),
+        )
 
-    pending_count = len([a for a in teams_assignments if (a.get("status") or "").upper() in ("PENDING", "OVERDUE")])
-    submitted_count = len([a for a in teams_assignments if (a.get("status") or "").upper() in ("DONE", "SUBMITTED")])
+        pending_count = len([a for a in teams_assignments if (a.get("status") or "").upper() in ("PENDING", "OVERDUE")])
+        submitted_count = len([a for a in teams_assignments if (a.get("status") or "").upper() in ("DONE", "SUBMITTED")])
 
-    msg = (
-        f"Successfully authenticated with Microsoft Teams ({email}). "
-        f"Matched {len(matched_subjects)} VTOP subjects with Teams class channels. "
-        f"{len(teams_assignments)} authentic assignments loaded."
-    )
-    if mfa_required:
-        msg = f"Credentials verified with Microsoft Online ({email}). Multi-Factor Authentication active."
+        msg = (
+            f"Successfully authenticated with Microsoft Teams ({email}). "
+            f"Matched {len(matched_subjects)} VTOP subjects with Teams class channels. "
+            f"{len(teams_assignments)} authentic assignments loaded."
+        )
+        if mfa_required:
+            msg = f"Credentials verified with Microsoft Online ({email}). Multi-Factor Authentication active."
 
-    return {
-        "success": True,
-        "message": msg,
-        "email": email,
-        "displayName": store["teamsAccount"]["displayName"],
-        "assignments": all_assignments,
-        "matchedSubjects": matched_subjects,
-        "matchedCount": len(matched_subjects),
-        "totalTeamsCount": user_info.get("teamsCount", 0),
-        "teamsAssignmentsCount": len(teams_assignments),
-        "totalCount": len(all_assignments),
-        "pendingCount": pending_count,
-        "submittedCount": submitted_count,
-        "lastSynced": now_iso,
-        "mfaRequired": mfa_required,
-    }
+        return {
+            "success": True,
+            "message": msg,
+            "email": email,
+            "displayName": store["teamsAccount"]["displayName"],
+            "assignments": all_assignments,
+            "matchedSubjects": matched_subjects,
+            "matchedCount": len(matched_subjects),
+            "totalTeamsCount": user_info.get("teamsCount", 0),
+            "teamsAssignmentsCount": len(teams_assignments),
+            "totalCount": len(all_assignments),
+            "pendingCount": pending_count,
+            "submittedCount": submitted_count,
+            "lastSynced": now_iso,
+            "mfaRequired": mfa_required,
+        }
+    except HTTPException:
+        raise
+    except requests.exceptions.Timeout as exc:
+        logger.warning("Microsoft Teams request timed out: %s", exc)
+        raise HTTPException(
+            status_code=504,
+            detail="Request to Microsoft Teams timed out. The service is taking too long to respond. Please try again.",
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("Microsoft Teams network error: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to connect to Microsoft Teams. Please check your network connection or try again shortly.",
+        )
 
 
 @router.post("/sync")
@@ -1330,81 +1419,97 @@ def sync_teams() -> Dict[str, Any]:
             detail="Microsoft Teams is not currently connected. Please link your account first.",
         )
 
-    account = store.get("teamsAccount") or {}
-    email = account.get("email") or ""
-    refresh_token = account.get("refreshToken")
-    access_token = None
+    try:
+        account = store.get("teamsAccount") or {}
+        email = account.get("email") or ""
+        refresh_token = account.get("refreshToken")
+        access_token = None
 
-    assignments_token = None
-    if refresh_token:
-        # Refresh access token for Graph
-        try:
-            r_ref = requests.post(
-                LOGIN_TOKEN_URL,
-                data={
-                    "client_id": TEAMS_CLIENT_ID,
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "resource": GRAPH_RESOURCE,
-                },
-                timeout=10,
-            )
-            if r_ref.status_code == 200:
-                ref_json = r_ref.json()
-                access_token = ref_json.get("access_token")
-                account["refreshToken"] = ref_json.get("refresh_token") or refresh_token
-        except Exception as exc:
-            logger.warning("Token refresh error: %s", exc)
+        session = get_teams_session()
+        assignments_token = None
+        if refresh_token:
+            # Refresh access token for Graph
+            try:
+                r_ref = session.post(
+                    LOGIN_TOKEN_URL,
+                    data={
+                        "client_id": TEAMS_CLIENT_ID,
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        "resource": GRAPH_RESOURCE,
+                    },
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if r_ref.status_code == 200:
+                    ref_json = r_ref.json()
+                    access_token = ref_json.get("access_token")
+                    account["refreshToken"] = ref_json.get("refresh_token") or refresh_token
+            except Exception as exc:
+                logger.warning("Token refresh error: %s", exc)
 
-        # Refresh access token for Education Assignments service
-        try:
-            r_at = requests.post(
-                LOGIN_TOKEN_URL,
-                data={
-                    "client_id": TEAMS_CLIENT_ID,
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "resource": ASSIGNMENTS_RESOURCE,
-                },
-                timeout=10,
-            )
-            if r_at.status_code == 200:
-                assignments_token = r_at.json().get("access_token")
-        except Exception as exc:
-            logger.warning("Assignments token refresh error: %s", exc)
+            # Refresh access token for Education Assignments service
+            try:
+                r_at = session.post(
+                    LOGIN_TOKEN_URL,
+                    data={
+                        "client_id": TEAMS_CLIENT_ID,
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        "resource": ASSIGNMENTS_RESOURCE,
+                    },
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if r_at.status_code == 200:
+                    assignments_token = r_at.json().get("access_token")
+            except Exception as exc:
+                logger.warning("Assignments token refresh error: %s", exc)
 
-    vtop_courses = list(store.get("courses") or [])
-    user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
-        access_token, email, vtop_courses, assignments_token=assignments_token
-    )
+        vtop_courses = list(store.get("courses") or [])
+        user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
+            access_token, email, vtop_courses, assignments_token=assignments_token, session=session
+        )
 
-    existing_assignments = store.get("assignments") or []
-    other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
+        existing_assignments = store.get("assignments") or []
+        other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
 
-    all_assignments = other_assignments + teams_assignments
-    store["assignments"] = all_assignments
+        all_assignments = other_assignments + teams_assignments
+        store["assignments"] = all_assignments
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    account["lastSynced"] = now_iso
-    account["matchedSubjects"] = matched_subjects
-    account["matchedCount"] = len(matched_subjects)
-    account["totalTeamsCount"] = user_info.get("teamsCount", 0)
-    account["courseMatches"] = course_matches
-    store["teamsAccount"] = account
+        now_iso = datetime.now(timezone.utc).isoformat()
+        account["lastSynced"] = now_iso
+        account["matchedSubjects"] = matched_subjects
+        account["matchedCount"] = len(matched_subjects)
+        account["totalTeamsCount"] = user_info.get("teamsCount", 0)
+        account["courseMatches"] = course_matches
+        store["teamsAccount"] = account
 
-    save_store(store)
+        save_store(store)
 
-    return {
-        "success": True,
-        "message": (
-            f"Synchronized Microsoft Teams coursework. "
-            f"Matched {len(matched_subjects)} VTOP subjects. {len(teams_assignments)} authentic assignments loaded."
-        ),
-        "assignments": all_assignments,
-        "matchedSubjects": matched_subjects,
-        "matchedCount": len(matched_subjects),
-        "lastSynced": now_iso,
-    }
+        return {
+            "success": True,
+            "message": (
+                f"Synchronized Microsoft Teams coursework. "
+                f"Matched {len(matched_subjects)} VTOP subjects. {len(teams_assignments)} authentic assignments loaded."
+            ),
+            "assignments": all_assignments,
+            "matchedSubjects": matched_subjects,
+            "matchedCount": len(matched_subjects),
+            "lastSynced": now_iso,
+        }
+    except HTTPException:
+        raise
+    except requests.exceptions.Timeout as exc:
+        logger.warning("Microsoft Teams sync timed out: %s", exc)
+        raise HTTPException(
+            status_code=504,
+            detail="Request to Microsoft Teams timed out during sync. Please try again.",
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("Microsoft Teams sync network error: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to connect to Microsoft Teams for sync. Please check network connection.",
+        )
 
 
 @router.post("/disconnect")

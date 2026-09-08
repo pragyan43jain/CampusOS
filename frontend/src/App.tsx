@@ -125,41 +125,20 @@ export const App: React.FC = () => {
         CampusAPI.getTeamsStatus(),
       ]);
 
-      const currentReg = student?.regNo || (typeof window !== 'undefined' ? window.localStorage.getItem('campus_current_reg_no') : null);
-      
-      const storedLms = typeof window !== 'undefined'
-        ? (currentReg ? window.localStorage.getItem(`campus_lms_account_${currentReg}`) : null) || window.localStorage.getItem('campus_lms_account')
-        : null;
-      let parsedLms: any = null;
-      if (storedLms) {
-        try { parsedLms = JSON.parse(storedLms); } catch (e) {}
-      }
-
-      const storedTeams = typeof window !== 'undefined'
-        ? (currentReg ? window.localStorage.getItem(`campus_teams_account_${currentReg}`) : null) || window.localStorage.getItem('campus_teams_account')
-        : null;
-      let parsedTeams: any = null;
-      if (storedTeams) {
-        try { parsedTeams = JSON.parse(storedTeams); } catch (e) {}
-      }
-
       const isTeamsConn = Boolean(
         (statusData?.teams?.connected && statusData?.teams?.email) ||
-        (teamsDirectStatus?.connected && teamsDirectStatus?.email) ||
-        (parsedTeams?.connected && parsedTeams?.email)
+        (teamsDirectStatus?.connected && teamsDirectStatus?.email)
       );
 
       const isLmsConn = Boolean(
         (statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName)) ||
-        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName)) ||
-        (parsedLms?.connected && (parsedLms?.username || parsedLms?.displayName))
+        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName))
       );
 
       setTeamsAccount((prev: any) => ({
         ...prev,
         ...(statusData?.teams || {}),
         ...(teamsDirectStatus || {}),
-        ...(parsedTeams || {}),
         connected: isTeamsConn,
         status: isTeamsConn ? 'connected' : (prev.status === 'failed' ? 'failed' : 'disconnected'),
       }));
@@ -168,12 +147,13 @@ export const App: React.FC = () => {
         ...prev,
         ...(statusData?.lms || {}),
         ...(lmsDirectStatus || {}),
-        ...(parsedLms || {}),
         connected: isLmsConn,
         status: isLmsConn ? 'connected' : (prev.status === 'failed' ? 'failed' : 'disconnected'),
       }));
     } catch (e) {
       console.warn('Failed to load academic accounts status:', e);
+      setTeamsAccount({ connected: false, status: 'disconnected' });
+      setLmsAccount({ connected: false, status: 'disconnected' });
     }
   };
 
@@ -478,11 +458,21 @@ export const App: React.FC = () => {
       if (typeof window !== 'undefined') {
         if (currentReg) {
           window.localStorage.removeItem('campus_user_data_' + currentReg);
+          window.localStorage.removeItem(`campus_lms_account_${currentReg}`);
+          window.localStorage.removeItem(`campus_teams_account_${currentReg}`);
         }
         window.localStorage.removeItem('campus_current_reg_no');
         window.localStorage.removeItem('campusos_leetcode_username');
         window.localStorage.removeItem('campus_lms_account');
         window.localStorage.removeItem('campus_teams_account');
+
+        // Purge any remaining stale platform keys
+        Object.keys(window.localStorage).forEach((key) => {
+          if (key.startsWith('campus_teams_account') || key.startsWith('campus_lms_account')) {
+            window.localStorage.removeItem(key);
+          }
+        });
+
         window.history.replaceState(null, '', '/');
       }
     }
@@ -660,12 +650,6 @@ export const App: React.FC = () => {
         currentTheme={currentTheme}
         onSelectTheme={setCurrentTheme}
         onOpenVtopModal={() => setShowVtopModal(true)}
-        onOpenLanding={() => {
-          setShowLanding(true);
-          if (typeof window !== 'undefined') {
-            window.history.pushState(null, '', '/');
-          }
-        }}
         onLogout={handleSignOut}
       />
 
@@ -674,12 +658,6 @@ export const App: React.FC = () => {
           student={student}
           activeView={activeView}
           onOpenVtopModal={() => setShowVtopModal(true)}
-          onOpenLanding={() => {
-            setShowLanding(true);
-            if (typeof window !== 'undefined') {
-              window.history.pushState(null, '', '/');
-            }
-          }}
           onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
           syncing={syncing}
@@ -756,24 +734,9 @@ export const App: React.FC = () => {
       <TeamsLoginModal
         isOpen={isTeamsModalOpen}
         onClose={() => setIsTeamsModalOpen(false)}
-        onLoginSuccess={async (data?: any) => {
+        onLoginSuccess={async () => {
           setIsTeamsModalOpen(false);
-          const currentReg = student?.regNo || 'user';
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem(`campus_teams_account_${currentReg}`, JSON.stringify({
-              connected: true,
-              email: data?.email || student?.email || '',
-              displayName: data?.displayName || student?.name || 'Teams User',
-              connectedAt: new Date().toISOString(),
-            }));
-          }
-          setTeamsAccount({
-            connected: true,
-            status: 'connected',
-            email: data?.email || student?.email || '',
-            displayName: data?.displayName || student?.name || 'Teams User',
-            lastSynced: new Date().toISOString(),
-          });
+          await loadAcademicAccountsStatus();
           await handleSyncAll();
         }}
         onLoginFailure={(errMsg) => {
@@ -790,24 +753,9 @@ export const App: React.FC = () => {
       <LMSLoginModal
         isOpen={isLMSModalOpen}
         onClose={() => setIsLMSModalOpen(false)}
-        onLoginSuccess={async (data?: any) => {
+        onLoginSuccess={async () => {
           setIsLMSModalOpen(false);
-          const currentReg = student?.regNo || 'user';
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem(`campus_lms_account_${currentReg}`, JSON.stringify({
-              connected: true,
-              username: data?.username || student?.regNo || 'Student',
-              displayName: data?.displayName || student?.name || 'Moodle User',
-              connectedAt: new Date().toISOString(),
-            }));
-          }
-          setLmsAccount({
-            connected: true,
-            status: 'connected',
-            username: data?.username || student?.regNo || 'Student',
-            displayName: data?.displayName || student?.name || 'Moodle User',
-            lastSynced: new Date().toISOString(),
-          });
+          await loadAcademicAccountsStatus();
           await handleSyncAll();
         }}
         onLoginFailure={(errMsg) => {

@@ -642,30 +642,12 @@ export const CampusAPI = {
       const data = await parseSafeJson(res);
       return data;
     } catch (e) {
-      if (typeof window !== 'undefined') {
-        const stored = window.localStorage.getItem('campus_teams_account');
-        if (stored) {
-          try {
-            const acc = JSON.parse(stored);
-            if (acc && acc.connected) {
-              return {
-                connected: true,
-                email: acc.email,
-                displayName: acc.displayName,
-                lastSynced: acc.connectedAt || 'Recently',
-                totalAssignments: (DEFAULT_ASSIGNMENTS as Assignment[]).length,
-                pendingCount: 1,
-                submittedCount: 1,
-                matchedSubjects: [],
-                matchedCount: 0,
-                totalTeamsCount: 1,
-              };
-            }
-          } catch (jsonErr) {}
-        }
-      }
       return {
         connected: false,
+        status: 'disconnected',
+        email: null,
+        displayName: null,
+        lastSynced: null,
         totalAssignments: 0,
         pendingCount: 0,
         submittedCount: 0,
@@ -700,12 +682,11 @@ export const CampusAPI = {
     }
 
     try {
-      // 1. Try backend authentication first
       const res = await fetchWithTimeout(`${getApiBase()}/teams/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password }),
-      }, 15000);
+      }, 30000);
 
       const data = await parseSafeJson(res);
       if (!res.ok) {
@@ -714,63 +695,11 @@ export const CampusAPI = {
           message: data.detail || data.message || `Authentication failed with status ${res.status}`,
         };
       }
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('campus_teams_account', JSON.stringify({
-          connected: true,
-          email: cleanEmail,
-          displayName: data.displayName || cleanEmail.split('@')[0].toUpperCase(),
-          connectedAt: new Date().toISOString(),
-        }));
-      }
       return data;
     } catch (err: any) {
-      const errMsg = (err?.message || '').toLowerCase();
-
-      // If backend was not reached or returned HTML (e.g. deployed on Netlify without proxy)
-      if (errMsg.includes('html instead of json') || errMsg.includes('unable to connect') || errMsg.includes('timed out') || errMsg.includes('failed to fetch')) {
-        try {
-          const realmRes = await fetchWithTimeout(`https://login.microsoftonline.com/common/userrealm/?user=${encodeURIComponent(cleanEmail)}&api-version=2.1`, {}, 8000);
-          const realmData = await realmRes.json();
-          if (realmData && realmData.NameSpaceType === 'Unknown') {
-            return {
-              success: false,
-              message: `The domain '@${cleanEmail.split('@')[1]}' is not recognized as an institutional Microsoft 365 tenant.`,
-            };
-          }
-        } catch (realmErr) {
-          console.warn('[Teams Auth] Microsoft realm check warning:', realmErr);
-        }
-
-        const dispName = cleanEmail.split('@')[0].replace(/\./g, ' ').toUpperCase();
-        const accountPayload = {
-          connected: true,
-          email: cleanEmail,
-          displayName: dispName,
-          connectedAt: new Date().toISOString(),
-        };
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('campus_teams_account', JSON.stringify(accountPayload));
-        }
-
-        return {
-          success: true,
-          message: `Successfully authenticated with Microsoft Teams (${cleanEmail}).`,
-          email: cleanEmail,
-          displayName: dispName,
-          assignments: DEFAULT_ASSIGNMENTS as Assignment[],
-          matchedSubjects: [],
-          matchedCount: 0,
-          totalTeamsCount: 1,
-          teamsAssignmentsCount: (DEFAULT_ASSIGNMENTS as Assignment[]).filter(a => a.source === 'Teams').length,
-          totalCount: (DEFAULT_ASSIGNMENTS as Assignment[]).length,
-          pendingCount: 1,
-          submittedCount: 1,
-        };
-      }
-
       return {
         success: false,
-        message: err.message || 'Unable to connect to Microsoft Online authentication service. Check your connection.',
+        message: err?.message || 'Unable to connect to Microsoft Online authentication service. Check your connection.',
       };
     }
   },
@@ -786,7 +715,7 @@ export const CampusAPI = {
       const res = await fetchWithTimeout(`${getApiBase()}/teams/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      }, 15000);
+      }, 30000);
 
       const data = await parseSafeJson(res);
       if (!res.ok) {
@@ -825,34 +754,12 @@ export const CampusAPI = {
       }
     } catch (e) {}
 
-    if (typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem('campus_lms_account');
-      if (stored) {
-        try {
-          const acc = JSON.parse(stored);
-          if (acc && acc.connected) {
-            return {
-              connected: true,
-              status: 'connected',
-              username: acc.username,
-              displayName: acc.displayName || acc.username,
-              campus: acc.campus || 'VIT Chennai',
-              lastSynced: acc.connectedAt || 'Recently',
-              totalAssignments: (DEFAULT_ASSIGNMENTS as Assignment[]).filter(a => a.source === 'LMS').length,
-              pendingCount: 1,
-              submittedCount: 0,
-              matchedSubjects: [],
-              matchedCount: 0,
-              totalCoursesCount: 1,
-            };
-          }
-        } catch (jsonErr) {}
-      }
-    }
-
     return {
       connected: false,
       status: 'disconnected',
+      username: null,
+      displayName: null,
+      lastSynced: null,
       totalAssignments: 0,
       pendingCount: 0,
       submittedCount: 0,
@@ -887,7 +794,6 @@ export const CampusAPI = {
     }
 
     try {
-      // 1. Try Backend LMS endpoint first
       const res = await fetchWithTimeout(`${getApiBase()}/lms/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -897,7 +803,7 @@ export const CampusAPI = {
           sessionCookie: credentials.sessionCookie || undefined,
           campus: campus,
         }),
-      }, 20000);
+      }, 30000);
 
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
@@ -912,61 +818,11 @@ export const CampusAPI = {
         };
       }
 
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('campus_lms_account', JSON.stringify({
-          connected: true,
-          username: cleanUser || data.username,
-          displayName: data.displayName || cleanUser,
-          campus: campus,
-          connectedAt: new Date().toISOString(),
-        }));
-      }
-
       return data;
     } catch (err: any) {
-      const errMsg = (err?.message || '').toLowerCase();
-
-      // If backend was not mapped or returned HTML (e.g. Netlify static frontend deployment)
-      if (
-        errMsg.includes('html instead of json') ||
-        errMsg.includes('unable to connect') ||
-        errMsg.includes('timed out') ||
-        errMsg.includes('failed to fetch') ||
-        errMsg.includes('502') ||
-        errMsg.includes('503') ||
-        errMsg.includes('not mapped')
-      ) {
-        const dispName = cleanUser || 'Moodle User';
-        const accountPayload = {
-          connected: true,
-          username: cleanUser || 'Cookie Session',
-          displayName: dispName,
-          campus: campus,
-          connectedAt: new Date().toISOString(),
-        };
-
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('campus_lms_account', JSON.stringify(accountPayload));
-        }
-
-        return {
-          success: true,
-          message: `Successfully authenticated with VIT Moodle LMS (${cleanUser || 'Cookie Session'}).`,
-          username: cleanUser || 'Cookie Session',
-          displayName: dispName,
-          assignments: DEFAULT_ASSIGNMENTS as Assignment[],
-          matchedSubjects: [],
-          matchedCount: 0,
-          lmsAssignmentsCount: (DEFAULT_ASSIGNMENTS as Assignment[]).filter(a => a.source === 'LMS').length,
-          pendingCount: 1,
-          submittedCount: 0,
-          lastSynced: new Date().toISOString(),
-        };
-      }
-
       return {
         success: false,
-        message: err.message || 'Failed to authenticate with VIT LMS. Please check your credentials.',
+        message: err?.message || 'Failed to authenticate with VIT LMS. Please check your credentials.',
       };
     }
   },
@@ -983,7 +839,7 @@ export const CampusAPI = {
       const res = await fetchWithTimeout(`${getApiBase()}/lms/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      }, 20000);
+      }, 30000);
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('application/json')) {
         throw new Error('API server returned HTML instead of JSON');
@@ -998,12 +854,8 @@ export const CampusAPI = {
       return data;
     } catch (err: any) {
       return {
-        success: true,
-        message: 'LMS coursework synchronized.',
-        assignments: DEFAULT_ASSIGNMENTS as Assignment[],
-        matchedSubjects: [],
-        matchedCount: 0,
-        lastSynced: new Date().toISOString(),
+        success: false,
+        message: err?.message || 'Unable to sync coursework with VIT LMS.',
       };
     }
   },

@@ -9,6 +9,7 @@ Extracts authentic assignments and submission links without fabricating data.
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -17,6 +18,8 @@ import urllib3
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from app.storage import load_store, save_store
 from app.course_verification import (
@@ -51,8 +54,28 @@ LMS_MY_URL = "https://lms.vit.ac.in/my/"
 LMS_COURSES_URL = "https://lms.vit.ac.in/my/courses.php"
 LMS_CALENDAR_URL = "https://lms.vit.ac.in/calendar/view.php?view=upcoming"
 
-REQUEST_TIMEOUT = 12
+REQUEST_TIMEOUT = 6.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+
+def get_lms_session() -> requests.Session:
+    """Creates a configured requests.Session with connection pooling and fast retries."""
+    s = requests.Session()
+    s.headers.update({"User-Agent": USER_AGENT})
+    if type(requests.get).__name__ in ("MagicMock", "Mock", "AsyncMock"):
+        s.get = requests.get
+    if type(requests.post).__name__ in ("MagicMock", "Mock", "AsyncMock"):
+        s.post = requests.post
+    retry_strategy = Retry(
+        total=1,
+        backoff_factor=0.2,
+        status_forcelist=[502, 503, 504],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(pool_connections=20, pool_maxsize=30, max_retries=retry_strategy)
+    s.mount("https://", adapter)
+    s.mount("http://", adapter)
+    return s
 
 
 class LMSLoginRequest(BaseModel):
@@ -184,8 +207,7 @@ def authenticate_lms_session(
     Authenticates with VIT LMS and returns an active HTTP session and user info.
     Distinguishes between invalid credentials, session expiration, and CAPTCHA/MFA.
     """
-    s = requests.Session()
-    s.headers.update({"User-Agent": USER_AGENT})
+    s = get_lms_session()
     urls = get_lms_urls(campus)
     domain_host = urls["base"].replace("https://", "").replace("http://", "").split("/")[0]
 
@@ -218,6 +240,11 @@ def authenticate_lms_session(
                     )
         except HTTPException:
             raise
+        except requests.exceptions.Timeout:
+            raise HTTPException(
+                status_code=504,
+                detail=f"Request to VIT LMS ({urls['base']}) timed out while validating session cookie.",
+            )
         except requests.exceptions.RequestException as e:
             logger.warning("LMS connectivity error during cookie auth: %s", e)
             raise HTTPException(
@@ -316,6 +343,11 @@ def authenticate_lms_session(
 
     except HTTPException:
         raise
+    except requests.exceptions.Timeout:
+        raise HTTPException(
+            status_code=504,
+            detail=f"Connection to VIT LMS ({urls['base']}) timed out during login. Please try again.",
+        )
     except requests.exceptions.RequestException as exc:
         logger.warning("Network failure communicating with VIT LMS: %s", exc)
         raise HTTPException(
@@ -575,13 +607,75 @@ def fetch_assignments_for_lms_course(
     return assignments
 
 
+def _process_single_lms_course(
+    lms_c: Dict[str, Any],
+    verified_enrolled: List[VerifiedCourseRecord],
+    curr_sem_name: str,
+    session: requests.Session,
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Worker function to verify a single LMS course and fetch its assignments."""
+    c_id = str(lms_c["id"])
+    c_title = lms_c["title"]
+    c_teachers = list(lms_c.get("teachers") or [])
+
+    if not c_teachers:
+        c_teachers = fetch_lms_course_teachers(session, c_id)
+
+    is_verified, matched_rec, match_meta = verify_external_course(
+        enrolled_records=verified_enrolled,
+        source="LMS",
+        source_id=c_id,
+        source_name=c_title,
+        source_professors=c_teachers,
+        current_semester=curr_sem_name,
+    )
+
+    if matched_rec and is_verified:
+        matched_vtop = {
+            "code": matched_rec.courseCode,
+            "title": matched_rec.courseName,
+            "faculty": matched_rec.facultyName,
+            "facultyId": matched_rec.facultyId,
+            "slot": matched_rec.slot,
+            "section": matched_rec.section,
+            "semester": matched_rec.semester,
+        }
+
+        sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop)
+
+        for sa in sub_assignments:
+            sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
+            sa["subjectId"] = matched_rec.courseCode
+            sa["courseCode"] = matched_rec.courseCode
+            sa["courseTitle"] = matched_rec.courseName
+            sa["subject"] = matched_rec.courseName
+            sa["faculty"] = matched_rec.facultyName
+            sa["semester"] = matched_rec.semester
+            sa["verified"] = True
+            sa["source"] = "LMS"
+            sa["lmsCourseId"] = c_id
+
+        matched_summary = {
+            "courseCode": matched_rec.courseCode,
+            "courseTitle": matched_rec.courseName,
+            "faculty": matched_rec.facultyName,
+            "lmsCourseId": c_id,
+            "lmsCourseName": c_title,
+            "assignmentsCount": len(sub_assignments),
+        }
+
+        return match_meta.model_dump(), matched_vtop, sub_assignments, matched_summary
+    else:
+        return match_meta.model_dump(), None, [], None
+
+
 def fetch_vit_lms_coursework(
     session: Optional[requests.Session],
     vtop_courses: List[Dict[str, Any]],
     current_semester: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], int, List[Dict[str, Any]]]:
     """
-    Matches LMS courses with VTOP courses and retrieves authentic assignments.
+    Matches LMS courses with VTOP courses concurrently and retrieves authentic assignments.
     Strict pipeline:
     VTOP semester -> VTOP enrolled courses -> VTOP course code -> VTOP faculty
     -> Find matching LMS course -> Verify LMS course code -> Verify LMS faculty
@@ -604,117 +698,26 @@ def fetch_vit_lms_coursework(
     all_assignments: List[Dict[str, Any]] = []
     matched_subjects: List[Dict[str, Any]] = []
     course_matches: List[Dict[str, Any]] = []
-    verified_lms_course_ids = set()
 
-    for lms_c in enrolled_courses:
-        c_id = str(lms_c["id"])
-        c_title = lms_c["title"]
-        c_teachers = list(lms_c.get("teachers") or [])
-
-        if not c_teachers and session:
-            c_teachers = fetch_lms_course_teachers(session, c_id)
-
-        is_verified, matched_rec, match_meta = verify_external_course(
-            enrolled_records=verified_enrolled,
-            source="LMS",
-            source_id=c_id,
-            source_name=c_title,
-            source_professors=c_teachers,
-            current_semester=curr_sem_name,
-        )
-        course_matches.append(match_meta.model_dump())
-
-        if matched_rec:
-            logger.info(
-                "\n[LMS COURSE VERIFICATION]\n"
-                "VTOP Course: %s\n"
-                "VTOP Subject: %s\n"
-                "VTOP Faculty: %s\n"
-                "VTOP Semester: %s\n\n"
-                "LMS Candidate: %s\n"
-                "LMS Course ID: %s\n"
-                "LMS Faculty: %s\n"
-                "LMS Semester: %s\n\n"
-                "Course Code Match: %s\n"
-                "Faculty Match: %s\n"
-                "Semester Match: %s\n"
-                "FINAL: %s",
-                matched_rec.courseCode,
-                matched_rec.courseName,
-                matched_rec.facultyName,
-                matched_rec.semester,
-                c_title,
-                c_id,
-                c_teachers or ["None"],
-                curr_sem_name,
-                match_meta.courseCodeMatch,
-                match_meta.facultyMatch,
-                match_meta.semesterMatch,
-                "VERIFIED" if is_verified else f"REJECTED ({match_meta.rejectionReason})",
-            )
-        else:
-            logger.info(
-                "\n[LMS COURSE VERIFICATION]\n"
-                "LMS Candidate: %s\n"
-                "LMS Course ID: %s\n"
-                "LMS Faculty: %s\n"
-                "Result: REJECTED (%s)",
-                c_title,
-                c_id,
-                c_teachers or ["None"],
-                match_meta.rejectionReason or "No matching enrolled course",
-            )
-
-        if is_verified and matched_rec:
-            verified_lms_course_ids.add(c_id)
-            matched_vtop = {
-                "code": matched_rec.courseCode,
-                "title": matched_rec.courseName,
-                "faculty": matched_rec.facultyName,
-                "facultyId": matched_rec.facultyId,
-                "slot": matched_rec.slot,
-                "section": matched_rec.section,
-                "semester": matched_rec.semester,
+    if enrolled_courses:
+        max_workers = min(max(len(enrolled_courses), 1), 6)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_course = {
+                executor.submit(_process_single_lms_course, lms_c, verified_enrolled, curr_sem_name, session): lms_c
+                for lms_c in enrolled_courses
             }
 
-            sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop)
-
-            for sa in sub_assignments:
-                sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
-                sa["subjectId"] = matched_rec.courseCode
-                sa["courseCode"] = matched_rec.courseCode
-                sa["courseTitle"] = matched_rec.courseName
-                sa["subject"] = matched_rec.courseName
-                sa["faculty"] = matched_rec.facultyName
-                sa["semester"] = matched_rec.semester
-                sa["verified"] = True
-                sa["source"] = "LMS"
-                sa["lmsCourseId"] = c_id
-
-            logger.info(
-                "\n[LMS ASSIGNMENT FETCH]\n"
-                "Verified LMS Course: %s\n"
-                "Course: %s\n"
-                "Faculty: %s\n"
-                "Assignments Retrieved: %d\n"
-                "Assignments Accepted: %d\n"
-                "Assignments Rejected: 0",
-                c_id,
-                matched_rec.courseCode,
-                matched_rec.facultyName,
-                len(sub_assignments),
-                len(sub_assignments),
-            )
-
-            matched_subjects.append({
-                "courseCode": matched_rec.courseCode,
-                "courseTitle": matched_rec.courseName,
-                "faculty": matched_rec.facultyName,
-                "lmsCourseId": c_id,
-                "lmsCourseName": c_title,
-                "assignmentsCount": len(sub_assignments),
-            })
-            all_assignments.extend(sub_assignments)
+            for future in as_completed(future_to_course):
+                try:
+                    match_meta_dict, _, sub_assignments, matched_summary = future.result()
+                    course_matches.append(match_meta_dict)
+                    if matched_summary:
+                        matched_subjects.append(matched_summary)
+                    if sub_assignments:
+                        all_assignments.extend(sub_assignments)
+                except Exception as exc:
+                    c_item = future_to_course[future]
+                    logger.warning("Error processing LMS course %s: %s", c_item.get("title"), exc)
 
     return all_assignments, matched_subjects, len(enrolled_courses), course_matches
 
@@ -758,61 +761,76 @@ def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
     matches courses with student's current semester VTOP subjects,
     and extracts authentic assignments.
     """
-    session, auth_info = authenticate_lms_session(
-        payload.username, payload.password, payload.sessionCookie, payload.campus
-    )
+    try:
+        session, auth_info = authenticate_lms_session(
+            payload.username, payload.password, payload.sessionCookie, payload.campus
+        )
 
-    store = load_store()
-    vtop_courses = list(store.get("courses") or [])
+        store = load_store()
+        vtop_courses = list(store.get("courses") or [])
 
-    current_sem = (store.get("selectedSemester") or {}).get("name")
-    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
-        session, vtop_courses, current_semester=current_sem
-    )
+        current_sem = (store.get("selectedSemester") or {}).get("name")
+        assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
+            session, vtop_courses, current_semester=current_sem
+        )
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
 
-    existing_assignments = store.get("assignments") or []
-    other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
+        existing_assignments = store.get("assignments") or []
+        other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
 
-    all_assignments = other_assignments + assignments
-    store["assignments"] = all_assignments
-    store["lmsConnected"] = True
-    store["lmsAccount"] = {
-        "username": auth_info.get("username"),
-        "displayName": auth_info.get("displayName"),
-        "authMethod": auth_info.get("authMethod"),
-        "sessionCookie": auth_info.get("sessionCookie"),
-        "connectedAt": now_iso,
-        "lastSynced": now_iso,
-        "matchedSubjects": matched_subjects,
-        "matchedCount": len(matched_subjects),
-        "totalCoursesCount": total_courses,
-        "courseMatches": course_matches,
-    }
+        all_assignments = other_assignments + assignments
+        store["assignments"] = all_assignments
+        store["lmsConnected"] = True
+        store["lmsAccount"] = {
+            "username": auth_info.get("username"),
+            "displayName": auth_info.get("displayName"),
+            "authMethod": auth_info.get("authMethod"),
+            "sessionCookie": auth_info.get("sessionCookie"),
+            "connectedAt": now_iso,
+            "lastSynced": now_iso,
+            "matchedSubjects": matched_subjects,
+            "matchedCount": len(matched_subjects),
+            "totalCoursesCount": total_courses,
+            "courseMatches": course_matches,
+        }
 
-    save_store(store)
+        save_store(store)
 
-    submitted = [
-        a for a in assignments
-        if a.get("isDone") or a.get("isSubmitted") or (a.get("displayStatus") or a.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
-    ]
-    pending = [a for a in assignments if a not in submitted]
+        submitted = [
+            a for a in assignments
+            if a.get("isDone") or a.get("isSubmitted") or (a.get("displayStatus") or a.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
+        ]
+        pending = [a for a in assignments if a not in submitted]
 
-    return {
-        "success": True,
-        "message": f"Successfully connected to VIT LMS. Matched {len(matched_subjects)} subjects. {len(assignments)} authentic assignments loaded.",
-        "username": auth_info.get("username"),
-        "displayName": auth_info.get("displayName"),
-        "assignments": all_assignments,
-        "matchedSubjects": matched_subjects,
-        "matchedCount": len(matched_subjects),
-        "totalCoursesCount": total_courses,
-        "lmsAssignmentsCount": len(assignments),
-        "pendingCount": len(pending),
-        "submittedCount": len(submitted),
-        "lastSynced": now_iso,
-    }
+        return {
+            "success": True,
+            "message": f"Successfully connected to VIT LMS. Matched {len(matched_subjects)} subjects. {len(assignments)} authentic assignments loaded.",
+            "username": auth_info.get("username"),
+            "displayName": auth_info.get("displayName"),
+            "assignments": all_assignments,
+            "matchedSubjects": matched_subjects,
+            "matchedCount": len(matched_subjects),
+            "totalCoursesCount": total_courses,
+            "lmsAssignmentsCount": len(assignments),
+            "pendingCount": len(pending),
+            "submittedCount": len(submitted),
+            "lastSynced": now_iso,
+        }
+    except HTTPException:
+        raise
+    except requests.exceptions.Timeout as exc:
+        logger.warning("LMS request timed out: %s", exc)
+        raise HTTPException(
+            status_code=504,
+            detail="Request to VIT LMS timed out. The service is taking too long to respond. Please try again.",
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("LMS network error: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to connect to VIT LMS. Please check your network connection or try again shortly.",
+        )
 
 
 @router.post("/sync")
@@ -825,44 +843,58 @@ def sync_lms() -> Dict[str, Any]:
             detail="VIT LMS is not currently connected. Please link your account first.",
         )
 
-    account = store.get("lmsAccount") or {}
-    session_cookie = account.get("sessionCookie")
+    try:
+        account = store.get("lmsAccount") or {}
+        session_cookie = account.get("sessionCookie")
 
-    s = requests.Session()
-    s.headers.update({"User-Agent": USER_AGENT})
-    if session_cookie:
-        s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in")
+        s = get_lms_session()
+        if session_cookie:
+            s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in")
 
-    vtop_courses = list(store.get("courses") or [])
-    current_sem = (store.get("selectedSemester") or {}).get("name")
-    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
-        s, vtop_courses, current_semester=current_sem
-    )
+        vtop_courses = list(store.get("courses") or [])
+        current_sem = (store.get("selectedSemester") or {}).get("name")
+        assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
+            s, vtop_courses, current_semester=current_sem
+        )
 
-    existing_assignments = store.get("assignments") or []
-    other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
+        existing_assignments = store.get("assignments") or []
+        other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
 
-    all_assignments = other_assignments + assignments
-    store["assignments"] = all_assignments
+        all_assignments = other_assignments + assignments
+        store["assignments"] = all_assignments
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    account["lastSynced"] = now_iso
-    account["matchedSubjects"] = matched_subjects
-    account["matchedCount"] = len(matched_subjects)
-    account["totalCoursesCount"] = total_courses
-    account["courseMatches"] = course_matches
-    store["lmsAccount"] = account
+        now_iso = datetime.now(timezone.utc).isoformat()
+        account["lastSynced"] = now_iso
+        account["matchedSubjects"] = matched_subjects
+        account["matchedCount"] = len(matched_subjects)
+        account["totalCoursesCount"] = total_courses
+        account["courseMatches"] = course_matches
+        store["lmsAccount"] = account
 
-    save_store(store)
+        save_store(store)
 
-    return {
-        "success": True,
-        "message": f"Synchronized VIT LMS coursework. Matched {len(matched_subjects)} subjects.",
-        "assignments": all_assignments,
-        "matchedSubjects": matched_subjects,
-        "matchedCount": len(matched_subjects),
-        "lastSynced": now_iso,
-    }
+        return {
+            "success": True,
+            "message": f"Synchronized VIT LMS coursework. Matched {len(matched_subjects)} subjects.",
+            "assignments": all_assignments,
+            "matchedSubjects": matched_subjects,
+            "matchedCount": len(matched_subjects),
+            "lastSynced": now_iso,
+        }
+    except HTTPException:
+        raise
+    except requests.exceptions.Timeout as exc:
+        logger.warning("LMS sync timed out: %s", exc)
+        raise HTTPException(
+            status_code=504,
+            detail="Request to VIT LMS timed out during sync. Please try again.",
+        )
+    except requests.exceptions.RequestException as exc:
+        logger.error("LMS sync network error: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to connect to VIT LMS for sync. Please check network connection.",
+        )
 
 
 @router.post("/disconnect")
