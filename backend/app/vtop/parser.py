@@ -202,8 +202,10 @@ def parse_semesters(html: str) -> List[Dict[str, str]]:
 
 
 # ---------------------------------------------------------------------------
-# 2. profile
-# ---------------------------------------------------------------------------
+_EXAM_STREAM_VALUES = {
+    "pcm", "science(pcm)", "pcb", "science(pcb)", "commerce", "arts", "science",
+    "vocational", "medical", "non-medical", "general", "science stream"
+}
 
 _PROFILE_LABELS: List[Tuple[str, Tuple[str, ...]]] = [
     # (output field, all substrings that must appear in the label cell)
@@ -212,10 +214,17 @@ _PROFILE_LABELS: List[Tuple[str, Tuple[str, ...]]] = [
     ("regNo", ("registration", "number")),
     ("program", ("programme",)),
     ("program", ("program",)),
+    ("program", ("degree",)),
     ("branch", ("branch",)),
+    ("branch", ("specialization",)),
+    ("branch", ("major",)),
     ("school", ("school",)),
+    ("school", ("centre",)),
+    ("school", ("center",)),
+    ("school", ("department",)),
     ("email", ("email",)),
     ("batch", ("batch",)),
+    ("batch", ("admission", "year")),
     ("applicationNumber", ("application", "number")),
 ]
 
@@ -250,9 +259,19 @@ def parse_profile(html: str) -> Dict[str, Any]:
             if all(needle in label for needle in needles):
                 value = to_text(cells[index + 1])
                 if value:
+                    # Ignore high-school 12th qualifying examination stream values for university branch
+                    clean_val = value.lower().replace(" ", "")
+                    if field == "branch" and (clean_val in _EXAM_STREAM_VALUES or clean_val.startswith("science(") or clean_val in ("pcm", "pcb")):
+                        continue
                     profile[field] = value
                 break
         index += 1
+
+    # If program contains " - " and branch is not set, cleanly split them
+    if "program" in profile and " - " in profile["program"] and "branch" not in profile:
+        parts = profile["program"].split(" - ", 1)
+        profile["program"] = parts[0].strip()
+        profile["branch"] = parts[1].strip()
 
     if "email" in profile:
         profile["email"] = profile["email"].lower()

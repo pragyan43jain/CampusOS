@@ -21,3 +21,5 @@ smoke_report*.json
 .env
 .env.*
 !.env.example
+
+supabase/.temp/

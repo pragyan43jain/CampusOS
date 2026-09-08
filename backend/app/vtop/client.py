@@ -132,11 +132,6 @@ class VTOPClientManager:
                 except Exception as exc:
                     logger.warning("[VTOP] Failed to restore stateless session %s: %s", session_id[:12], exc)
 
-            if self._sessions:
-                most_recent_sid = max(self._sessions.keys(), key=lambda s: self._sessions[s].last_used)
-                handle = self._sessions[most_recent_sid]
-                handle.touch()
-                return handle
             return None
 
     def _authenticated_handle(self) -> Optional[str]:

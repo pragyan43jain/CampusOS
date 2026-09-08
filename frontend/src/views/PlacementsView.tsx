@@ -25,7 +25,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student 
               <span>CAREER DEVELOPMENT CENTRE (PAT)</span>
               <span>•</span>
               <span style={{ color: 'var(--text-muted)' }}>
-                {student?.program || 'B.Tech CSE'} • Batch {student?.batch || '2024-2028'}
+                {(student?.program || student?.branch) ? `${student?.program || student?.branch}${student?.batch ? ` • Batch ${student.batch}` : ''}` : 'Academic Profile'}
               </span>
             </div>
             <h2 className="hero-heading">Placements &amp; Career Readiness</h2>

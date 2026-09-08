@@ -249,7 +249,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>Full Name</span>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.name || 'Student Name'}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.name || 'Not available'}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -261,17 +261,17 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>Degree &amp; Program</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.program || 'B.Tech CSE'}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.program || 'Not available'}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>Branch / School</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.branch || 'School of Computer Science'}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.branch || 'Not available'}</span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>Academic Batch</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.batch || '2024 - 2028'}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.94rem' }}>{student.batch || 'Not available'}</span>
               </div>
             </div>
           </div>

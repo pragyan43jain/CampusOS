@@ -649,7 +649,6 @@ export const App: React.FC = () => {
         criticalAttendanceCount={criticalAttendanceCount}
         currentTheme={currentTheme}
         onSelectTheme={setCurrentTheme}
-        onOpenVtopModal={() => setShowVtopModal(true)}
         onLogout={handleSignOut}
       />
 

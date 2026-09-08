@@ -53,6 +53,7 @@ def empty_student() -> Dict[str, Any]:
         "email": None,
         "program": None,
         "branch": None,
+        "school": None,
         "semester": None,
         "semesterId": None,
         "batch": None,
@@ -181,6 +182,5 @@ def clear_store(reg_no: Optional[str] = None) -> None:
                 try:
                     with open(target, "w", encoding="utf-8") as handle:
                         json.dump(empty_store(), handle, indent=2)
-                    logger.info("[Storage] Overwrote %s with empty store", target)
                 except Exception:
                     pass

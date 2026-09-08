@@ -779,12 +779,18 @@ def build_student(
             "credits": registry.total_credits,
         })
 
+    branch = profile.get("branch")
+    school = profile.get("school") or (proctor.get("school") if proctor else None)
+    if not branch and school:
+        branch = school
+
     return {
         "name": profile.get("name"),
         "regNo": profile.get("regNo"),
         "email": profile.get("email"),
         "program": profile.get("program"),
-        "branch": profile.get("branch"),
+        "branch": branch,
+        "school": school,
         "semester": semester.get("name") if semester else None,
         "semesterId": semester.get("id") if semester else None,
         "batch": profile.get("batch"),

@@ -6,7 +6,6 @@ import {
   CreditCard,
   Briefcase,
   BrainCircuit,
-  ShieldCheck,
   Zap,
   LogOut,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ interface SidebarProps {
   criticalAttendanceCount: number;
   currentTheme?: ThemeType;
   onSelectTheme?: (t: ThemeType) => void;
-  onOpenVtopModal?: () => void;
   onLogout?: () => void;
 }
 
@@ -31,7 +29,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectView,
   pendingAssignmentsCount,
   criticalAttendanceCount,
-  onOpenVtopModal,
   onLogout,
 }) => {
   const mainNavItems = [
@@ -125,17 +122,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Footer / Connect VTOP & Sign Out Actions */}
+      {/* Footer / Sign Out Action */}
       <div className="sidebar-footer-block" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <button
-          className="btn btn-secondary btn-sm"
-          style={{ width: '100%' }}
-          onClick={onOpenVtopModal}
-        >
-          <ShieldCheck size={15} color="var(--accent-cyan)" />
-          <span>Connect VTOP</span>
-        </button>
-
         {onLogout && (
           <button
             className="btn btn-ghost btn-sm"
