@@ -159,7 +159,7 @@ class VTOPSession:
             self.win_image = win_image
 
     def _get(self, path: str, **kwargs: Any) -> requests.Response:
-        timeout = kwargs.pop("timeout", 4.0)
+        timeout = kwargs.pop("timeout", 15.0)
         response = self.http.get(self._url(path), timeout=timeout, **kwargs)
         self._absorb(response.text)
         return response
@@ -167,7 +167,7 @@ class VTOPSession:
     def _post(
         self, path: str, data: List[Tuple[str, str]], **kwargs: Any
     ) -> requests.Response:
-        timeout = kwargs.pop("timeout", 4.5)
+        timeout = kwargs.pop("timeout", 15.0)
         response = self.http.post(self._url(path), data=data, timeout=timeout, **kwargs)
         self._absorb(response.text)
         return response

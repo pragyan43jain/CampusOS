@@ -54,7 +54,7 @@ def _ocr(image: Image.Image, psm: int) -> str:
         return ""
     config = f"--psm {psm} -c tessedit_char_whitelist={_WHITELIST}"
     try:
-        return _clean(pytesseract.image_to_string(image, config=config, timeout=3).strip())
+        return _clean(pytesseract.image_to_string(image, config=config, timeout=8).strip())
     except Exception as exc:  # pragma: no cover - tesseract missing/broken/timeout
         logger.debug("[OCR] Tesseract skipped or timed out: %s", exc)
         return ""
