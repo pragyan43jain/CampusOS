@@ -85,7 +85,7 @@ export const parseSafeJson = async <T = any>(res: Response): Promise<T> => {
 export const fetchWithTimeout = async (
   url: string,
   options: RequestInit = {},
-  timeoutMs: number = 20000
+  timeoutMs: number = 90000
 ): Promise<Response> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -571,7 +571,7 @@ export const CampusAPI = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-        }, 20000);
+        }, 90000);
         const data = await parseSafeJson<VtopSyncResponse>(res);
         if (data && (data as any).sessionId) {
           activeSessionId = (data as any).sessionId;
@@ -599,7 +599,7 @@ export const CampusAPI = {
     inFlightSync = (async () => {
       try {
         const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
-        const res = await fetchWithTimeout(`${getApiBase()}/vtop/sync${q}`, { method: 'POST' }, 20000);
+        const res = await fetchWithTimeout(`${getApiBase()}/vtop/sync${q}`, { method: 'POST' }, 90000);
         const data = await parseSafeJson<VtopSyncResponse>(res);
         if (data && (data as any).sessionId) {
           activeSessionId = (data as any).sessionId;
@@ -686,7 +686,7 @@ export const CampusAPI = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password }),
-      }, 30000);
+      }, 60000);
 
       const data = await parseSafeJson(res);
       if (!res.ok) {
@@ -715,7 +715,7 @@ export const CampusAPI = {
       const res = await fetchWithTimeout(`${getApiBase()}/teams/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      }, 30000);
+      }, 60000);
 
       const data = await parseSafeJson(res);
       if (!res.ok) {
@@ -746,7 +746,7 @@ export const CampusAPI = {
   // 11. VIT LMS (Moodle) Authentication & Coursework Sync
   getLMSStatus: async () => {
     try {
-      const res = await fetchWithTimeout(`${getApiBase()}/lms/status`, {}, 6000);
+      const res = await fetchWithTimeout(`${getApiBase()}/lms/status`, {}, 15000);
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('application/json')) {
         const data = await res.json();
@@ -803,7 +803,7 @@ export const CampusAPI = {
           sessionCookie: credentials.sessionCookie || undefined,
           campus: campus,
         }),
-      }, 30000);
+      }, 60000);
 
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
@@ -839,7 +839,7 @@ export const CampusAPI = {
       const res = await fetchWithTimeout(`${getApiBase()}/lms/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      }, 30000);
+      }, 60000);
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('application/json')) {
         throw new Error('API server returned HTML instead of JSON');
