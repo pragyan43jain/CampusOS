@@ -42,10 +42,12 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
   const [customApiUrl, setCustomApiUrl] = useState<string>(CampusAPI.getApiBaseUrl());
 
-  const loadCaptcha = async (clearCurrent = false) => {
+  const loadCaptcha = async (clearCurrent = false, preserveError = false) => {
     try {
       setLoadingCaptcha(true);
-      setErrorMsg('');
+      if (!preserveError) {
+        setErrorMsg('');
+      }
       if (clearCurrent) {
         setCaptcha('');
       }
@@ -64,11 +66,13 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setCaptchaImage('');
       setSessionId('');
       const msg = e?.message || '';
-      setErrorMsg(
-        msg.includes('HTML instead of JSON')
-          ? 'Backend API route is not reachable at this domain. Please ensure backend is running or configured.'
-          : (msg || 'Could not fetch live CAPTCHA from VTOP (vtopcc.vit.ac.in). Click 🔄 to retry.')
-      );
+      if (!preserveError) {
+        setErrorMsg(
+          msg.includes('HTML instead of JSON')
+            ? 'Backend API route is not reachable at this domain. Please ensure backend is running or configured.'
+            : (msg || 'Could not fetch live CAPTCHA from VTOP (vtopcc.vit.ac.in). Click 🔄 to retry.')
+        );
+      }
     } finally {
       setLoadingCaptcha(false);
     }
@@ -80,14 +84,14 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setSuccessMsg('');
       setStatusStep('');
       setCustomApiUrl(CampusAPI.getApiBaseUrl());
-      loadCaptcha(false);
+      loadCaptcha(false, false);
     }
   }, [isOpen]);
 
   const handleSaveApiUrl = (e: React.FormEvent) => {
     e.preventDefault();
     CampusAPI.setCustomApiUrl(customApiUrl);
-    loadCaptcha(false);
+    loadCaptcha(false, false);
   };
 
   if (!isOpen) return null;
@@ -140,25 +144,29 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         }, 400);
       } else {
         const msg = response?.message || '';
-        const isCaptchaError = /captcha/i.test(msg);
-        setErrorMsg(
-          isCaptchaError
-            ? 'Invalid CAPTCHA characters. Please verify the characters from the image, or click 🔄 to refresh.'
-            : (msg || 'Authentication failed. Please check your registration number and password.')
-        );
-        // Refresh captcha if captcha error
+        const isCaptchaError = /captcha/i.test(msg) || (response as any)?.code === 1;
+        const displayError = isCaptchaError
+          ? '❌ Invalid CAPTCHA entered. The VTOP portal rejected the characters. A fresh CAPTCHA has been loaded below — please verify and try again.'
+          : (msg || 'Authentication failed. Please check your registration number and password.');
+
+        setErrorMsg(displayError);
+
+        // Load new captcha while keeping the error message visible on screen
         if (isCaptchaError) {
-          loadCaptcha(true);
+          loadCaptcha(false, true);
         }
       }
     } catch (err: any) {
       const errMsg = err?.message || '';
       const isCaptchaError = /captcha/i.test(errMsg);
-      setErrorMsg(
-        isCaptchaError
-          ? 'Invalid CAPTCHA characters. Please verify the characters from the image, or click 🔄 to refresh.'
-          : (errMsg || 'Network error communicating with VTOP portal.')
-      );
+      const displayError = isCaptchaError
+        ? '❌ Invalid CAPTCHA entered. A fresh CAPTCHA has been loaded below.'
+        : (errMsg || 'Network error communicating with VTOP portal.');
+
+      setErrorMsg(displayError);
+      if (isCaptchaError) {
+        loadCaptcha(false, true);
+      }
     } finally {
       setSubmitting(false);
     }
