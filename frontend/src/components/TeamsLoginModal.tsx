@@ -199,7 +199,10 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             justifyContent: 'space-between',
             boxSizing: 'border-box',
             width: '100%',
+            maxWidth: '100%',
             overflow: 'hidden',
+            flexWrap: 'wrap',
+            gap: '6px',
           }}
         >
           <span style={{ whiteSpace: 'nowrap' }}>Official Portal:</span>
@@ -207,21 +210,42 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             href="https://www.microsoft.com/en-in/microsoft-teams/log-in"
             target="_blank"
             rel="noreferrer"
-            style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+            style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', wordBreak: 'break-all' }}
           >
             <span>teams.microsoft.com</span>
-            <ExternalLink size={12} />
+            <ExternalLink size={12} style={{ flexShrink: 0 }} />
           </a>
         </div>
 
         {/* Status / Error feedback */}
         {error && (
-          <div className="status-badge error" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', fontSize: '0.80rem', gap: '8px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertCircle size={15} style={{ flexShrink: 0 }} />
-              <span>{error}</span>
+          <div
+            className="status-badge error"
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '0.80rem',
+              gap: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              lineHeight: 1.4,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+                {error}
+              </span>
             </div>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
               <button
                 type="button"
                 onClick={(e) => {
@@ -240,16 +264,49 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
         )}
 
         {successMsg && (
-          <div className="status-badge success" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
-            <CheckCircle2 size={15} />
-            <span>{successMsg}</span>
+          <div
+            className="status-badge success"
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              gap: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              overflow: 'hidden',
+            }}
+          >
+            <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+              {successMsg}
+            </span>
           </div>
         )}
 
         {step && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', color: 'var(--accent-cyan)' }}>
-            <RefreshCw size={13} className="animate-spin" />
-            <span>{step}</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.80rem',
+              color: 'var(--accent-cyan)',
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            <RefreshCw size={13} className="animate-spin" style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step}</span>
           </div>
         )}
 

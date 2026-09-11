@@ -245,16 +245,55 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
         {/* Notifications */}
         {errorMsg && (
-          <div className="status-badge error" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', fontSize: '0.80rem', gap: '8px', display: 'flex', alignItems: 'flex-start', lineHeight: 1.4 }}>
+          <div
+            className="status-badge error"
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '0.80rem',
+              gap: '8px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              lineHeight: 1.4,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              overflow: 'hidden',
+            }}
+          >
             <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span>{errorMsg}</span>
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+              {errorMsg}
+            </span>
           </div>
         )}
 
         {successMsg && (
-          <div className="status-badge success" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
-            <CheckCircle2 size={15} />
-            <span>{successMsg}</span>
+          <div
+            className="status-badge success"
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              gap: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              overflow: 'hidden',
+            }}
+          >
+            <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+              {successMsg}
+            </span>
           </div>
         )}
 

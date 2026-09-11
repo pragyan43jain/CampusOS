@@ -153,12 +153,33 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
 
         {/* Status / Error feedback */}
         {error && (
-          <div className="status-badge error" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', fontSize: '0.80rem', gap: '8px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertCircle size={15} style={{ flexShrink: 0 }} />
-              <span>{error}</span>
+          <div
+            className="status-badge error"
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '0.80rem',
+              gap: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              lineHeight: 1.4,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+                {error}
+              </span>
             </div>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
               <button
                 type="button"
                 onClick={(e) => {
@@ -177,16 +198,49 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
         )}
 
         {successMsg && (
-          <div className="status-badge success" style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', gap: '8px' }}>
-            <CheckCircle2 size={15} />
-            <span>{successMsg}</span>
+          <div
+            className="status-badge success"
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              gap: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              overflow: 'hidden',
+            }}
+          >
+            <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
+              {successMsg}
+            </span>
           </div>
         )}
 
         {step && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', color: 'var(--accent-cyan)' }}>
-            <RefreshCw size={13} className="animate-spin" />
-            <span>{step}</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.80rem',
+              color: 'var(--accent-cyan)',
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            <RefreshCw size={13} className="animate-spin" style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step}</span>
           </div>
         )}
 
