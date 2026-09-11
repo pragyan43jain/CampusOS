@@ -1,38 +1,321 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   BrainCircuit,
-  Sparkles,
   Clock,
-  AlertTriangle,
+  Play,
+  Pause,
+  RotateCcw,
+  Coffee,
+  BookOpen,
+  Calendar,
   CheckCircle2,
+  Sparkles,
+  Zap,
+  Flame,
+  Award,
+  Plus,
+  Trash2,
   CheckSquare,
   Square,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
-import { AIStudyTask } from '../types';
+import { AIStudyTask, TimetableSlot, Course, Attendance, Exam } from '../types';
 import { MetricCard } from '../components/MetricCard';
 
 interface AIPlannerViewProps {
-  tasks: AIStudyTask[];
+  tasks?: AIStudyTask[];
+  timetable?: TimetableSlot[];
+  courses?: Course[];
+  attendance?: Attendance[];
+  exams?: Exam[];
 }
 
-export const AIPlannerView: React.FC<AIPlannerViewProps> = ({ tasks }) => {
-  const [filter, setFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'OPTIMAL'>('ALL');
-  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+type PomodoroMode = 'FOCUS' | 'SHORT_BREAK' | 'LONG_BREAK';
 
-  const filteredTasks = tasks.filter((t) => {
-    if (filter === 'ALL') return true;
-    return t.urgency.toUpperCase() === filter;
+interface CustomStudyPlan {
+  id: string;
+  day: string;
+  timeSlot: string;
+  courseCode: string;
+  courseTitle: string;
+  topic: string;
+  completed: boolean;
+}
+
+const MODE_DURATIONS: Record<PomodoroMode, number> = {
+  FOCUS: 25 * 60,
+  SHORT_BREAK: 5 * 60,
+  LONG_BREAK: 15 * 60,
+};
+
+const DAY_NAMES: Record<string, string> = {
+  MON: 'Monday',
+  TUE: 'Tuesday',
+  WED: 'Wednesday',
+  THU: 'Thursday',
+  FRI: 'Friday',
+  SAT: 'Saturday',
+};
+
+// Play a pleasant synthesizer chime via Web Audio API
+const playChime = () => {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(523.25, now); // C5
+    osc1.frequency.exponentialRampToValueAtTime(659.25, now + 0.3); // E5
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(659.25, now + 0.15); // E5
+    osc2.frequency.exponentialRampToValueAtTime(783.99, now + 0.5); // G5
+
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now + 0.15);
+    osc1.stop(now + 0.9);
+    osc2.stop(now + 0.9);
+  } catch {
+    // Ignore audio context autoplay restrictions
+  }
+};
+
+export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
+  tasks = [],
+  timetable = [],
+  courses = [],
+  attendance = [],
+  exams = [],
+}) => {
+  const [activeTab, setActiveTab] = useState<'POMODORO' | 'FREE_SLOTS' | 'TASKS'>('POMODORO');
+
+  // --- Pomodoro State ---
+  const [mode, setMode] = useState<PomodoroMode>('FOCUS');
+  const [timeLeft, setTimeLeft] = useState<number>(MODE_DURATIONS.FOCUS);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [selectedCourse, setSelectedCourse] = useState<string>('');
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [completedSessions, setCompletedSessions] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_pomodoro_sessions');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
   });
 
+  const timerRef = useRef<any>(null);
+
+  // Set default selected course once courses load
+  useEffect(() => {
+    if (!selectedCourse && courses.length > 0) {
+      setSelectedCourse(courses[0].code || '');
+    }
+  }, [courses, selectedCourse]);
+
+  // Pomodoro countdown effect
+  useEffect(() => {
+    if (isRunning) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            setIsRunning(false);
+            if (soundEnabled) playChime();
+
+            if (mode === 'FOCUS') {
+              setCompletedSessions((c) => {
+                const updated = c + 1;
+                try {
+                  localStorage.setItem('campusos_pomodoro_sessions', updated.toString());
+                } catch {
+                  // ignore
+                }
+                return updated;
+              });
+              setMode('SHORT_BREAK');
+              return MODE_DURATIONS.SHORT_BREAK;
+            } else {
+              setMode('FOCUS');
+              return MODE_DURATIONS.FOCUS;
+            }
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+    }
+
+    return () => clearInterval(timerRef.current);
+  }, [isRunning, mode, soundEnabled]);
+
+  const switchMode = (newMode: PomodoroMode) => {
+    setIsRunning(false);
+    setMode(newMode);
+    setTimeLeft(MODE_DURATIONS[newMode]);
+  };
+
+  const resetTimer = () => {
+    setIsRunning(false);
+    setTimeLeft(MODE_DURATIONS[mode]);
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const progressPercent = useMemo(() => {
+    const total = MODE_DURATIONS[mode];
+    return Math.min(100, Math.max(0, ((total - timeLeft) / total) * 100));
+  }, [timeLeft, mode]);
+
+  // --- Free-Slot Detection Algorithm ---
+  const [selectedDay, setSelectedDay] = useState<string>('MON');
+  const [customPlans, setCustomPlans] = useState<CustomStudyPlan[]>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_custom_study_plans');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const savePlans = (plans: CustomStudyPlan[]) => {
+    setCustomPlans(plans);
+    try {
+      localStorage.setItem('campusos_custom_study_plans', JSON.stringify(plans));
+    } catch {
+      // ignore
+    }
+  };
+
+  const timeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const parts = timeStr.trim().split(':');
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    return h * 60 + m;
+  };
+
+  const minutesToTime12 = (min: number): string => {
+    const h24 = Math.floor(min / 60);
+    const m = min % 60;
+    const period = h24 >= 12 ? 'PM' : 'AM';
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const dailyFreeSlots = useMemo(() => {
+    const daySlots = timetable.filter(
+      (s) => (s.day || '').toUpperCase() === selectedDay.toUpperCase()
+    );
+
+    if (daySlots.length === 0) {
+      return [
+        {
+          start: '09:00 AM',
+          end: '05:00 PM',
+          durationMinutes: 480,
+          label: 'Entire Day Free for Self-Study & Revision',
+        },
+      ];
+    }
+
+    const sorted = [...daySlots].sort(
+      (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+    );
+
+    const freeWindows: { start: string; end: string; durationMinutes: number; label: string }[] = [];
+    const dayStart = 510; // 08:30 AM
+    const dayEnd = 1080;  // 06:00 PM
+    let current = dayStart;
+
+    sorted.forEach((cls) => {
+      const clsStart = timeToMinutes(cls.startTime);
+      const clsEnd = timeToMinutes(cls.endTime);
+
+      if (clsStart > current && clsStart - current >= 45) {
+        freeWindows.push({
+          start: minutesToTime12(current),
+          end: minutesToTime12(clsStart),
+          durationMinutes: clsStart - current,
+          label: `${Math.round((clsStart - current) / 60 * 10) / 10}h Free Study Window`,
+        });
+      }
+      current = Math.max(current, clsEnd);
+    });
+
+    if (dayEnd > current && dayEnd - current >= 45) {
+      freeWindows.push({
+        start: minutesToTime12(current),
+        end: minutesToTime12(dayEnd),
+        durationMinutes: dayEnd - current,
+        label: `${Math.round((dayEnd - current) / 60 * 10) / 10}h Evening Focus Window`,
+      });
+    }
+
+    return freeWindows;
+  }, [timetable, selectedDay]);
+
+  const [newPlanCourse, setNewPlanCourse] = useState<string>('');
+  const [newPlanTopic, setNewPlanTopic] = useState<string>('');
+  const [newPlanTime, setNewPlanTime] = useState<string>('');
+
+  const addCustomStudyPlan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPlanTopic.trim()) return;
+
+    const courseObj = courses.find((c) => c.code === newPlanCourse);
+
+    const newPlan: CustomStudyPlan = {
+      id: `plan-${Date.now()}`,
+      day: selectedDay,
+      timeSlot: newPlanTime || 'Free Period',
+      courseCode: newPlanCourse || (courses[0]?.code || 'STUDY'),
+      courseTitle: courseObj?.title || 'Targeted Revision',
+      topic: newPlanTopic.trim(),
+      completed: false,
+    };
+
+    savePlans([...customPlans, newPlan]);
+    setNewPlanTopic('');
+  };
+
+  const togglePlanDone = (id: string) => {
+    savePlans(
+      customPlans.map((p) => (p.id === id ? { ...p, completed: !p.completed } : p))
+    );
+  };
+
+  const deletePlan = (id: string) => {
+    savePlans(customPlans.filter((p) => p.id !== id));
+  };
+
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
   const toggleTaskDone = (id: string) => {
     setCompletedTaskIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
-  const highUrgencyCount = tasks.filter((t) => t.urgency.toUpperCase() === 'HIGH').length;
-  const activeCount = tasks.length - completedTaskIds.length;
-  const totalHours = tasks.reduce((acc, t) => acc + (t.estimatedHours || 0), 0);
+  const totalFocusMinutes = completedSessions * 25;
 
   return (
     <div className="page-container">
@@ -42,31 +325,39 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({ tasks }) => {
           <div>
             <div className="hero-eyebrow">
               <Sparkles size={14} />
-              <span>AUTOMATED ACADEMIC RADAR</span>
+              <span>ACADEMIC FOCUS &amp; PRODUCTIVITY ENGINE</span>
               <span>•</span>
-              <span style={{ color: 'var(--text-muted)' }}>BABY AI COPILOT</span>
+              <span style={{ color: 'var(--accent-cyan)' }}>TIMETABLE INTEGRATED</span>
             </div>
-            <h2 className="hero-heading">AI Adaptive Study Planner</h2>
+            <h2 className="hero-heading">AI Study Planner &amp; Focus Hub</h2>
             <p className="hero-desc">
-              Dynamic academic recovery and revision schedules calibrated against your verified VTOP attendance thresholds, deadlines, and internal scores.
+              Harness your detected timetable free slots, plan daily revision blocks, and power through targeted study sprints with the built-in Pomodoro workstation.
             </p>
           </div>
 
-          {/* Filter Pills */}
+          {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(['ALL', 'HIGH', 'MEDIUM'] as const).map((f) => (
-              <button
-                key={f}
-                className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setFilter(f)}
-              >
-                {f === 'ALL'
-                  ? `All Targets (${tasks.length})`
-                  : f === 'HIGH'
-                  ? `High Priority (${highUrgencyCount})`
-                  : 'Medium Priority'}
-              </button>
-            ))}
+            <button
+              className={`btn btn-sm ${activeTab === 'POMODORO' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('POMODORO')}
+            >
+              <Zap size={14} />
+              <span>Pomodoro Station</span>
+            </button>
+            <button
+              className={`btn btn-sm ${activeTab === 'FREE_SLOTS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('FREE_SLOTS')}
+            >
+              <Calendar size={14} />
+              <span>Free-Slot Scheduler</span>
+            </button>
+            <button
+              className={`btn btn-sm ${activeTab === 'TASKS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('TASKS')}
+            >
+              <CheckCircle2 size={14} />
+              <span>Exam Targets ({tasks.length})</span>
+            </button>
           </div>
         </div>
       </div>
@@ -74,123 +365,508 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({ tasks }) => {
       {/* 2. Metrics Row */}
       <div className="metrics-stat-grid">
         <MetricCard
-          label="Active Study Targets"
-          value={activeCount}
-          subtext={`${completedTaskIds.length} completed this cycle`}
-          icon={<BrainCircuit size={18} />}
+          label="Today's Pomodoros"
+          value={completedSessions}
+          subtext={`${totalFocusMinutes} mins deep work logged`}
+          icon={<Flame size={18} />}
+          variant="crimson"
+        />
+        <MetricCard
+          label="Free Study Slots"
+          value={dailyFreeSlots.length}
+          subtext={`Detected on ${DAY_NAMES[selectedDay] || selectedDay}`}
+          icon={<Calendar size={18} />}
+          variant="cyan"
+        />
+        <MetricCard
+          label="Enrolled Courses"
+          value={courses.length || attendance.length}
+          subtext="Available for study allocation"
+          icon={<BookOpen size={18} />}
           variant="purple"
         />
         <MetricCard
-          label="Critical Priority Deficit"
-          value={highUrgencyCount}
-          subtext={highUrgencyCount === 0 ? 'All subjects safely buffered' : 'Attendance or marks recovery'}
-          icon={<AlertTriangle size={18} />}
-          variant={highUrgencyCount === 0 ? 'emerald' : 'crimson'}
-        />
-        <MetricCard
-          label="Projected Study Load"
-          value={`${totalHours.toFixed(1)}h`}
-          subtext="Optimal weekly revision load"
-          icon={<Clock size={18} />}
-          variant="cyan"
+          label="Upcoming Exams"
+          value={exams.length}
+          subtext="CAT / FAT preparation goals"
+          icon={<Award size={18} />}
+          variant="emerald"
         />
       </div>
 
-      {/* 3. AI Study Tasks Roadmap */}
-      <div className="card">
-        <div className="card-header-bar">
-          <div>
-            <h3 className="card-title">
-              <BrainCircuit size={19} color="var(--accent-purple)" />
-              <span>Calibrated Study Roadmap &amp; Tasks ({filteredTasks.length})</span>
-            </h3>
-            <p className="card-description">
-              Prioritized by impending CAT/FAT exam dates, assignment weights, and attendance recovery needs.
-            </p>
-          </div>
-        </div>
-
-        {filteredTasks.length === 0 ? (
-          <div className="empty-state-card">
-            <div className="empty-state-icon">
-              <CheckCircle2 size={26} color="var(--success-emerald)" />
+      {/* TAB 1: POMODORO FOCUS STATION */}
+      {activeTab === 'POMODORO' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button
+                className={`btn btn-sm ${mode === 'FOCUS' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => switchMode('FOCUS')}
+                style={{ borderRadius: '20px', padding: '6px 14px' }}
+              >
+                <Flame size={14} />
+                <span>Focus (25m)</span>
+              </button>
+              <button
+                className={`btn btn-sm ${mode === 'SHORT_BREAK' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => switchMode('SHORT_BREAK')}
+                style={{ borderRadius: '20px', padding: '6px 14px' }}
+              >
+                <Coffee size={14} />
+                <span>Short Break (5m)</span>
+              </button>
+              <button
+                className={`btn btn-sm ${mode === 'LONG_BREAK' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => switchMode('LONG_BREAK')}
+                style={{ borderRadius: '20px', padding: '6px 14px' }}
+              >
+                <Award size={14} />
+                <span>Long Break (15m)</span>
+              </button>
             </div>
-            <div className="empty-state-title">No Pending Study Tasks</div>
-            <p className="empty-state-desc">All current academic targets are completed and up to date.</p>
+
+            <div
+              style={{
+                fontSize: 'clamp(3.8rem, 10vw, 5.2rem)',
+                fontWeight: 800,
+                fontFamily: 'var(--font-mono)',
+                color: mode === 'FOCUS' ? 'var(--accent-cyan)' : 'var(--success-emerald)',
+                letterSpacing: '2px',
+                lineHeight: 1,
+                margin: '12px 0',
+                textShadow: mode === 'FOCUS' ? '0 0 24px rgba(6, 182, 212, 0.25)' : '0 0 24px rgba(16, 185, 129, 0.25)',
+              }}
+            >
+              {formatTime(timeLeft)}
+            </div>
+
+            <div style={{ margin: '8px 0 24px 0', width: '100%', maxWidth: '320px' }}>
+              <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                CURRENT FOCUS SUBJECT
+              </label>
+              <select
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="input-field"
+                style={{ fontSize: '0.82rem', padding: '8px 12px', width: '100%' }}
+              >
+                {courses.length > 0 ? (
+                  courses.map((c) => {
+                    const code = c.code || 'COURSE';
+                    const title = c.title || code;
+                    return (
+                      <option key={code} value={code}>
+                        {code} — {title}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <option value="GENERAL">General Self-Study &amp; Assignments</option>
+                )}
+              </select>
+            </div>
+
+            <div style={{ width: '100%', maxWidth: '340px', height: '6px', background: 'var(--surface-sunken)', borderRadius: '3px', overflow: 'hidden', marginBottom: '28px' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${progressPercent}%`,
+                  background: mode === 'FOCUS' ? 'linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))' : 'var(--success-emerald)',
+                  transition: 'width 0.4s ease',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setIsRunning(!isRunning)}
+                className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'}`}
+                style={{ height: '48px', padding: '0 28px', fontSize: '0.92rem', gap: '8px' }}
+              >
+                {isRunning ? <Pause size={18} /> : <Play size={18} />}
+                <span>{isRunning ? 'Pause Session' : 'Start Focus'}</span>
+              </button>
+
+              <button
+                onClick={resetTimer}
+                className="btn btn-ghost"
+                style={{ height: '48px', width: '48px', padding: 0 }}
+                title="Reset timer"
+                aria-label="Reset Timer"
+              >
+                <RotateCcw size={18} />
+              </button>
+
+              <button
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className="btn btn-ghost"
+                style={{ height: '48px', width: '48px', padding: 0 }}
+                title={soundEnabled ? 'Chime sound enabled' : 'Chime sound muted'}
+                aria-label="Toggle sound"
+              >
+                {soundEnabled ? <Volume2 size={18} color="var(--accent-cyan)" /> : <VolumeX size={18} color="var(--text-muted)" />}
+              </button>
+            </div>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {filteredTasks.map((task) => {
-              const isDone = completedTaskIds.includes(task.id);
-              const isHigh = task.urgency.toUpperCase() === 'HIGH';
 
-              return (
-                <div
-                  key={task.id}
-                  style={{
-                    padding: '20px 24px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--surface-input)',
-                    border: '1px solid var(--border-card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '16px',
-                    transition: 'all var(--transition-fast)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '280px' }}>
-                    <button
-                      onClick={() => toggleTaskDone(task.id)}
-                      style={{ color: isDone ? 'var(--success-emerald)' : 'var(--text-muted)', cursor: 'pointer' }}
-                      title={isDone ? 'Mark as active' : 'Mark as completed'}
-                      aria-label="Toggle task status"
-                    >
-                      {isDone ? <CheckSquare size={22} /> : <Square size={22} />}
-                    </button>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="card-header-bar">
+              <div>
+                <h3 className="card-title">
+                  <Flame size={19} color="var(--accent-crimson)" />
+                  <span>Pomodoro Technique Guidelines</span>
+                </h3>
+                <p className="card-description">Science-backed 25-minute intervals designed to eliminate exam cramming.</p>
+              </div>
+            </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-purple)' }}>
-                          {task.courseCode || task.subjectCode || 'SUBJECT'}
-                        </span>
-                        <span className={`status-badge ${isHigh ? 'critical' : 'warning'}`}>
-                          {task.urgency} Priority
-                        </span>
-                        {(task.courseTitle || task.subjectTitle) && (
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            • {task.courseTitle || task.subjectTitle}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ fontSize: '1.05rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
-                        {task.headline}
-                      </div>
-
-                      <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
-                        {task.reason || task.actionReason || 'Academic priority task'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                      <Clock size={14} />
-                      <span>{task.estimatedHours || 1.5}h estimated</span>
-                    </div>
-
-                    <span className={`status-badge ${isDone ? 'safe' : 'neutral'}`}>
-                      {isDone ? 'Target Reached ✓' : 'In Progress'}
-                    </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
+                <span style={{ fontSize: '1.2rem' }}>🎯</span>
+                <div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>1 Goal Per Pomodoro</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Pick one concrete module topic (e.g. solve 3 Dynamic Programming problems or read Module 2 lecture notes).
                   </div>
                 </div>
-              );
-            })}
+              </div>
+
+              <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
+                <span style={{ fontSize: '1.2rem' }}>📵</span>
+                <div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>Zero Screen Distraction</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Put your phone on Do Not Disturb. If a random thought pops up, write it down and return to it during the 5-minute break.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
+                <span style={{ fontSize: '1.2rem' }}>☕</span>
+                <div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>Mandatory Physical Break</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    When the chime sounds, stand up, drink water, stretch, or look out the window. Give your eyes rest from screens.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'auto', padding: '12px 14px', borderRadius: '8px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Today's Total Focus Time:</span>
+              <span style={{ fontSize: '0.90rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                {totalFocusMinutes} mins ({completedSessions} sessions)
+              </span>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* TAB 2: FREE-SLOT WEEKLY STUDY SCHEDULER */}
+      {activeTab === 'FREE_SLOTS' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="card" style={{ padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <Calendar size={16} color="var(--accent-cyan)" />
+                <span>Select Day of Week:</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setSelectedDay(d)}
+                    className={`btn btn-sm ${selectedDay === d ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '6px 14px', fontSize: '0.78rem' }}
+                  >
+                    {DAY_NAMES[d]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+            <div className="card">
+              <div className="card-header-bar">
+                <div>
+                  <h3 className="card-title">
+                    <Clock size={19} color="var(--accent-cyan)" />
+                    <span>Free Timetable Slots ({DAY_NAMES[selectedDay]})</span>
+                  </h3>
+                  <p className="card-description">
+                    Gaps identified between your scheduled lecture and lab periods.
+                  </p>
+                </div>
+              </div>
+
+              {dailyFreeSlots.length === 0 ? (
+                <div className="empty-state-card">
+                  <CheckCircle2 size={24} color="var(--success-emerald)" />
+                  <div className="empty-state-title">No Free Gaps Detected</div>
+                  <p className="empty-state-desc">Full class schedule on this day.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {dailyFreeSlots.map((slot, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '16px',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'var(--surface-input)',
+                        border: '1px solid var(--border-card)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                          {slot.start} – {slot.end}
+                        </div>
+                        <div style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {slot.label} ({slot.durationMinutes} minutes available)
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewPlanTime(`${slot.start} - ${slot.end}`);
+                          setActiveTab('FREE_SLOTS');
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.74rem', gap: '4px' }}
+                      >
+                        <Plus size={13} />
+                        <span>Schedule Topic</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="card-header-bar">
+                <div>
+                  <h3 className="card-title">
+                    <BookOpen size={19} color="var(--accent-purple)" />
+                    <span>Scheduled Revision Blocks</span>
+                  </h3>
+                  <p className="card-description">Your planned study goals for {DAY_NAMES[selectedDay]}.</p>
+                </div>
+              </div>
+
+              <form onSubmit={addCustomStudyPlan} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <select
+                    value={newPlanCourse}
+                    onChange={(e) => setNewPlanCourse(e.target.value)}
+                    className="input-field"
+                    style={{ flex: 1, minWidth: '130px', fontSize: '0.80rem' }}
+                  >
+                    {courses.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} — {c.title}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="text"
+                    value={newPlanTime}
+                    onChange={(e) => setNewPlanTime(e.target.value)}
+                    placeholder="Time (e.g. 11:40 AM - 1:00 PM)"
+                    className="input-field"
+                    style={{ flex: 1, minWidth: '140px', fontSize: '0.80rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={newPlanTopic}
+                    onChange={(e) => setNewPlanTopic(e.target.value)}
+                    placeholder="Revision Goal (e.g. Practice Chapter 3 problems)"
+                    className="input-field"
+                    style={{ flex: 1, fontSize: '0.82rem' }}
+                  />
+                  <button type="submit" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
+                    <Plus size={14} />
+                    <span>Add</span>
+                  </button>
+                </div>
+              </form>
+
+              {customPlans.filter((p) => p.day === selectedDay).length === 0 ? (
+                <div className="empty-state-card" style={{ padding: '24px' }}>
+                  <div className="empty-state-title" style={{ fontSize: '0.88rem' }}>No study goals added for {DAY_NAMES[selectedDay]}</div>
+                  <p className="empty-state-desc" style={{ fontSize: '0.76rem' }}>
+                    Click "Schedule Topic" on any free gap above to allocate your study time.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {customPlans
+                    .filter((p) => p.day === selectedDay)
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '8px',
+                          background: 'var(--surface-input)',
+                          border: '1px solid var(--border-subtle)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                          <button
+                            onClick={() => togglePlanDone(p.id)}
+                            style={{ color: p.completed ? 'var(--success-emerald)' : 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                            aria-label="Toggle plan completion"
+                          >
+                            {p.completed ? <CheckSquare size={18} /> : <Square size={18} />}
+                          </button>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: p.completed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: p.completed ? 'line-through' : 'none', wordBreak: 'break-word' }}>
+                              <span style={{ color: 'var(--accent-purple)', marginRight: '6px' }}>[{p.courseCode}]</span>
+                              {p.topic}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{p.timeSlot}</div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => deletePlan(p.id)}
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '4px', color: 'var(--accent-crimson)' }}
+                          title="Delete plan"
+                          aria-label="Delete plan"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: EXAM REVISION RADAR & TASKS */}
+      {activeTab === 'TASKS' && (
+        <div className="card">
+          <div className="card-header-bar">
+            <div>
+              <h3 className="card-title">
+                <BrainCircuit size={19} color="var(--accent-purple)" />
+                <span>Calibrated Academic Targets &amp; Priorities</span>
+              </h3>
+              <p className="card-description">
+                Subjects requiring immediate attention based on verified VTOP internal scores, attendance deficit, and CAT/FAT exams.
+              </p>
+            </div>
+          </div>
+
+          {tasks.length === 0 ? (
+            <div className="empty-state-card">
+              <CheckCircle2 size={26} color="var(--success-emerald)" />
+              <div className="empty-state-title">All Academic Targets Safe!</div>
+              <p className="empty-state-desc">Your attendance and marks across all courses are safely buffered above required thresholds.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {tasks.map((task) => {
+                const isDone = completedTaskIds.includes(task.id);
+                const isHigh = (task.urgency || '').toUpperCase() === 'HIGH';
+
+                return (
+                  <div
+                    key={task.id}
+                    style={{
+                      padding: '18px 20px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--surface-input)',
+                      border: '1px solid var(--border-card)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '16px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '260px' }}>
+                      <button
+                        onClick={() => toggleTaskDone(task.id)}
+                        style={{ color: isDone ? 'var(--success-emerald)' : 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}
+                        aria-label="Toggle task status"
+                      >
+                        {isDone ? <CheckSquare size={20} /> : <Square size={20} />}
+                      </button>
+
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-purple)' }}>
+                            {task.courseCode || task.subjectCode || 'COURSE'}
+                          </span>
+                          <span className={`status-badge ${isHigh ? 'critical' : 'warning'}`}>
+                            {task.urgency} Priority
+                          </span>
+                          {(task.courseTitle || task.subjectTitle) && (
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                              • {task.courseTitle || task.subjectTitle}
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.98rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', marginTop: '4px' }}>
+                          {task.headline}
+                        </div>
+
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {task.reason || task.actionReason}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCourse(task.courseCode || task.subjectCode || '');
+                          setActiveTab('POMODORO');
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.76rem', gap: '6px' }}
+                      >
+                        <Zap size={13} color="var(--accent-cyan)" />
+                        <span>Start Pomodoro</span>
+                      </button>
+
+                      <span className={`status-badge ${isDone ? 'safe' : 'neutral'}`}>
+                        {isDone ? 'Completed ✓' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+
+export default AIPlannerView;
+

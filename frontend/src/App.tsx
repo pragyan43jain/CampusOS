@@ -714,7 +714,15 @@ export const App: React.FC = () => {
           <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />
         )}
 
-        {activeView === 'ai-planner' && <AIPlannerView tasks={aiTasks} />}
+        {activeView === 'ai-planner' && (
+          <AIPlannerView
+            tasks={aiTasks}
+            timetable={timetable}
+            courses={courses}
+            attendance={attendance}
+            exams={exams}
+          />
+        )}
       </div>
 
       {/* VTOP Auth & Sync Modal */}
