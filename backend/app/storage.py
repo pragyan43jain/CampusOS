@@ -111,6 +111,9 @@ def _retire_incompatible(path: str, reason: str) -> None:
         logger.error("[Storage] Could not set aside old store %s: %s", path, exc)
 
 
+_MEM_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+
+
 def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     """
     Return the synced payload for the specific student regNo, or fallback to active store,
@@ -122,8 +125,16 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
 
     if os.path.exists(target_path):
         try:
-            with open(target_path, "r", encoding="utf-8") as handle:
-                data = json.load(handle)
+            mtime = os.path.getmtime(target_path)
+            cached = _MEM_CACHE.get(target_path)
+            if cached and cached[0] == mtime:
+                data = cached[1]
+            else:
+                with open(target_path, "r", encoding="utf-8") as handle:
+                    data = json.load(handle)
+                if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
+                    _MEM_CACHE[target_path] = (mtime, data)
+
             if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
                 # Ownership validation: if reg_no was requested, ensure the store belongs to that reg_no
                 if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
@@ -160,6 +171,7 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
             with open(temp_path, "w", encoding="utf-8") as handle:
                 json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
             os.replace(temp_path, target)
+            _MEM_CACHE[target] = (os.path.getmtime(target), {**data, "storeVersion": STORE_VERSION})
         logger.info("[Storage] Saved VTOP sync for %s", student_reg or "active user")
     except Exception as exc:
         logger.error("[Storage] Could not write store: %s", exc)
@@ -174,6 +186,7 @@ def clear_store(reg_no: Optional[str] = None) -> None:
         targets.append(_data_file_for(reg_no))
 
     for target in targets:
+        _MEM_CACHE.pop(target, None)
         if os.path.exists(target):
             try:
                 os.remove(target)

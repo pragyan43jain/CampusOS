@@ -109,6 +109,7 @@ class VTOPSession:
         self.is_authenticated = False
         self.username: Optional[str] = None
         self.last_login_at: Optional[datetime.datetime] = None
+        self._lock = threading.Lock()
 
     def serialize_state(self) -> Dict[str, Any]:
         """Serialize session state for stateless serverless persistence."""
@@ -146,17 +147,18 @@ class VTOPSession:
         Called after every request so the next request always carries the
         freshest CSRF token, mirroring StudentCC's live-DOM reads.
         """
-        token = _extract_csrf(html)
-        if token:
-            self.csrf = token
+        with self._lock:
+            token = _extract_csrf(html)
+            if token:
+                self.csrf = token
 
-        authorized = _extract_input_value(html, "authorizedIDX")
-        if authorized:
-            self.authorized_id = authorized
+            authorized = _extract_input_value(html, "authorizedIDX")
+            if authorized:
+                self.authorized_id = authorized
 
-        win_image = _extract_input_value(html, "winImage")
-        if win_image:
-            self.win_image = win_image
+            win_image = _extract_input_value(html, "winImage")
+            if win_image:
+                self.win_image = win_image
 
     def _get(self, path: str, **kwargs: Any) -> requests.Response:
         timeout = kwargs.pop("timeout", 15.0)

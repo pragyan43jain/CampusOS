@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -1057,40 +1058,45 @@ def sync(
             "so no semester-scoped module can be fetched"
         )
 
-    profile = _step(report, "profile", lambda: fetch_profile(session))
-    
-    if not fast_mode:
-        grade_history = _step(report, "gradeHistory", lambda: fetch_grade_history(session))
-        receipts = _step(report, "receipts", lambda: fetch_receipts(session)) or []
-        payments = _step(report, "payments", lambda: fetch_payments(session)) or {"hasDues": False, "totalDue": 0.0, "items": []}
-        proctor = _step(report, "proctor", lambda: fetch_proctor(session))
-        dean_hod = _step(report, "deanHod", lambda: fetch_dean_hod(session)) or []
-        spotlight = _step(report, "spotlight", lambda: fetch_spotlight(session)) or []
-    else:
-        grade_history = None
-        receipts = []
-        payments = {"hasDues": False, "totalDue": 0.0, "items": []}
-        proctor = None
-        dean_hod = []
-        spotlight = []
+    # Fetch independent general and semester-scoped endpoints in parallel
+    sem_id = semester["id"] if semester else None
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        f_profile = executor.submit(_step, report, "profile", lambda: fetch_profile(session))
+        f_grade_history = executor.submit(_step, report, "gradeHistory", lambda: fetch_grade_history(session)) if not fast_mode else None
+        f_receipts = executor.submit(_step, report, "receipts", lambda: fetch_receipts(session)) if not fast_mode else None
+        f_payments = executor.submit(_step, report, "payments", lambda: fetch_payments(session)) if not fast_mode else None
+        f_proctor = executor.submit(_step, report, "proctor", lambda: fetch_proctor(session)) if not fast_mode else None
+        f_dean_hod = executor.submit(_step, report, "deanHod", lambda: fetch_dean_hod(session)) if not fast_mode else None
+        f_spotlight = executor.submit(_step, report, "spotlight", lambda: fetch_spotlight(session)) if not fast_mode else None
+
+        f_timetable = executor.submit(_step, report, "timetablePage", lambda: fetch_timetable_page(session, sem_id), count_of=lambda html: len(html or "")) if sem_id else None
+        f_attendance = executor.submit(_step, report, "attendanceHtml", lambda: fetch_attendance_page(session, sem_id)) if sem_id else None
+        f_marks = executor.submit(_step, report, "marksHtml", lambda: fetch_marks_page(session, sem_id)) if sem_id else None
+        f_exams = executor.submit(_step, report, "examsHtml", lambda: fetch_exam_page(session, sem_id)) if (sem_id and not fast_mode) else None
+        f_sem_grades = executor.submit(_step, report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if (sem_id and not fast_mode) else None
+
+        profile = f_profile.result() if f_profile else None
+        grade_history = f_grade_history.result() if f_grade_history else None
+        receipts = f_receipts.result() or [] if f_receipts else []
+        payments = f_payments.result() or {"hasDues": False, "totalDue": 0.0, "items": []} if f_payments else {"hasDues": False, "totalDue": 0.0, "items": []}
+        proctor = f_proctor.result() if f_proctor else None
+        dean_hod = f_dean_hod.result() or [] if f_dean_hod else []
+        spotlight = f_spotlight.result() or [] if f_spotlight else []
+
+        page = f_timetable.result() if f_timetable else None
+        att_html = f_attendance.result() if f_attendance else None
+        marks_html = f_marks.result() if f_marks else None
+        exams_html = f_exams.result() if f_exams else None
+        semester_grades = f_sem_grades.result() or {"grades": [], "gpa": None} if f_sem_grades else {"grades": [], "gpa": None}
 
     registry = build_registry([])
     grid: Dict[str, List[Dict[str, Any]]] = {}
     attendance_rows: List[Dict[str, Any]] = []
     marks_rows: List[Dict[str, Any]] = []
     exams: Dict[str, List[Dict[str, Any]]] = {}
-    semester_grades: Dict[str, Any] = {"grades": [], "gpa": None}
 
     if semester is not None:
-        sem_id = semester["id"]
-
-        # Courses and grid share one response — fetch once, parse twice.
-        page = _step(
-            report,
-            "timetablePage",
-            lambda: fetch_timetable_page(session, sem_id),
-            count_of=lambda html: len(html or ""),
-        )
         if page:
             courses = _step(report, "courses", lambda: P.parse_courses(page)) or []
             registry = build_registry(courses)
@@ -1104,42 +1110,17 @@ def sync(
             report.record("courses", FAILED, message="timetable page not retrieved")
             report.record("timetableGrid", FAILED, message="timetable page not retrieved")
 
-        att_page: Optional[str] = None
-        def _get_attendance() -> List[Dict[str, Any]]:
-            nonlocal att_page
-            att_page = fetch_attendance_page(session, sem_id)
-            return P.parse_attendance(att_page)
-
-        attendance_rows = _step(report, "attendance", _get_attendance) or []
-        marks_rows = (
-            _step(
+        if att_html:
+            attendance_rows = _step(report, "attendance", lambda: P.parse_attendance(att_html)) or []
+        if marks_html:
+            marks_rows = _step(report, "marks", lambda: P.parse_marks(marks_html)) or []
+        if exams_html:
+            exams = _step(
                 report,
-                "marks",
-                lambda: P.parse_marks(fetch_marks_page(session, sem_id)),
-            )
-            or []
-        )
-        if not fast_mode:
-            exams = (
-                _step(
-                    report,
-                    "exams",
-                    lambda: P.parse_exam_schedule(fetch_exam_page(session, sem_id)),
-                    count_of=lambda e: sum(len(v) for v in (e or {}).values()),
-                )
-                or {}
-            )
-            semester_grades = (
-                _step(
-                    report,
-                    "semesterGrades",
-                    lambda: fetch_semester_grades(session, sem_id),
-                )
-                or {"grades": [], "gpa": None}
-            )
-        else:
-            exams = {}
-            semester_grades = {"grades": [], "gpa": None}
+                "exams",
+                lambda: P.parse_exam_schedule(exams_html),
+                count_of=lambda e: sum(len(v) for v in (e or {}).values()),
+            ) or {}
 
     # -- assemble ----------------------------------------------------------
 
