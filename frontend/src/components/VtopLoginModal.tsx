@@ -11,6 +11,7 @@ import {
   EyeOff,
   Settings2,
   Server,
+  Sparkles,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 
@@ -358,6 +359,12 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 autoComplete="off"
               />
             </div>
+            {captcha && (
+              <p style={{ fontSize: '0.74rem', color: 'var(--accent-cyan)', margin: '4px 0 0 0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={12} />
+                <span>Auto-filled by AI OCR (edit if different)</span>
+              </p>
+            )}
           </div>
 
           {statusStep && (

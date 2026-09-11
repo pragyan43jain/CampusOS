@@ -16,7 +16,7 @@ import base64
 import io
 import logging
 import shutil
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from PIL import Image, ImageEnhance, ImageFilter
 
@@ -87,14 +87,35 @@ def _variant_inverted(img: Image.Image) -> Image.Image:
     )
 
 
+def _variant_threshold_binary(img: Image.Image) -> Image.Image:
+    gray = img.convert("L")
+    scaled = gray.resize((img.width * 3, img.height * 3), Image.Resampling.LANCZOS)
+    return scaled.point(lambda p: 255 if p > 130 else 0)
+
+
+def _variant_threshold_dark(img: Image.Image) -> Image.Image:
+    gray = img.convert("L")
+    scaled = gray.resize((img.width * 3, img.height * 3), Image.Resampling.LANCZOS)
+    return scaled.point(lambda p: 255 if p > 105 else 0)
+
+
+def _variant_denoised(img: Image.Image) -> Image.Image:
+    gray = img.convert("L")
+    scaled = gray.resize((img.width * 3, img.height * 3), Image.Resampling.LANCZOS)
+    return scaled.filter(ImageFilter.MedianFilter(size=3))
+
+
 _VARIANTS: List[tuple[str, Callable[[Image.Image], Image.Image]]] = [
-    ("scaled_gray", _variant_scaled_gray),
+    ("threshold_binary", _variant_threshold_binary),
     ("contrast", _variant_contrast),
+    ("scaled_gray", _variant_scaled_gray),
+    ("threshold_dark", _variant_threshold_dark),
     ("sharpened", _variant_sharpened),
+    ("denoised", _variant_denoised),
     ("inverted", _variant_inverted),
 ]
 
-_PSM_MODES = [8, 7, 6]
+_PSM_MODES = [8, 7, 6, 13]
 
 
 def solve_captcha_bytes(image_bytes: bytes) -> Optional[str]:
@@ -114,6 +135,7 @@ def solve_captcha_bytes(image_bytes: bytes) -> Optional[str]:
         logger.error("[OCR] Could not open captcha image: %s", exc)
         return None
 
+    candidate_counts: Dict[str, int] = {}
     fallback_candidates: List[str] = []
 
     for name, transform in _VARIANTS:
@@ -131,10 +153,18 @@ def solve_captcha_bytes(image_bytes: bytes) -> Optional[str]:
                 continue
 
             if len(candidate) == 6 and candidate.isalnum():
-                logger.info("[OCR] Captcha solved (exact 6 chars) via '%s' (psm %d): %s", name, psm, candidate)
-                return candidate
-            if 5 <= len(candidate) <= 7 and candidate.isalnum():
+                candidate_counts[candidate] = candidate_counts.get(candidate, 0) + 1
+                if candidate_counts[candidate] >= 2:
+                    logger.info("[OCR] Captcha solved with high confidence (majority vote) '%s': %s", name, candidate)
+                    return candidate
                 fallback_candidates.append(candidate)
+            elif 5 <= len(candidate) <= 7 and candidate.isalnum():
+                fallback_candidates.append(candidate)
+
+    if candidate_counts:
+        best = max(candidate_counts.items(), key=lambda x: x[1])[0]
+        logger.info("[OCR] Captcha solved via best 6-char candidate: %s", best)
+        return best
 
     if fallback_candidates:
         best = fallback_candidates[0]

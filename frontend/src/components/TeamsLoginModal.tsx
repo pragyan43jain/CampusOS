@@ -113,7 +113,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(480px, 94vw)', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -157,25 +157,28 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
               display: 'flex',
               flexDirection: 'column',
               gap: '8px',
+              boxSizing: 'border-box',
+              width: '100%',
+              overflow: 'hidden',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               <Server size={14} color="var(--accent-cyan)" />
               <span>CampusOS Backend Endpoint</span>
             </div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
               When connecting from a deployed web interface, configure your backend URL (e.g. your local or cloud HTTPS endpoint).
             </p>
-            <form onSubmit={handleSaveApiUrl} style={{ display: 'flex', gap: '8px' }}>
+            <form onSubmit={handleSaveApiUrl} style={{ display: 'flex', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
               <input
                 type="text"
                 value={customApiUrl}
                 onChange={(e) => setCustomApiUrl(e.target.value)}
                 placeholder="http://127.0.0.1:8000/api"
                 className="input-field"
-                style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'var(--font-mono)' }}
+                style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'var(--font-mono)', minWidth: 0 }}
               />
-              <button type="submit" className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap' }}>
+              <button type="submit" className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                 Save
               </button>
             </form>
@@ -194,14 +197,17 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            boxSizing: 'border-box',
+            width: '100%',
+            overflow: 'hidden',
           }}
         >
-          <span>Official Portal:</span>
+          <span style={{ whiteSpace: 'nowrap' }}>Official Portal:</span>
           <a
             href="https://www.microsoft.com/en-in/microsoft-teams/log-in"
             target="_blank"
             rel="noreferrer"
-            style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            style={{ color: 'var(--accent-cyan)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
           >
             <span>teams.microsoft.com</span>
             <ExternalLink size={12} />

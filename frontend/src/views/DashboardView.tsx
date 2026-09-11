@@ -100,9 +100,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : 'Unavailable';
 
   const earnedCredits = student.creditsEarned ?? null;
-  const totalCredits = student.totalCreditsRequired || 160;
-  const creditsPct = earnedCredits !== null && totalCredits > 0 ? Math.round((earnedCredits / totalCredits) * 100) : 0;
-  const creditsDisplay = earnedCredits !== null ? `${earnedCredits} / ${totalCredits}` : 'Unavailable';
+  const registeredCreds = student.registeredCredits ?? null;
+  const creditsDisplay = earnedCredits !== null ? `${earnedCredits} Credits` : 'Unavailable';
+  const creditsSubtext = earnedCredits !== null
+    ? (registeredCreds ? `${registeredCreds} credits registered this semester` : 'Cumulative earned credits')
+    : 'Sync VTOP profile';
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
   const studentFirstName = student?.name && student.name !== 'Student' && student.name !== 'Not connected'
@@ -184,13 +186,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           variant={student.cgpa ? "emerald" : undefined}
         />
 
-        {/* Card 3: Degree Credits */}
+        {/* Card 3: Earned Credits */}
         <MetricCard
-          label="Degree Credits"
+          label="Earned Credits"
           value={creditsDisplay}
-          subtext={earnedCredits !== null ? `${creditsPct}% degree completion` : 'Sync degree audit'}
+          subtext={creditsSubtext}
           icon={<Award size={17} />}
-          progressPercent={earnedCredits !== null ? creditsPct : undefined}
           variant={earnedCredits !== null ? "cyan" : undefined}
         />
       </div>

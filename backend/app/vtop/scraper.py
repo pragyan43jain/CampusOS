@@ -797,7 +797,7 @@ def build_student(
         "batch": profile.get("batch"),
         "cgpa": cgpa,
         "creditsEarned": credits_earned,
-        "totalCreditsRequired": 160.0 if (credits_earned or cgpa) else None,
+        "totalCreditsRequired": None,
         "registeredCredits": registry.total_credits,
         "rank": None,
         "overallAttendance": overall,

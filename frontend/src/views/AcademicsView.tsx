@@ -295,7 +295,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.90rem' }}>Credits Completed</span>
                 <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.94rem', fontFamily: 'var(--font-mono)' }}>
-                  {student.creditsEarned || 0} / {student.totalCreditsRequired || 160}
+                  {student.creditsEarned !== null && student.creditsEarned !== undefined ? `${student.creditsEarned} Credits` : 'N/A'}
                 </span>
               </div>
 

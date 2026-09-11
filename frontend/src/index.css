@@ -996,12 +996,14 @@ a {
   border-radius: var(--radius-card);
   padding: 32px;
   width: 100%;
-  max-width: 500px;
+  max-width: min(500px, 94vw);
   box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
   position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .modal-header-row {
