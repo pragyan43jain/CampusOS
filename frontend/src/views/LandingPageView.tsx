@@ -98,9 +98,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <span>Sign In (VTOP)</span>
               <ArrowRight size={14} />
             </button>
-            <button onClick={handleEnter} className="btn btn-secondary btn-sm">
-              <span>Explore Demo</span>
-            </button>
           </div>
         </div>
       </header>
