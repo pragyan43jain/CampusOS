@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { CheckCircle2, X } from 'lucide-react';
 import {
   StudentProfile,
   Course,
@@ -102,6 +103,29 @@ export const App: React.FC = () => {
   const [lmsAccount, setLmsAccount] = useState<any>({ connected: false, status: 'disconnected' });
   const [syncingAll, setSyncingAll] = useState<boolean>(false);
   const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null);
+
+  // Floating Sync Toast Notification State
+  const [syncToast, setSyncToast] = useState<{ visible: boolean; message: string; time: string }>({
+    visible: false,
+    message: 'Synced Successfully',
+    time: '',
+  });
+  const syncToastTimerRef = useRef<any>(null);
+
+  const triggerSyncToast = (message: string = 'Synced Successfully') => {
+    if (syncToastTimerRef.current) {
+      clearTimeout(syncToastTimerRef.current);
+    }
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setSyncToast({
+      visible: true,
+      message,
+      time: timeStr,
+    });
+    syncToastTimerRef.current = setTimeout(() => {
+      setSyncToast((prev) => ({ ...prev, visible: false }));
+    }, 3500);
+  };
 
   // Core Academic Data States
   const [student, setStudent] = useState<StudentProfile | null>(null);
@@ -264,6 +288,7 @@ export const App: React.FC = () => {
 
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setSyncResultMsg(res.message ? `✓ ${res.message} (${timeStr})` : `✓ Synced all accounts successfully (${timeStr})`);
+      triggerSyncToast('Synced Successfully');
     } catch (err: any) {
       console.error('Failed to sync all accounts:', err);
       setSyncResultMsg(`⚠️ Sync encountered an error: ${err.message || 'Network error'}`);
@@ -293,9 +318,11 @@ export const App: React.FC = () => {
 
       // 3. Reload all student data into React state
       await loadAllData();
+      triggerSyncToast('Synced Successfully');
     } catch (err) {
       console.warn('Direct live sync notice:', err);
       await loadAllData();
+      triggerSyncToast('Synced Successfully');
     } finally {
       setSyncing(false);
     }
@@ -572,6 +599,7 @@ export const App: React.FC = () => {
     if (data && data.aiTasks && data.aiTasks.length > 0) setAiTasks(data.aiTasks);
 
     await loadAllData();
+    triggerSyncToast('Synced Successfully');
     setShowLanding(false);
     setActiveView('dashboard');
     if (typeof window !== 'undefined') {
@@ -683,6 +711,26 @@ export const App: React.FC = () => {
           }}
           onLoginSuccess={handleLoginSuccess}
         />
+        {syncToast.visible && (
+          <div className="floating-sync-toast-container" role="status" aria-live="polite">
+            <div className="floating-sync-toast">
+              <div className="sync-toast-icon-wrap">
+                <CheckCircle2 size={16} strokeWidth={2.5} />
+              </div>
+              <div className="sync-toast-text">
+                <span>{syncToast.message}</span>
+                {syncToast.time && <span className="sync-toast-time">• {syncToast.time}</span>}
+              </div>
+              <button
+                onClick={() => setSyncToast((prev) => ({ ...prev, visible: false }))}
+                className="sync-toast-close"
+                aria-label="Dismiss notification"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -864,6 +912,28 @@ export const App: React.FC = () => {
         onOpenVtopModal={handleHeaderSync}
         onLogout={handleSignOut}
       />
+
+      {/* Floating Synced Successfully Toast Notification */}
+      {syncToast.visible && (
+        <div className="floating-sync-toast-container" role="status" aria-live="polite">
+          <div className="floating-sync-toast">
+            <div className="sync-toast-icon-wrap">
+              <CheckCircle2 size={16} strokeWidth={2.5} />
+            </div>
+            <div className="sync-toast-text">
+              <span>{syncToast.message}</span>
+              {syncToast.time && <span className="sync-toast-time">• {syncToast.time}</span>}
+            </div>
+            <button
+              onClick={() => setSyncToast((prev) => ({ ...prev, visible: false }))}
+              className="sync-toast-close"
+              aria-label="Dismiss notification"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
