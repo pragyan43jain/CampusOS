@@ -28,30 +28,30 @@ export function getTimeGreetings(name: string, period: TimePeriod): string[] {
     case 'morning':
       return [
         `Good morning, ${name}`,
-        `Rise and shine, ${name}!`,
-        `Ready for today's classes, ${name}?`,
-        `Have a productive morning, ${name}`,
+        `Welcome back, ${name}`,
+        `Good to see you, ${name}`,
+        `Ready to get started, ${name}?`,
       ];
     case 'afternoon':
       return [
         `Good afternoon, ${name}`,
-        `Hope classes are going well, ${name}!`,
-        `Afternoon focus mode, ${name}`,
-        `Keep up the momentum, ${name}!`,
+        `Hope your day is going well, ${name}`,
+        `Welcome back, ${name}`,
+        `Good to see you, ${name}`,
       ];
     case 'evening':
       return [
         `Good evening, ${name}`,
-        `Winding down after classes, ${name}?`,
-        `Evening study session, ${name}`,
-        `Hope you had a great day, ${name}!`,
+        `Hope you had a good day, ${name}`,
+        `Welcome back, ${name}`,
+        `Good to see you, ${name}`,
       ];
     case 'night':
       return [
-        `Burning the midnight oil, ${name}?`,
-        `Late night grind, ${name}!`,
-        `Night owl mode activated, ${name} 🦉`,
         `Good evening, ${name}`,
+        `Burning the midnight oil, ${name}?`,
+        `Working late tonight, ${name}?`,
+        `Welcome back, ${name}`,
       ];
   }
 }
@@ -66,9 +66,8 @@ export function getPlayfulReturnGreetings(name: string): string[] {
   return [
     `Here comes ${name}!`,
     `${name} returns!`,
-    `Welcome back, ${name}!`,
-    `Good to see you, ${name}!`,
-    `The one and only ${name} returns!`,
+    `Welcome back, ${name}`,
+    `Good to see you, ${name}`,
   ];
 }
 
@@ -122,7 +121,16 @@ export function getSessionGreeting(name: string, forceNew = false, hour?: number
   if (!forceNew) {
     try {
       const cached = sessionStorage.getItem(storageKey);
-      if (cached) return cached;
+      // Invalidate any legacy/tacky cached greetings
+      if (
+        cached &&
+        !cached.includes('🦉') &&
+        !cached.toLowerCase().includes('night owl') &&
+        !cached.toLowerCase().includes('grind') &&
+        !cached.toLowerCase().includes('focus mode')
+      ) {
+        return cached;
+      }
     } catch (e) {
       // sessionStorage unavailable
     }
