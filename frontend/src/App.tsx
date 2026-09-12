@@ -282,13 +282,10 @@ export const App: React.FC = () => {
 
     setSyncing(true);
     try {
-      // 1. Direct VTOP background re-scrape with existing authenticated session
+      // 1. Direct VTOP background re-scrape with existing authenticated session (or silent auto-reauth)
       const vtopResult = await CampusAPI.syncVtop();
-      if (vtopResult && vtopResult.success === false && (vtopResult as any).retryable) {
-        // VTOP server indicates session expired -> prompt for fresh credentials
-        setShowVtopModal(true);
-        setSyncing(false);
-        return;
+      if (vtopResult && vtopResult.success === false) {
+        console.warn('[CampusAPI] VTOP live sync notice:', vtopResult.message);
       }
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
@@ -725,7 +722,7 @@ export const App: React.FC = () => {
             assignments={assignments}
             onSync={handleHeaderSync}
             syncing={syncing}
-            onOpenSyncModal={() => setShowVtopModal(true)}
+            onOpenSyncModal={handleHeaderSync}
             teamsAccount={teamsAccount}
             lmsAccount={lmsAccount}
             onLinkTeams={() => setIsTeamsModalOpen(true)}
@@ -862,7 +859,9 @@ export const App: React.FC = () => {
         }}
         currentTheme={currentTheme}
         onSelectTheme={setCurrentTheme}
-        onOpenVtopModal={() => setShowVtopModal(true)}
+        onSync={handleHeaderSync}
+        syncing={syncing}
+        onOpenVtopModal={handleHeaderSync}
         onLogout={handleSignOut}
       />
     </div>

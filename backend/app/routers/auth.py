@@ -135,18 +135,19 @@ def sync_data(
     sessionId: Optional[str] = Query(None),
     semesterId: Optional[str] = Query(None),
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    x_auth_pass: Optional[str] = Header(None, alias="X-Auth-Pass"),
 ) -> Dict[str, Any]:
     """
-    Re-scrape using the existing signed-in session.
-
-    Returns ``success: false`` with ``retryable: true`` once the VTOP session has
-    lapsed — the honest outcome, since we hold no credentials to re-authenticate
-    with. The previous implementation reported success here by checking whether a
-    string in the store was not ``"Not available"``, which meant it reported
-    success while syncing nothing.
+    Re-scrape using the existing signed-in session or silently auto-reauthenticate in background.
     """
     resolved_sid = sessionId or x_session_id
-    return client_manager.resync(session_id=resolved_sid, semester_id=semesterId)
+    return client_manager.resync_or_reauth(
+        session_id=resolved_sid,
+        semester_id=semesterId,
+        username=x_auth_user,
+        password=x_auth_pass,
+    )
 
 
 @router.post("/semester")

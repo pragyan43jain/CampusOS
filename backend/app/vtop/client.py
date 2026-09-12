@@ -280,9 +280,15 @@ class VTOPClientManager:
             err_code = last_error.code if last_error else CODE_TRANSPORT
             return self._error(err_msg, err_code, retryable=True)
 
-        handle.reg_no = session.username
-        handle.touch()
-        return self._run_sync(session_id, handle, semester_id)
+        # Ensure authenticated session is serialized into a fresh, stateless token
+        if session_id:
+            self._drop(session_id)
+        auth_session_id = self._put(session)
+        auth_handle = self._get(auth_session_id)
+        if auth_handle:
+            auth_handle.reg_no = session.username
+            auth_handle.touch()
+        return self._run_sync(auth_session_id, auth_handle or handle, semester_id)
 
     # -- sync --------------------------------------------------------------
 
@@ -308,6 +314,42 @@ class VTOPClientManager:
                 "Not signed in to VTOP.", CODE_NOT_AUTHENTICATED, retryable=True
             )
         return self._run_sync(resolved, handle, semester_id)
+
+    def resync_or_reauth(
+        self,
+        session_id: Optional[str] = None,
+        semester_id: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Attempt live sync with existing authenticated session.
+        If session expired and username & password are provided,
+        automatically perform background login and sync via OCR without user intervention.
+        """
+        result = self.resync(session_id=session_id, semester_id=semester_id)
+        if result.get("success"):
+            return result
+
+        # If resync failed and saved credentials are provided, auto-reauth silently in background!
+        if username and password and is_ocr_available():
+            clean_user = username.strip().upper()
+            logger.info("[VTOP] Live session expired. Performing automatic silent background re-auth for %s...", clean_user)
+            try:
+                auto_result = self.login_and_sync(
+                    session_id=None,
+                    username=clean_user,
+                    password=password,
+                    captcha=None,
+                    semester_id=semester_id,
+                )
+                if auto_result.get("success"):
+                    logger.info("[VTOP] Automatic background re-auth succeeded for %s!", clean_user)
+                    return auto_result
+            except Exception as exc:
+                logger.warning("[VTOP] Automatic background re-auth error: %s", exc)
+
+        return result
 
     def _run_sync(
         self, session_id: Optional[str], handle: _Handle, semester_id: Optional[str]
@@ -342,13 +384,22 @@ class VTOPClientManager:
             handle.reg_no or "unknown",
             len(failed),
         )
+
+        # Refresh the session token with the latest cookies and CSRF
+        fresh_session_id = self._put(handle.session) if handle and handle.session.is_authenticated else session_id
+        if fresh_session_id and fresh_session_id != session_id:
+            fresh_handle = self._sessions.get(fresh_session_id)
+            if fresh_handle:
+                fresh_handle.reg_no = handle.reg_no
+                fresh_handle.touch()
+
         return {
             # A partial sync is still a successful sign-in; the report says what
             # is missing. Reporting overall failure because one module was down
             # would throw away the modules that worked.
             "success": True,
             "message": payload["message"],
-            "sessionId": session_id,
+            "sessionId": fresh_session_id or session_id,
             "data": payload,
             "syncReport": report,
             "warnings": report.get("warnings") or [],

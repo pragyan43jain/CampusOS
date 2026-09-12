@@ -138,6 +138,16 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
   if (currentReg) {
     headers['X-Reg-No'] = currentReg;
   }
+  if (typeof window !== 'undefined') {
+    const savedUser = window.localStorage.getItem('campus_vtop_username');
+    const savedPass = window.localStorage.getItem('campus_vtop_password');
+    if (savedUser && savedUser.trim()) {
+      headers['X-Auth-User'] = savedUser.trim().toUpperCase();
+    }
+    if (savedPass && savedPass.trim()) {
+      headers['X-Auth-Pass'] = savedPass;
+    }
+  }
   if (extra) {
     Object.assign(headers, extra);
   }

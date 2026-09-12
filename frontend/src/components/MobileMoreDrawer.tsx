@@ -19,6 +19,8 @@ interface MobileMoreDrawerProps {
   onSelectView: (view: NavView) => void;
   currentTheme?: ThemeType;
   onSelectTheme?: (t: ThemeType) => void;
+  onSync?: () => void;
+  syncing?: boolean;
   onOpenVtopModal?: () => void;
   onLogout?: () => void;
 }
@@ -30,6 +32,8 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
   onSelectView,
   currentTheme = 'cyber-dark',
   onSelectTheme,
+  onSync,
+  syncing = false,
   onOpenVtopModal,
   onLogout,
 }) => {
@@ -241,19 +245,19 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
 
         {/* Quick Sync & VTOP Portal Action */}
         <div style={{ display: 'flex', gap: '10px' }}>
-          {onOpenVtopModal && (
-            <button
-              onClick={() => {
-                onClose();
-                onOpenVtopModal();
-              }}
-              className="btn btn-primary"
-              style={{ flex: 1, height: '46px', fontSize: '0.88rem' }}
-            >
-              <Zap size={16} />
-              <span>Sync VTOP Live</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              onClose();
+              if (onSync) onSync();
+              else if (onOpenVtopModal) onOpenVtopModal();
+            }}
+            disabled={syncing}
+            className="btn btn-primary"
+            style={{ flex: 1, height: '46px', fontSize: '0.88rem' }}
+          >
+            <Zap size={16} className={syncing ? 'animate-spin' : ''} />
+            <span>{syncing ? 'Syncing...' : 'Sync VTOP Live'}</span>
+          </button>
 
           <a
             href="https://vtopcc.vit.ac.in/vtop"
