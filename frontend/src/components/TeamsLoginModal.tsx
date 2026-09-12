@@ -37,7 +37,6 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [step, setStep] = useState<string | null>(null);
 
   // Backend connection settings toggle
   const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
@@ -53,7 +52,6 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
     if (isOpen) {
       setError(null);
       setSuccessMsg(null);
-      setStep(null);
       setCustomApiUrl(CampusAPI.getApiBaseUrl());
     }
   }, [isOpen]);
@@ -70,44 +68,33 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      setError('Please enter your university Microsoft email address.');
-      return;
-    }
-    if (!password.trim()) {
-      setError('Please enter your Microsoft account password.');
+    if (!email.trim() || !password.trim()) {
+      setError('Sync Failed');
       return;
     }
 
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
-    setStep('Authenticating with Microsoft Online Services...');
 
     try {
       const res = await CampusAPI.loginTeams(email.trim(), password.trim());
 
       if (!res.success) {
-        throw new Error(res.message || 'Authentication failed. Please check your credentials.');
+        throw new Error(res.message || 'Sync Failed');
       }
 
-      setStep('Syncing Teams assignments & coursework...');
-      setSuccessMsg(res.message || '✓ Microsoft Teams Connected');
+      setSuccessMsg('✓ Microsoft Teams Connected');
 
       setTimeout(() => {
         onLoginSuccess(res);
         onClose();
       }, 700);
     } catch (err: any) {
-      const errMsg = err?.message || '';
-      const finalMsg = (errMsg.toLowerCase().includes('failed to fetch') || errMsg.toLowerCase().includes('networkerror') || errMsg.toLowerCase().includes('unable to connect'))
-        ? 'Unable to connect to Microsoft Teams right now. Check your network connection.'
-        : (errMsg || 'Failed to authenticate with Microsoft Teams.');
-      setError(finalMsg);
-      onLoginFailure?.(finalMsg);
+      setError('Sync Failed');
+      onLoginFailure?.('Sync Failed');
     } finally {
       setLoading(false);
-      setStep(null);
     }
   };
 
@@ -289,26 +276,6 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
           </div>
         )}
 
-        {step && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.80rem',
-              color: 'var(--accent-cyan)',
-              width: '100%',
-              maxWidth: '100%',
-              boxSizing: 'border-box',
-              whiteSpace: 'normal',
-              wordBreak: 'break-word',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            <RefreshCw size={13} className="animate-spin" style={{ flexShrink: 0 }} />
-            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step}</span>
-          </div>
-        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -369,10 +336,10 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             {loading ? (
               <>
                 <RefreshCw size={15} className="animate-spin" />
-                <span>{step || 'Authenticating with Microsoft...'}</span>
+                <span>Connecting...</span>
               </>
             ) : (
-              <span>Authenticate &amp; Link Teams</span>
+              <span>Connect</span>
             )}
           </button>
         </form>

@@ -19,6 +19,7 @@ import {
   Square,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import { AIStudyTask, TimetableSlot, Course, Attendance, Exam } from '../types';
 import { MetricCard } from '../components/MetricCard';
@@ -41,6 +42,7 @@ interface CustomStudyPlan {
   courseTitle: string;
   topic: string;
   completed: boolean;
+  durationMinutes?: number;
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -145,6 +147,23 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
 
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
+  const [focusTopic, setFocusTopic] = useState<string>(() => {
+    try {
+      return localStorage.getItem('campusos_focus_topic') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const updateFocusTopic = (topic: string) => {
+    setFocusTopic(topic);
+    try {
+      localStorage.setItem('campusos_focus_topic', topic);
+    } catch {
+      // ignore
+    }
+  };
+
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [completedSessions, setCompletedSessions] = useState<number>(() => {
     try {
@@ -301,6 +320,18 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
     setTimeLeft(sec);
   };
 
+  const startFocusSession = (courseCode: string, topic: string, durationMinutes?: number) => {
+    if (courseCode) setSelectedCourse(courseCode);
+    updateFocusTopic(topic || '');
+    const mins = durationMinutes && durationMinutes > 0 ? durationMinutes : focusMinutes;
+    setCustomFocusDuration(mins);
+    setMode('FOCUS');
+    setTotalSeconds(mins * 60);
+    setTimeLeft(mins * 60);
+    setIsRunning(true);
+    setActiveTab('POMODORO');
+  };
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -400,28 +431,121 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
     return freeWindows;
   }, [timetable, selectedDay]);
 
+  // Free slots inline scheduler state
+  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
+  const [slotTopic, setSlotTopic] = useState<string>('');
+  const [slotCourse, setSlotCourse] = useState<string>('');
+  const [slotDuration, setSlotDuration] = useState<number>(25);
+
+  // Quick any-time study session state
+  const [anyTimeTopic, setAnyTimeTopic] = useState<string>('');
+  const [anyTimeCourse, setAnyTimeCourse] = useState<string>('');
+  const [anyTimeDuration, setAnyTimeDuration] = useState<number>(25);
+
+  // Revision blocks form state
   const [newPlanCourse, setNewPlanCourse] = useState<string>('');
   const [newPlanTopic, setNewPlanTopic] = useState<string>('');
   const [newPlanTime, setNewPlanTime] = useState<string>('');
+  const [newPlanDuration, setNewPlanDuration] = useState<number>(25);
 
-  const addCustomStudyPlan = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPlanTopic.trim()) return;
+  // Auto-initialize course dropdowns once courses load
+  useEffect(() => {
+    if (courses.length > 0) {
+      if (!newPlanCourse) setNewPlanCourse(courses[0].code || 'GENERAL');
+      if (!slotCourse) setSlotCourse(courses[0].code || 'GENERAL');
+      if (!anyTimeCourse) setAnyTimeCourse(courses[0].code || 'GENERAL');
+    }
+  }, [courses, newPlanCourse, slotCourse, anyTimeCourse]);
 
-    const courseObj = courses.find((c) => c.code === newPlanCourse);
+  const handleToggleSlotScheduler = (idx: number, slot: { start: string; end: string; durationMinutes: number }) => {
+    if (activeSlotIdx === idx) {
+      setActiveSlotIdx(null);
+    } else {
+      setActiveSlotIdx(idx);
+      setSlotTopic('');
+      setSlotCourse(newPlanCourse || courses[0]?.code || 'GENERAL');
+      setSlotDuration(slot.durationMinutes > 0 && slot.durationMinutes <= 90 ? slot.durationMinutes : 30);
+    }
+  };
+
+  const handleSaveSlotPlan = (slot: { start: string; end: string; durationMinutes: number }, startNow: boolean = false) => {
+    if (!slotTopic.trim()) return;
+    const courseCode = slotCourse || (courses[0]?.code || 'GENERAL');
+    const courseObj = courses.find((c) => c.code === courseCode);
+    const duration = slotDuration > 0 ? slotDuration : (slot.durationMinutes || 25);
 
     const newPlan: CustomStudyPlan = {
       id: `plan-${Date.now()}`,
       day: selectedDay,
-      timeSlot: newPlanTime || 'Free Period',
-      courseCode: newPlanCourse || (courses[0]?.code || 'STUDY'),
+      timeSlot: `${slot.start} – ${slot.end}`,
+      courseCode: courseCode,
       courseTitle: courseObj?.title || 'Targeted Revision',
-      topic: newPlanTopic.trim(),
+      topic: slotTopic.trim(),
       completed: false,
+      durationMinutes: duration,
     };
 
     savePlans([...customPlans, newPlan]);
+
+    if (startNow) {
+      startFocusSession(courseCode, slotTopic.trim(), duration);
+    }
+
+    setActiveSlotIdx(null);
+    setSlotTopic('');
+  };
+
+  const handleStartAnyTimeStudy = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const courseCode = anyTimeCourse || (courses[0]?.code || 'GENERAL');
+    const topic = anyTimeTopic.trim() || 'General Study Session';
+    const duration = anyTimeDuration > 0 ? anyTimeDuration : 25;
+
+    const courseObj = courses.find((c) => c.code === courseCode);
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newPlan: CustomStudyPlan = {
+      id: `plan-${Date.now()}`,
+      day: selectedDay,
+      timeSlot: `${nowStr} (${duration}m Focus)`,
+      courseCode: courseCode,
+      courseTitle: courseObj?.title || 'Targeted Revision',
+      topic: topic,
+      completed: false,
+      durationMinutes: duration,
+    };
+
+    savePlans([...customPlans, newPlan]);
+    startFocusSession(courseCode, topic, duration);
+    setAnyTimeTopic('');
+  };
+
+  const addCustomStudyPlan = (e: React.FormEvent, startNow: boolean = false) => {
+    e.preventDefault();
+    if (!newPlanTopic.trim()) return;
+
+    const courseCode = newPlanCourse || (courses[0]?.code || 'GENERAL');
+    const courseObj = courses.find((c) => c.code === courseCode);
+    const duration = newPlanDuration > 0 ? newPlanDuration : 25;
+
+    const newPlan: CustomStudyPlan = {
+      id: `plan-${Date.now()}`,
+      day: selectedDay,
+      timeSlot: newPlanTime.trim() || 'Free Period',
+      courseCode: courseCode,
+      courseTitle: courseObj?.title || 'Targeted Revision',
+      topic: newPlanTopic.trim(),
+      completed: false,
+      durationMinutes: duration,
+    };
+
+    savePlans([...customPlans, newPlan]);
+
+    if (startNow) {
+      startFocusSession(courseCode, newPlanTopic.trim(), duration);
+    }
+
     setNewPlanTopic('');
+    setNewPlanTime('');
   };
 
   const togglePlanDone = (id: string) => {
@@ -715,6 +839,49 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
               {formatTime(timeLeft)}
             </div>
 
+            {/* Focus Topic Indicator / Input */}
+            <div style={{ margin: '4px 0 10px 0', width: '100%', maxWidth: '340px' }}>
+              {focusTopic ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '6px 14px',
+                    background: 'rgba(6, 182, 212, 0.12)',
+                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                    borderRadius: '20px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <Sparkles size={13} color="var(--accent-cyan)" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    Topic: {focusTopic}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateFocusTopic('')}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                    title="Clear topic"
+                    aria-label="Clear topic"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={focusTopic}
+                  onChange={(e) => updateFocusTopic(e.target.value)}
+                  placeholder="Set focus topic / goal (optional)..."
+                  className="input-field"
+                  style={{ fontSize: '0.78rem', padding: '6px 12px', textAlign: 'center', width: '100%' }}
+                />
+              )}
+            </div>
+
             <div style={{ margin: '8px 0 24px 0', width: '100%', maxWidth: '320px' }}>
               <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                 CURRENT FOCUS SUBJECT
@@ -840,6 +1007,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
       {/* TAB 2: FREE-SLOT WEEKLY STUDY SCHEDULER */}
       {activeTab === 'FREE_SLOTS' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Day of Week Selector */}
           <div className="card" style={{ padding: '12px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -862,7 +1030,134 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
             </div>
           </div>
 
+          {/* Quick Study Session Hub: Set Topic & Timer At Any Time */}
+          <div
+            className="card"
+            style={{
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08))',
+              border: '1px solid rgba(6, 182, 212, 0.25)',
+              padding: '16px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={18} color="var(--accent-cyan)" />
+                <span style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
+                  Study Right Now — Set Topic &amp; Timer
+                </span>
+              </div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                Ready to study? Choose any duration and launch your focus session instantly.
+              </span>
+            </div>
+
+            <form onSubmit={handleStartAnyTimeStudy} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SUBJECT / COURSE</label>
+                  <select
+                    value={anyTimeCourse}
+                    onChange={(e) => setAnyTimeCourse(e.target.value)}
+                    className="input-field"
+                    style={{ fontSize: '0.80rem', padding: '8px 10px', width: '100%' }}
+                  >
+                    {courses.length > 0 ? (
+                      courses.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} — {c.title}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="GENERAL">General Self-Study</option>
+                    )}
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>WHAT TOPIC ARE YOU STUDYING?</label>
+                  <input
+                    type="text"
+                    value={anyTimeTopic}
+                    onChange={(e) => setAnyTimeTopic(e.target.value)}
+                    placeholder="e.g. Practice Chapter 3 problems, Unit 2 Quiz revision..."
+                    className="input-field"
+                    style={{ fontSize: '0.82rem', padding: '8px 12px', width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              {/* Flexible Timer Presets & Stepper */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>SET TIMER:</span>
+                  {[15, 25, 30, 45, 60, 90].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setAnyTimeDuration(mins)}
+                      className={`btn btn-sm ${anyTimeDuration === mins ? 'btn-secondary' : 'btn-ghost'}`}
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        border: anyTimeDuration === mins ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                        color: anyTimeDuration === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                        fontWeight: anyTimeDuration === mins ? 700 : 500,
+                      }}
+                    >
+                      {mins}m
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setAnyTimeDuration((prev) => Math.max(1, prev - 5))}
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
+                    title="Subtract 5m"
+                  >
+                    -5m
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: '6px', padding: '2px 6px' }}>
+                    <input
+                      type="number"
+                      min="1"
+                      max="300"
+                      value={anyTimeDuration}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (!isNaN(v) && v > 0) setAnyTimeDuration(v);
+                      }}
+                      style={{ width: '38px', background: 'transparent', border: 'none', color: 'var(--text-primary)', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.78rem', outline: 'none' }}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>min</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAnyTimeDuration((prev) => Math.min(300, prev + 5))}
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
+                    title="Add 5m"
+                  >
+                    +5m
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  style={{ padding: '0 18px', height: '34px', fontSize: '0.82rem', gap: '6px' }}
+                >
+                  <Play size={14} fill="currentColor" />
+                  <span>Start Study Timer ({anyTimeDuration}m)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+            {/* Free Timetable Slots Column */}
             <div className="card">
               <div className="card-header-bar">
                 <div>
@@ -891,41 +1186,203 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                         padding: '16px',
                         borderRadius: 'var(--radius-md)',
                         background: 'var(--surface-input)',
-                        border: '1px solid var(--border-card)',
+                        border: activeSlotIdx === idx ? '1px solid var(--accent-cyan)' : '1px solid var(--border-card)',
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
+                        flexDirection: 'column',
                         gap: '12px',
+                        transition: 'border-color 0.2s ease',
                       }}
                     >
-                      <div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
-                          {slot.start} – {slot.end}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                            {slot.start} – {slot.end}
+                          </div>
+                          <div style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                            {slot.label} ({slot.durationMinutes} minutes free)
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          {slot.label} ({slot.durationMinutes} minutes available)
+
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSlotScheduler(idx, slot)}
+                            className={`btn btn-sm ${activeSlotIdx === idx ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ fontSize: '0.74rem', gap: '5px' }}
+                          >
+                            <Plus size={13} />
+                            <span>{activeSlotIdx === idx ? 'Close Scheduler' : 'Schedule Topic'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => startFocusSession(courses[0]?.code || 'GENERAL', `${slot.label} Focus`, slot.durationMinutes <= 90 ? slot.durationMinutes : 45)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.74rem', gap: '5px', color: 'var(--accent-cyan)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
+                            title={`Start focus timer for this slot`}
+                          >
+                            <Play size={12} fill="currentColor" />
+                            <span>Start Timer ({slot.durationMinutes <= 90 ? slot.durationMinutes : 45}m)</span>
+                          </button>
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewPlanTime(`${slot.start} - ${slot.end}`);
-                          setActiveTab('FREE_SLOTS');
-                        }}
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.74rem', gap: '4px' }}
-                      >
-                        <Plus size={13} />
-                        <span>Schedule Topic</span>
-                      </button>
+                      {/* Interactive Inline Scheduler Panel */}
+                      {activeSlotIdx === idx && (
+                        <div
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: '8px',
+                            background: 'var(--surface-sunken)',
+                            border: '1px solid rgba(6, 182, 212, 0.25)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            marginTop: '4px',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Clock size={13} color="var(--accent-cyan)" />
+                            <span>Schedule Study Topic for {slot.start} – {slot.end}</span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                            <div>
+                              <label style={{ fontSize: '0.70rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>SUBJECT / COURSE</label>
+                              <select
+                                value={slotCourse}
+                                onChange={(e) => setSlotCourse(e.target.value)}
+                                className="input-field"
+                                style={{ fontSize: '0.78rem', padding: '6px 10px', width: '100%' }}
+                              >
+                                {courses.length > 0 ? (
+                                  courses.map((c) => (
+                                    <option key={c.code} value={c.code}>
+                                      {c.code} — {c.title}
+                                    </option>
+                                  ))
+                                ) : (
+                                  <option value="GENERAL">General Self-Study</option>
+                                )}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label style={{ fontSize: '0.70rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>TOPIC / REVISION GOAL</label>
+                              <input
+                                type="text"
+                                value={slotTopic}
+                                onChange={(e) => setSlotTopic(e.target.value)}
+                                placeholder="e.g. Practice Chapter 3 problems, review CAT notes"
+                                className="input-field"
+                                autoFocus
+                                style={{ fontSize: '0.80rem', padding: '6px 10px', width: '100%' }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Timer Duration Selection */}
+                          <div>
+                            <label style={{ fontSize: '0.70rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                              SET TIMER DURATION FOR THIS TOPIC:
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              {[15, 25, 30, 45, 60, slot.durationMinutes].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map((mins) => (
+                                <button
+                                  key={mins}
+                                  type="button"
+                                  onClick={() => setSlotDuration(mins)}
+                                  className={`btn btn-sm ${slotDuration === mins ? 'btn-secondary' : 'btn-ghost'}`}
+                                  style={{
+                                    fontSize: '0.70rem',
+                                    padding: '2px 8px',
+                                    height: '24px',
+                                    borderRadius: '12px',
+                                    border: slotDuration === mins ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                                    color: slotDuration === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                                    fontWeight: slotDuration === mins ? 700 : 500,
+                                  }}
+                                >
+                                  {mins === slot.durationMinutes ? `Full Slot (${mins}m)` : `${mins}m`}
+                                </button>
+                              ))}
+
+                              <button
+                                type="button"
+                                onClick={() => setSlotDuration((prev) => Math.max(1, prev - 5))}
+                                className="btn btn-ghost btn-sm"
+                                style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
+                                title="Subtract 5m"
+                              >
+                                -5m
+                              </button>
+                              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: '6px', padding: '2px 6px' }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="300"
+                                  value={slotDuration}
+                                  onChange={(e) => {
+                                    const v = parseInt(e.target.value, 10);
+                                    if (!isNaN(v) && v > 0) setSlotDuration(v);
+                                  }}
+                                  style={{ width: '38px', background: 'transparent', border: 'none', color: 'var(--text-primary)', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.78rem', outline: 'none' }}
+                                />
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>min</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSlotDuration((prev) => Math.min(300, prev + 5))}
+                                className="btn btn-ghost btn-sm"
+                                style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
+                                title="Add 5m"
+                              >
+                                +5m
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setActiveSlotIdx(null)}
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.74rem' }}
+                            >
+                              Cancel
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={!slotTopic.trim()}
+                              onClick={() => handleSaveSlotPlan(slot, false)}
+                              className="btn btn-secondary btn-sm"
+                              style={{ fontSize: '0.74rem', gap: '4px' }}
+                            >
+                              <CheckSquare size={13} />
+                              <span>Save to Schedule</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={!slotTopic.trim()}
+                              onClick={() => handleSaveSlotPlan(slot, true)}
+                              className="btn btn-primary btn-sm"
+                              style={{ fontSize: '0.74rem', gap: '5px' }}
+                            >
+                              <Play size={13} fill="currentColor" />
+                              <span>Start Timer Now ({slotDuration}m)</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
+            {/* Scheduled Revision Blocks Column */}
             <div className="card">
               <div className="card-header-bar">
                 <div>
@@ -937,7 +1394,8 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                 </div>
               </div>
 
-              <form onSubmit={addCustomStudyPlan} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              {/* Add Custom Revision Block Form */}
+              <form onSubmit={(e) => addCustomStudyPlan(e, false)} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <select
                     value={newPlanCourse}
@@ -945,11 +1403,15 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                     className="input-field"
                     style={{ flex: 1, minWidth: '130px', fontSize: '0.80rem' }}
                   >
-                    {courses.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.code} — {c.title}
-                      </option>
-                    ))}
+                    {courses.length > 0 ? (
+                      courses.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} — {c.title}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="GENERAL">General Self-Study</option>
+                    )}
                   </select>
 
                   <input
@@ -971,10 +1433,49 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                     className="input-field"
                     style={{ flex: 1, fontSize: '0.82rem' }}
                   />
-                  <button type="submit" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
-                    <Plus size={14} />
-                    <span>Add</span>
-                  </button>
+                </div>
+
+                {/* Target Timer Duration Selector */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>Timer:</span>
+                    {[15, 25, 30, 45, 60].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => setNewPlanDuration(mins)}
+                        className={`btn btn-sm ${newPlanDuration === mins ? 'btn-secondary' : 'btn-ghost'}`}
+                        style={{
+                          fontSize: '0.70rem',
+                          padding: '1px 6px',
+                          height: '22px',
+                          borderRadius: '10px',
+                          border: newPlanDuration === mins ? '1px solid var(--accent-purple)' : '1px solid var(--border-subtle)',
+                          color: newPlanDuration === mins ? 'var(--accent-purple)' : 'var(--text-secondary)',
+                          fontWeight: newPlanDuration === mins ? 700 : 500,
+                        }}
+                      >
+                        {mins}m
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button type="submit" className="btn btn-secondary btn-sm" style={{ fontSize: '0.74rem', gap: '4px' }}>
+                      <Plus size={13} />
+                      <span>Add Goal</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!newPlanTopic.trim()}
+                      onClick={(e) => addCustomStudyPlan(e, true)}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.74rem', gap: '4px' }}
+                    >
+                      <Play size={12} fill="currentColor" />
+                      <span>Start ({newPlanDuration}m)</span>
+                    </button>
+                  </div>
                 </div>
               </form>
 
@@ -1016,19 +1517,38 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                               <span style={{ color: 'var(--accent-purple)', marginRight: '6px' }}>[{p.courseCode}]</span>
                               {p.topic}
                             </div>
-                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{p.timeSlot}</div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                              <span>{p.timeSlot}</span>
+                              <span>•</span>
+                              <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                                ⏱️ {p.durationMinutes || 25} mins
+                              </span>
+                            </div>
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => deletePlan(p.id)}
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '4px', color: 'var(--accent-crimson)' }}
-                          title="Delete plan"
-                          aria-label="Delete plan"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => startFocusSession(p.courseCode, p.topic, p.durationMinutes || 25)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px 8px', fontSize: '0.72rem', gap: '4px', color: 'var(--accent-cyan)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
+                            title="Start study timer for this topic"
+                          >
+                            <Play size={11} fill="currentColor" />
+                            <span>Start ({p.durationMinutes || 25}m)</span>
+                          </button>
+
+                          <button
+                            onClick={() => deletePlan(p.id)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px', color: 'var(--accent-crimson)' }}
+                            title="Delete plan"
+                            aria-label="Delete plan"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -1117,10 +1637,13 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedCourse(task.courseCode || task.subjectCode || '');
-                          setActiveTab('POMODORO');
-                        }}
+                        onClick={() =>
+                          startFocusSession(
+                            task.courseCode || task.subjectCode || '',
+                            task.headline,
+                            25
+                          )
+                        }
                         className="btn btn-secondary btn-sm"
                         style={{ fontSize: '0.76rem', gap: '6px' }}
                       >

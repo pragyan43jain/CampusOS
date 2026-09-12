@@ -41,7 +41,6 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [step, setStep] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialVal && !username) {
@@ -54,17 +53,13 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loginMode === 'credentials') {
-      if (!username.trim()) {
-        setError('Please enter your university Registration Number.');
-        return;
-      }
-      if (!password.trim()) {
-        setError('Please enter your LMS / Moodle password.');
+      if (!username.trim() || !password.trim()) {
+        setError('Sync Failed');
         return;
       }
     } else {
       if (!sessionCookie.trim()) {
-        setError('Please paste your active MoodleSession cookie value.');
+        setError('Sync Failed');
         return;
       }
     }
@@ -72,7 +67,6 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
-    setStep('Connecting to university Moodle LMS server...');
 
     try {
       const res = await CampusAPI.loginLMS({
@@ -83,23 +77,20 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       });
 
       if (!res.success) {
-        throw new Error(res.message || 'LMS authentication failed.');
+        throw new Error(res.message || 'Sync Failed');
       }
 
-      setStep('Parsing course modules, submissions & deadline logs...');
-      setSuccessMsg('Successfully linked VIT Moodle LMS.');
+      setSuccessMsg('✓ Moodle LMS Connected');
 
       setTimeout(() => {
         onLoginSuccess(res);
         onClose();
       }, 800);
     } catch (err: any) {
-      const errMsg = err?.message || 'Failed to authenticate with LMS.';
-      setError(errMsg);
-      onLoginFailure?.(errMsg);
+      setError('Sync Failed');
+      onLoginFailure?.('Sync Failed');
     } finally {
       setLoading(false);
-      setStep(null);
     }
   };
 
@@ -223,26 +214,6 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
           </div>
         )}
 
-        {step && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.80rem',
-              color: 'var(--accent-cyan)',
-              width: '100%',
-              maxWidth: '100%',
-              boxSizing: 'border-box',
-              whiteSpace: 'normal',
-              wordBreak: 'break-word',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            <RefreshCw size={13} className="animate-spin" style={{ flexShrink: 0 }} />
-            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{step}</span>
-          </div>
-        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -348,10 +319,10 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
             {loading ? (
               <>
                 <RefreshCw size={15} className="animate-spin" />
-                <span>Linking Moodle LMS...</span>
+                <span>Connecting...</span>
               </>
             ) : (
-              <span>Authenticate & Link LMS</span>
+              <span>Connect</span>
             )}
           </button>
         </form>
