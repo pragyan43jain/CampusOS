@@ -37,6 +37,8 @@ interface EnrichedAssignment extends Assignment {
   subject?: string;
   subjectName?: string;
   facultyName?: string;
+  professor?: string;
+  lmsProfessor?: string;
 }
 
 const isAssignmentDone = (a: Assignment): boolean => {
@@ -128,9 +130,16 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   // Flatten & Enrich assignments with verified subject & faculty data
   const allAssignments = useMemo(() => {
-    const findFaculty = (courseCode?: string, courseTitle?: string, fallbackFaculty?: string) => {
-      if (fallbackFaculty && fallbackFaculty.trim() && fallbackFaculty !== 'Faculty unassigned') {
-        return fallbackFaculty.trim();
+    const findFaculty = (
+      courseCode?: string,
+      courseTitle?: string,
+      fallbackFaculty?: string,
+      lmsProfessor?: string,
+      professor?: string
+    ) => {
+      const explicitProf = lmsProfessor || professor || fallbackFaculty;
+      if (explicitProf && explicitProf.trim() && explicitProf !== 'Faculty unassigned') {
+        return explicitProf.trim();
       }
       if (courses && courses.length > 0) {
         const found = courses.find((c) =>
@@ -146,35 +155,64 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     if (dashboard && dashboard.subjects && dashboard.subjects.length > 0) {
       dashboard.subjects.forEach((subj) => {
         subj.assignments.forEach((a) => {
+          const prof = findFaculty(
+            a.courseCode || subj.courseCode,
+            a.courseTitle || subj.courseTitle,
+            a.faculty || subj.faculty,
+            (a as any).lmsProfessor,
+            (a as any).professor
+          );
           list.push({
             ...a,
             subject: subj.courseTitle,
             subjectName: subj.courseTitle,
             courseCode: a.courseCode || subj.courseCode,
-            facultyName: findFaculty(a.courseCode || subj.courseCode, a.courseTitle || subj.courseTitle, a.faculty || subj.faculty),
+            facultyName: prof,
+            professor: prof,
+            lmsProfessor: (a as any).lmsProfessor || prof,
           });
         });
       });
       if (dashboard.unmatchedAssignments) {
         dashboard.unmatchedAssignments.forEach((a) => {
+          const prof = findFaculty(
+            a.courseCode,
+            a.courseTitle,
+            a.faculty,
+            (a as any).lmsProfessor,
+            (a as any).professor
+          );
           list.push({
             ...a,
             subject: a.courseTitle || a.courseCode || 'General Task',
             subjectName: a.courseTitle || a.courseCode || 'General Task',
             courseCode: a.courseCode || 'GENERAL',
-            facultyName: findFaculty(a.courseCode, a.courseTitle, a.faculty),
+            facultyName: prof,
+            professor: prof,
+            lmsProfessor: (a as any).lmsProfessor || prof,
           });
         });
       }
       if (list.length > 0) return list;
     }
-    return (_assignments || []).map((a) => ({
-      ...a,
-      subject: a.courseTitle || a.subject || a.courseCode || 'Course',
-      subjectName: a.courseTitle || a.subject || a.courseCode || 'Course',
-      courseCode: a.courseCode || 'COURSE',
-      facultyName: findFaculty(a.courseCode, a.courseTitle || a.subject, a.faculty),
-    }));
+    return (_assignments || []).map((a) => {
+      const prof = findFaculty(
+        a.courseCode,
+        a.courseTitle || a.subject,
+        a.faculty,
+        (a as any).lmsProfessor,
+        (a as any).professor
+      );
+      return {
+        ...a,
+        subject: a.courseTitle || a.subject || a.courseCode || 'Course',
+        subjectName: a.courseTitle || a.subject || a.courseCode || 'Course',
+        courseCode: a.courseCode || 'COURSE',
+        facultyName: prof,
+        professor: prof,
+        lmsProfessor: (a as any).lmsProfessor || prof,
+      };
+    });
   }, [dashboard, _assignments, courses]);
 
   const handleToggle = (a: EnrichedAssignment) => {
@@ -484,9 +522,16 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                               alignItems: 'center',
                               gap: '4px',
                             }}
+                            title={`Assigned by: ${a.facultyName}`}
                           >
                             <User size={11} />
-                            <span>{a.facultyName}</span>
+                            <span>
+                              {a.source?.toUpperCase().includes('LMS')
+                                ? a.facultyName.startsWith('Dr.') || a.facultyName.startsWith('Prof.')
+                                  ? a.facultyName
+                                  : `Prof. ${a.facultyName}`
+                                : a.facultyName}
+                            </span>
                           </span>
                         )}
                       </div>
@@ -527,8 +572,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                           fontWeight: 550,
                         }}>
                           <User size={12} color="var(--accent-purple)" />
-                          <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>Faculty:</span>
-                          <span>{a.facultyName || 'Faculty unassigned'}</span>
+                          <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>
+                            {a.source?.toUpperCase().includes('LMS') ? 'LMS Professor:' : 'Faculty:'}
+                          </span>
+                          <span>{a.facultyName || a.professor || a.faculty || 'Faculty unassigned'}</span>
                         </span>
                       </div>
 

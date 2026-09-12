@@ -113,11 +113,16 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
 
     submitted_at = teams_item.get("submittedAt") or lms_item.get("submittedAt")
 
+    prof_name = lms_item.get("lmsProfessor") or lms_item.get("faculty") or teams_item.get("faculty")
+
     return {
         "id": f"unified-{teams_item.get('id', '')}-{lms_item.get('id', '')}",
         "courseCode": teams_item.get("courseCode") or lms_item.get("courseCode"),
         "courseTitle": teams_item.get("courseTitle") or lms_item.get("courseTitle"),
-        "faculty": teams_item.get("faculty") or lms_item.get("faculty"),
+        "faculty": prof_name,
+        "facultyName": prof_name,
+        "professor": prof_name,
+        "lmsProfessor": lms_item.get("lmsProfessor") or lms_item.get("faculty"),
         "title": title,
         "description": desc,
         "instructions": desc,
@@ -391,6 +396,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 )
                 continue
 
+        prof_to_use = a.get("lmsProfessor") or a.get("faculty") or a.get("facultyName") or matched_rec.facultyName or "Faculty unassigned"
         raw_assignments.append({
             **a,
             "academicYear": matched_rec.academicYear,
@@ -399,7 +405,11 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
             "subject": matched_rec.courseName,
-            "faculty": matched_rec.facultyName,
+            "faculty": prof_to_use,
+            "facultyName": prof_to_use,
+            "professor": prof_to_use,
+            "lmsProfessor": a.get("lmsProfessor") or (prof_to_use if a.get("source") == "LMS" else None),
+            "instructor": prof_to_use,
             "verified": True,
         })
 
@@ -450,10 +460,14 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         l_id = l_item.get("id")
         if l_id not in used_ids:
             used_ids.add(l_id)
+            prof = l_item.get("lmsProfessor") or l_item.get("faculty") or l_item.get("facultyName")
             deduped_assignments.append({
                 **l_item,
                 "sourceList": ["LMS"],
                 "lmsSubmissionUrl": l_item.get("platformUrl"),
+                "lmsProfessor": prof,
+                "facultyName": prof,
+                "professor": prof,
             })
 
     for o_item in other_items:

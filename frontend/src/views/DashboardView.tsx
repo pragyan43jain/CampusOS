@@ -9,6 +9,7 @@ import {
   Sparkles,
   MessageSquare,
   Clock,
+  User,
 } from 'lucide-react';
 import { StudentProfile, TimetableSlot, DayOfWeek, Assignment } from '../types';
 import { MetricCard } from '../components/MetricCard';
@@ -481,6 +482,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.title}
                 </div>
+
+                {((item as any).lmsProfessor || item.faculty) && ((item as any).lmsProfessor !== 'Faculty unassigned' && item.faculty !== 'Faculty unassigned') && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: 'var(--accent-purple)' }}>
+                    <User size={12} />
+                    <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.source === 'LMS' && !((item as any).lmsProfessor || item.faculty).startsWith('Dr.') && !((item as any).lmsProfessor || item.faculty).startsWith('Prof.') ? 'Prof. ' : ''}
+                      {((item as any).lmsProfessor || item.faculty)}
+                    </span>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', color: 'var(--accent-orange)' }}>
                   <Clock size={13} />

@@ -252,6 +252,10 @@ export interface Assignment {
   courseTitle: string;
   subject?: string;
   faculty?: string;
+  facultyName?: string;
+  professor?: string;
+  lmsProfessor?: string;
+  instructor?: string;
   source: AssignmentPlatform;
   platformName?: string;
   platformUrl?: string;

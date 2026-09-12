@@ -95,8 +95,33 @@ def get_base_code(code: Optional[str]) -> str:
     return norm[:-1] if norm and norm[-1] in ("L", "P", "J") else norm
 
 
+def extract_teacher_from_lms_title(title: str) -> Optional[str]:
+    """Extracts professor/faculty names embedded in LMS course titles or text."""
+    if not title:
+        return None
+    # 1. Look for Dr. / Prof. / Professor / Mr. / Ms. / Mrs.
+    m = re.search(r"(?:Dr\.|Prof\.|Professor|Dr|Prof)\s+([A-Za-z\.\s]+?)(?:[-–_\(\)\[\]\|]|$)", title, re.IGNORECASE)
+    if m:
+        cand = m.group(0).strip(" -–_()[]|")
+        if 4 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["course", "theory", "lab", "fall", "winter", "semester"]):
+            return cand
+    # 2. Look for parenthesized or bracketed teacher name e.g. "(Dr. K. Ramesh)" or "(Ramesh Kumar)"
+    m_par = re.search(r"[\(\[]\s*([A-Za-z\.\s]{4,40})\s*[\)\]]", title)
+    if m_par:
+        cand_par = m_par.group(1).strip()
+        if not any(kw in cand_par.lower() for kw in ["course", "theory", "lab", "fall", "winter", "sem", "slot", "chennai", "vit"]):
+            return cand_par
+    # 3. Look for trailing teacher names like "- Ramesh Kumar"
+    m2 = re.search(r"[-–]\s*([A-Za-z\.\s]{4,40})\s*$", title)
+    if m2:
+        cand2 = m2.group(1).strip()
+        if not any(kw in cand2.lower() for kw in ["theory", "lab", "fall", "winter", "sem", "slot", "chennai", "vit"]):
+            return cand2
+    return None
+
+
 def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List[str]:
-    """Extracts teacher/instructor names from the LMS course view and participants pages."""
+    """Extracts teacher/instructor names from the LMS course view, participants, and assign pages."""
     teachers: List[str] = []
     
     # 1. Main Course View Page
@@ -116,6 +141,12 @@ def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List
                 cand = m.group(1).strip().split("\n")[0].strip()
                 if 3 <= len(cand) < 80:
                     teachers.append(cand)
+            # Check page header or course header text
+            course_h = soup.find(["h1", "h2"], class_=lambda c: c and any(k in str(c).lower() for k in ["course", "header", "title"]))
+            if course_h:
+                t_from_h = extract_teacher_from_lms_title(course_h.get_text())
+                if t_from_h and t_from_h not in teachers:
+                    teachers.append(t_from_h)
     except Exception as exc:
         logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
 
@@ -402,6 +433,10 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
                         c_title = c.get("fullname") or c.get("shortname") or ""
                         contacts = c.get("contacts") or []
                         teachers = [ct.get("fullname") for ct in contacts if ct.get("fullname")]
+                        if not teachers:
+                            t_from_title = extract_teacher_from_lms_title(c_title)
+                            if t_from_title:
+                                teachers.append(t_from_title)
                         if c_id and c_id not in seen_ids and c_id != "1":
                             seen_ids.add(c_id)
                             courses.append({
@@ -431,9 +466,11 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
                 text = a.get_text().strip()
                 if text and len(text) > 3:
                     seen_ids.add(c_id)
+                    t_from_text = extract_teacher_from_lms_title(text)
                     courses.append({
                         "id": c_id,
                         "title": text,
+                        "teachers": [t_from_text] if t_from_text else [],
                         "url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
                     })
     except Exception as exc:
@@ -457,9 +494,11 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
                     if not title or title.lower() in ["home", "dashboard", "courses", "my courses", "site home"]:
                         continue
                     seen_ids.add(c_id)
+                    t_from_title = extract_teacher_from_lms_title(title)
                     courses.append({
                         "id": c_id,
                         "title": title,
+                        "teachers": [t_from_title] if t_from_title else [],
                         "url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
                     })
         except Exception as exc:
@@ -473,6 +512,7 @@ def fetch_assignments_for_lms_course(
     course_id: str,
     course_title: str,
     vtop_course: Dict[str, Any],
+    lms_teachers: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Scrapes assignments strictly scoped to Moodle's course assignments page:
@@ -482,7 +522,8 @@ def fetch_assignments_for_lms_course(
     url = f"{LMS_BASE_URL}/mod/assign/index.php?id={course_id}"
 
     course_code = canonicalize_course_code(vtop_course.get("code") or vtop_course.get("courseCode")) or "LMS"
-    faculty = vtop_course.get("faculty") or vtop_course.get("facultyName") or "Unassigned"
+    lms_prof = (lms_teachers[0] if lms_teachers else None) or vtop_course.get("lmsProfessor") or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
+    faculty = lms_prof
     vtop_title = vtop_course.get("title") or vtop_course.get("courseTitle") or course_title
     semester_name = vtop_course.get("semester") or "Fall Semester 2026-27"
 
@@ -584,6 +625,10 @@ def fetch_assignments_for_lms_course(
                 "courseTitle": vtop_title,
                 "subject": vtop_title,
                 "faculty": faculty,
+                "facultyName": faculty,
+                "professor": faculty,
+                "lmsProfessor": lms_prof,
+                "instructor": faculty,
                 "verified": True,
                 "source": "LMS",
                 "lmsCourseId": str(course_id),
@@ -599,7 +644,7 @@ def fetch_assignments_for_lms_course(
                 "isSubmitted": is_submitted,
                 "priority": "Critical" if is_pending else "Medium",
                 "weightage": 10,
-                "instructions": f"Assigned on VIT LMS ({course_title}).",
+                "instructions": f"Assigned on VIT LMS ({course_title}) by {faculty}.",
                 "matchedLmsCourse": course_title,
             })
     except Exception as exc:
@@ -620,6 +665,11 @@ def _process_single_lms_course(
     c_teachers = list(lms_c.get("teachers") or [])
 
     if not c_teachers:
+        t_from_title = extract_teacher_from_lms_title(c_title)
+        if t_from_title:
+            c_teachers.append(t_from_title)
+
+    if not c_teachers:
         c_teachers = fetch_lms_course_teachers(session, c_id)
 
     is_verified, matched_rec, match_meta = verify_external_course(
@@ -632,17 +682,23 @@ def _process_single_lms_course(
     )
 
     if matched_rec and is_verified:
+        # Authentic LMS professor resolution: prefer LMS-specific teacher, fall back to matched VTOP faculty
+        lms_prof = (c_teachers[0] if c_teachers else None) or matched_rec.facultyName or "Faculty unassigned"
+
         matched_vtop = {
             "code": matched_rec.courseCode,
             "title": matched_rec.courseName,
-            "faculty": matched_rec.facultyName,
+            "faculty": lms_prof,
+            "facultyName": lms_prof,
+            "professor": lms_prof,
+            "lmsProfessor": lms_prof,
             "facultyId": matched_rec.facultyId,
             "slot": matched_rec.slot,
             "section": matched_rec.section,
             "semester": matched_rec.semester,
         }
 
-        sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop)
+        sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop, lms_teachers=c_teachers)
 
         for sa in sub_assignments:
             sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
@@ -650,7 +706,11 @@ def _process_single_lms_course(
             sa["courseCode"] = matched_rec.courseCode
             sa["courseTitle"] = matched_rec.courseName
             sa["subject"] = matched_rec.courseName
-            sa["faculty"] = matched_rec.facultyName
+            sa["faculty"] = lms_prof
+            sa["facultyName"] = lms_prof
+            sa["professor"] = lms_prof
+            sa["lmsProfessor"] = lms_prof
+            sa["instructor"] = lms_prof
             sa["semester"] = matched_rec.semester
             sa["verified"] = True
             sa["source"] = "LMS"
@@ -659,7 +719,8 @@ def _process_single_lms_course(
         matched_summary = {
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
-            "faculty": matched_rec.facultyName,
+            "faculty": lms_prof,
+            "lmsProfessor": lms_prof,
             "lmsCourseId": c_id,
             "lmsCourseName": c_title,
             "assignmentsCount": len(sub_assignments),
