@@ -134,6 +134,7 @@ def login(req: LoginRequest) -> Dict[str, Any]:
 def sync_data(
     sessionId: Optional[str] = Query(None),
     semesterId: Optional[str] = Query(None),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
 ) -> Dict[str, Any]:
     """
     Re-scrape using the existing signed-in session.
@@ -144,7 +145,8 @@ def sync_data(
     string in the store was not ``"Not available"``, which meant it reported
     success while syncing nothing.
     """
-    return client_manager.resync(session_id=sessionId, semester_id=semesterId)
+    resolved_sid = sessionId or x_session_id
+    return client_manager.resync(session_id=resolved_sid, semester_id=semesterId)
 
 
 @router.post("/semester")

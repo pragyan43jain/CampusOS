@@ -723,6 +723,8 @@ export const App: React.FC = () => {
             student={student}
             timetable={timetable}
             assignments={assignments}
+            onSync={handleHeaderSync}
+            syncing={syncing}
             onOpenSyncModal={() => setShowVtopModal(true)}
             teamsAccount={teamsAccount}
             lmsAccount={lmsAccount}
@@ -743,7 +745,7 @@ export const App: React.FC = () => {
             marks={marks}
             exams={exams}
             faculty={faculty}
-            onForceSync={loadAllData}
+            onForceSync={handleHeaderSync}
             syncing={syncing}
           />
         )}

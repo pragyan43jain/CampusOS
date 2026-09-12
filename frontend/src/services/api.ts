@@ -109,10 +109,21 @@ export const fetchWithTimeout = async (
   }
 };
 
-let activeSessionId: string | null = null;
+let activeSessionId: string | null = typeof window !== 'undefined' ? window.localStorage.getItem('campus_active_session_id') : null;
 let activeStudent: StudentProfile | null = null;
 let inFlightLogin: Promise<VtopSyncResponse> | null = null;
 let inFlightSync: Promise<VtopSyncResponse> | null = null;
+
+export const persistSessionId = (sid: string | null) => {
+  activeSessionId = sid;
+  if (typeof window !== 'undefined') {
+    if (sid) {
+      window.localStorage.setItem('campus_active_session_id', sid);
+    } else {
+      window.localStorage.removeItem('campus_active_session_id');
+    }
+  }
+};
 
 export function getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
@@ -169,7 +180,7 @@ export const CampusAPI = {
   },
   getActiveSessionId: () => activeSessionId,
   setActiveSessionId: (sid: string | null) => {
-    activeSessionId = sid;
+    persistSessionId(sid);
   },
   getActiveStudent: () => activeStudent,
   setActiveStudent: (student: StudentProfile | null) => {
@@ -559,7 +570,7 @@ export const CampusAPI = {
     const data = await fetchJson<{ sessionId: string; captchaImage: string; solvedCaptcha: string; campus: string }>(
       `/vtop/captcha?campus=${campus}`
     );
-    if (data && data.sessionId) {
+    if (data && data.sessionId && !activeSessionId) {
       activeSessionId = data.sessionId;
     }
     return data;
@@ -587,7 +598,7 @@ export const CampusAPI = {
         }, 90000);
         const data = await parseSafeJson<VtopSyncResponse>(res);
         if (data && (data as any).sessionId) {
-          activeSessionId = (data as any).sessionId;
+          persistSessionId((data as any).sessionId);
         }
         return data;
       } catch (err: any) {
@@ -618,7 +629,7 @@ export const CampusAPI = {
         }, 90000);
         const data = await parseSafeJson<VtopSyncResponse>(res);
         if (data && (data as any).sessionId) {
-          activeSessionId = (data as any).sessionId;
+          persistSessionId((data as any).sessionId);
         }
         return data;
       } catch (err: any) {
@@ -644,7 +655,7 @@ export const CampusAPI = {
 
   logoutVtop: async () => {
     const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
-    activeSessionId = null;
+    persistSessionId(null);
     return fetchJson<{ success: boolean; message: string }>(`/vtop/logout${q}`, { method: 'POST' }, {
       success: true,
       message: 'Logged out',

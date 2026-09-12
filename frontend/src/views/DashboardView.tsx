@@ -19,6 +19,8 @@ interface DashboardViewProps {
   student: StudentProfile;
   timetable: TimetableSlot[];
   assignments?: Assignment[];
+  onSync?: () => void;
+  syncing?: boolean;
   onOpenSyncModal?: () => void;
   teamsAccount?: any;
   lmsAccount?: any;
@@ -33,6 +35,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   student,
   timetable,
   assignments = [],
+  onSync,
+  syncing = false,
   onOpenSyncModal,
   teamsAccount,
   lmsAccount,
@@ -166,12 +170,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexShrink: 0 }}>
             <button
-              onClick={onOpenSyncModal}
+              onClick={onSync || onOpenSyncModal}
+              disabled={syncing}
               className="btn btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              title="Sync latest academic data directly from VTOP and connected platforms"
             >
-              <RefreshCw size={15} />
-              <span>Sync VTOP Hub</span>
+              <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+              <span>{syncing ? 'Syncing...' : 'Sync VTOP Hub'}</span>
             </button>
           </div>
         </div>
@@ -487,7 +493,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="empty-state-title">No scheduled classes for {dayTitles[selectedDay]}</div>
             <p className="empty-state-desc">
-              Enjoy your study break or use this free time to work on pending assignments and AI study targets.
+              Enjoy your study break or use this free time to work on pending assignments.
             </p>
           </div>
         ) : (
