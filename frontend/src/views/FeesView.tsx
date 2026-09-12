@@ -107,16 +107,16 @@ export const FeesView: React.FC<FeesViewProps> = ({ fees }) => {
           </div>
         ) : (
           <div className="table-responsive-wrapper">
-            <table className="academic-data-table">
+            <table className="academic-data-table table-fees">
               <thead>
                 <tr>
-                  <th>Fee Title</th>
-                  <th>Category / Semester</th>
-                  <th>Total Amount</th>
-                  <th>Paid Amount</th>
-                  <th>Pending Due</th>
-                  <th>Receipt Number</th>
-                  <th>Status</th>
+                  <th style={{ minWidth: 200 }}>Fee Title</th>
+                  <th style={{ minWidth: 140 }}>Category / Semester</th>
+                  <th style={{ minWidth: 120 }}>Total Amount</th>
+                  <th style={{ minWidth: 120 }}>Paid Amount</th>
+                  <th style={{ minWidth: 120 }}>Pending Due</th>
+                  <th style={{ minWidth: 130 }}>Receipt Number</th>
+                  <th style={{ minWidth: 110 }}>Status</th>
                 </tr>
               </thead>
               <tbody>

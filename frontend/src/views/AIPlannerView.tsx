@@ -611,7 +611,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
       </div>
 
       {/* 2. Metrics Row */}
-      <div className="metrics-stat-grid">
+      <div className="metrics-stat-grid metrics-stat-grid-4">
         <MetricCard
           label="Today's Study Sessions"
           value={completedSessions}

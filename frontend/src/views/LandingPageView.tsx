@@ -85,7 +85,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </div>
 
           {/* Center Navigation Links (with underline animation) */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+          <nav className="landing-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
             <a href="#features" className="underline-link">Features</a>
             <a href="#integrations" className="underline-link">Integrations</a>
             <a href="#baby-ai" className="underline-link">BABY Copilot</a>
@@ -104,7 +104,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
       {/* 2. Hero Section (2-Column Layout) */}
       <section style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '60px 32px 40px 32px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '48px', alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '48px', alignItems: 'center' }}>
           {/* Left Column: Heading, Subtitle & CTAs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'fit-content', padding: '6px 14px', borderRadius: 'var(--radius-full)', background: 'rgba(45, 231, 211, 0.08)', border: '1px solid rgba(45, 231, 211, 0.25)' }}>
@@ -275,7 +275,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </div>
 
         {/* Bento Grid (4 Architectural Blocks) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '24px' }}>
           {/* Card 1: 75% Attendance Defense */}
           <div className="caide-layer-card-wrap">
             <div className="caide-card-main">

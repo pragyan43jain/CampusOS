@@ -227,9 +227,9 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="header-title-group">
             <h1 className="header-page-title">{formatViewTitle(activeView)}</h1>
             <div className="header-context-meta">
-              <span>{studentProgram}</span>
-              <span>•</span>
-              <span>{studentSemester}</span>
+              <span className="header-context-program">{studentProgram}</span>
+              <span className="header-context-separator">•</span>
+              <span className="header-context-sem">{studentSemester}</span>
             </div>
           </div>
         </div>

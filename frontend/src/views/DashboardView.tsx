@@ -238,7 +238,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px' }}>
           {/* Teams Integration Box */}
           <div
             style={{
@@ -249,11 +249,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              flexWrap: 'wrap',
               gap: '12px',
               minWidth: 0,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '180px', flex: '1 1 180px' }}>
               <div
                 style={{
                   width: '40px',
@@ -322,11 +323,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              flexWrap: 'wrap',
               gap: '12px',
               minWidth: 0,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '180px', flex: '1 1 180px' }}>
               <div
                 style={{
                   width: '40px',
@@ -380,7 +382,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             ) : (
               <button onClick={onLinkLMS} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
-                Link Moodle
+                Link LMS
               </button>
             )}
           </div>

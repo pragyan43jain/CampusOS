@@ -237,7 +237,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
       {/* === 3.1 PROFILE SUB-TAB === */}
       {activeTab === 'profile' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '24px' }}>
           <div className="card">
             <div className="card-header-bar">
               <h3 className="card-title">
@@ -378,15 +378,15 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               </div>
             ) : (
               <div className="table-responsive-wrapper">
-                <table className="academic-data-table">
+                <table className="academic-data-table table-attendance">
                   <thead>
                     <tr>
-                      <th>Course Code</th>
-                      <th>Course Title</th>
-                      <th>Attended / Conducted</th>
-                      <th>Percentage</th>
-                      <th>Safe Bunks / Recovery</th>
-                      <th>Status</th>
+                      <th style={{ minWidth: '100px' }}>Course Code</th>
+                      <th style={{ minWidth: '200px' }}>Course Title</th>
+                      <th style={{ minWidth: '140px' }}>Attended / Conducted</th>
+                      <th style={{ minWidth: '100px' }}>Percentage</th>
+                      <th style={{ minWidth: '160px' }}>Safe Bunks / Recovery</th>
+                      <th style={{ minWidth: '110px' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -517,17 +517,17 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div className="table-responsive-wrapper">
-                <table className="academic-data-table">
+                <table className="academic-data-table table-marks">
                   <thead>
                     <tr>
-                      <th>Course Code</th>
-                      <th>Course Title</th>
-                      <th>Faculty</th>
-                      <th>CAT 1 Score</th>
-                      <th>CAT 2 Score</th>
-                      <th>FAT / Final</th>
-                      <th>Weightage Scored</th>
-                      <th>Status</th>
+                      <th style={{ minWidth: '95px' }}>Course Code</th>
+                      <th style={{ minWidth: '190px' }}>Course Title</th>
+                      <th style={{ minWidth: '150px' }}>Faculty</th>
+                      <th style={{ minWidth: '110px' }}>CAT 1 Score</th>
+                      <th style={{ minWidth: '110px' }}>CAT 2 Score</th>
+                      <th style={{ minWidth: '110px' }}>FAT / Final</th>
+                      <th style={{ minWidth: '120px' }}>Weightage Scored</th>
+                      <th style={{ minWidth: '95px' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -737,15 +737,15 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
             </div>
           ) : (
             <div className="table-responsive-wrapper">
-              <table className="academic-data-table">
+              <table className="academic-data-table table-exams">
                 <thead>
                   <tr>
-                    <th>Exam Type</th>
-                    <th>Course Code</th>
-                    <th>Course Title</th>
-                    <th>Exam Date</th>
-                    <th>Time</th>
-                    <th>Venue</th>
+                    <th style={{ minWidth: '100px' }}>Exam Type</th>
+                    <th style={{ minWidth: '95px' }}>Course Code</th>
+                    <th style={{ minWidth: '190px' }}>Course Title</th>
+                    <th style={{ minWidth: '110px' }}>Exam Date</th>
+                    <th style={{ minWidth: '100px' }}>Time</th>
+                    <th style={{ minWidth: '130px' }}>Venue</th>
                   </tr>
                 </thead>
                 <tbody>

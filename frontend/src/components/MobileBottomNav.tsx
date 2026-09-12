@@ -59,15 +59,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         right: 0,
         height: 'calc(64px + env(safe-area-inset-bottom, 12px))',
         paddingBottom: 'env(safe-area-inset-bottom, 12px)',
-        backgroundColor: 'rgba(7, 8, 13, 0.94)',
+        backgroundColor: 'var(--surface-header)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.09)',
+        borderTop: '1px solid var(--border-card)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 50,
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.5)',
+        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.25)',
       }}
     >
       {tabs.map((tab) => {

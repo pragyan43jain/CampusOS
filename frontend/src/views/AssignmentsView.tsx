@@ -333,12 +333,12 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           </div>
 
           {/* Status & Sort Dropdowns */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="custom-select-control"
-              style={{ height: '44px' }}
+              style={{ height: '44px', minWidth: '140px' }}
             >
               <option value="ALL">All Statuses</option>
               <option value="PENDING">Pending Only</option>
@@ -349,7 +349,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
               className="custom-select-control"
-              style={{ height: '44px' }}
+              style={{ height: '44px', minWidth: '160px' }}
             >
               <option value="DUE_SOON">Sort: Due Soonest</option>
               <option value="COURSE">Sort: By Course</option>
@@ -438,20 +438,44 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                         )}
                       </div>
 
-                      <div style={{ fontSize: '1.02rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', wordBreak: 'break-word' }}>
+                      <div style={{ fontSize: '1.02rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', wordBreak: 'break-word', lineHeight: 1.4 }}>
                         {a.title}
                       </div>
 
                       {/* Explicit Assignment - Subject - Faculty Details */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.80rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '3px 9px',
+                          borderRadius: '6px',
+                          background: 'rgba(45, 231, 211, 0.08)',
+                          border: '1px solid rgba(45, 231, 211, 0.20)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.78rem',
+                          fontWeight: 550,
+                        }}>
                           <BookOpen size={12} color="var(--accent-cyan)" />
-                          <strong>Subject:</strong> {a.subject || a.courseTitle || a.courseCode || 'General Course'}
+                          <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>Subject:</span>
+                          <span>{a.subject || a.courseTitle || a.courseCode || 'General Course'}</span>
                         </span>
-                        <span>•</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          padding: '3px 9px',
+                          borderRadius: '6px',
+                          background: 'rgba(181, 117, 255, 0.08)',
+                          border: '1px solid rgba(181, 117, 255, 0.20)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.78rem',
+                          fontWeight: 550,
+                        }}>
                           <User size={12} color="var(--accent-purple)" />
-                          <strong>Faculty:</strong> {a.facultyName || 'Faculty unassigned'}
+                          <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>Faculty:</span>
+                          <span>{a.facultyName || 'Faculty unassigned'}</span>
                         </span>
                       </div>
 

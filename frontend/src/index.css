@@ -44,6 +44,18 @@
   --accent-emerald: #10B981;
   --accent-crimson: #F43F5E;
 
+  /* Component / Subsystem Aliases (LeetCode & Dashboards) */
+  --bg-surface: var(--surface-primary);
+  --bg-surface-elevated: var(--surface-elevated);
+  --card-banner-bg: var(--surface-primary);
+  --brand-bg: rgba(45, 231, 211, 0.12);
+  --brand-color: var(--accent-cyan);
+  --danger-bg: rgba(244, 63, 94, 0.12);
+  --danger-border: rgba(244, 63, 94, 0.28);
+  --danger-crimson: var(--accent-crimson);
+  --warning-amber: var(--accent-yellow);
+  --success-emerald: var(--accent-emerald);
+
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, #2DE7D3 0%, #4C8DFF 100%);
   --gradient-hero: linear-gradient(180deg, rgba(22, 24, 38, 0.75) 0%, rgba(12, 14, 23, 0.95) 100%);
@@ -309,6 +321,18 @@
   --accent-emerald: #059669;
   --accent-crimson: #DC2626;
 
+  /* Component Aliases for Paper Light */
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #ECE9E1;
+  --card-banner-bg: #FFFFFF;
+  --brand-bg: rgba(2, 132, 199, 0.10);
+  --brand-color: #0284C7;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --danger-border: rgba(220, 38, 38, 0.22);
+  --danger-crimson: #DC2626;
+  --warning-amber: #D97706;
+  --success-emerald: #059669;
+
   --gradient-primary: linear-gradient(135deg, #0284C7 0%, #2563EB 100%);
   --gradient-hero: linear-gradient(180deg, #FFFFFF 0%, #F5F3ED 100%);
   --gradient-purple: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(37, 99, 235, 0.12) 100%);
@@ -466,10 +490,14 @@ h1, h2, h3, h4, h5, h6,
 .brand-title,
 .hero-heading,
 .card-title,
-.header-page-title,
+.header-page-title {
+  font-family: var(--font-heading, var(--font-sans));
+  letter-spacing: -0.008em;
+}
+
 .stat-card-value {
   font-family: var(--font-heading, var(--font-sans));
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 /* Explicit button reset so no browser user-agent injects white backgrounds */
@@ -775,7 +803,18 @@ a {
   display: flex;
   align-items: center;
   gap: 6px;
-  line-height: 1;
+  line-height: 1.25;
+  min-width: 0;
+  max-width: min(440px, 36vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-context-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right-actions {
@@ -783,6 +822,39 @@ a {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+@media (max-width: 1180px) {
+  .header-sync-btn .sync-btn-label,
+  .theme-toggle-btn .theme-btn-label {
+    display: none !important;
+  }
+  .header-sync-btn {
+    padding: 0 11px;
+    gap: 0;
+  }
+  .theme-toggle-btn {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .header-context-meta {
+    max-width: 260px;
+  }
+}
+
+@media (max-width: 1020px) {
+  .user-profile-reg {
+    display: none !important;
+  }
+  .header-context-meta .header-context-program {
+    display: none !important;
+  }
+  .header-context-meta .header-context-separator {
+    display: none !important;
+  }
+  .app-header {
+    padding: 0 20px;
+  }
 }
 
 /* Divider between actions and user profile */
@@ -1142,6 +1214,16 @@ a {
   box-sizing: border-box;
 }
 
+.metrics-stat-grid.metrics-stat-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .metrics-stat-grid.metrics-stat-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1079px) {
   .metrics-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1149,7 +1231,8 @@ a {
 }
 
 @media (max-width: 767px) {
-  .metrics-stat-grid {
+  .metrics-stat-grid,
+  .metrics-stat-grid.metrics-stat-grid-4 {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1208,25 +1291,29 @@ a {
 }
 
 .stat-card-value {
-  font-size: 2.1rem;
+  font-size: clamp(1.70rem, 2.2vw, 2.1rem);
   font-weight: 800;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
-  line-height: 1.1;
+  line-height: 1.18;
   margin-bottom: 6px;
   font-family: var(--font-sans);
-  white-space: nowrap;
+  word-break: break-word;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .stat-card-subtext {
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   color: var(--text-muted);
   font-weight: 500;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Progress Track */
@@ -1430,14 +1517,33 @@ a {
 .table-responsive-wrapper {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-card);
+  scrollbar-width: thin;
 }
 
 .academic-data-table {
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
   text-align: left;
+}
+
+.academic-data-table.table-marks {
+  min-width: 860px;
+}
+
+.academic-data-table.table-attendance {
+  min-width: 720px;
+}
+
+.academic-data-table.table-exams {
+  min-width: 760px;
+}
+
+.academic-data-table.table-fees {
+  min-width: 780px;
 }
 
 .academic-data-table th {
@@ -1447,18 +1553,19 @@ a {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border-card);
   white-space: nowrap;
 }
 
 .academic-data-table td {
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: 0.94rem;
+  font-size: 0.92rem;
   vertical-align: middle;
-  min-height: 52px;
+  min-height: 48px;
+  line-height: 1.45;
 }
 
 .academic-data-table tbody tr {
@@ -1605,16 +1712,19 @@ a {
   background: var(--surface-primary);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-card);
-  padding: 32px;
+  padding: 30px 32px;
   width: 100%;
-  max-width: min(500px, 94vw);
+  max-width: min(520px, 94vw);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
   position: relative;
   box-sizing: border-box;
-  overflow: hidden;
+  scrollbar-width: thin;
 }
 
 .modal-header-row {
@@ -1841,7 +1951,8 @@ a {
 
 /* Mobile & Touch App Experience */
 @media (max-width: 767px) {
-  .app-sidebar {
+  .app-sidebar,
+  .landing-nav-links {
     display: none !important;
   }
 
