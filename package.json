@@ -4,6 +4,8 @@
   "private": true,
   "description": "CampusOS - Unified Academic Operating System",
   "scripts": {
+    "local": "./start_local.sh",
+    "start:local": "./start_local.sh",
     "dev": "npm --prefix frontend run dev",
     "share": "python3 -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 & npm --prefix frontend run dev & sleep 2 && ./cloudflared tunnel --url http://localhost:5173",
     "build": "npm --prefix frontend install && npm --prefix frontend run build && rm -rf dist && mkdir -p dist && cp -r frontend/dist/* dist/",
