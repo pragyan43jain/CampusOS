@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 import base64
 import json
 from app.storage import empty_store, save_store
+from app.vtop import constants as C
 from app.vtop import scraper
 from app.vtop.ocr import is_ocr_available, solve_captcha_bytes
 from app.vtop.session import VTOPAuthError, VTOPSession
@@ -396,6 +397,30 @@ class VTOPClientManager:
                 except Exception:  # pragma: no cover
                     pass
         return {"success": True, "message": "Signed out of VTOP."}
+
+    def keep_alive(self, session_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Keep the session active by updating the timestamp and pinging VTOP if authenticated.
+        """
+        resolved = session_id or self._authenticated_handle()
+        handle = self._get(resolved)
+        if handle is None:
+            return {"success": False, "authenticated": False, "message": "No active session"}
+
+        handle.touch()
+        if handle.session.is_authenticated:
+            try:
+                handle.session.post_simple(C.SPOTLIGHT)
+                handle.touch()
+            except Exception as exc:
+                logger.warning("[VTOP] Keep-alive ping to VTOP failed: %s", exc)
+
+        return {
+            "success": True,
+            "authenticated": handle.session.is_authenticated,
+            "regNo": handle.reg_no,
+            "message": "Session kept alive",
+        }
 
     # -- helpers -----------------------------------------------------------
 

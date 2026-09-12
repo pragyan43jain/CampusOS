@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   X,
@@ -23,8 +23,26 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [username, setUsername] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [username, setUsername] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_vtop_username') || '';
+    }
+    return '';
+  });
+  const [password, setPassword] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_vtop_password') || '';
+    }
+    return '';
+  });
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_remember_vtop') !== 'false';
+    }
+    return true;
+  });
+  const captchaInputRef = useRef<HTMLInputElement>(null);
+
   const [captcha, setCaptcha] = useState<string>('');
   const [captchaImage, setCaptchaImage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
@@ -74,6 +92,15 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setSuccessMsg('');
       setStatusStep('');
       loadCaptcha(false, false);
+
+      // Auto-focus CAPTCHA field directly when username & password are prefilled
+      const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_username') : '';
+      const savedPass = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_password') : '';
+      if ((username || savedUser) && (password || savedPass)) {
+        setTimeout(() => {
+          captchaInputRef.current?.focus();
+        }, 180);
+      }
     }
   }, [isOpen]);
 
@@ -120,6 +147,18 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         setStatusStep('Extracting Timetable, Attendance & Marks...');
         setSuccessMsg(response.message || `VTOP Synchronized for ${cleanUsername}!`);
         setStatusStep('Sync Complete!');
+
+        if (typeof window !== 'undefined') {
+          if (rememberMe) {
+            localStorage.setItem('campus_vtop_username', cleanUsername);
+            localStorage.setItem('campus_vtop_password', cleanPassword);
+            localStorage.setItem('campus_remember_vtop', 'true');
+          } else {
+            localStorage.removeItem('campus_vtop_username');
+            localStorage.removeItem('campus_vtop_password');
+            localStorage.setItem('campus_remember_vtop', 'false');
+          }
+        }
 
         setTimeout(() => {
           onLoginSuccess(response.data);
@@ -238,9 +277,11 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
           {/* Username or VTOP Nickname */}
           <div className="form-group">
-            <label className="form-label">Username or VTOP Nickname</label>
+            <label className="form-label" htmlFor="vtop-username">Username or VTOP Nickname</label>
             <div style={{ position: 'relative' }}>
               <input
+                id="vtop-username"
+                name="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toUpperCase())}
@@ -258,9 +299,11 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
           {/* Password */}
           <div className="form-group">
-            <label className="form-label">VTOP Password</label>
+            <label className="form-label" htmlFor="vtop-password">VTOP Password</label>
             <div style={{ position: 'relative' }}>
               <input
+                id="vtop-password"
+                name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -284,9 +327,37 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
             </div>
           </div>
 
+          {/* Remember Credentials Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '-4px 0 2px 0' }}>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                fontSize: '0.80rem',
+                color: 'var(--text-secondary)',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ accentColor: 'var(--accent-cyan)', width: '15px', height: '15px', cursor: 'pointer' }}
+              />
+              <span>Remember credentials on this device</span>
+            </label>
+            {rememberMe && username && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                ✓ Auto-filled
+              </span>
+            )}
+          </div>
+
           {/* Verification Captcha */}
           <div className="form-group">
-            <label className="form-label" style={{ marginBottom: '6px' }}>Verification Captcha</label>
+            <label className="form-label" htmlFor="vtop-captcha" style={{ marginBottom: '6px' }}>Verification Captcha</label>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <div
                 style={{
@@ -333,6 +404,9 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
               </button>
 
               <input
+                id="vtop-captcha"
+                name="captcha"
+                ref={captchaInputRef}
                 type="text"
                 value={captcha}
                 onChange={(e) => setCaptcha(e.target.value)}

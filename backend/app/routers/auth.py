@@ -177,6 +177,19 @@ def logout(
     return {**result, "message": "Signed out of VTOP and cleared local data."}
 
 
+@router.get("/keep-alive")
+@router.post("/keep-alive")
+def keep_alive_session(
+    sessionId: Optional[str] = Query(None),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+) -> Dict[str, Any]:
+    """
+    Heartbeat to keep the VTOP session alive both in memory and on the VTOP portal.
+    """
+    resolved_sid = sessionId or x_session_id
+    return client_manager.keep_alive(resolved_sid)
+
+
 # ---------------------------------------------------------------------------
 # read-back of the last sync
 # ---------------------------------------------------------------------------

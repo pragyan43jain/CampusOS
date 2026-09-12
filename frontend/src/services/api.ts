@@ -651,6 +651,19 @@ export const CampusAPI = {
     });
   },
 
+  keepAliveVtop: async () => {
+    const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
+    return fetchJson<{ success: boolean; authenticated: boolean; regNo?: string; message: string }>(
+      `/vtop/keep-alive${q}`,
+      { method: 'POST' },
+      {
+        success: false,
+        authenticated: false,
+        message: 'Keep-alive offline',
+      }
+    );
+  },
+
   // 10. Microsoft Teams Authentication & Coursework Sync
   getTeamsStatus: async () => {
     try {

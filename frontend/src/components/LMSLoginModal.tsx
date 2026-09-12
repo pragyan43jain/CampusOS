@@ -34,8 +34,25 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   const initialVal = initialRegNo || initialUsername;
   const [campus, setCampus] = useState<'chennai' | 'vellore'>('chennai');
   const [loginMode, setLoginMode] = useState<'credentials' | 'session_cookie'>('credentials');
-  const [username, setUsername] = useState(initialVal);
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('campus_lms_saved_username');
+      if (saved) return saved;
+    }
+    return initialVal;
+  });
+  const [password, setPassword] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_lms_saved_password') || '';
+    }
+    return '';
+  });
+  const [rememberMe, setRememberMe] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_lms_remember') !== 'false';
+    }
+    return true;
+  });
   const [sessionCookie, setSessionCookie] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -81,6 +98,18 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       }
 
       setSuccessMsg('✓ Moodle LMS Connected');
+
+      if (typeof window !== 'undefined') {
+        if (rememberMe && loginMode === 'credentials') {
+          localStorage.setItem('campus_lms_saved_username', username.trim().toUpperCase());
+          localStorage.setItem('campus_lms_saved_password', password);
+          localStorage.setItem('campus_lms_remember', 'true');
+        } else {
+          localStorage.removeItem('campus_lms_saved_username');
+          localStorage.removeItem('campus_lms_saved_password');
+          localStorage.setItem('campus_lms_remember', 'false');
+        }
+      }
 
       setTimeout(() => {
         onLoginSuccess(res);
@@ -251,15 +280,18 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
           {loginMode === 'credentials' ? (
             <>
               <div className="form-group">
-                <label className="form-label">Registration Number</label>
+                <label className="form-label" htmlFor="lms-username">Registration Number / Username</label>
                 <div style={{ position: 'relative' }}>
                   <input
+                    id="lms-username"
+                    name="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toUpperCase())}
                     placeholder="e.g. 24BCE1234"
                     className="input-field"
                     style={{ paddingLeft: '38px', fontFamily: 'var(--font-mono)' }}
+                    autoComplete="username"
                     disabled={loading}
                   />
                   <User
@@ -270,15 +302,18 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">LMS Password</label>
+                <label className="form-label" htmlFor="lms-password">LMS Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
+                    id="lms-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter LMS password"
                     className="input-field"
                     style={{ paddingLeft: '38px', paddingRight: '38px' }}
+                    autoComplete="current-password"
                     disabled={loading}
                   />
                   <Lock
@@ -294,6 +329,34 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+              </div>
+
+              {/* Remember Credentials Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '-4px 0 2px 0' }}>
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.80rem',
+                    color: 'var(--text-secondary)',
+                    userSelect: 'none',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    style={{ accentColor: 'var(--accent-cyan)', width: '15px', height: '15px', cursor: 'pointer' }}
+                  />
+                  <span>Remember LMS credentials on this device</span>
+                </label>
+                {rememberMe && username && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                    ✓ Auto-filled
+                  </span>
+                )}
               </div>
             </>
           ) : (

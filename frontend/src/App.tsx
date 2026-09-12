@@ -459,6 +459,20 @@ export const App: React.FC = () => {
     };
   }, [applyRoute]);
 
+  // Periodic Keep-Alive Heartbeat for VTOP session (every 5 minutes)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Run keep-alive ping every 5 minutes to prevent VTOP 15-minute inactivity timeout
+    const interval = setInterval(() => {
+      CampusAPI.keepAliveVtop().catch((err) => {
+        console.debug('[CampusAPI] Keep-alive notice:', err);
+      });
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   const handleSignOut = async () => {
     const currentReg = student?.regNo;
     try {

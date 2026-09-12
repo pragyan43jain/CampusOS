@@ -29,8 +29,25 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   onLoginFailure,
   initialEmail = '',
 }) => {
-  const [email, setEmail] = useState(initialEmail);
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('campus_teams_saved_email');
+      if (saved) return saved;
+    }
+    return initialEmail;
+  });
+  const [password, setPassword] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_teams_saved_password') || '';
+    }
+    return '';
+  });
+  const [rememberMe, setRememberMe] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campus_teams_remember') !== 'false';
+    }
+    return true;
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +87,18 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       }
 
       setSuccessMsg('✓ Microsoft Teams Connected');
+
+      if (typeof window !== 'undefined') {
+        if (rememberMe) {
+          localStorage.setItem('campus_teams_saved_email', email.trim());
+          localStorage.setItem('campus_teams_saved_password', password.trim());
+          localStorage.setItem('campus_teams_remember', 'true');
+        } else {
+          localStorage.removeItem('campus_teams_saved_email');
+          localStorage.removeItem('campus_teams_saved_password');
+          localStorage.setItem('campus_teams_remember', 'false');
+        }
+      }
 
       setTimeout(() => {
         onLoginSuccess(res);
@@ -215,9 +244,11 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div className="form-group">
-            <label className="form-label">Microsoft Student Email</label>
+            <label className="form-label" htmlFor="teams-email">Microsoft Student Email</label>
             <div style={{ position: 'relative' }}>
               <input
+                id="teams-email"
+                name="username"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -235,9 +266,11 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Microsoft 365 Password</label>
+            <label className="form-label" htmlFor="teams-password">Microsoft 365 Password</label>
             <div style={{ position: 'relative' }}>
               <input
+                id="teams-password"
+                name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -260,6 +293,34 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+          </div>
+
+          {/* Remember Credentials Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '-4px 0 2px 0' }}>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                fontSize: '0.80rem',
+                color: 'var(--text-secondary)',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ accentColor: 'var(--accent-cyan)', width: '15px', height: '15px', cursor: 'pointer' }}
+              />
+              <span>Remember Teams credentials on this device</span>
+            </label>
+            {rememberMe && email && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                ✓ Auto-filled
+              </span>
+            )}
           </div>
 
           <button
