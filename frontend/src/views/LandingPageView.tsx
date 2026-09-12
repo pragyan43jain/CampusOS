@@ -12,6 +12,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { RobotCanvas } from '../components/RobotCanvas';
+import { ThemeSwitcher, ThemeType } from '../components/ThemeSwitcher';
 
 interface LandingPageViewProps {
   onOpenLogin?: () => void;
@@ -21,6 +22,8 @@ interface LandingPageViewProps {
   studentName?: string;
   isLoggedIn?: boolean;
   authStatus?: { authenticated: boolean; studentName?: string; regNo?: string };
+  currentTheme?: ThemeType;
+  onSelectTheme?: (theme: ThemeType) => void;
 }
 
 export const LandingPageView: React.FC<LandingPageViewProps> = ({
@@ -31,6 +34,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   studentName: _studentName,
   isLoggedIn: _isLoggedIn,
   authStatus: _authStatus,
+  currentTheme = 'cyber-dark',
+  onSelectTheme,
 }) => {
   const handleLogin = onOpenLogin || onSignIn || (() => {});
   const handleEnter = onEnterApp || onExplore || (() => {});
@@ -52,7 +57,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         style={{
           height: '74px',
           borderBottom: '1px solid var(--border-card)',
-          backgroundColor: 'rgba(7, 8, 13, 0.85)',
+          backgroundColor: 'var(--surface-header)',
           backdropFilter: 'blur(20px)',
           position: 'sticky',
           top: 0,
@@ -94,6 +99,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           {/* Action CTAs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {onSelectTheme && (
+              <ThemeSwitcher
+                currentTheme={currentTheme}
+                onSelectTheme={onSelectTheme}
+              />
+            )}
             <button onClick={handleLogin} className="btn btn-primary btn-sm">
               <span>Sign In (VTOP)</span>
               <ArrowRight size={14} />
@@ -107,7 +118,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '48px', alignItems: 'center' }}>
           {/* Left Column: Heading, Subtitle & CTAs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'fit-content', padding: '6px 14px', borderRadius: 'var(--radius-full)', background: 'rgba(45, 231, 211, 0.08)', border: '1px solid rgba(45, 231, 211, 0.25)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'fit-content', padding: '6px 14px', borderRadius: 'var(--radius-full)', background: 'var(--brand-bg)', border: '1px solid var(--border-highlight)' }}>
               <Sparkles size={14} color="var(--accent-cyan)" />
               <span style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--accent-cyan)', letterSpacing: '0.4px', textTransform: 'uppercase' }}>
                 University Academic Operating System
@@ -127,7 +138,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               Master Your Campus Routine{' '}
               <span
                 style={{
-                  background: 'linear-gradient(135deg, #2DE7D3 0%, #B575FF 100%)',
+                  background: 'var(--gradient-primary)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                 }}
@@ -176,7 +187,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 maxWidth: '460px',
                 height: '380px',
                 borderRadius: 'var(--radius-hero)',
-                background: 'radial-gradient(circle at center, rgba(45, 231, 211, 0.12) 0%, rgba(16, 18, 28, 0.85) 75%)',
+                background: 'radial-gradient(circle at center, var(--brand-bg) 0%, var(--surface-secondary) 75%)',
                 border: '1px solid var(--border-medium)',
                 boxShadow: 'var(--shadow-elevated)',
                 display: 'flex',
@@ -261,7 +272,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* 4. Caide Bento Capability Matrix */}
       <section id="features" style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '60px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: 'var(--radius-full)', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)', marginBottom: '12px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', borderRadius: 'var(--radius-full)', background: 'var(--brand-bg)', border: '1px solid var(--border-highlight)', marginBottom: '12px' }}>
             <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--accent-cyan)' }}>
               Engineered for University Excellence
             </span>
@@ -291,7 +302,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <p style={{ fontSize: '0.90rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px' }}>
                 Automated projection of safe leaves, recovery quotas, and debarment warnings calculated dynamically from verified VTOP attendance counts.
               </p>
-              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', fontSize: '0.80rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-secondary)', border: '1px solid var(--border-subtle)', fontSize: '0.80rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
                 formula: Math.floor((attended - 0.75 * conducted) / 0.75)
               </div>
             </div>

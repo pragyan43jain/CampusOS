@@ -678,6 +678,8 @@ export const App: React.FC = () => {
     return (
       <div data-theme={currentTheme}>
         <LandingPageView
+          currentTheme={currentTheme}
+          onSelectTheme={setCurrentTheme}
           onOpenLogin={() => {
             setShowVtopModal(true);
             if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
