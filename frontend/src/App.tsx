@@ -688,8 +688,6 @@ export const App: React.FC = () => {
         }}
         pendingAssignmentsCount={pendingAssignmentsCount}
         criticalAttendanceCount={criticalAttendanceCount}
-        currentTheme={currentTheme}
-        onSelectTheme={setCurrentTheme}
         onLogout={handleSignOut}
       />
 
