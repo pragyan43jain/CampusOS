@@ -1199,6 +1199,19 @@ a {
   color: var(--text-primary);
   letter-spacing: -0.5px;
   line-height: 1.25;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+.hero-heading.interactive-heading {
+  display: inline-block;
+}
+
+.hero-heading.interactive-heading:hover {
+  opacity: 0.9;
+}
+
+.hero-heading.interactive-heading:active {
+  transform: scale(0.99);
 }
 
 .hero-desc {

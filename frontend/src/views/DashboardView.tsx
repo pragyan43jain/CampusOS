@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Percent,
   GraduationCap,
@@ -14,6 +14,7 @@ import { StudentProfile, TimetableSlot, DayOfWeek, Assignment } from '../types';
 import { MetricCard } from '../components/MetricCard';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
+import { getSessionGreeting, cycleNextGreeting } from '../utils/greeting';
 
 interface DashboardViewProps {
   student: StudentProfile;
@@ -133,6 +134,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const studentDisplayName = formatTitleCase(rawName) || 'Student';
 
+  // Dynamic Claude-inspired greeting state (checks time of day + playful return variations)
+  const [greeting, setGreeting] = useState<string>(() => getSessionGreeting(studentDisplayName));
+
+  useEffect(() => {
+    setGreeting(getSessionGreeting(studentDisplayName));
+  }, [studentDisplayName]);
+
+  const handleCycleGreeting = () => {
+    const next = cycleNextGreeting(greeting, studentDisplayName);
+    setGreeting(next);
+    try {
+      sessionStorage.setItem(`campus_session_greeting_${studentDisplayName}`, next);
+    } catch (e) {}
+  };
+
   const teamsConnected = Boolean(teamsAccount?.connected);
   const teamsFailed = Boolean(teamsAccount?.status === 'failed' || teamsAccount?.failed);
 
@@ -160,8 +176,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
             </div>
 
-            <h1 className="hero-heading" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)', margin: '4px 0 8px 0' }}>
-              Welcome, {studentDisplayName}
+            <h1
+              className="hero-heading interactive-heading"
+              style={{
+                fontSize: 'clamp(1.8rem, 3vw, 2.4rem)',
+                margin: '4px 0 8px 0',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+              onClick={handleCycleGreeting}
+              title="Click to shuffle intro greeting"
+            >
+              {greeting}
             </h1>
             <p className="hero-desc">
               Your centralized academic cockpit tracking class routines, 75% attendance defense buffers, and multi-portal assignments.
