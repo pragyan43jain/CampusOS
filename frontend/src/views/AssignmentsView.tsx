@@ -182,10 +182,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     const nextStatus = isDone ? 'Pending' : 'Submitted';
     onToggleStatus(a.id, isDone ? 'Submitted' : 'Pending');
 
-    if (dashboard && dashboard.subjects) {
+    if (dashboard) {
       setDashboard({
         ...dashboard,
-        subjects: dashboard.subjects.map((s) => ({
+        subjects: (dashboard.subjects || []).map((s) => ({
           ...s,
           assignments: s.assignments.map((item) =>
             item.id === a.id
@@ -200,6 +200,18 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
               : item
           ),
         })),
+        unmatchedAssignments: (dashboard.unmatchedAssignments || []).map((item) =>
+          item.id === a.id
+            ? {
+                ...item,
+                status: nextStatus,
+                displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
+                applicationStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
+                isDone: nextStatus === 'Submitted',
+                isSubmitted: nextStatus === 'Submitted',
+              }
+            : item
+        ),
       });
     }
   };
@@ -227,10 +239,20 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         return true;
       })
       .sort((a, b) => {
+        const doneA = isAssignmentDone(a);
+        const doneB = isAssignmentDone(b);
+
+        // 1. Pending assignments strictly on top, completed assignments strictly at the bottom
+        if (!doneA && doneB) return -1;
+        if (doneA && !doneB) return 1;
+
+        // 2. Secondary sort within the same status partition
         if (sortOrder === 'DUE_SOON') {
-          return (a.dueDate || '').localeCompare(b.dueDate || '');
+          const keyA = (a as any).sortKey || (a.dueDate && a.dueDate.trim() ? a.dueDate.trim() : '9999-99-99');
+          const keyB = (b as any).sortKey || (b.dueDate && b.dueDate.trim() ? b.dueDate.trim() : '9999-99-99');
+          return keyA.localeCompare(keyB);
         }
-        return (a.courseCode || '').localeCompare(b.courseCode || '');
+        return (a.courseCode || a.subject || '').localeCompare(b.courseCode || b.subject || '');
       });
   }, [allAssignments, sourceFilter, statusFilter, searchQuery, sortOrder]);
 
@@ -379,15 +401,46 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {filteredAssignments.map((a) => {
+            {filteredAssignments.map((a, idx) => {
               const isDone = isAssignmentDone(a);
               const isOverdue = !isDone && (Boolean(a.isOverdue) || (a.displayStatus || '').toUpperCase() === 'OVERDUE');
               const isDueSoon = !isDone && !isOverdue && (Boolean(a.isDueSoon) || (a.displayStatus || '').toUpperCase() === 'DUE SOON');
+              const showCompletedHeader = isDone && idx > 0 && !isAssignmentDone(filteredAssignments[idx - 1]);
 
               return (
-                <div
-                  key={a.id}
-                  style={{
+                <React.Fragment key={a.id}>
+                  {showCompletedHeader && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        margin: '14px 0 6px 0',
+                        padding: '10px 4px',
+                        borderTop: '1px dashed var(--border-medium)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          color: 'var(--text-muted)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <CheckCircle2 size={14} color="var(--accent-emerald)" />
+                        Completed &amp; Submitted Tasks ({completedCount})
+                      </span>
+                      <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+                    </div>
+                  )}
+
+                  <div
+                    style={{
                     padding: '20px 24px',
                     borderRadius: 'var(--radius-md)',
                     backgroundColor: 'var(--surface-input)',
@@ -511,8 +564,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                     )}
                   </div>
                 </div>
-              );
-            })}
+              </React.Fragment>
+            );
+          })}
           </div>
         )}
       </div>

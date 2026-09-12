@@ -86,7 +86,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
     const cleanCaptcha = captcha.trim();
 
     if (!cleanUsername) {
-      setErrorMsg('Please enter your VTOP Registration Number');
+      setErrorMsg('Please enter your Username or VTOP Nickname');
       return;
     }
     if (!cleanPassword) {
@@ -130,7 +130,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         const isCaptchaError = /captcha/i.test(msg) || (response as any)?.code === 1;
         const displayError = isCaptchaError
           ? '❌ Invalid CAPTCHA entered. The VTOP portal rejected the characters. A fresh CAPTCHA has been loaded below — please verify and try again.'
-          : (msg || 'Authentication failed. Please check your registration number and password.');
+          : (msg || 'Authentication failed. Please check your username or VTOP nickname and password.');
 
         setErrorMsg(displayError);
 
@@ -236,15 +236,15 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         {/* Form */}
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* Registration Number */}
+          {/* Username or VTOP Nickname */}
           <div className="form-group">
-            <label className="form-label">Registration Number</label>
+            <label className="form-label">Username or VTOP Nickname</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                placeholder="e.g. 24BCE1234"
+                placeholder="Username or VTOP nickname (e.g. 24BCE1234)"
                 className="input-field"
                 style={{ paddingLeft: '38px', fontFamily: 'var(--font-mono)' }}
                 autoComplete="username"
