@@ -105,6 +105,7 @@ interface HeaderProps {
   currentTheme?: ThemeType;
   onSelectTheme?: (t: ThemeType) => void;
   onRefresh?: () => void;
+  onSync?: () => void;
   onOpenVtopModal: () => void;
   syncing: boolean;
   onToggleMobileMenu?: () => void;
@@ -116,6 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeView,
   currentTheme = 'cyber-dark',
   onSelectTheme,
+  onSync,
   onOpenVtopModal,
   syncing,
   onToggleMobileMenu,
@@ -185,32 +187,32 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       <header className="app-header">
         <div className="header-left-block">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {onToggleMobileMenu && (
-              <button
-                onClick={onToggleMobileMenu}
-                className="mobile-hamburger-btn btn btn-ghost btn-sm"
-                aria-label="Open Actions Drawer"
-              >
-                <Menu size={20} />
-              </button>
-            )}
+          {onToggleMobileMenu && (
+            <button
+              onClick={onToggleMobileMenu}
+              className="mobile-hamburger-btn btn btn-ghost btn-sm"
+              aria-label="Open Actions Drawer"
+            >
+              <Menu size={20} />
+            </button>
+          )}
+          <div className="header-title-group">
             <h1 className="header-page-title">{formatViewTitle(activeView)}</h1>
-          </div>
-          <div className="header-context-meta">
-            <span>{studentProgram}</span>
-            <span>•</span>
-            <span>{studentSemester}</span>
+            <div className="header-context-meta">
+              <span>{studentProgram}</span>
+              <span>•</span>
+              <span>{studentSemester}</span>
+            </div>
           </div>
         </div>
 
         <div className="header-right-actions">
-          {/* Sync VTOP Primary Action Button */}
+          {/* Direct Live Sync Button */}
           <button
-            className="btn btn-primary btn-sm header-sync-btn"
-            onClick={onOpenVtopModal}
+            className="btn btn-primary header-sync-btn"
+            onClick={onSync || onOpenVtopModal}
             disabled={syncing}
-            title="Authenticate or synchronize with live VTOP portal"
+            title={syncing ? "Synchronizing academic data..." : "Sync latest grades, attendance, timetable & assignments directly"}
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
             <span className="sync-btn-label">{syncing ? 'Syncing...' : 'Sync'}</span>
@@ -220,14 +222,13 @@ export const Header: React.FC<HeaderProps> = ({
           {onSelectTheme && (
             <div className="theme-menu-container">
               <button
-                className="btn btn-secondary btn-sm"
+                className="theme-toggle-btn"
                 onClick={() => setShowThemeDropdown(!showThemeDropdown)}
                 title="Customize UI Theme & Palette"
                 aria-label="Toggle Theme Menu"
-                style={{ display: 'flex', alignItems: 'center', gap: '7px' }}
               >
                 <Palette size={14} color="var(--accent-cyan)" />
-                <span className="desktop-only-btn" style={{ fontSize: '0.80rem' }}>Theme</span>
+                <span className="theme-btn-label desktop-only-inline">Theme</span>
                 <div
                   className="theme-swatch-badge"
                   style={{
@@ -313,19 +314,20 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
+          <div className="header-divider desktop-only-inline" />
+
           {/* User Profile Capsule */}
           <div
             className="user-profile-capsule"
             onClick={onOpenVtopModal}
-            style={{ cursor: 'pointer' }}
-            title="Click to manage VTOP session & credentials"
+            title="Manage VTOP Portal Session & Credentials"
           >
             <div className="user-avatar-circle">{avatarInitials}</div>
-            <div className="user-profile-text-block" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <div className="user-profile-text-block">
+              <span className="user-profile-name">
                 {studentName.split(' ')[0]}
               </span>
-              <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              <span className="user-profile-reg">
                 {studentRegNo}
               </span>
             </div>
@@ -334,13 +336,12 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Sign Out Button (Desktop Only) */}
           {onLogout && (
             <button
-              className="btn btn-secondary btn-sm desktop-only-btn"
+              className="header-logout-btn desktop-only-inline"
               onClick={onLogout}
               title="Sign out of current session"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              aria-label="Sign out"
             >
-              <LogOut size={13} />
-              <span>Sign Out</span>
+              <LogOut size={14} />
             </button>
           )}
         </div>

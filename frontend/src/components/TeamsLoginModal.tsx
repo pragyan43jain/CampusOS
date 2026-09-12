@@ -10,8 +10,6 @@ import {
   EyeOff,
   Mail,
   Lock,
-  Settings2,
-  Server,
   RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
@@ -38,10 +36,6 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Backend connection settings toggle
-  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
-  const [customApiUrl, setCustomApiUrl] = useState<string>(CampusAPI.getApiBaseUrl());
-
   useEffect(() => {
     if (initialEmail && !email) {
       setEmail(initialEmail);
@@ -52,19 +46,10 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
     if (isOpen) {
       setError(null);
       setSuccessMsg(null);
-      setCustomApiUrl(CampusAPI.getApiBaseUrl());
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
-
-  const handleSaveApiUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    CampusAPI.setCustomApiUrl(customApiUrl);
-    setError(null);
-    setSuccessMsg('API URL updated successfully');
-    setTimeout(() => setSuccessMsg(null), 2000);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,61 +101,11 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              type="button"
-              onClick={() => setShowServerConfig(!showServerConfig)}
-              className="btn btn-ghost btn-sm"
-              style={{ padding: '6px' }}
-              title="Configure Backend API URL"
-              aria-label="Server settings"
-            >
-              <Settings2 size={16} color={showServerConfig ? 'var(--accent-cyan)' : 'var(--text-muted)'} />
-            </button>
             <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '6px' }} aria-label="Close">
               <X size={18} />
             </button>
           </div>
         </div>
-
-        {/* Expandable Server Config Panel */}
-        {showServerConfig && (
-          <div
-            style={{
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-card)',
-              backgroundColor: 'var(--surface-sunken)',
-              border: '1px solid var(--border-subtle)',
-              marginBottom: '10px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              boxSizing: 'border-box',
-              width: '100%',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              <Server size={14} color="var(--accent-cyan)" />
-              <span>CampusOS Backend Endpoint</span>
-            </div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4, wordBreak: 'break-word' }}>
-              When connecting from a deployed web interface, configure your backend URL (e.g. your local or cloud HTTPS endpoint).
-            </p>
-            <form onSubmit={handleSaveApiUrl} style={{ display: 'flex', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
-              <input
-                type="text"
-                value={customApiUrl}
-                onChange={(e) => setCustomApiUrl(e.target.value)}
-                placeholder="http://127.0.0.1:8000/api"
-                className="input-field"
-                style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'var(--font-mono)', minWidth: 0 }}
-              />
-              <button type="submit" className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-                Save
-              </button>
-            </form>
-          </div>
-        )}
 
         {/* Portal info badge */}
         <div

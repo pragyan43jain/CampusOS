@@ -272,6 +272,38 @@ export const App: React.FC = () => {
     }
   };
 
+  // Direct Live Sync Handler (Resyncs through source directly without prompting credentials if already authenticated)
+  const handleHeaderSync = async () => {
+    if (syncing) return;
+    if (!isAuthenticated) {
+      setShowVtopModal(true);
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      // 1. Direct VTOP background re-scrape with existing authenticated session
+      const vtopResult = await CampusAPI.syncVtop();
+      if (vtopResult && vtopResult.success === false && (vtopResult as any).retryable) {
+        // VTOP server indicates session expired -> prompt for fresh credentials
+        setShowVtopModal(true);
+        setSyncing(false);
+        return;
+      }
+
+      // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
+      await CampusAPI.syncAllAcademicAccounts();
+
+      // 3. Reload all student data into React state
+      await loadAllData();
+    } catch (err) {
+      console.warn('Direct live sync notice:', err);
+      await loadAllData();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const applyRoute = useCallback((path: string, overrideAuth?: boolean) => {
     const authed = overrideAuth !== undefined ? overrideAuth : isAuthenticated;
     const route = getRouteFromPath(path);
@@ -667,6 +699,7 @@ export const App: React.FC = () => {
           activeView={activeView}
           currentTheme={currentTheme}
           onSelectTheme={setCurrentTheme}
+          onSync={handleHeaderSync}
           onOpenVtopModal={() => setShowVtopModal(true)}
           onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
