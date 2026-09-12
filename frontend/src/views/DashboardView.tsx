@@ -107,9 +107,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     : 'Sync VTOP profile';
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
-  const studentFirstName = student?.name && student.name !== 'Student' && student.name !== 'Not connected'
-    ? student.name.split(' ')[0]
-    : (student?.regNo && student.regNo !== 'Not available' ? student.regNo : 'Student');
+
+  // Format Name / Username into clean Title Case (e.g. "PRAGYAN" -> "Pragyan")
+  const formatTitleCase = (val: string): string => {
+    if (!val) return '';
+    const clean = val.trim();
+    if (!clean) return '';
+    const first = clean.split(' ')[0];
+    if (/\d/.test(first)) {
+      return first.toUpperCase();
+    }
+    return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+  };
+
+  const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_username') : '';
+  const rawName = (student?.name && student.name !== 'Student' && student.name !== 'Not connected')
+    ? student.name
+    : (student?.regNo && student.regNo !== 'Not available'
+        ? student.regNo
+        : (savedUser || 'Student'));
+
+  const studentDisplayName = formatTitleCase(rawName) || 'Student';
 
   const teamsConnected = Boolean(teamsAccount?.connected);
   const teamsFailed = Boolean(teamsAccount?.status === 'failed' || teamsAccount?.failed);
@@ -139,7 +157,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <h1 className="hero-heading" style={{ fontSize: 'clamp(1.8rem, 3vw, 2.4rem)', margin: '4px 0 8px 0' }}>
-              Good day, {studentFirstName}
+              Welcome, {studentDisplayName}
             </h1>
             <p className="hero-desc">
               Your centralized academic cockpit tracking class routines, 75% attendance defense buffers, and multi-portal assignments.

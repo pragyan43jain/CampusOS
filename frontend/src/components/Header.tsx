@@ -173,8 +173,26 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [showThemeDropdown]);
 
-  const studentName = student?.name || 'Student';
-  const studentRegNo = student?.regNo || 'Sync Required';
+  const formatTitleCase = (val: string): string => {
+    if (!val) return '';
+    const clean = val.trim();
+    if (!clean) return '';
+    const first = clean.split(' ')[0];
+    if (/\d/.test(first)) {
+      return first.toUpperCase();
+    }
+    return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+  };
+
+  const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_username') : '';
+  const rawStudentName = (student?.name && student.name !== 'Student' && student.name !== 'Not connected')
+    ? student.name
+    : (student?.regNo && student.regNo !== 'Not available'
+        ? student.regNo
+        : (savedUser || 'Student'));
+
+  const studentDisplayName = formatTitleCase(rawStudentName) || 'Student';
+  const studentRegNo = student?.regNo || (savedUser && /\d/.test(savedUser) ? savedUser.toUpperCase() : 'Sync Required');
   const studentProgram = student?.program || 'VIT Chennai';
   const studentSemester = student?.semester ? `Semester ${student.semester}` : 'Fall Semester 2026-27';
 
@@ -451,7 +469,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="user-avatar-circle">{avatarInitials}</div>
             <div className="user-profile-text-block">
               <span className="user-profile-name">
-                {studentName.split(' ')[0]}
+                {studentDisplayName}
               </span>
               <span className="user-profile-reg">
                 {studentRegNo}
