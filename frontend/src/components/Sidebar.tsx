@@ -185,12 +185,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   top: 'auto',
                   left: 0,
                   right: 'auto',
-                  width: '240px',
+                  width: '270px',
                 }}
               >
                 <div className="theme-dropdown-header">
-                  <span>Themes</span>
-                  <span style={{ fontSize: '0.66rem' }}>6 Options</span>
+                  <span>Themes & Fonts</span>
+                  <span style={{ fontSize: '0.66rem', fontFamily: 'var(--font-mono)' }}>6 Options</span>
                 </div>
                 <div className="theme-menu-list">
                   {THEMES.map((th) => {
@@ -201,27 +201,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         key={th.id}
                         className={`theme-menu-item ${isSelected ? 'active' : ''}`}
-                        style={{ padding: '6px 10px' }}
+                        style={{ padding: '7px 10px', gap: '8px' }}
                         onClick={() => {
                           onSelectTheme(th.id);
                           setShowThemePicker(false);
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                           <div
-                            className="theme-swatch-badge"
-                            style={{ width: '18px', height: '18px', backgroundColor: th.previewBg }}
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '6px',
+                              backgroundColor: th.previewBg,
+                              border: `1px solid ${isSelected ? th.previewAccent : 'rgba(128,128,128,0.3)'}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              fontFamily: th.fontFamily,
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              color: th.previewText,
+                            }}
                           >
-                            <div
-                              className="theme-swatch-accent-dot"
-                              style={{ width: '7px', height: '7px', backgroundColor: th.previewAccent }}
-                            />
+                            Aa
                           </div>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 650, color: 'var(--text-primary)' }}>
-                            {th.label}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.2 }}>
+                            <span style={{ fontFamily: th.fontFamily, fontSize: '0.80rem', fontWeight: 650, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {th.label}
+                            </span>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--accent-cyan)' }}>
+                              {th.fontName}
+                            </span>
+                          </div>
                         </div>
-                        {isSelected && <Check size={13} color="var(--accent-cyan)" strokeWidth={2.5} />}
+                        {isSelected && <Check size={14} color="var(--accent-cyan)" strokeWidth={2.5} />}
                       </button>
                     );
                   })}

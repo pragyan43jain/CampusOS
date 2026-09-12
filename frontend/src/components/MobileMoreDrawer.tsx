@@ -195,7 +195,7 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       borderRadius: 'var(--radius-md)',
                       backgroundColor: isSelected ? 'var(--surface-active)' : 'var(--surface-secondary)',
                       border: `1px solid ${isSelected ? 'var(--border-highlight)' : 'var(--border-card)'}`,
@@ -205,20 +205,33 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
                     }}
                   >
                     <div
-                      className="theme-swatch-badge"
-                      style={{ width: '20px', height: '20px', backgroundColor: th.previewBg }}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '6px',
+                        backgroundColor: th.previewBg,
+                        border: `1px solid ${isSelected ? th.previewAccent : 'rgba(128,128,128,0.3)'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        fontFamily: th.fontFamily,
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        color: th.previewText,
+                      }}
                     >
-                      <div
-                        className="theme-swatch-accent-dot"
-                        style={{ width: '8px', height: '8px', backgroundColor: th.previewAccent }}
-                      />
+                      Aa
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, lineHeight: 1.15 }}>
+                      <span style={{ fontFamily: th.fontFamily, fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {th.label}
                       </span>
+                      <span style={{ fontSize: '0.64rem', color: 'var(--accent-cyan)' }}>
+                        {th.fontName}
+                      </span>
                     </div>
-                    {isSelected && <Check size={14} color="var(--accent-cyan)" strokeWidth={2.5} />}
+                    {isSelected && <Check size={13} color="var(--accent-cyan)" strokeWidth={2.5} />}
                   </button>
                 );
               })}
