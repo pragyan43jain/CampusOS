@@ -43,12 +43,6 @@ interface CustomStudyPlan {
   completed: boolean;
 }
 
-const MODE_DURATIONS: Record<PomodoroMode, number> = {
-  FOCUS: 25 * 60,
-  SHORT_BREAK: 5 * 60,
-  LONG_BREAK: 15 * 60,
-};
-
 const DAY_NAMES: Record<string, string> = {
   MON: 'Monday',
   TUE: 'Tuesday',
@@ -103,15 +97,66 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'POMODORO' | 'FREE_SLOTS' | 'TASKS'>('POMODORO');
 
-  // --- Pomodoro State ---
+  // --- Pomodoro State with Flexible Durations ---
+  const [focusMinutes, setFocusMinutes] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_focus_minutes');
+      return saved ? parseInt(saved, 10) : 25;
+    } catch {
+      return 25;
+    }
+  });
+
+  const [shortBreakMinutes, setShortBreakMinutes] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_short_break_minutes');
+      return saved ? parseInt(saved, 10) : 5;
+    } catch {
+      return 5;
+    }
+  });
+
+  const [longBreakMinutes, setLongBreakMinutes] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_long_break_minutes');
+      return saved ? parseInt(saved, 10) : 15;
+    } catch {
+      return 15;
+    }
+  });
+
   const [mode, setMode] = useState<PomodoroMode>('FOCUS');
-  const [timeLeft, setTimeLeft] = useState<number>(MODE_DURATIONS.FOCUS);
+  const [totalSeconds, setTotalSeconds] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_focus_minutes');
+      return (saved ? parseInt(saved, 10) : 25) * 60;
+    } catch {
+      return 25 * 60;
+    }
+  });
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_focus_minutes');
+      return (saved ? parseInt(saved, 10) : 25) * 60;
+    } catch {
+      return 25 * 60;
+    }
+  });
+
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [completedSessions, setCompletedSessions] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('campusos_pomodoro_sessions');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [totalFocusMinutes, setTotalFocusMinutes] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_total_focus_minutes');
       return saved ? parseInt(saved, 10) : 0;
     } catch {
       return 0;
@@ -147,11 +192,24 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                 }
                 return updated;
               });
+              setTotalFocusMinutes((m) => {
+                const updated = m + focusMinutes;
+                try {
+                  localStorage.setItem('campusos_total_focus_minutes', updated.toString());
+                } catch {
+                  // ignore
+                }
+                return updated;
+              });
               setMode('SHORT_BREAK');
-              return MODE_DURATIONS.SHORT_BREAK;
+              const breakSec = shortBreakMinutes * 60;
+              setTotalSeconds(breakSec);
+              return breakSec;
             } else {
               setMode('FOCUS');
-              return MODE_DURATIONS.FOCUS;
+              const focusSec = focusMinutes * 60;
+              setTotalSeconds(focusSec);
+              return focusSec;
             }
           }
           return prev - 1;
@@ -162,17 +220,85 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
     }
 
     return () => clearInterval(timerRef.current);
-  }, [isRunning, mode, soundEnabled]);
+  }, [isRunning, mode, soundEnabled, focusMinutes, shortBreakMinutes]);
+
+  const setCustomFocusDuration = (mins: number) => {
+    const valid = Math.max(1, Math.min(300, mins));
+    setFocusMinutes(valid);
+    try {
+      localStorage.setItem('campusos_focus_minutes', valid.toString());
+    } catch {
+      // ignore
+    }
+    if (mode === 'FOCUS' && !isRunning) {
+      setTotalSeconds(valid * 60);
+      setTimeLeft(valid * 60);
+    }
+  };
+
+  const setCustomBreakDuration = (mins: number) => {
+    const valid = Math.max(1, Math.min(60, mins));
+    setShortBreakMinutes(valid);
+    try {
+      localStorage.setItem('campusos_short_break_minutes', valid.toString());
+    } catch {
+      // ignore
+    }
+    if (mode === 'SHORT_BREAK' && !isRunning) {
+      setTotalSeconds(valid * 60);
+      setTimeLeft(valid * 60);
+    }
+  };
+
+  const setCustomLongBreakDuration = (mins: number) => {
+    const valid = Math.max(1, Math.min(120, mins));
+    setLongBreakMinutes(valid);
+    try {
+      localStorage.setItem('campusos_long_break_minutes', valid.toString());
+    } catch {
+      // ignore
+    }
+    if (mode === 'LONG_BREAK' && !isRunning) {
+      setTotalSeconds(valid * 60);
+      setTimeLeft(valid * 60);
+    }
+  };
+
+  const adjustMinutes = (delta: number) => {
+    if (mode === 'FOCUS') {
+      const updated = Math.max(1, Math.min(300, focusMinutes + delta));
+      setCustomFocusDuration(updated);
+    } else if (mode === 'SHORT_BREAK') {
+      const updated = Math.max(1, Math.min(60, shortBreakMinutes + delta));
+      setCustomBreakDuration(updated);
+    } else {
+      const updated = Math.max(1, Math.min(120, longBreakMinutes + delta));
+      setCustomLongBreakDuration(updated);
+    }
+  };
+
+  const extendFiveMinutes = () => {
+    setTimeLeft((prev) => prev + 300);
+    setTotalSeconds((prev) => prev + 300);
+  };
 
   const switchMode = (newMode: PomodoroMode) => {
     setIsRunning(false);
     setMode(newMode);
-    setTimeLeft(MODE_DURATIONS[newMode]);
+    let sec = focusMinutes * 60;
+    if (newMode === 'SHORT_BREAK') sec = shortBreakMinutes * 60;
+    if (newMode === 'LONG_BREAK') sec = longBreakMinutes * 60;
+    setTotalSeconds(sec);
+    setTimeLeft(sec);
   };
 
   const resetTimer = () => {
     setIsRunning(false);
-    setTimeLeft(MODE_DURATIONS[mode]);
+    let sec = focusMinutes * 60;
+    if (mode === 'SHORT_BREAK') sec = shortBreakMinutes * 60;
+    if (mode === 'LONG_BREAK') sec = longBreakMinutes * 60;
+    setTotalSeconds(sec);
+    setTimeLeft(sec);
   };
 
   const formatTime = (seconds: number) => {
@@ -182,9 +308,9 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
   };
 
   const progressPercent = useMemo(() => {
-    const total = MODE_DURATIONS[mode];
-    return Math.min(100, Math.max(0, ((total - timeLeft) / total) * 100));
-  }, [timeLeft, mode]);
+    if (totalSeconds <= 0) return 0;
+    return Math.min(100, Math.max(0, ((totalSeconds - timeLeft) / totalSeconds) * 100));
+  }, [timeLeft, totalSeconds]);
 
   // --- Free-Slot Detection Algorithm ---
   const [selectedDay, setSelectedDay] = useState<string>('MON');
@@ -315,8 +441,6 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
     );
   };
 
-  const totalFocusMinutes = completedSessions * 25;
-
   return (
     <div className="page-container">
       {/* 1. Header Banner */}
@@ -398,14 +522,15 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
       {activeTab === 'POMODORO' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
           <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {/* Mode Selectors */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <button
                 className={`btn btn-sm ${mode === 'FOCUS' ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => switchMode('FOCUS')}
                 style={{ borderRadius: '20px', padding: '6px 14px' }}
               >
                 <Flame size={14} />
-                <span>Focus (25m)</span>
+                <span>Focus ({focusMinutes}m)</span>
               </button>
               <button
                 className={`btn btn-sm ${mode === 'SHORT_BREAK' ? 'btn-primary' : 'btn-ghost'}`}
@@ -413,7 +538,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                 style={{ borderRadius: '20px', padding: '6px 14px' }}
               >
                 <Coffee size={14} />
-                <span>Short Break (5m)</span>
+                <span>Short Break ({shortBreakMinutes}m)</span>
               </button>
               <button
                 className={`btn btn-sm ${mode === 'LONG_BREAK' ? 'btn-primary' : 'btn-ghost'}`}
@@ -421,10 +546,160 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                 style={{ borderRadius: '20px', padding: '6px 14px' }}
               >
                 <Award size={14} />
-                <span>Long Break (15m)</span>
+                <span>Long Break ({longBreakMinutes}m)</span>
               </button>
             </div>
 
+            {/* Flexible Duration Presets & Stepper */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '16px', width: '100%', maxWidth: '380px' }}>
+              {/* Quick Presets */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {mode === 'FOCUS' ? (
+                  [15, 25, 30, 45, 60, 90].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => setCustomFocusDuration(mins)}
+                      className={`btn btn-sm ${focusMinutes === mins ? 'btn-secondary' : 'btn-ghost'}`}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '3px 10px',
+                        borderRadius: '16px',
+                        border: focusMinutes === mins ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                        color: focusMinutes === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                        fontWeight: focusMinutes === mins ? 700 : 500,
+                      }}
+                    >
+                      {mins}m
+                    </button>
+                  ))
+                ) : mode === 'SHORT_BREAK' ? (
+                  [3, 5, 10, 15].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => setCustomBreakDuration(mins)}
+                      className={`btn btn-sm ${shortBreakMinutes === mins ? 'btn-secondary' : 'btn-ghost'}`}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '3px 10px',
+                        borderRadius: '16px',
+                        border: shortBreakMinutes === mins ? '1px solid var(--success-emerald)' : '1px solid var(--border-subtle)',
+                        color: shortBreakMinutes === mins ? 'var(--success-emerald)' : 'var(--text-secondary)',
+                        fontWeight: shortBreakMinutes === mins ? 700 : 500,
+                      }}
+                    >
+                      {mins}m
+                    </button>
+                  ))
+                ) : (
+                  [10, 15, 20, 30].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => setCustomLongBreakDuration(mins)}
+                      className={`btn btn-sm ${longBreakMinutes === mins ? 'btn-secondary' : 'btn-ghost'}`}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '3px 10px',
+                        borderRadius: '16px',
+                        border: longBreakMinutes === mins ? '1px solid var(--success-emerald)' : '1px solid var(--border-subtle)',
+                        color: longBreakMinutes === mins ? 'var(--success-emerald)' : 'var(--text-secondary)',
+                        fontWeight: longBreakMinutes === mins ? 700 : 500,
+                      }}
+                    >
+                      {mins}m
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Custom Minutes Input & Steppers */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Set Minutes:</span>
+                <button
+                  type="button"
+                  onClick={() => adjustMinutes(-5)}
+                  disabled={isRunning}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '2px 8px', height: '26px', fontSize: '0.74rem' }}
+                  title="Subtract 5 mins"
+                >
+                  -5m
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adjustMinutes(-1)}
+                  disabled={isRunning}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '2px 6px', height: '26px', fontSize: '0.74rem' }}
+                  title="Subtract 1 min"
+                >
+                  -1m
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: '6px', padding: '2px 6px' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    max="300"
+                    value={mode === 'FOCUS' ? focusMinutes : mode === 'SHORT_BREAK' ? shortBreakMinutes : longBreakMinutes}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val > 0) {
+                        if (mode === 'FOCUS') setCustomFocusDuration(val);
+                        else if (mode === 'SHORT_BREAK') setCustomBreakDuration(val);
+                        else setCustomLongBreakDuration(val);
+                      }
+                    }}
+                    disabled={isRunning}
+                    style={{
+                      width: '44px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      textAlign: 'center',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
+                      fontSize: '0.86rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>min</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => adjustMinutes(1)}
+                  disabled={isRunning}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '2px 6px', height: '26px', fontSize: '0.74rem' }}
+                  title="Add 1 min"
+                >
+                  +1m
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adjustMinutes(5)}
+                  disabled={isRunning}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '2px 8px', height: '26px', fontSize: '0.74rem' }}
+                  title="Add 5 mins"
+                >
+                  +5m
+                </button>
+
+                {isRunning && (
+                  <button
+                    type="button"
+                    onClick={extendFiveMinutes}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '2px 8px', height: '26px', fontSize: '0.72rem', gap: '3px', color: 'var(--accent-cyan)' }}
+                    title="Add 5 minutes to current session"
+                  >
+                    <Plus size={12} />
+                    <span>+5m more</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Huge Digital Clock Display */}
             <div
               style={{
                 fontSize: 'clamp(3.8rem, 10vw, 5.2rem)',
@@ -433,7 +708,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                 color: mode === 'FOCUS' ? 'var(--accent-cyan)' : 'var(--success-emerald)',
                 letterSpacing: '2px',
                 lineHeight: 1,
-                margin: '12px 0',
+                margin: '8px 0 12px 0',
                 textShadow: mode === 'FOCUS' ? '0 0 24px rgba(6, 182, 212, 0.25)' : '0 0 24px rgba(16, 185, 129, 0.25)',
               }}
             >
