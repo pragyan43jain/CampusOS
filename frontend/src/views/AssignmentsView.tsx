@@ -10,8 +10,9 @@ import {
   CheckSquare,
   Square,
   AlertCircle,
+  User,
 } from 'lucide-react';
-import { Assignment, SubjectAssignmentGroup, UnifiedAssignmentsDashboard } from '../types';
+import { Assignment, SubjectAssignmentGroup, UnifiedAssignmentsDashboard, Course } from '../types';
 import { CampusAPI } from '../services/api';
 import { TeamsLoginModal } from '../components/TeamsLoginModal';
 import { LMSLoginModal } from '../components/LMSLoginModal';
@@ -19,6 +20,7 @@ import { MetricCard } from '../components/MetricCard';
 
 interface AssignmentsViewProps {
   assignments?: Assignment[];
+  courses?: Course[];
   onToggleStatus: (id: string, currentStatus: 'Pending' | 'Submitted') => void;
   onAssignmentsUpdated?: (newAssignments: Assignment[]) => void;
   onLinkTeams?: () => void;
@@ -50,6 +52,7 @@ const isAssignmentDone = (a: Assignment): boolean => {
 
 export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   assignments: _assignments,
+  courses = [],
   onToggleStatus,
   onAssignmentsUpdated,
   onLinkTeams: _onLinkTeams,
@@ -123,8 +126,22 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     }
   };
 
-  // Flatten & Enrich assignments
+  // Flatten & Enrich assignments with verified subject & faculty data
   const allAssignments = useMemo(() => {
+    const findFaculty = (courseCode?: string, courseTitle?: string, fallbackFaculty?: string) => {
+      if (fallbackFaculty && fallbackFaculty.trim() && fallbackFaculty !== 'Faculty unassigned') {
+        return fallbackFaculty.trim();
+      }
+      if (courses && courses.length > 0) {
+        const found = courses.find((c) =>
+          (courseCode && c.code && c.code.toUpperCase() === courseCode.toUpperCase()) ||
+          (courseTitle && c.title && c.title.toLowerCase() === courseTitle.toLowerCase())
+        );
+        if (found?.faculty) return found.faculty;
+      }
+      return fallbackFaculty || 'Faculty unassigned';
+    };
+
     const list: EnrichedAssignment[] = [];
     if (dashboard && dashboard.subjects && dashboard.subjects.length > 0) {
       dashboard.subjects.forEach((subj) => {
@@ -134,7 +151,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             subject: subj.courseTitle,
             subjectName: subj.courseTitle,
             courseCode: a.courseCode || subj.courseCode,
-            facultyName: subj.faculty,
+            facultyName: findFaculty(a.courseCode || subj.courseCode, a.courseTitle || subj.courseTitle, a.faculty || subj.faculty),
           });
         });
       });
@@ -145,7 +162,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             subject: a.courseTitle || a.courseCode || 'General Task',
             subjectName: a.courseTitle || a.courseCode || 'General Task',
             courseCode: a.courseCode || 'GENERAL',
-            facultyName: a.faculty,
+            facultyName: findFaculty(a.courseCode, a.courseTitle, a.faculty),
           });
         });
       }
@@ -156,8 +173,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       subject: a.courseTitle || a.subject || a.courseCode || 'Course',
       subjectName: a.courseTitle || a.subject || a.courseCode || 'Course',
       courseCode: a.courseCode || 'COURSE',
+      facultyName: findFaculty(a.courseCode, a.courseTitle || a.subject, a.faculty),
     }));
-  }, [dashboard, _assignments]);
+  }, [dashboard, _assignments, courses]);
 
   const handleToggle = (a: EnrichedAssignment) => {
     const isDone = isAssignmentDone(a);
@@ -203,7 +221,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           const matchTitle = (a.title || '').toLowerCase().includes(q);
           const matchCourse = (a.courseCode || '').toLowerCase().includes(q);
           const matchSubject = (a.subject || '').toLowerCase().includes(q);
-          if (!matchTitle && !matchCourse && !matchSubject) return false;
+          const matchFaculty = (a.facultyName || '').toLowerCase().includes(q);
+          if (!matchTitle && !matchCourse && !matchSubject && !matchFaculty) return false;
         }
         return true;
       })
@@ -391,7 +410,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                       {isDone ? <CheckSquare size={22} /> : <Square size={22} />}
                     </button>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
                           {a.courseCode || 'COURSE'}
@@ -399,18 +418,44 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                         <span className={`status-badge ${a.source?.toUpperCase().includes('TEAMS') ? 'info' : 'warning'}`}>
                           {a.source?.toUpperCase().includes('TEAMS') ? 'Teams' : 'Moodle LMS'}
                         </span>
-                        {a.subject && (
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            • {a.subject}
+                        {a.facultyName && a.facultyName !== 'Faculty unassigned' && (
+                          <span
+                            style={{
+                              fontSize: '0.74rem',
+                              color: 'var(--accent-purple)',
+                              background: 'rgba(181, 117, 255, 0.10)',
+                              border: '1px solid rgba(181, 117, 255, 0.25)',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <User size={11} />
+                            <span>{a.facultyName}</span>
                           </span>
                         )}
                       </div>
 
-                      <div style={{ fontSize: '1.02rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
+                      <div style={{ fontSize: '1.02rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', wordBreak: 'break-word' }}>
                         {a.title}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: isDone ? 'var(--text-muted)' : isOverdue ? 'var(--accent-crimson)' : isDueSoon ? 'var(--accent-orange)' : 'var(--text-secondary)' }}>
+                      {/* Explicit Assignment - Subject - Faculty Details */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.80rem', color: 'var(--text-secondary)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <BookOpen size={12} color="var(--accent-cyan)" />
+                          <strong>Subject:</strong> {a.subject || a.courseTitle || a.courseCode || 'General Course'}
+                        </span>
+                        <span>•</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <User size={12} color="var(--accent-purple)" />
+                          <strong>Faculty:</strong> {a.facultyName || 'Faculty unassigned'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', color: isDone ? 'var(--text-muted)' : isOverdue ? 'var(--accent-crimson)' : isDueSoon ? 'var(--accent-orange)' : 'var(--text-secondary)', marginTop: '2px' }}>
                         {isOverdue ? <AlertCircle size={13} /> : <Clock size={13} />}
                         <span>
                           {isDone

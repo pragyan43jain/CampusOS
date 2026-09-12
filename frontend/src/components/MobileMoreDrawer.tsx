@@ -6,14 +6,19 @@ import {
   LogOut,
   X,
   ExternalLink,
+  Palette,
+  Check,
 } from 'lucide-react';
 import { NavView } from './Sidebar';
+import { ThemeType, THEMES } from './Header';
 
 interface MobileMoreDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   activeView: NavView;
   onSelectView: (view: NavView) => void;
+  currentTheme?: ThemeType;
+  onSelectTheme?: (t: ThemeType) => void;
   onOpenVtopModal?: () => void;
   onLogout?: () => void;
 }
@@ -23,6 +28,8 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
   onClose,
   activeView,
   onSelectView,
+  currentTheme = 'cyber-dark',
+  onSelectTheme,
   onOpenVtopModal,
   onLogout,
 }) => {
@@ -161,6 +168,63 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
             </div>
           </button>
         </div>
+
+        {/* Appearance & Themes Section */}
+        {onSelectTheme && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.6px' }}>
+                <Palette size={13} color="var(--accent-cyan)" />
+                <span>Theme Appearance</span>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {THEMES.find((t) => t.id === currentTheme || (t.id === 'cyber-dark' && currentTheme === 'midnight-slate'))?.label}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+              {THEMES.map((th) => {
+                const isSelected =
+                  currentTheme === th.id ||
+                  (th.id === 'cyber-dark' && currentTheme === 'midnight-slate');
+                return (
+                  <button
+                    key={th.id}
+                    onClick={() => onSelectTheme(th.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: isSelected ? 'var(--surface-active)' : 'var(--surface-secondary)',
+                      border: `1px solid ${isSelected ? 'var(--border-highlight)' : 'var(--border-card)'}`,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div
+                      className="theme-swatch-badge"
+                      style={{ width: '20px', height: '20px', backgroundColor: th.previewBg }}
+                    >
+                      <div
+                        className="theme-swatch-accent-dot"
+                        style={{ width: '8px', height: '8px', backgroundColor: th.previewAccent }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {th.label}
+                      </span>
+                    </div>
+                    {isSelected && <Check size={14} color="var(--accent-cyan)" strokeWidth={2.5} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Quick Sync & VTOP Portal Action */}
         <div style={{ display: 'flex', gap: '10px' }}>

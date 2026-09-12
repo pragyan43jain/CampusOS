@@ -80,7 +80,13 @@ const getRouteFromPath = (path: string): RouteInfo => {
 
 export const App: React.FC = () => {
   // Navigation & Theme States
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>('midnight-slate');
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('campusos_theme');
+      if (saved) return saved as ThemeType;
+    }
+    return 'cyber-dark';
+  });
   const [authInitializing, setAuthInitializing] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [showLanding, setShowLanding] = useState<boolean>(true);
@@ -111,9 +117,12 @@ export const App: React.FC = () => {
   const [dsaTopics, setDsaTopics] = useState<DSACategory[]>([]);
   const [aiTasks, setAiTasks] = useState<AIStudyTask[]>([]);
 
-  // Apply theme to HTML root
+  // Apply theme to HTML root & persist in localStorage
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', currentTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('campusos_theme', currentTheme);
+    }
   }, [currentTheme]);
 
   // Load academic platform connection statuses (Teams & LMS)
@@ -656,6 +665,8 @@ export const App: React.FC = () => {
         <Header
           student={student}
           activeView={activeView}
+          currentTheme={currentTheme}
+          onSelectTheme={setCurrentTheme}
           onOpenVtopModal={() => setShowVtopModal(true)}
           onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
@@ -695,6 +706,7 @@ export const App: React.FC = () => {
         {activeView === 'assignments' && (
           <AssignmentsView
             assignments={assignments}
+            courses={courses}
             onToggleStatus={handleToggleAssignment}
             onAssignmentsUpdated={(updated) => setAssignments(updated)}
             onLinkTeams={() => setIsTeamsModalOpen(true)}
@@ -801,6 +813,8 @@ export const App: React.FC = () => {
             window.history.pushState(null, '', `/${view}`);
           }
         }}
+        currentTheme={currentTheme}
+        onSelectTheme={setCurrentTheme}
         onOpenVtopModal={() => setShowVtopModal(true)}
         onLogout={handleSignOut}
       />

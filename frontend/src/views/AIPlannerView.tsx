@@ -579,7 +579,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
             </div>
             <h2 className="hero-heading">AI Study Planner &amp; Focus Hub</h2>
             <p className="hero-desc">
-              Harness your detected timetable free slots, plan daily revision blocks, and power through targeted study sprints with the built-in Pomodoro workstation.
+              Harness your detected timetable free slots, plan daily revision blocks, and power through targeted study sprints with the built-in Study workstation.
             </p>
           </div>
 
@@ -590,7 +590,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
               onClick={() => setActiveTab('POMODORO')}
             >
               <Zap size={14} />
-              <span>Pomodoro Station</span>
+              <span>Study Station</span>
             </button>
             <button
               className={`btn btn-sm ${activeTab === 'FREE_SLOTS' ? 'btn-primary' : 'btn-secondary'}`}
@@ -613,9 +613,9 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
       {/* 2. Metrics Row */}
       <div className="metrics-stat-grid">
         <MetricCard
-          label="Today's Pomodoros"
+          label="Today's Study Sessions"
           value={completedSessions}
-          subtext={`${totalFocusMinutes} mins deep work logged`}
+          subtext={`${totalFocusMinutes} mins deep study logged`}
           icon={<Flame size={18} />}
           variant="crimson"
         />
@@ -956,9 +956,9 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
               <div>
                 <h3 className="card-title">
                   <Flame size={19} color="var(--accent-crimson)" />
-                  <span>Pomodoro Technique Guidelines</span>
+                  <span>Deep Study Guidelines</span>
                 </h3>
-                <p className="card-description">Science-backed 25-minute intervals designed to eliminate exam cramming.</p>
+                <p className="card-description">Science-backed focus intervals designed to eliminate exam cramming.</p>
               </div>
             </div>
 
@@ -966,7 +966,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
               <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
                 <span style={{ fontSize: '1.2rem' }}>🎯</span>
                 <div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>1 Goal Per Pomodoro</div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>1 Goal Per Study Session</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                     Pick one concrete module topic (e.g. solve 3 Dynamic Programming problems or read Module 2 lecture notes).
                   </div>
@@ -1648,7 +1648,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                         style={{ fontSize: '0.76rem', gap: '6px' }}
                       >
                         <Zap size={13} color="var(--accent-cyan)" />
-                        <span>Start Pomodoro</span>
+                        <span>Start Study Session</span>
                       </button>
 
                       <span className={`status-badge ${isDone ? 'safe' : 'neutral'}`}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RefreshCw,
   Smartphone,
@@ -6,14 +6,104 @@ import {
   Menu,
   X,
   LogOut,
+  Palette,
+  Check,
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 
-export type ThemeType = 'midnight-slate' | 'chaingpt-cyber' | 'baby-pink' | 'nordic-blue';
+export type ThemeType =
+  | 'cyber-dark'
+  | 'midnight-sapphire'
+  | 'emerald-forest'
+  | 'sunset-amber'
+  | 'nordic-frost'
+  | 'paper-light'
+  | 'midnight-slate'
+  | 'chaingpt-cyber'
+  | 'baby-pink'
+  | 'nordic-blue';
+
+export interface ThemeOption {
+  id: ThemeType;
+  label: string;
+  description: string;
+  previewBg: string;
+  previewCard: string;
+  previewAccent: string;
+  previewSecondary: string;
+  badge?: string;
+  isLight?: boolean;
+}
+
+export const THEMES: ThemeOption[] = [
+  {
+    id: 'cyber-dark',
+    label: 'Cyber Obsidian',
+    description: 'Deep pitch black with neon cyan and electric blue accents',
+    previewBg: '#07080D',
+    previewCard: '#10121C',
+    previewAccent: '#2DE7D3',
+    previewSecondary: '#4C8DFF',
+    badge: 'Default',
+  },
+  {
+    id: 'midnight-sapphire',
+    label: 'Midnight Sapphire',
+    description: 'Oceanic deep navy with vibrant sky blue and indigo tones',
+    previewBg: '#060B18',
+    previewCard: '#0F1A36',
+    previewAccent: '#38BDF8',
+    previewSecondary: '#6366F1',
+    badge: 'Popular',
+  },
+  {
+    id: 'emerald-forest',
+    label: 'Emerald Forest',
+    description: 'Cognitive focus deep forest slate with restorative emerald green',
+    previewBg: '#040E0A',
+    previewCard: '#0D221A',
+    previewAccent: '#10B981',
+    previewSecondary: '#06B6D4',
+    badge: 'Focus',
+  },
+  {
+    id: 'sunset-amber',
+    label: 'Sunset Amber',
+    description: 'Warm twilight violet with glowing amber gold and synthwave rose',
+    previewBg: '#0E0916',
+    previewCard: '#1D142E',
+    previewAccent: '#F59E0B',
+    previewSecondary: '#EC4899',
+    badge: 'Warm',
+  },
+  {
+    id: 'nordic-frost',
+    label: 'Nordic Frost',
+    description: 'Arctic dark slate with clean ice cyan and polar blue',
+    previewBg: '#0F141C',
+    previewCard: '#1C2533',
+    previewAccent: '#88C0D0',
+    previewSecondary: '#81A1C1',
+    badge: 'Minimal',
+  },
+  {
+    id: 'paper-light',
+    label: 'Paper Daylight',
+    description: 'Crisp, clean high-contrast daylight mode for study halls',
+    previewBg: '#F8FAFC',
+    previewCard: '#FFFFFF',
+    previewAccent: '#0284C7',
+    previewSecondary: '#2563EB',
+    badge: 'Light',
+    isLight: true,
+  },
+];
 
 interface HeaderProps {
   student: StudentProfile;
   activeView: string;
+  currentTheme?: ThemeType;
+  onSelectTheme?: (t: ThemeType) => void;
   onRefresh?: () => void;
   onOpenVtopModal: () => void;
   syncing: boolean;
@@ -24,12 +114,34 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   student,
   activeView,
+  currentTheme = 'cyber-dark',
+  onSelectTheme,
   onOpenVtopModal,
   syncing,
   onToggleMobileMenu,
   onLogout,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
+  const [showThemeDropdown, setShowThemeDropdown] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!showThemeDropdown) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowThemeDropdown(false);
+    };
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.theme-menu-container')) {
+        setShowThemeDropdown(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showThemeDropdown]);
 
   const studentName = student?.name || 'Student';
   const studentRegNo = student?.regNo || 'Sync Required';
@@ -65,6 +177,10 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const activeThemeObj = THEMES.find(
+    (t) => t.id === currentTheme || (t.id === 'cyber-dark' && currentTheme === 'midnight-slate')
+  ) || THEMES[0];
+
   return (
     <>
       <header className="app-header">
@@ -99,6 +215,103 @@ export const Header: React.FC<HeaderProps> = ({
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
             <span className="sync-btn-label">{syncing ? 'Syncing...' : 'Sync'}</span>
           </button>
+
+          {/* Theme Switcher Button & Dropdown */}
+          {onSelectTheme && (
+            <div className="theme-menu-container">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowThemeDropdown(!showThemeDropdown)}
+                title="Customize UI Theme & Palette"
+                aria-label="Toggle Theme Menu"
+                style={{ display: 'flex', alignItems: 'center', gap: '7px' }}
+              >
+                <Palette size={14} color="var(--accent-cyan)" />
+                <span className="desktop-only-btn" style={{ fontSize: '0.80rem' }}>Theme</span>
+                <div
+                  className="theme-swatch-badge"
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    borderWidth: '1px',
+                    backgroundColor: activeThemeObj.previewBg,
+                  }}
+                >
+                  <div
+                    className="theme-swatch-accent-dot"
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      backgroundColor: activeThemeObj.previewAccent,
+                    }}
+                  />
+                </div>
+              </button>
+
+              {showThemeDropdown && (
+                <div className="theme-dropdown-glass">
+                  <div className="theme-dropdown-header">
+                    <span>Display Themes</span>
+                    <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>6 PALETTES</span>
+                  </div>
+                  <div className="theme-menu-list">
+                    {THEMES.map((th) => {
+                      const isSelected =
+                        currentTheme === th.id ||
+                        (th.id === 'cyber-dark' && currentTheme === 'midnight-slate');
+                      return (
+                        <button
+                          key={th.id}
+                          className={`theme-menu-item ${isSelected ? 'active' : ''}`}
+                          onClick={() => {
+                            onSelectTheme(th.id);
+                            setShowThemeDropdown(false);
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              className="theme-swatch-badge"
+                              style={{ backgroundColor: th.previewBg }}
+                            >
+                              <div
+                                className="theme-swatch-accent-dot"
+                                style={{ backgroundColor: th.previewAccent }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {th.label}
+                                </span>
+                                {th.badge && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.65rem',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      background: isSelected ? 'var(--accent-cyan)' : 'var(--surface-hover)',
+                                      color: isSelected ? 'var(--text-inverse)' : 'var(--text-muted)',
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {th.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {th.description}
+                              </span>
+                            </div>
+                          </div>
+                          {isSelected && <Check size={14} color="var(--accent-cyan)" strokeWidth={2.5} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* User Profile Capsule */}
           <div

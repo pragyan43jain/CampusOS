@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -8,11 +8,13 @@ import {
   BrainCircuit,
   Zap,
   LogOut,
+  Palette,
+  Check,
 } from 'lucide-react';
 
 export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
 
-import { ThemeType } from "./Header";
+import { ThemeType, THEMES } from "./Header";
 
 interface SidebarProps {
   activeView: NavView;
@@ -29,8 +31,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectView,
   pendingAssignmentsCount,
   criticalAttendanceCount,
+  currentTheme = 'cyber-dark',
+  onSelectTheme,
   onLogout,
 }) => {
+  const [showThemePicker, setShowThemePicker] = useState<boolean>(false);
+  const activeThemeObj = THEMES.find(
+    (t) => t.id === currentTheme || (t.id === 'cyber-dark' && currentTheme === 'midnight-slate')
+  ) || THEMES[0];
+
   const mainNavItems = [
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
     {
@@ -122,8 +131,106 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Footer / Sign Out Action */}
+      {/* Footer / Theme Switcher & Sign Out Action */}
       <div className="sidebar-footer-block" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {onSelectTheme && (
+          <div style={{ position: 'relative' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 12px',
+                height: '36px',
+              }}
+              onClick={() => setShowThemePicker(!showThemePicker)}
+              title="Switch CampusOS Theme"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <Palette size={14} color="var(--accent-cyan)" />
+                <span style={{ fontSize: '0.80rem', fontWeight: 600 }}>Theme</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  {activeThemeObj.label.split(' ')[0]}
+                </span>
+                <div
+                  className="theme-swatch-badge"
+                  style={{
+                    width: '13px',
+                    height: '13px',
+                    borderWidth: '1px',
+                    backgroundColor: activeThemeObj.previewBg,
+                  }}
+                >
+                  <div
+                    className="theme-swatch-accent-dot"
+                    style={{
+                      width: '5px',
+                      height: '5px',
+                      backgroundColor: activeThemeObj.previewAccent,
+                    }}
+                  />
+                </div>
+              </div>
+            </button>
+
+            {showThemePicker && (
+              <div
+                className="theme-dropdown-glass"
+                style={{
+                  bottom: 'calc(100% + 8px)',
+                  top: 'auto',
+                  left: 0,
+                  right: 'auto',
+                  width: '240px',
+                }}
+              >
+                <div className="theme-dropdown-header">
+                  <span>Themes</span>
+                  <span style={{ fontSize: '0.66rem' }}>6 Options</span>
+                </div>
+                <div className="theme-menu-list">
+                  {THEMES.map((th) => {
+                    const isSelected =
+                      currentTheme === th.id ||
+                      (th.id === 'cyber-dark' && currentTheme === 'midnight-slate');
+                    return (
+                      <button
+                        key={th.id}
+                        className={`theme-menu-item ${isSelected ? 'active' : ''}`}
+                        style={{ padding: '6px 10px' }}
+                        onClick={() => {
+                          onSelectTheme(th.id);
+                          setShowThemePicker(false);
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            className="theme-swatch-badge"
+                            style={{ width: '18px', height: '18px', backgroundColor: th.previewBg }}
+                          >
+                            <div
+                              className="theme-swatch-accent-dot"
+                              style={{ width: '7px', height: '7px', backgroundColor: th.previewAccent }}
+                            />
+                          </div>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 650, color: 'var(--text-primary)' }}>
+                            {th.label}
+                          </span>
+                        </div>
+                        {isSelected && <Check size={13} color="var(--accent-cyan)" strokeWidth={2.5} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {onLogout && (
           <button
             className="btn btn-ghost btn-sm"
