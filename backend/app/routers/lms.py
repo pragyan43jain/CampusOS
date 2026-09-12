@@ -16,12 +16,13 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import load_store, save_store
+from app.storage import empty_store, load_store, save_store
+from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
@@ -723,9 +724,32 @@ def fetch_vit_lms_coursework(
 
 
 @router.get("/status")
-def get_lms_status() -> Dict[str, Any]:
-    """Returns the verified connection status of VIT LMS."""
-    store = load_store()
+def get_lms_status(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Returns the verified connection status of VIT LMS for the active student."""
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "connected": False,
+            "username": None,
+            "displayName": None,
+            "portalUrl": LMS_BASE_URL,
+            "lastSynced": None,
+            "totalAssignments": 0,
+            "pendingCount": 0,
+            "submittedCount": 0,
+            "matchedSubjects": [],
+            "matchedCount": 0,
+            "totalCoursesCount": 0,
+            "courseMatches": [],
+            "status": "disconnected",
+        }
+
+    store = load_store(reg)
     is_connected = bool(store.get("lmsConnected"))
     account = store.get("lmsAccount") or {}
     assignments = store.get("assignments") or []
@@ -755,18 +779,29 @@ def get_lms_status() -> Dict[str, Any]:
 
 
 @router.post("/login")
-def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
+def login_and_sync_lms(
+    payload: LMSLoginRequest,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+) -> Dict[str, Any]:
     """
     Connects to VIT LMS, validates credentials or session cookie,
     matches courses with student's current semester VTOP subjects,
-    and extracts authentic assignments.
+    and extracts authentic assignments without touching other students' data.
     """
     try:
+        # Determine the student regNo for this LMS session
+        reg = resolve_student_reg(x_session_id, x_reg_no)
+        if not reg and payload.username:
+            clean_u = payload.username.strip().split("@")[0].upper()
+            if any(c.isdigit() for c in clean_u) and len(clean_u) >= 6:
+                reg = clean_u
+
         session, auth_info = authenticate_lms_session(
             payload.username, payload.password, payload.sessionCookie, payload.campus
         )
 
-        store = load_store()
+        store = load_store(reg) if reg else empty_store()
         vtop_courses = list(store.get("courses") or [])
 
         current_sem = (store.get("selectedSemester") or {}).get("name")
@@ -795,7 +830,8 @@ def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
             "courseMatches": course_matches,
         }
 
-        save_store(store)
+        if reg:
+            save_store(store, reg)
 
         submitted = [
             a for a in assignments
@@ -834,9 +870,21 @@ def login_and_sync_lms(payload: LMSLoginRequest) -> Dict[str, Any]:
 
 
 @router.post("/sync")
-def sync_lms() -> Dict[str, Any]:
+def sync_lms(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """Re-synchronizes authentic coursework from VIT LMS."""
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        raise HTTPException(
+            status_code=400,
+            detail="Student registration number or active session is required to sync LMS.",
+        )
+
+    store = load_store(reg)
     if not store.get("lmsConnected"):
         raise HTTPException(
             status_code=400,
@@ -871,7 +919,7 @@ def sync_lms() -> Dict[str, Any]:
         account["courseMatches"] = course_matches
         store["lmsAccount"] = account
 
-        save_store(store)
+        save_store(store, reg)
 
         return {
             "success": True,
@@ -898,13 +946,19 @@ def sync_lms() -> Dict[str, Any]:
 
 
 @router.post("/disconnect")
-def disconnect_lms() -> Dict[str, Any]:
-    """Disconnects VIT LMS and removes synced LMS coursework."""
-    store = load_store()
-    existing_assignments = store.get("assignments") or []
-    store["assignments"] = [a for a in existing_assignments if a.get("source") != "LMS"]
-    store["lmsConnected"] = False
-    store["lmsAccount"] = None
-
-    save_store(store)
+def disconnect_lms(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Disconnects VIT LMS and removes synced LMS coursework for the active student."""
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if reg:
+        store = load_store(reg)
+        existing_assignments = store.get("assignments") or []
+        store["assignments"] = [a for a in existing_assignments if a.get("source") != "LMS"]
+        store["lmsConnected"] = False
+        store["lmsAccount"] = None
+        save_store(store, reg)
     return {"success": True, "message": "VIT LMS disconnected successfully."}

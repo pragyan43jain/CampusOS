@@ -16,7 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 
-from app.storage import load_store, save_store
+from app.storage import empty_store, load_store, save_store
+from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
@@ -648,7 +649,30 @@ def get_academic_accounts_status(
     """
     Returns connection status and metadata for all connected academic platforms.
     """
-    reg = regNo or x_reg_no
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "currentSemester": {"name": None, "id": None},
+            "teams": {
+                "connected": False,
+                "status": "disconnected",
+                "email": None,
+                "displayName": None,
+                "lastSynced": None,
+                "matchedCount": 0,
+                "portalUrl": "https://www.microsoft.com/en-in/microsoft-teams/log-in",
+            },
+            "lms": {
+                "connected": False,
+                "status": "disconnected",
+                "username": None,
+                "displayName": None,
+                "lastSynced": None,
+                "matchedCount": 0,
+                "portalUrl": "https://lms.vit.ac.in",
+            },
+        }
+
     store = load_store(reg)
     teams_connected = bool(store.get("teamsConnected"))
     lms_connected = bool(store.get("lmsConnected"))
@@ -685,21 +709,40 @@ def get_academic_accounts_status(
 
 
 @router.get("/assignments/unified")
-def get_unified_assignments() -> Dict[str, Any]:
+def get_unified_assignments(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Returns the unified subject-centric assignment dashboard for the current semester.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     return build_unified_assignment_dashboard(store)
 
 
 @router.post("/academic-accounts/sync-all")
-def sync_all_academic_accounts() -> Dict[str, Any]:
+def sync_all_academic_accounts(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Re-synchronizes all connected academic platforms (Teams + LMS)
     and returns the updated unified assignment dashboard.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "success": False,
+            "message": "Student registration number or active session is required to sync accounts.",
+            "dashboard": build_unified_assignment_dashboard(empty_store()),
+        }
+
+    store = load_store(reg)
     synced_sources = []
     errors = []
 
@@ -707,7 +750,7 @@ def sync_all_academic_accounts() -> Dict[str, Any]:
     if store.get("teamsConnected"):
         try:
             from app.routers.teams import sync_teams
-            sync_teams()
+            sync_teams(x_session_id, x_reg_no, sessionId, regNo)
             synced_sources.append("Microsoft Teams")
         except Exception as e:
             logger.warning("Teams sync error during sync-all: %s", e)
@@ -717,13 +760,13 @@ def sync_all_academic_accounts() -> Dict[str, Any]:
     if store.get("lmsConnected"):
         try:
             from app.routers.lms import sync_lms
-            sync_lms()
+            sync_lms(x_session_id, x_reg_no, sessionId, regNo)
             synced_sources.append("VIT LMS")
         except Exception as e:
             logger.warning("LMS sync error during sync-all: %s", e)
             errors.append(f"VIT LMS: {e}")
 
-    updated_store = load_store()
+    updated_store = load_store(reg)
     dashboard = build_unified_assignment_dashboard(updated_store)
 
     msg = f"Synchronized across {', '.join(synced_sources)}." if synced_sources else "No external accounts connected to synchronize."
@@ -742,20 +785,34 @@ class AssignmentStatusUpdateRequest(BaseModel):
 
 
 @router.get("/assignments")
-def get_all_assignments_endpoint() -> List[Dict[str, Any]]:
+def get_all_assignments_endpoint(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
     """
-    Returns all assignments in store.
+    Returns all assignments in store for the active student.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     return store.get("assignments") or []
 
 
 @router.post("/assignments/{assignment_id}/status")
-def update_assignment_status_endpoint(assignment_id: str, payload: AssignmentStatusUpdateRequest) -> Dict[str, Any]:
+def update_assignment_status_endpoint(
+    assignment_id: str,
+    payload: AssignmentStatusUpdateRequest,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Updates the completion status of an assignment in the store.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     assignments = list(store.get("assignments") or [])
     new_status = payload.status
     is_done = new_status.upper() in ("SUBMITTED", "DONE", "COMPLETED")
@@ -793,5 +850,9 @@ def update_assignment_status_endpoint(assignment_id: str, payload: AssignmentSta
         new_assignments.append(updated_assignment)
 
     store["assignments"] = new_assignments
-    save_store(store)
-    return updated_assignment or {}
+    if reg:
+        save_store(store, reg)
+    return {
+        "success": True,
+        "assignment": updated_assignment,
+    }

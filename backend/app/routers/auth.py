@@ -542,29 +542,59 @@ def get_vtop_fees(
 
 
 @router.get("/spotlight")
-def get_vtop_spotlight() -> List[Dict[str, Any]]:
-    return load_store().get("spotlight") or []
+def get_vtop_spotlight(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("spotlight") or []
 
 
 @router.get("/proctor")
-def get_vtop_proctor() -> Optional[Dict[str, Any]]:
-    return load_store().get("proctor")
+def get_vtop_proctor(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Optional[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("proctor")
 
 
 @router.get("/dean-hod")
-def get_vtop_dean_hod() -> List[Dict[str, Any]]:
-    return load_store().get("deanHod") or []
+def get_vtop_dean_hod(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("deanHod") or []
 
 
 @router.get("/assignments")
-def get_vtop_assignments() -> List[Dict[str, Any]]:
-    return load_store().get("assignments") or []
+def get_vtop_assignments(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("assignments") or []
 
 
 @router.get("/semesters")
-def get_semesters() -> Dict[str, Any]:
+def get_semesters(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """The semester dropdown, and which one the stored data belongs to."""
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     return {
         "semesters": store.get("semesters") or [],
         "selected": store.get("selectedSemester"),
@@ -572,17 +602,17 @@ def get_semesters() -> Dict[str, Any]:
 
 
 @router.get("/sync-report")
-def get_sync_report() -> Dict[str, Any]:
+def get_sync_report(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
     Per-module outcome of the last sync.
-
-    The point of this route is that ``empty`` and ``failed`` are different: "no
-    exams are scheduled" and "we could not read your exams" look identical on a
-    dashboard unless something says which happened. ``registry`` additionally
-    reports slot-binding conflicts, which is where a wrong course attribution
-    would show up first.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     return {
         "syncReport": store.get("syncReport"),
         "registry": store.get("registry"),
@@ -591,16 +621,31 @@ def get_sync_report() -> Dict[str, Any]:
 
 
 @router.get("/status")
-def get_status() -> Dict[str, Any]:
+def get_status(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
-    Whether the dashboard is showing real synced data.
+    Whether the dashboard is showing real synced data for the active student session.
+    Never returns another user's pre-loaded data.
+    """
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "authenticated": False,
+            "sessionLive": False,
+            "student": empty_student(),
+            "selectedSemester": None,
+            "lastSynced": None,
+            "syncOk": False,
+            "failedModules": [],
+            "warnings": [],
+            "message": NOT_CONNECTED_MESSAGE,
+        }
 
-    ``authenticated`` is the stored boolean written by a successful sync — not, as
-    before, the result of comparing a name field against the string
-    ``"Not available"``. That comparison is why a never-connected account could
-    read as connected.
-    """
-    store = load_store()
+    store = load_store(reg)
     student = store.get("student") or {}
     report = store.get("syncReport") or {}
     return {

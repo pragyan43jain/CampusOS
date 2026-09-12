@@ -114,23 +114,32 @@ let activeStudent: StudentProfile | null = null;
 let inFlightLogin: Promise<VtopSyncResponse> | null = null;
 let inFlightSync: Promise<VtopSyncResponse> | null = null;
 
+export function getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (activeSessionId) {
+    headers['X-Session-ID'] = activeSessionId;
+  }
+  const currentReg = (activeStudent?.regNo && activeStudent.regNo !== 'Not available')
+    ? activeStudent.regNo
+    : (typeof window !== 'undefined' ? window.localStorage.getItem('campus_current_reg_no') : null);
+  if (currentReg) {
+    headers['X-Reg-No'] = currentReg;
+  }
+  if (extra) {
+    Object.assign(headers, extra);
+  }
+  return headers;
+}
+
 async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
   const base = getApiBase();
   try {
-    const authHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (activeSessionId) {
-      authHeaders['X-Session-ID'] = activeSessionId;
-    }
-    if (activeStudent?.regNo && activeStudent.regNo !== 'Not available') {
-      authHeaders['X-Reg-No'] = activeStudent.regNo;
-    }
-
     const res = await fetchWithTimeout(`${base}${endpoint}`, {
       ...options,
       headers: {
-        ...authHeaders,
+        ...getAuthHeaders(),
         ...(options?.headers as any),
       },
     });
@@ -335,7 +344,7 @@ export const CampusAPI = {
   updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {
     const res = await fetchWithTimeout(`${getApiBase()}/assignments/${id}/status`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ status }),
     });
     if (!res.ok) {
@@ -567,9 +576,13 @@ export const CampusAPI = {
           ...req,
           sessionId: req.sessionId || activeSessionId,
         };
+        const extraHeaders: Record<string, string> = {};
+        if (req.username) {
+          extraHeaders['X-Reg-No'] = req.username.trim().toUpperCase();
+        }
         const res = await fetchWithTimeout(`${getApiBase()}/vtop/login`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(extraHeaders),
           body: JSON.stringify(payload),
         }, 90000);
         const data = await parseSafeJson<VtopSyncResponse>(res);
@@ -599,7 +612,10 @@ export const CampusAPI = {
     inFlightSync = (async () => {
       try {
         const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
-        const res = await fetchWithTimeout(`${getApiBase()}/vtop/sync${q}`, { method: 'POST' }, 90000);
+        const res = await fetchWithTimeout(`${getApiBase()}/vtop/sync${q}`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+        }, 90000);
         const data = await parseSafeJson<VtopSyncResponse>(res);
         if (data && (data as any).sessionId) {
           activeSessionId = (data as any).sessionId;
@@ -638,7 +654,9 @@ export const CampusAPI = {
   // 10. Microsoft Teams Authentication & Coursework Sync
   getTeamsStatus: async () => {
     try {
-      const res = await fetchWithTimeout(`${getApiBase()}/teams/status`, {}, 6000);
+      const res = await fetchWithTimeout(`${getApiBase()}/teams/status`, {
+        headers: getAuthHeaders(),
+      }, 6000);
       const data = await parseSafeJson(res);
       return data;
     } catch (e) {
@@ -682,9 +700,14 @@ export const CampusAPI = {
     }
 
     try {
+      const extraHeaders: Record<string, string> = {};
+      const regMatch = cleanEmail.match(/([0-9]{2}[a-zA-Z]{3}[0-9]{4,5})/i);
+      if (regMatch) {
+        extraHeaders['X-Reg-No'] = regMatch[1].toUpperCase();
+      }
       const res = await fetchWithTimeout(`${getApiBase()}/teams/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(extraHeaders),
         body: JSON.stringify({ email: cleanEmail, password }),
       }, 60000);
 
@@ -714,7 +737,7 @@ export const CampusAPI = {
     try {
       const res = await fetchWithTimeout(`${getApiBase()}/teams/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       }, 60000);
 
       const data = await parseSafeJson(res);
@@ -746,7 +769,9 @@ export const CampusAPI = {
   // 11. VIT LMS (Moodle) Authentication & Coursework Sync
   getLMSStatus: async () => {
     try {
-      const res = await fetchWithTimeout(`${getApiBase()}/lms/status`, {}, 15000);
+      const res = await fetchWithTimeout(`${getApiBase()}/lms/status`, {
+        headers: getAuthHeaders(),
+      }, 15000);
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('application/json')) {
         const data = await res.json();
@@ -794,9 +819,13 @@ export const CampusAPI = {
     }
 
     try {
+      const extraHeaders: Record<string, string> = {};
+      if (cleanUser) {
+        extraHeaders['X-Reg-No'] = cleanUser;
+      }
       const res = await fetchWithTimeout(`${getApiBase()}/lms/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(extraHeaders),
         body: JSON.stringify({
           username: cleanUser || undefined,
           password: credentials.password || undefined,
@@ -838,7 +867,7 @@ export const CampusAPI = {
     try {
       const res = await fetchWithTimeout(`${getApiBase()}/lms/sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       }, 60000);
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('application/json')) {
@@ -908,7 +937,7 @@ export const CampusAPI = {
     try {
       const res = await fetch(`${getApiBase()}/academic-accounts/sync-all`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
       const data = await res.json();
       if (!res.ok) {

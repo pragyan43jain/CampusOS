@@ -32,12 +32,12 @@ else:
 DATA_FILE = os.path.join(DATA_DIR, "store.json")
 
 
-def _data_file_for(reg_no: Optional[str] = None) -> str:
-    target_dir = os.path.dirname(DATA_FILE) or DATA_DIR
-    if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
+def _data_file_for(reg_no: Optional[str] = None) -> Optional[str]:
+    if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
         safe_reg = "".join(c for c in reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
-        return os.path.join(target_dir, f"store_{safe_reg}.json")
-    return DATA_FILE
+        if safe_reg:
+            return os.path.join(DATA_DIR, f"store_{safe_reg}.json")
+    return None
 
 
 # Bumped whenever the payload shape changes incompatibly.
@@ -116,84 +116,89 @@ _MEM_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
 def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     """
-    Return the synced payload for the specific student regNo, or fallback to active store,
-    or return the shaped empty payload.
+    Return the synced payload for the specific student regNo, or return the shaped empty payload.
+    Strictly isolated: never falls back to a global store or another student's data.
     """
+    if not reg_no or not reg_no.strip() or reg_no.strip() in ("Not available", "Sync Required"):
+        return empty_store()
+
     target_path = _data_file_for(reg_no)
-    if not os.path.exists(target_path) and target_path != DATA_FILE and os.path.exists(DATA_FILE):
-        target_path = DATA_FILE
+    if not target_path or not os.path.exists(target_path):
+        return empty_store()
 
-    if os.path.exists(target_path):
-        try:
-            mtime = os.path.getmtime(target_path)
-            cached = _MEM_CACHE.get(target_path)
-            if cached and cached[0] == mtime:
-                data = cached[1]
-            else:
-                with open(target_path, "r", encoding="utf-8") as handle:
-                    data = json.load(handle)
-                if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
-                    _MEM_CACHE[target_path] = (mtime, data)
-
+    try:
+        mtime = os.path.getmtime(target_path)
+        cached = _MEM_CACHE.get(target_path)
+        if cached and cached[0] == mtime:
+            data = cached[1]
+        else:
+            with open(target_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
             if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
-                # Ownership validation: if reg_no was requested, ensure the store belongs to that reg_no
-                if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
-                    store_reg = (data.get("student") or {}).get("regNo")
-                    if store_reg and store_reg.strip().upper() != reg_no.strip().upper():
-                        logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
-                        return empty_store()
-                return data
-            elif isinstance(data, dict) and data:
-                _retire_incompatible(target_path, f"store version mismatch in {target_path}")
-        except Exception as exc:
-            _retire_incompatible(target_path, f"unreadable store {target_path}: {exc}")
+                _MEM_CACHE[target_path] = (mtime, data)
+
+        if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
+            store_reg = (data.get("student") or {}).get("regNo")
+            if store_reg and store_reg.strip().upper() != reg_no.strip().upper():
+                logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
+                return empty_store()
+            return data
+        elif isinstance(data, dict) and data:
+            _retire_incompatible(target_path, f"store version mismatch in {target_path}")
+    except Exception as exc:
+        _retire_incompatible(target_path, f"unreadable store {target_path}: {exc}")
 
     return empty_store()
 
 
 def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
     """
-    Write the payload atomically to the student-specific store and active store.
+    Write the payload atomically to the student-specific store only.
+    Never writes to a global shared file.
     """
+    student_reg = reg_no or (data.get("student") or {}).get("regNo")
+    if not student_reg or not student_reg.strip() or student_reg.strip() in ("Not available", "Sync Required"):
+        logger.warning("[Storage] Cannot save store without a valid student regNo")
+        return
+
+    target = _data_file_for(student_reg)
+    if not target:
+        return
+
     try:
-        data_dir = os.path.dirname(DATA_FILE) or DATA_DIR
+        data_dir = os.path.dirname(target)
         if data_dir:
             os.makedirs(data_dir, exist_ok=True)
-        student_reg = reg_no or (data.get("student") or {}).get("regNo")
-        targets = [DATA_FILE]
-        if student_reg and student_reg.strip() and student_reg.strip() != "Not available":
-            user_path = _data_file_for(student_reg)
-            if user_path not in targets:
-                targets.append(user_path)
 
-        for target in targets:
-            temp_path = f"{target}.tmp"
-            with open(temp_path, "w", encoding="utf-8") as handle:
-                json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
-            os.replace(temp_path, target)
-            _MEM_CACHE[target] = (os.path.getmtime(target), {**data, "storeVersion": STORE_VERSION})
-        logger.info("[Storage] Saved VTOP sync for %s", student_reg or "active user")
+        temp_path = f"{target}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as handle:
+            json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
+        os.replace(temp_path, target)
+        _MEM_CACHE[target] = (os.path.getmtime(target), {**data, "storeVersion": STORE_VERSION})
+        logger.info("[Storage] Saved VTOP sync for %s", student_reg)
     except Exception as exc:
-        logger.error("[Storage] Could not write store: %s", exc)
+        logger.error("[Storage] Could not write store for %s: %s", student_reg, exc)
 
 
 def clear_store(reg_no: Optional[str] = None) -> None:
     """
-    Remove the synced data on logout for the user and globally.
+    Remove the synced data on logout for the user.
     """
-    targets = [DATA_FILE]
-    if reg_no and reg_no.strip() and reg_no.strip() != "Not available":
-        targets.append(_data_file_for(reg_no))
-
-    for target in targets:
-        _MEM_CACHE.pop(target, None)
-        if os.path.exists(target):
-            try:
-                os.remove(target)
-                logger.info("[Storage] Cleared %s", target)
-            except Exception as exc:
+    if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
+        target = _data_file_for(reg_no)
+        if target:
+            _MEM_CACHE.pop(target, None)
+            if os.path.exists(target):
                 try:
-                    with open(target, "w", encoding="utf-8") as handle:
-                        json.dump(empty_store(), handle, indent=2)
-                except Exception:
-                    pass
+                    os.remove(target)
+                    logger.info("[Storage] Cleared user store %s", target)
+                except Exception as exc:
+                    logger.error("[Storage] Could not remove store %s: %s", target, exc)
+
+    # Always ensure no legacy global store remains
+    if os.path.exists(DATA_FILE):
+        try:
+            os.remove(DATA_FILE)
+            logger.info("[Storage] Removed legacy global store %s", DATA_FILE)
+        except Exception:
+            pass

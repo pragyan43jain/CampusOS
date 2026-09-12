@@ -17,7 +17,6 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routers import academics, auth, leetcode, lms, teams, unified_assignments
-from app.storage import load_store
 from app.vtop import constants as C
 
 logging.basicConfig(
@@ -123,19 +122,14 @@ app.include_router(unified_assignments.router)
 @app.get("/api/health")
 def root():
     """
-    Health and connection state endpoint.
+    Health check endpoint.
     """
-    store = load_store()
-    report = store.get("syncReport") or {}
     return {
         "status": "ok",
         "system": "CampusOS Backend Engine",
         "version": "2.0.0",
         "campus": C.CAMPUS,
         "portal": C.BASE_URL,
-        "vtopConnected": bool(store.get("authenticated")),
-        "lastSynced": store.get("lastSynced"),
-        "failedModules": report.get("failed") or [],
         "docs": "/docs",
     }
 

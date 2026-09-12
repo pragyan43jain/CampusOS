@@ -266,23 +266,47 @@ def get_exams(
 
 
 @router.get("/receipts")
-def get_receipts() -> List[Dict[str, Any]]:
-    return load_store().get("receipts") or []
+def get_receipts(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("receipts") or []
 
 
 @router.get("/dues")
-def get_dues() -> Dict[str, Any]:
-    return load_store().get("dues") or {"hasDues": False, "totalDue": 0.0, "items": []}
+def get_dues(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("dues") or {"hasDues": False, "totalDue": 0.0, "items": []}
 
 
 @router.get("/spotlight")
-def get_spotlight() -> List[Dict[str, Any]]:
-    return load_store().get("spotlight") or []
+def get_spotlight(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("spotlight") or []
 
 
 @router.get("/proctor")
-def get_proctor() -> Optional[Dict[str, Any]]:
-    return load_store().get("proctor")
+def get_proctor(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Optional[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("proctor")
 
 
 @router.get("/hostel/mess")
@@ -306,11 +330,17 @@ UNSOURCED_SECTIONS: Dict[str, str] = {
 
 
 @router.get("/features")
-def get_feature_availability() -> Dict[str, Dict[str, Any]]:
+def get_feature_availability(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Dict[str, Any]]:
     """
-    Which dashboard sections currently have real data behind them.
+    Which dashboard sections currently have real data behind them for this session.
     """
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     report = (store.get("syncReport") or {}).get("modules") or {}
     is_auth = bool(store.get("authenticated"))
 
@@ -408,15 +438,27 @@ def get_feature_availability() -> Dict[str, Dict[str, Any]]:
 
 
 @router.get("/assignments")
-def get_assignments() -> List[Dict[str, Any]]:
-    return load_store().get("assignments") or []
+def get_assignments(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("assignments") or []
 
 
 @router.post("/assignments/{assignment_id}/status")
 def update_assignment_status(
-    assignment_id: str, payload: AssignmentStatusUpdate
+    assignment_id: str,
+    payload: AssignmentStatusUpdate,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
-    store = load_store()
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    store = load_store(reg)
     assignments = store.get("assignments") or []
     for assignment in assignments:
         if assignment.get("id") == assignment_id:
@@ -429,29 +471,54 @@ def update_assignment_status(
                 assignment["applicationStatus"] = "PENDING"
                 assignment["isDone"] = False
                 assignment["isSubmitted"] = False
-            save_store(store)
+            if reg:
+                save_store(store, reg)
             return assignment
     raise HTTPException(status_code=404, detail=f"No assignment {assignment_id}")
 
 
 @router.get("/fees")
-def get_fees() -> List[Dict[str, Any]]:
-    return load_store().get("fees") or []
+def get_fees(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("fees") or []
 
 
 @router.get("/placements")
-def get_placements() -> List[Dict[str, Any]]:
-    return load_store().get("placements") or []
+def get_placements(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("placements") or []
 
 
 @router.get("/dsa")
-def get_dsa_topics() -> List[Dict[str, Any]]:
-    return load_store().get("dsaTopics") or []
+def get_dsa_topics(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("dsaTopics") or []
 
 
 @router.get("/ai-tasks")
-def get_ai_tasks() -> List[Dict[str, Any]]:
-    return load_store().get("aiTasks") or []
+def get_ai_tasks(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> List[Dict[str, Any]]:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    return load_store(reg).get("aiTasks") or []
 
 
 @router.get("/study-materials")

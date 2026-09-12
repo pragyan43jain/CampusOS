@@ -18,12 +18,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import load_store, save_store
+from app.storage import empty_store, load_store, save_store
+from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
@@ -1251,9 +1252,31 @@ def fetch_microsoft_teams_coursework(
 
 
 @router.get("/status")
-def get_teams_status() -> Dict[str, Any]:
-    """Returns the verified connection status of Microsoft Teams and matched subjects."""
-    store = load_store()
+def get_teams_status(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Returns the verified connection status of Microsoft Teams for the active student."""
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "connected": False,
+            "email": None,
+            "displayName": None,
+            "lastSynced": None,
+            "portal": TEAMS_PORTAL_URL,
+            "mfaRequired": False,
+            "totalAssignments": 0,
+            "pendingCount": 0,
+            "submittedCount": 0,
+            "matchedSubjects": [],
+            "matchedCount": 0,
+            "totalTeamsCount": 0,
+        }
+
+    store = load_store(reg)
     is_connected = bool(store.get("teamsConnected"))
     account = store.get("teamsAccount") or {}
     assignments = store.get("assignments") or []
@@ -1279,12 +1302,15 @@ def get_teams_status() -> Dict[str, Any]:
 
 
 @router.post("/login")
-def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
+def login_and_sync_teams(
+    payload: TeamsLoginRequest,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+) -> Dict[str, Any]:
     """
     Authenticates with student's institutional Microsoft 365 credentials against Microsoft Online.
-    Validates password directly with Microsoft. If password is incorrect, raises 401 Invalid Credentials.
     Matches VTOP enrolled subjects with Microsoft Teams enrolled subjects, extracts authentic class assignments,
-    and returns verified coursework with zero synthetic/mock data.
+    and returns verified coursework without touching other students' data.
     """
     email = payload.email.strip()
     password = payload.password.strip()
@@ -1301,6 +1327,13 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
             detail="Password is required to authenticate with Microsoft Teams.",
         )
 
+    # Determine student regNo
+    reg = resolve_student_reg(x_session_id, x_reg_no)
+    if not reg and email:
+        local_part = email.strip().split("@")[0].upper()
+        if any(c.isdigit() for c in local_part) and len(local_part) >= 6:
+            reg = local_part
+
     try:
         # 1. Verify that email domain belongs to an authentic Microsoft 365 tenant
         verify_microsoft_realm(email)
@@ -1313,7 +1346,7 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
         access_token = token_dict.get("access_token")
         refresh_token = token_dict.get("refresh_token")
 
-        store = load_store()
+        store = load_store(reg) if reg else empty_store()
 
         # Load enrolled subjects from the VTOP section
         vtop_courses = list(store.get("courses") or [])
@@ -1358,7 +1391,9 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
             "courseMatches": course_matches,
         }
 
-        save_store(store)
+        if reg:
+            save_store(store, reg)
+
         logger.info(
             "Microsoft Teams authenticated for %s. %d subjects matched with VTOP. %d authentic assignments synced.",
             email,
@@ -1410,9 +1445,21 @@ def login_and_sync_teams(payload: TeamsLoginRequest) -> Dict[str, Any]:
 
 
 @router.post("/sync")
-def sync_teams() -> Dict[str, Any]:
-    """Re-synchronizes authentic coursework from Microsoft Teams for the connected account."""
-    store = load_store()
+def sync_teams(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Re-synchronizes authentic coursework from Microsoft Teams for the connected student account."""
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        raise HTTPException(
+            status_code=400,
+            detail="Student registration number or active session required to sync Teams.",
+        )
+
+    store = load_store(reg)
     if not store.get("teamsConnected"):
         raise HTTPException(
             status_code=400,
@@ -1483,7 +1530,7 @@ def sync_teams() -> Dict[str, Any]:
         account["courseMatches"] = course_matches
         store["teamsAccount"] = account
 
-        save_store(store)
+        save_store(store, reg)
 
         return {
             "success": True,
@@ -1513,13 +1560,19 @@ def sync_teams() -> Dict[str, Any]:
 
 
 @router.post("/disconnect")
-def disconnect_teams() -> Dict[str, Any]:
-    """Disconnects Microsoft Teams and removes synced Teams coursework."""
-    store = load_store()
-    existing_assignments = store.get("assignments") or []
-    store["assignments"] = [a for a in existing_assignments if a.get("source") != "Teams"]
-    store["teamsConnected"] = False
-    store["teamsAccount"] = None
-
-    save_store(store)
+def disconnect_teams(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """Disconnects Microsoft Teams and removes synced Teams coursework for the active student."""
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if reg:
+        store = load_store(reg)
+        existing_assignments = store.get("assignments") or []
+        store["assignments"] = [a for a in existing_assignments if a.get("source") != "Teams"]
+        store["teamsConnected"] = False
+        store["teamsAccount"] = None
+        save_store(store, reg)
     return {"success": True, "message": "Microsoft Teams disconnected successfully."}

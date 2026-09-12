@@ -244,7 +244,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                placeholder="eg 24BLC1100"
+                placeholder="e.g. 24BCE1234"
                 className="input-field"
                 style={{ paddingLeft: '38px', fontFamily: 'var(--font-mono)' }}
                 autoComplete="username"
