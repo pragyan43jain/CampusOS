@@ -793,23 +793,6 @@ def get_lms_status(
 ) -> Dict[str, Any]:
     """Returns the verified connection status of VIT LMS for the active student."""
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if not reg:
-        return {
-            "connected": False,
-            "username": None,
-            "displayName": None,
-            "portalUrl": LMS_BASE_URL,
-            "lastSynced": None,
-            "totalAssignments": 0,
-            "pendingCount": 0,
-            "submittedCount": 0,
-            "matchedSubjects": [],
-            "matchedCount": 0,
-            "totalCoursesCount": 0,
-            "courseMatches": [],
-            "status": "disconnected",
-        }
-
     store = load_store(reg)
     is_connected = bool(store.get("lmsConnected"))
     account = store.get("lmsAccount") or {}
@@ -862,7 +845,7 @@ def login_and_sync_lms(
             payload.username, payload.password, payload.sessionCookie, payload.campus
         )
 
-        store = load_store(reg) if reg else empty_store()
+        store = load_store(reg)
         vtop_courses = list(store.get("courses") or [])
 
         current_sem = (store.get("selectedSemester") or {}).get("name")
@@ -1015,11 +998,10 @@ def disconnect_lms(
 ) -> Dict[str, Any]:
     """Disconnects VIT LMS and removes synced LMS coursework for the active student."""
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if reg:
-        store = load_store(reg)
-        existing_assignments = store.get("assignments") or []
-        store["assignments"] = [a for a in existing_assignments if a.get("source") != "LMS"]
-        store["lmsConnected"] = False
-        store["lmsAccount"] = None
-        save_store(store, reg)
+    store = load_store(reg)
+    existing_assignments = store.get("assignments") or []
+    store["assignments"] = [a for a in existing_assignments if a.get("source") != "LMS"]
+    store["lmsConnected"] = False
+    store["lmsAccount"] = None
+    save_store(store, reg)
     return {"success": True, "message": "VIT LMS disconnected successfully."}

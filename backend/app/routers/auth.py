@@ -23,7 +23,15 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.storage import clear_store, empty_store, load_store, save_store
+from app.storage import (
+    NOT_CONNECTED_MESSAGE,
+    clear_store,
+    empty_store,
+    empty_student,
+    get_default_local_reg,
+    load_store,
+    save_store,
+)
 from app.vtop.client import client_manager
 
 logger = logging.getLogger("vtop.routes")
@@ -36,15 +44,16 @@ def resolve_student_reg(
     x_reg_no: Optional[str] = None,
     session_id: Optional[str] = None,
     reg_no: Optional[str] = None,
+    x_auth_user: Optional[str] = None,
 ) -> Optional[str]:
-    reg = reg_no or x_reg_no
-    if reg and reg.strip() and reg.strip() != "Not available":
-        return reg.strip()
+    reg = reg_no or x_reg_no or x_auth_user
+    if reg and reg.strip() and reg.strip() not in ("Not available", "Sync Required"):
+        return reg.strip().upper()
     sid = session_id or x_session_id
     if sid:
         handle = client_manager._get(sid)
         if handle and handle.reg_no:
-            return handle.reg_no
+            return handle.reg_no.strip().upper()
     return None
 
 
@@ -640,6 +649,7 @@ def get_sync_report(
 def get_status(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
@@ -647,8 +657,9 @@ def get_status(
     Whether the dashboard is showing real synced data for the active student session.
     Never returns another user's pre-loaded data.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if not reg:
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user)
+    store = load_store(reg)
+    if not store.get("authenticated"):
         return {
             "authenticated": False,
             "sessionLive": False,
@@ -660,8 +671,6 @@ def get_status(
             "warnings": [],
             "message": NOT_CONNECTED_MESSAGE,
         }
-
-    store = load_store(reg)
     student = store.get("student") or {}
     report = store.get("syncReport") or {}
     return {

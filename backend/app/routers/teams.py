@@ -1260,22 +1260,6 @@ def get_teams_status(
 ) -> Dict[str, Any]:
     """Returns the verified connection status of Microsoft Teams for the active student."""
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if not reg:
-        return {
-            "connected": False,
-            "email": None,
-            "displayName": None,
-            "lastSynced": None,
-            "portal": TEAMS_PORTAL_URL,
-            "mfaRequired": False,
-            "totalAssignments": 0,
-            "pendingCount": 0,
-            "submittedCount": 0,
-            "matchedSubjects": [],
-            "matchedCount": 0,
-            "totalTeamsCount": 0,
-        }
-
     store = load_store(reg)
     is_connected = bool(store.get("teamsConnected"))
     account = store.get("teamsAccount") or {}
@@ -1346,7 +1330,7 @@ def login_and_sync_teams(
         access_token = token_dict.get("access_token")
         refresh_token = token_dict.get("refresh_token")
 
-        store = load_store(reg) if reg else empty_store()
+        store = load_store(reg)
 
         # Load enrolled subjects from the VTOP section
         vtop_courses = list(store.get("courses") or [])
@@ -1453,12 +1437,6 @@ def sync_teams(
 ) -> Dict[str, Any]:
     """Re-synchronizes authentic coursework from Microsoft Teams for the connected student account."""
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if not reg:
-        raise HTTPException(
-            status_code=400,
-            detail="Student registration number or active session required to sync Teams.",
-        )
-
     store = load_store(reg)
     if not store.get("teamsConnected"):
         raise HTTPException(
@@ -1568,11 +1546,10 @@ def disconnect_teams(
 ) -> Dict[str, Any]:
     """Disconnects Microsoft Teams and removes synced Teams coursework for the active student."""
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if reg:
-        store = load_store(reg)
-        existing_assignments = store.get("assignments") or []
-        store["assignments"] = [a for a in existing_assignments if a.get("source") != "Teams"]
-        store["teamsConnected"] = False
-        store["teamsAccount"] = None
-        save_store(store, reg)
+    store = load_store(reg)
+    existing_assignments = store.get("assignments") or []
+    store["assignments"] = [a for a in existing_assignments if a.get("source") != "Teams"]
+    store["teamsConnected"] = False
+    store["teamsAccount"] = None
+    save_store(store, reg)
     return {"success": True, "message": "Microsoft Teams disconnected successfully."}

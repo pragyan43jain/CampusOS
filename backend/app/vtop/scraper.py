@@ -1070,10 +1070,10 @@ def sync(
         f_dean_hod = executor.submit(_step, report, "deanHod", lambda: fetch_dean_hod(session)) if not fast_mode else None
         f_spotlight = executor.submit(_step, report, "spotlight", lambda: fetch_spotlight(session)) if not fast_mode else None
 
-        f_timetable = executor.submit(_step, report, "timetablePage", lambda: fetch_timetable_page(session, sem_id), count_of=lambda html: len(html or "")) if sem_id else None
-        f_attendance = executor.submit(_step, report, "attendanceHtml", lambda: fetch_attendance_page(session, sem_id)) if sem_id else None
-        f_marks = executor.submit(_step, report, "marksHtml", lambda: fetch_marks_page(session, sem_id)) if sem_id else None
-        f_exams = executor.submit(_step, report, "examsHtml", lambda: fetch_exam_page(session, sem_id)) if (sem_id and not fast_mode) else None
+        f_timetable = executor.submit(lambda: fetch_timetable_page(session, sem_id)) if sem_id else None
+        f_attendance = executor.submit(lambda: fetch_attendance_page(session, sem_id)) if sem_id else None
+        f_marks = executor.submit(lambda: fetch_marks_page(session, sem_id)) if sem_id else None
+        f_exams = executor.submit(lambda: fetch_exam_page(session, sem_id)) if (sem_id and not fast_mode) else None
         f_sem_grades = executor.submit(_step, report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if (sem_id and not fast_mode) else None
 
         profile = f_profile.result() if f_profile else None
@@ -1084,10 +1084,20 @@ def sync(
         dean_hod = f_dean_hod.result() or [] if f_dean_hod else []
         spotlight = f_spotlight.result() or [] if f_spotlight else []
 
-        page = f_timetable.result() if f_timetable else None
-        att_html = f_attendance.result() if f_attendance else None
-        marks_html = f_marks.result() if f_marks else None
-        exams_html = f_exams.result() if f_exams else None
+        page = None
+        if f_timetable:
+            try:
+                page = f_timetable.result()
+            except Exception as exc:
+                logger.warning("[VTOP Scraper] Timetable fetch failed: %s", exc)
+
+        att_html = None
+        if f_attendance:
+            try:
+                att_html = f_attendance.result()
+            except Exception:
+                pass
+
         semester_grades = f_sem_grades.result() or {"grades": [], "gpa": None} if f_sem_grades else {"grades": [], "gpa": None}
 
     registry = build_registry([])
@@ -1110,15 +1120,37 @@ def sync(
             report.record("courses", FAILED, message="timetable page not retrieved")
             report.record("timetableGrid", FAILED, message="timetable page not retrieved")
 
-        if att_html:
-            attendance_rows = _step(report, "attendance", lambda: P.parse_attendance(att_html)) or []
-        if marks_html:
-            marks_rows = _step(report, "marks", lambda: P.parse_marks(marks_html)) or []
-        if exams_html:
+        def _get_attendance():
+            if not f_attendance:
+                return []
+            html = f_attendance.result()
+            if html is None:
+                raise RuntimeError("attendance page not retrieved")
+            return P.parse_attendance(html)
+
+        def _get_marks():
+            if not f_marks:
+                return []
+            html = f_marks.result()
+            if html is None:
+                raise RuntimeError("marks page not retrieved")
+            return P.parse_marks(html)
+
+        def _get_exams():
+            if not f_exams:
+                return {}
+            html = f_exams.result()
+            if html is None:
+                raise RuntimeError("exams page not retrieved")
+            return P.parse_exam_schedule(html)
+
+        attendance_rows = _step(report, "attendance", _get_attendance) or []
+        marks_rows = _step(report, "marks", _get_marks) or []
+        if not fast_mode and sem_id:
             exams = _step(
                 report,
                 "exams",
-                lambda: P.parse_exam_schedule(exams_html),
+                _get_exams,
                 count_of=lambda e: sum(len(v) for v in (e or {}).values()),
             ) or {}
 
@@ -1162,7 +1194,7 @@ def sync(
             session,
             semester["id"] if semester else None,
             attendance_rows=attendance_rows,
-            attendance_html=att_page if semester else None,
+            attendance_html=att_html if semester else None,
             fast_mode=fast_mode,
         ),
     ) or {

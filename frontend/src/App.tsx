@@ -371,7 +371,9 @@ export const App: React.FC = () => {
         const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
         const initialRoute = getRouteFromPath(initialPath);
 
-        const savedRegNo = typeof window !== 'undefined' ? window.localStorage.getItem('campus_current_reg_no') : null;
+        const savedRegNo = typeof window !== 'undefined'
+          ? (window.localStorage.getItem('campus_current_reg_no') || window.localStorage.getItem('campus_vtop_username'))
+          : null;
         let cachedUserData: any = null;
         if (savedRegNo) {
           try {
@@ -399,6 +401,9 @@ export const App: React.FC = () => {
             if (cachedUserData.faculty?.length > 0) setFaculty(cachedUserData.faculty);
           }
         } else {
+          if (savedRegNo) {
+            CampusAPI.setActiveStudent({ regNo: savedRegNo } as any);
+          }
           const status = await CampusAPI.getVtopStatus();
           authed = Boolean(
             status &&
@@ -409,6 +414,10 @@ export const App: React.FC = () => {
           );
           if (authed && status.student) {
             studentProfile = status.student;
+            CampusAPI.setActiveStudent(studentProfile);
+            if (typeof window !== 'undefined' && studentProfile.regNo) {
+              window.localStorage.setItem('campus_current_reg_no', studentProfile.regNo);
+            }
           }
         }
 

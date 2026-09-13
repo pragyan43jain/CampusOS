@@ -664,29 +664,6 @@ def get_academic_accounts_status(
     Returns connection status and metadata for all connected academic platforms.
     """
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    if not reg:
-        return {
-            "currentSemester": {"name": None, "id": None},
-            "teams": {
-                "connected": False,
-                "status": "disconnected",
-                "email": None,
-                "displayName": None,
-                "lastSynced": None,
-                "matchedCount": 0,
-                "portalUrl": "https://www.microsoft.com/en-in/microsoft-teams/log-in",
-            },
-            "lms": {
-                "connected": False,
-                "status": "disconnected",
-                "username": None,
-                "displayName": None,
-                "lastSynced": None,
-                "matchedCount": 0,
-                "portalUrl": "https://lms.vit.ac.in",
-            },
-        }
-
     store = load_store(reg)
     teams_connected = bool(store.get("teamsConnected"))
     lms_connected = bool(store.get("lmsConnected"))
@@ -726,13 +703,14 @@ def get_academic_accounts_status(
 def get_unified_assignments(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """
     Returns the unified subject-centric assignment dashboard for the current semester.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user)
     store = load_store(reg)
     return build_unified_assignment_dashboard(store)
 
@@ -741,6 +719,7 @@ def get_unified_assignments(
 def sync_all_academic_accounts(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
@@ -748,7 +727,7 @@ def sync_all_academic_accounts(
     Re-synchronizes all connected academic platforms (Teams + LMS)
     and returns the updated unified assignment dashboard.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user)
     if not reg:
         return {
             "success": False,

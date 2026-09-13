@@ -117,6 +117,9 @@ app.include_router(lms.router)
 app.include_router(unified_assignments.router)
 
 
+from app.storage import load_store
+
+
 @app.get("/")
 @app.get("/health")
 @app.get("/api/health")
@@ -124,12 +127,17 @@ def root():
     """
     Health check endpoint.
     """
+    store = load_store()
+    report = store.get("syncReport") or {}
     return {
         "status": "ok",
         "system": "CampusOS Backend Engine",
         "version": "2.0.0",
         "campus": C.CAMPUS,
         "portal": C.BASE_URL,
+        "vtopConnected": bool(store.get("authenticated")),
+        "lastSynced": store.get("lastSynced"),
+        "failedModules": report.get("failed") or [],
         "docs": "/docs",
     }
 

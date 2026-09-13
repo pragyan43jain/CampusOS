@@ -134,9 +134,11 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
   }
   const currentReg = (activeStudent?.regNo && activeStudent.regNo !== 'Not available')
     ? activeStudent.regNo
-    : (typeof window !== 'undefined' ? window.localStorage.getItem('campus_current_reg_no') : null);
-  if (currentReg) {
-    headers['X-Reg-No'] = currentReg;
+    : (typeof window !== 'undefined'
+        ? (window.localStorage.getItem('campus_current_reg_no') || window.localStorage.getItem('campus_vtop_username'))
+        : null);
+  if (currentReg && currentReg !== 'Not available' && currentReg !== 'Sync Required') {
+    headers['X-Reg-No'] = currentReg.trim().toUpperCase();
   }
   if (typeof window !== 'undefined') {
     const savedUser = window.localStorage.getItem('campus_vtop_username');

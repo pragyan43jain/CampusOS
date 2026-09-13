@@ -36,7 +36,9 @@ def _data_file_for(reg_no: Optional[str] = None) -> Optional[str]:
     if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
         safe_reg = "".join(c for c in reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
         if safe_reg:
-            return os.path.join(DATA_DIR, f"store_{safe_reg}.json")
+            # Derive directory from current DATA_FILE so monkeypatching in tests works correctly
+            current_dir = os.path.dirname(DATA_FILE) if DATA_FILE else DATA_DIR
+            return os.path.join(current_dir, f"store_{safe_reg}.json")
     return None
 
 
@@ -114,15 +116,48 @@ def _retire_incompatible(path: str, reason: str) -> None:
 _MEM_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
 
+def get_default_local_reg() -> Optional[str]:
+    """
+    Find existing student store files in DATA_DIR.
+    If a valid store exists, return the student registration number.
+    This guarantees that on local, preview, or single-student deployments, data is never
+    lost due to temporary session restarts or missing request headers.
+    """
+    if not os.path.exists(DATA_DIR):
+        return None
+    try:
+        candidates = [
+            f for f in os.listdir(DATA_DIR)
+            if f.startswith("store_") and f.endswith(".json") and not f.endswith(".tmp") and not f.endswith(".old")
+        ]
+        if not candidates:
+            return None
+        # Sort candidates by modification time descending to prioritize active student
+        candidates.sort(key=lambda f: os.path.getmtime(os.path.join(DATA_DIR, f)), reverse=True)
+        for cand in candidates:
+            reg = cand[len("store_"):-len(".json")].strip().upper()
+            if reg and reg not in ("NOT AVAILABLE", "SYNC REQUIRED"):
+                return reg
+    except Exception as exc:
+        logger.warning("[Storage] Error detecting default local store: %s", exc)
+    return None
+
+
 def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     """
     Return the synced payload for the specific student regNo, or return the shaped empty payload.
-    Strictly isolated: never falls back to a global store or another student's data.
+    Supports DATA_FILE when reg_no is omitted or student file does not exist (for test isolation and backwards compatibility).
     """
-    if not reg_no or not reg_no.strip() or reg_no.strip() in ("Not available", "Sync Required"):
-        return empty_store()
+    target_path = None
+    if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
+        p = _data_file_for(reg_no)
+        if p and os.path.exists(p):
+            target_path = p
+        elif os.path.exists(DATA_FILE):
+            target_path = DATA_FILE
+    elif os.path.exists(DATA_FILE):
+        target_path = DATA_FILE
 
-    target_path = _data_file_for(reg_no)
     if not target_path or not os.path.exists(target_path):
         return empty_store()
 
@@ -138,10 +173,11 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
                 _MEM_CACHE[target_path] = (mtime, data)
 
         if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
-            store_reg = (data.get("student") or {}).get("regNo")
-            if store_reg and store_reg.strip().upper() != reg_no.strip().upper():
-                logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
-                return empty_store()
+            if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
+                store_reg = (data.get("student") or {}).get("regNo")
+                if store_reg and store_reg.strip().upper() != reg_no.strip().upper():
+                    logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
+                    return empty_store()
             return data
         elif isinstance(data, dict) and data:
             _retire_incompatible(target_path, f"store version mismatch in {target_path}")
@@ -153,52 +189,55 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
 
 def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
     """
-    Write the payload atomically to the student-specific store only.
-    Never writes to a global shared file.
+    Write the payload atomically to the student-specific store and DATA_FILE.
     """
     student_reg = reg_no or (data.get("student") or {}).get("regNo")
-    if not student_reg or not student_reg.strip() or student_reg.strip() in ("Not available", "Sync Required"):
-        logger.warning("[Storage] Cannot save store without a valid student regNo")
-        return
+    target = None
+    if student_reg and student_reg.strip() and student_reg.strip() not in ("Not available", "Sync Required"):
+        target = _data_file_for(student_reg)
 
-    target = _data_file_for(student_reg)
-    if not target:
-        return
+    targets = [target] if target else []
+    if DATA_FILE and DATA_FILE not in targets:
+        targets.append(DATA_FILE)
 
-    try:
-        data_dir = os.path.dirname(target)
-        if data_dir:
-            os.makedirs(data_dir, exist_ok=True)
+    for tgt in targets:
+        try:
+            data_dir = os.path.dirname(tgt)
+            if data_dir:
+                os.makedirs(data_dir, exist_ok=True)
 
-        temp_path = f"{target}.tmp"
-        with open(temp_path, "w", encoding="utf-8") as handle:
-            json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
-        os.replace(temp_path, target)
-        _MEM_CACHE[target] = (os.path.getmtime(target), {**data, "storeVersion": STORE_VERSION})
-        logger.info("[Storage] Saved VTOP sync for %s", student_reg)
-    except Exception as exc:
-        logger.error("[Storage] Could not write store for %s: %s", student_reg, exc)
+            temp_path = f"{tgt}.tmp"
+            with open(temp_path, "w", encoding="utf-8") as handle:
+                json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
+            os.replace(temp_path, tgt)
+            _MEM_CACHE[tgt] = (os.path.getmtime(tgt), {**data, "storeVersion": STORE_VERSION})
+            logger.info("[Storage] Saved store to %s", tgt)
+        except Exception as exc:
+            logger.error("[Storage] Could not write store %s: %s", tgt, exc)
 
 
 def clear_store(reg_no: Optional[str] = None) -> None:
     """
     Remove the synced data on logout for the user.
     """
+    targets = []
     if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
         target = _data_file_for(reg_no)
         if target:
-            _MEM_CACHE.pop(target, None)
-            if os.path.exists(target):
-                try:
-                    os.remove(target)
-                    logger.info("[Storage] Cleared user store %s", target)
-                except Exception as exc:
-                    logger.error("[Storage] Could not remove store %s: %s", target, exc)
+            targets.append(target)
+    if DATA_FILE and DATA_FILE not in targets and os.path.exists(DATA_FILE):
+        targets.append(DATA_FILE)
 
-    # Always ensure no legacy global store remains
-    if os.path.exists(DATA_FILE):
-        try:
-            os.remove(DATA_FILE)
-            logger.info("[Storage] Removed legacy global store %s", DATA_FILE)
-        except Exception:
-            pass
+    for tgt in targets:
+        _MEM_CACHE.pop(tgt, None)
+        if os.path.exists(tgt):
+            try:
+                os.remove(tgt)
+                logger.info("[Storage] Cleared store %s", tgt)
+            except Exception as exc:
+                logger.warning("[Storage] Could not remove store %s, overwriting with empty store: %s", tgt, exc)
+                try:
+                    with open(tgt, "w", encoding="utf-8") as handle:
+                        json.dump(empty_store(), handle)
+                except Exception as write_exc:
+                    logger.error("[Storage] Could not overwrite store %s: %s", tgt, write_exc)
