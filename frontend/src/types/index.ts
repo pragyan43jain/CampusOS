@@ -255,6 +255,7 @@ export interface Assignment {
   facultyName?: string;
   professor?: string;
   lmsProfessor?: string;
+  postedBy?: string;
   instructor?: string;
   source: AssignmentPlatform;
   platformName?: string;

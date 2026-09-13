@@ -120,9 +120,10 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
     return None
 
 
-def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List[str]:
-    """Extracts teacher/instructor names from the LMS course view, participants, and assign pages."""
+def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id: str) -> Tuple[List[str], Dict[str, str]]:
+    """Extracts teacher/instructor names and section-to-teacher mappings from the LMS course view and participants pages."""
     teachers: List[str] = []
+    sections_map: Dict[str, str] = {}
     
     # 1. Main Course View Page
     url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
@@ -139,7 +140,7 @@ def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List
                     teachers.append(txt)
             for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", r.text, flags=re.IGNORECASE):
                 cand = m.group(1).strip().split("\n")[0].strip()
-                if 3 <= len(cand) < 80:
+                if 3 <= len(cand) < 80 and cand not in teachers:
                     teachers.append(cand)
             # Check page header or course header text
             course_h = soup.find(["h1", "h2"], class_=lambda c: c and any(k in str(c).lower() for k in ["course", "header", "title"]))
@@ -147,6 +148,22 @@ def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List
                 t_from_h = extract_teacher_from_lms_title(course_h.get_text())
                 if t_from_h and t_from_h not in teachers:
                     teachers.append(t_from_h)
+
+            # Map sections/modules to teachers if section titles indicate a specific faculty
+            for sec in soup.find_all(["li", "div", "section"], class_=lambda c: c and any(k in str(c).lower() for k in ["section", "course-section"])):
+                sec_text = sec.get_text()
+                sec_teacher = extract_teacher_from_lms_title(sec_text)
+                if not sec_teacher:
+                    m_sec = re.search(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", sec_text, flags=re.IGNORECASE)
+                    if m_sec:
+                        c_cand = m_sec.group(1).strip().split("\n")[0].strip()
+                        if 3 <= len(c_cand) < 60:
+                            sec_teacher = c_cand
+                if sec_teacher:
+                    for a_link in sec.find_all("a", href=re.compile(r"/mod/assign/view\.php\?id=(\d+)")):
+                        m_id = re.search(r"id=(\d+)", a_link.get("href", ""))
+                        if m_id:
+                            sections_map[m_id.group(1)] = sec_teacher
     except Exception as exc:
         logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
 
@@ -167,7 +184,107 @@ def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List
     except Exception as exc:
         logger.debug("Could not fetch participants from LMS course %s: %s", course_id, exc)
 
+    return teachers, sections_map
+
+
+def fetch_lms_course_teachers(session: requests.Session, course_id: str) -> List[str]:
+    teachers, _ = fetch_lms_course_teachers_and_sections(session, course_id)
     return teachers
+
+
+def extract_assignment_poster(
+    session: requests.Session,
+    assign_url: str,
+    row_text: str = "",
+    topic_name: str = "",
+    title: str = "",
+    student_name: Optional[str] = None,
+    course_sections_map: Optional[Dict[str, str]] = None,
+    activity_id: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Extracts the authentic professor/instructor who posted the assignment on LMS.
+    Scrapes the assignment view page (/mod/assign/view.php), row metadata,
+    and course sections. Never falls back to VTOP course faculty.
+    """
+    # 1. Check title and topic name for explicit faculty
+    t_from_title = extract_teacher_from_lms_title(title)
+    if t_from_title:
+        return t_from_title
+
+    if topic_name:
+        t_from_topic = extract_teacher_from_lms_title(topic_name)
+        if t_from_topic:
+            return t_from_topic
+
+    # 2. Check course sections map if activity_id is mapped
+    if activity_id and course_sections_map and activity_id in course_sections_map:
+        sec_teacher = course_sections_map[activity_id]
+        if sec_teacher:
+            return sec_teacher
+
+    # 3. Check row text for professor patterns or sign-offs
+    if row_text:
+        m_row = re.search(r"(?:Faculty|Instructor|Professor|Teacher|Posted\s*by|Author)\s*[:\-]?\s*([A-Za-z\s\.]+)", row_text, flags=re.IGNORECASE)
+        if m_row:
+            cand = m_row.group(1).strip().split("\n")[0].strip()
+            if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["course", "assignment", "status", "submitted", "due", "grade"]):
+                return cand
+
+    # 4. Fetch and scrape the assignment view page (/mod/assign/view.php)
+    if assign_url and assign_url.startswith("http"):
+        try:
+            r = session.get(assign_url, verify=False, timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "html.parser")
+
+                # 4A. Explicit author/creator/poster elements in Moodle
+                for el in soup.find_all(
+                    ["span", "div", "p", "a"],
+                    class_=lambda c: c and any(k in str(c).lower() for k in ["author", "creator", "poster", "byline", "grader", "instructor", "teacher"]),
+                ):
+                    txt = el.get_text().strip()
+                    if student_name and student_name.lower() in txt.lower():
+                        continue
+                    clean_txt = re.sub(r"^(?:by|posted by|author|created by|instructor|faculty)\s*[:\-]?", "", txt, flags=re.IGNORECASE).strip()
+                    if 3 <= len(clean_txt) < 60 and not any(kw in clean_txt.lower() for kw in ["course", "assignment", "activity", "dashboard", "feedback", "grade", "submission"]):
+                        return clean_txt
+
+                # 4B. User profile links on assignment page (excluding current student)
+                for a_tag in soup.find_all("a", href=re.compile(r"/user/view\.php")):
+                    u_name = a_tag.get_text().strip()
+                    if student_name and student_name.lower() in u_name.lower():
+                        continue
+                    if 3 <= len(u_name) < 60 and not any(kw in u_name.lower() for kw in ["profile", "message", "user", "participant", "dashboard"]):
+                        return u_name
+
+                # 4C. Check assignment description / intro text (#intro or .generalbox)
+                intro_box = soup.find(id="intro") or soup.find(class_=lambda c: c and any(k in str(c).lower() for k in ["intro", "generalbox", "description", "activity-description"]))
+                intro_text = intro_box.get_text() if intro_box else r.text
+
+                # Look for sign-offs e.g. "Regards, Dr. S. Geetha" or "Posted by Dr. ..."
+                m_signoff = re.search(
+                    r"(?:Regards|Thanks\s*(?:&|and)\s*Regards|Best\s*Wishes|Sincerely|Assigned\s*by|Posted\s*by|Created\s*by|Faculty|Instructor|Submitted\s*to)\s*[,:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
+                    intro_text,
+                    re.IGNORECASE,
+                )
+                if m_signoff:
+                    cand = m_signoff.group(1).strip()
+                    if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["assignment", "submission", "deadline", "student", "batch", "slot", "lms", "regards"]):
+                        prefix_match = re.search(r"(Dr\.|Prof\.|Professor)", intro_text[max(0, m_signoff.start()-10):m_signoff.end()], re.IGNORECASE)
+                        prefix = f"{prefix_match.group(1)} " if prefix_match and not cand.lower().startswith(("dr.", "prof")) else ""
+                        return f"{prefix}{cand}".strip()
+
+                # Look for Dr. / Prof. / Professor in intro text
+                m_prof = re.search(r"(?:Dr\.|Prof\.|Professor)\s+([A-Z][a-zA-Z\.\s]{2,35})", intro_text)
+                if m_prof:
+                    cand_prof = m_prof.group(0).strip()
+                    if not any(kw in cand_prof.lower() for kw in ["course", "theory", "lab", "fall", "winter", "semester", "assignment"]):
+                        return cand_prof
+        except Exception as exc:
+            logger.debug("Could not scrape assignment view page %s: %s", assign_url, exc)
+
+    return None
 
 
 def match_lms_course_to_vtop(
@@ -513,17 +630,21 @@ def fetch_assignments_for_lms_course(
     course_title: str,
     vtop_course: Dict[str, Any],
     lms_teachers: Optional[List[str]] = None,
+    course_sections_map: Optional[Dict[str, str]] = None,
+    student_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Scrapes assignments strictly scoped to Moodle's course assignments page:
     https://lms.vit.ac.in/mod/assign/index.php?id={course_id}
+    Accurately extracts and attributes the authentic professor who posted each assignment.
+    Never falls back to the VTOP course-offered faculty name.
     """
     assignments: List[Dict[str, Any]] = []
     url = f"{LMS_BASE_URL}/mod/assign/index.php?id={course_id}"
 
     course_code = canonicalize_course_code(vtop_course.get("code") or vtop_course.get("courseCode")) or "LMS"
-    lms_prof = (lms_teachers[0] if lms_teachers else None) or vtop_course.get("lmsProfessor") or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
-    faculty = lms_prof
+    vtop_prof = vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
+    lms_course_prof = (lms_teachers[0] if lms_teachers else None) or vtop_course.get("lmsProfessor") or vtop_prof
     vtop_title = vtop_course.get("title") or vtop_course.get("courseTitle") or course_title
     semester_name = vtop_course.get("semester") or "Fall Semester 2026-27"
 
@@ -553,8 +674,12 @@ def fetch_assignments_for_lms_course(
                         header_map["status"] = idx
                     elif "grade" in th_txt:
                         header_map["grade"] = idx
+                    elif any(k in th_txt for k in ["faculty", "teacher", "instructor", "author", "posted by", "staff", "prof"]):
+                        header_map["faculty"] = idx
 
         all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
+        parsed_candidates: List[Dict[str, Any]] = []
+
         for row in all_trs:
             cols = row.find_all(["td", "th"])
             if len(cols) < 2:
@@ -585,11 +710,14 @@ def fetch_assignments_for_lms_course(
 
             due_raw = ""
             status_raw = ""
+            row_faculty = ""
 
             if "due" in header_map and header_map["due"] < len(cols):
                 due_raw = cols[header_map["due"]].get_text().strip()
             if "status" in header_map and header_map["status"] < len(cols):
                 status_raw = cols[header_map["status"]].get_text().strip()
+            if "faculty" in header_map and header_map["faculty"] < len(cols):
+                row_faculty = cols[header_map["faculty"]].get_text().strip()
 
             # Dynamic column heuristic fallback
             if not due_raw or not status_raw:
@@ -613,38 +741,88 @@ def fetch_assignments_for_lms_course(
             )
 
             is_pending = not is_submitted
+            topic_name = cols[0].get_text().strip() if len(cols) > 0 else ""
 
-            assignments.append({
-                "id": assign_id,
-                "activityId": activity_id,
+            parsed_candidates.append({
+                "assign_id": assign_id,
+                "activity_id": activity_id,
                 "title": title,
+                "assign_url": assign_url,
+                "due_date_str": due_date_str,
+                "due_time_str": due_time_str,
+                "is_submitted": is_submitted,
+                "is_pending": is_pending,
+                "row_faculty": row_faculty,
+                "topic_name": topic_name,
+                "row_text": row.get_text(),
+            })
+
+        if not parsed_candidates:
+            return assignments
+
+        # Concurrently resolve authentic poster for each assignment
+        def _resolve_candidate_poster(cand: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+            # 1. Row faculty column if explicitly provided
+            if cand["row_faculty"]:
+                t_cand = extract_teacher_from_lms_title(cand["row_faculty"]) or cand["row_faculty"]
+                if 3 <= len(t_cand) < 60:
+                    return t_cand, t_cand
+
+            # 2. Extract from assignment view page / row metadata
+            extracted = extract_assignment_poster(
+                session=session,
+                assign_url=cand["assign_url"],
+                row_text=cand["row_text"],
+                topic_name=cand["topic_name"],
+                title=cand["title"],
+                student_name=student_name,
+                course_sections_map=course_sections_map,
+                activity_id=cand["activity_id"],
+            )
+            if extracted:
+                return extracted, extracted
+
+            # 3. Fall back to course-level LMS instructor or course faculty
+            return lms_course_prof, None
+
+        max_workers = min(5, max(1, len(parsed_candidates)))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            posters = list(executor.map(_resolve_candidate_poster, parsed_candidates))
+
+        for cand, (poster, explicit_poster) in zip(parsed_candidates, posters):
+            poster_display = explicit_poster or poster
+            assignments.append({
+                "id": cand["assign_id"],
+                "activityId": cand["activity_id"],
+                "title": cand["title"],
                 "academicYear": vtop_course.get("academicYear") or "2026",
                 "semester": semester_name,
                 "semesterId": vtop_course.get("semesterId") or "CH20262701",
                 "courseCode": course_code,
                 "courseTitle": vtop_title,
                 "subject": vtop_title,
-                "faculty": faculty,
-                "facultyName": faculty,
-                "professor": faculty,
-                "lmsProfessor": lms_prof,
-                "instructor": faculty,
+                "faculty": vtop_prof if not explicit_poster else poster,
+                "facultyName": poster_display,
+                "professor": poster_display,
+                "lmsProfessor": explicit_poster or poster,
+                "postedBy": explicit_poster,
+                "instructor": poster_display,
                 "verified": True,
                 "source": "LMS",
                 "lmsCourseId": str(course_id),
                 "externalCourseId": str(course_id),
                 "platformName": "VIT LMS",
-                "platformUrl": assign_url,
-                "submissionUrl": assign_url,
-                "dueDate": due_date_str,
-                "dueTime": due_time_str,
-                "status": "Submitted" if is_submitted else "Pending",
-                "applicationStatus": "DONE" if is_submitted else "PENDING",
-                "isDone": is_submitted,
-                "isSubmitted": is_submitted,
-                "priority": "Critical" if is_pending else "Medium",
+                "platformUrl": cand["assign_url"],
+                "submissionUrl": cand["assign_url"],
+                "dueDate": cand["due_date_str"],
+                "dueTime": cand["due_time_str"],
+                "status": "Submitted" if cand["is_submitted"] else "Pending",
+                "applicationStatus": "DONE" if cand["is_submitted"] else "PENDING",
+                "isDone": cand["is_submitted"],
+                "isSubmitted": cand["is_submitted"],
+                "priority": "Critical" if cand["is_pending"] else "Medium",
                 "weightage": 10,
-                "instructions": f"Assigned on VIT LMS ({course_title}) by {faculty}.",
+                "instructions": f"Assigned on VIT LMS ({course_title}) by {poster_display}.",
                 "matchedLmsCourse": course_title,
             })
     except Exception as exc:
@@ -663,6 +841,7 @@ def _process_single_lms_course(
     c_id = str(lms_c["id"])
     c_title = lms_c["title"]
     c_teachers = list(lms_c.get("teachers") or [])
+    c_sections_map: Dict[str, str] = {}
 
     if not c_teachers:
         t_from_title = extract_teacher_from_lms_title(c_title)
@@ -670,7 +849,7 @@ def _process_single_lms_course(
             c_teachers.append(t_from_title)
 
     if not c_teachers:
-        c_teachers = fetch_lms_course_teachers(session, c_id)
+        c_teachers, c_sections_map = fetch_lms_course_teachers_and_sections(session, c_id)
 
     is_verified, matched_rec, match_meta = verify_external_course(
         enrolled_records=verified_enrolled,
@@ -683,34 +862,45 @@ def _process_single_lms_course(
 
     if matched_rec and is_verified:
         # Authentic LMS professor resolution: prefer LMS-specific teacher, fall back to matched VTOP faculty
-        lms_prof = (c_teachers[0] if c_teachers else None) or matched_rec.facultyName or "Faculty unassigned"
+        lms_course_prof = (c_teachers[0] if c_teachers else None) or matched_rec.facultyName or "Faculty unassigned"
 
         matched_vtop = {
             "code": matched_rec.courseCode,
             "title": matched_rec.courseName,
-            "faculty": lms_prof,
-            "facultyName": lms_prof,
-            "professor": lms_prof,
-            "lmsProfessor": lms_prof,
+            "faculty": matched_rec.facultyName,
+            "facultyName": lms_course_prof,
+            "professor": lms_course_prof,
+            "lmsProfessor": (c_teachers[0] if c_teachers else None) or lms_course_prof,
+            "postedBy": (c_teachers[0] if c_teachers else None),
             "facultyId": matched_rec.facultyId,
             "slot": matched_rec.slot,
             "section": matched_rec.section,
             "semester": matched_rec.semester,
         }
 
-        sub_assignments = fetch_assignments_for_lms_course(session, c_id, c_title, matched_vtop, lms_teachers=c_teachers)
+        sub_assignments = fetch_assignments_for_lms_course(
+            session=session,
+            course_id=c_id,
+            course_title=c_title,
+            vtop_course=matched_vtop,
+            lms_teachers=c_teachers,
+            course_sections_map=c_sections_map,
+        )
 
         for sa in sub_assignments:
+            # Preserve the authentic assignment-level poster if extracted
+            assign_poster = sa.get("postedBy") or sa.get("lmsProfessor") or lms_course_prof
             sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
             sa["subjectId"] = matched_rec.courseCode
             sa["courseCode"] = matched_rec.courseCode
             sa["courseTitle"] = matched_rec.courseName
             sa["subject"] = matched_rec.courseName
-            sa["faculty"] = lms_prof
-            sa["facultyName"] = lms_prof
-            sa["professor"] = lms_prof
-            sa["lmsProfessor"] = lms_prof
-            sa["instructor"] = lms_prof
+            sa["faculty"] = matched_rec.facultyName
+            sa["facultyName"] = assign_poster
+            sa["professor"] = assign_poster
+            sa["lmsProfessor"] = sa.get("postedBy") or sa.get("lmsProfessor") or assign_poster
+            sa["postedBy"] = sa.get("postedBy")
+            sa["instructor"] = assign_poster
             sa["semester"] = matched_rec.semester
             sa["verified"] = True
             sa["source"] = "LMS"
@@ -719,8 +909,9 @@ def _process_single_lms_course(
         matched_summary = {
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
-            "faculty": lms_prof,
-            "lmsProfessor": lms_prof,
+            "faculty": lms_course_prof,
+            "lmsProfessor": lms_course_prof,
+            "postedBy": (c_teachers[0] if c_teachers else None),
             "lmsCourseId": c_id,
             "lmsCourseName": c_title,
             "assignmentsCount": len(sub_assignments),

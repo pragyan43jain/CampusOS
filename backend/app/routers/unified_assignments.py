@@ -113,7 +113,7 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
 
     submitted_at = teams_item.get("submittedAt") or lms_item.get("submittedAt")
 
-    prof_name = lms_item.get("lmsProfessor") or lms_item.get("faculty") or teams_item.get("faculty")
+    prof_name = lms_item.get("postedBy") or lms_item.get("lmsProfessor") or lms_item.get("faculty") or teams_item.get("faculty")
 
     return {
         "id": f"unified-{teams_item.get('id', '')}-{lms_item.get('id', '')}",
@@ -122,7 +122,8 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
         "faculty": prof_name,
         "facultyName": prof_name,
         "professor": prof_name,
-        "lmsProfessor": lms_item.get("lmsProfessor") or lms_item.get("faculty"),
+        "lmsProfessor": lms_item.get("postedBy") or lms_item.get("lmsProfessor") or lms_item.get("faculty"),
+        "postedBy": lms_item.get("postedBy") or lms_item.get("lmsProfessor"),
         "title": title,
         "description": desc,
         "instructions": desc,
@@ -372,12 +373,15 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             )
             continue
 
+        is_lms = (a.get("source") == "LMS" or "lms" in str(a.get("id", "")).lower())
+        has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("postedBy"))
+
         # Check 4: Exact Faculty Match (Section 5)
+        # Drops unverified coursework from other professors, while honoring verified LMS course matches
         enrolled_fac = canonicalize_faculty_name(matched_rec.facultyName)
         assign_fac = canonicalize_faculty_name(a.get("faculty"))
         
-        # Only reject if there is an explicit mismatched faculty name
-        if assign_fac and assign_fac not in ("unassigned", "none", "tba", "") and enrolled_fac and enrolled_fac not in ("unassigned", "none", "tba", ""):
+        if not has_verified_match and assign_fac and assign_fac not in ("unassigned", "none", "tba", "") and enrolled_fac and enrolled_fac not in ("unassigned", "none", "tba", ""):
             if assign_fac != enrolled_fac and assign_fac not in enrolled_fac and enrolled_fac not in assign_fac:
                 logger.warning(
                     "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
@@ -396,7 +400,8 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 )
                 continue
 
-        prof_to_use = a.get("lmsProfessor") or a.get("faculty") or a.get("facultyName") or matched_rec.facultyName or "Faculty unassigned"
+        prof_to_use = a.get("postedBy") or a.get("lmsProfessor") or a.get("facultyName") or a.get("faculty") or matched_rec.facultyName or "Faculty unassigned"
+
         raw_assignments.append({
             **a,
             "academicYear": matched_rec.academicYear,
@@ -405,10 +410,11 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
             "subject": matched_rec.courseName,
-            "faculty": prof_to_use,
+            "faculty": matched_rec.facultyName,
             "facultyName": prof_to_use,
             "professor": prof_to_use,
-            "lmsProfessor": a.get("lmsProfessor") or (prof_to_use if a.get("source") == "LMS" else None),
+            "lmsProfessor": a.get("postedBy") or a.get("lmsProfessor") or (prof_to_use if is_lms else None),
+            "postedBy": a.get("postedBy") or a.get("lmsProfessor") or (prof_to_use if is_lms else None),
             "instructor": prof_to_use,
             "verified": True,
         })
@@ -460,13 +466,15 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         l_id = l_item.get("id")
         if l_id not in used_ids:
             used_ids.add(l_id)
-            prof = l_item.get("lmsProfessor") or l_item.get("faculty") or l_item.get("facultyName")
+            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("faculty") or l_item.get("facultyName") or "LMS Instructor"
             deduped_assignments.append({
                 **l_item,
                 "sourceList": ["LMS"],
                 "lmsSubmissionUrl": l_item.get("platformUrl"),
                 "lmsProfessor": prof,
+                "postedBy": prof,
                 "facultyName": prof,
+                "faculty": prof,
                 "professor": prof,
             })
 

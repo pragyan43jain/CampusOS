@@ -483,12 +483,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {item.title}
                 </div>
 
-                {((item as any).lmsProfessor || item.faculty) && ((item as any).lmsProfessor !== 'Faculty unassigned' && item.faculty !== 'Faculty unassigned') && (
+                {((item as any).postedBy || (item as any).lmsProfessor || item.faculty) && ((item as any).postedBy !== 'Faculty unassigned' && (item as any).lmsProfessor !== 'Faculty unassigned' && item.faculty !== 'Faculty unassigned') && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: 'var(--accent-purple)' }}>
                     <User size={12} />
                     <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.source === 'LMS' && !((item as any).lmsProfessor || item.faculty).startsWith('Dr.') && !((item as any).lmsProfessor || item.faculty).startsWith('Prof.') ? 'Prof. ' : ''}
-                      {((item as any).lmsProfessor || item.faculty)}
+                      {item.source === 'LMS' && !((item as any).postedBy || (item as any).lmsProfessor || item.faculty).startsWith('Dr.') && !((item as any).postedBy || (item as any).lmsProfessor || item.faculty).startsWith('Prof.') ? 'Prof. ' : ''}
+                      {((item as any).postedBy || (item as any).lmsProfessor || item.faculty)}
                     </span>
                   </div>
                 )}

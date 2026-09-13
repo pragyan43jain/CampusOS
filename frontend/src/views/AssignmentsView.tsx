@@ -39,6 +39,7 @@ interface EnrichedAssignment extends Assignment {
   facultyName?: string;
   professor?: string;
   lmsProfessor?: string;
+  postedBy?: string;
 }
 
 const isAssignmentDone = (a: Assignment): boolean => {
@@ -135,8 +136,19 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       courseTitle?: string,
       fallbackFaculty?: string,
       lmsProfessor?: string,
-      professor?: string
+      professor?: string,
+      postedBy?: string,
+      source?: string
     ) => {
+      // For LMS assignments, strictly use the professor who posted it on LMS, NEVER fallback to VTOP course faculty
+      if (source?.toUpperCase().includes('LMS')) {
+        const lmsPoster = postedBy || lmsProfessor || professor || fallbackFaculty;
+        if (lmsPoster && lmsPoster.trim() && lmsPoster !== 'Faculty unassigned') {
+          return lmsPoster.trim();
+        }
+        return 'LMS Instructor';
+      }
+
       const explicitProf = lmsProfessor || professor || fallbackFaculty;
       if (explicitProf && explicitProf.trim() && explicitProf !== 'Faculty unassigned') {
         return explicitProf.trim();
@@ -160,7 +172,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             a.courseTitle || subj.courseTitle,
             a.faculty || subj.faculty,
             (a as any).lmsProfessor,
-            (a as any).professor
+            (a as any).professor,
+            (a as any).postedBy,
+            a.source
           );
           list.push({
             ...a,
@@ -169,7 +183,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             courseCode: a.courseCode || subj.courseCode,
             facultyName: prof,
             professor: prof,
-            lmsProfessor: (a as any).lmsProfessor || prof,
+            lmsProfessor: (a as any).lmsProfessor || (a as any).postedBy || prof,
+            postedBy: (a as any).postedBy || (a as any).lmsProfessor || prof,
           });
         });
       });
@@ -180,7 +195,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             a.courseTitle,
             a.faculty,
             (a as any).lmsProfessor,
-            (a as any).professor
+            (a as any).professor,
+            (a as any).postedBy,
+            a.source
           );
           list.push({
             ...a,
@@ -189,7 +206,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             courseCode: a.courseCode || 'GENERAL',
             facultyName: prof,
             professor: prof,
-            lmsProfessor: (a as any).lmsProfessor || prof,
+            lmsProfessor: (a as any).lmsProfessor || (a as any).postedBy || prof,
+            postedBy: (a as any).postedBy || (a as any).lmsProfessor || prof,
           });
         });
       }
@@ -201,7 +219,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         a.courseTitle || a.subject,
         a.faculty,
         (a as any).lmsProfessor,
-        (a as any).professor
+        (a as any).professor,
+        (a as any).postedBy,
+        a.source
       );
       return {
         ...a,
@@ -210,7 +230,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         courseCode: a.courseCode || 'COURSE',
         facultyName: prof,
         professor: prof,
-        lmsProfessor: (a as any).lmsProfessor || prof,
+        lmsProfessor: (a as any).lmsProfessor || (a as any).postedBy || prof,
+        postedBy: (a as any).postedBy || (a as any).lmsProfessor || prof,
       };
     });
   }, [dashboard, _assignments, courses]);
@@ -522,14 +543,14 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                               alignItems: 'center',
                               gap: '4px',
                             }}
-                            title={`Assigned by: ${a.facultyName}`}
+                            title={a.source?.toUpperCase().includes('LMS') ? `Posted by (LMS): ${a.postedBy || a.lmsProfessor || a.facultyName}` : `Assigned by: ${a.facultyName}`}
                           >
                             <User size={11} />
                             <span>
                               {a.source?.toUpperCase().includes('LMS')
-                                ? a.facultyName.startsWith('Dr.') || a.facultyName.startsWith('Prof.')
-                                  ? a.facultyName
-                                  : `Prof. ${a.facultyName}`
+                                ? (a.postedBy || a.lmsProfessor || a.facultyName).startsWith('Dr.') || (a.postedBy || a.lmsProfessor || a.facultyName).startsWith('Prof.')
+                                  ? (a.postedBy || a.lmsProfessor || a.facultyName)
+                                  : `Prof. ${a.postedBy || a.lmsProfessor || a.facultyName}`
                                 : a.facultyName}
                             </span>
                           </span>
@@ -573,9 +594,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                         }}>
                           <User size={12} color="var(--accent-purple)" />
                           <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>
-                            {a.source?.toUpperCase().includes('LMS') ? 'LMS Professor:' : 'Faculty:'}
+                            {a.source?.toUpperCase().includes('LMS') ? 'Posted By (LMS):' : 'Faculty:'}
                           </span>
-                          <span>{a.facultyName || a.professor || a.faculty || 'Faculty unassigned'}</span>
+                          <span>{a.postedBy || a.lmsProfessor || a.facultyName || a.professor || (a.source?.toUpperCase().includes('LMS') ? 'LMS Instructor' : 'Faculty unassigned')}</span>
                         </span>
                       </div>
 

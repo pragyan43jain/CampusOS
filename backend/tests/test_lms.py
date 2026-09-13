@@ -638,3 +638,176 @@ class TestLMSStrictVerificationAndAssignmentPipeline:
         assert assigns["Task 2"]["status"] in ("PENDING", "Due Soon")
         assert assigns["Task 3"]["status"] == "OVERDUE"
         assert assigns["Task 3"]["isOverdue"] is True
+
+
+class TestLMSAssignmentPosterExtraction:
+    """
+    Unit tests ensuring assignments fetched from LMS accurately extract and display
+    the authentic professor who posted the assignment, rather than just the VTOP
+    course-offered faculty name.
+    """
+
+    def test_extract_poster_from_assignment_view_signoff(self):
+        from app.routers.lms import extract_assignment_poster
+
+        session = MagicMock()
+        r = MagicMock()
+        r.status_code = 200
+        r.text = '''
+        <html>
+        <body>
+          <div id="intro" class="box generalbox">
+            <p>Please complete Digital Assignment 1 on Relational Algebra.</p>
+            <p>Regards,<br>Dr. S. Geetha</p>
+          </div>
+        </body>
+        </html>
+        '''
+        session.get.return_value = r
+
+        poster = extract_assignment_poster(
+            session=session,
+            assign_url="https://lms.vit.ac.in/mod/assign/view.php?id=123",
+            title="Digital Assignment 1",
+        )
+        assert poster is not None
+        assert "Geetha" in poster
+
+    def test_extract_poster_from_author_class(self):
+        from app.routers.lms import extract_assignment_poster
+
+        session = MagicMock()
+        r = MagicMock()
+        r.status_code = 200
+        r.text = '''
+        <html>
+        <body>
+          <div class="activity-information">
+            <span class="author">Posted by Prof. Jaya Vignesh</span>
+          </div>
+        </body>
+        </html>
+        '''
+        session.get.return_value = r
+
+        poster = extract_assignment_poster(
+            session=session,
+            assign_url="https://lms.vit.ac.in/mod/assign/view.php?id=456",
+            title="DA 2",
+        )
+        assert poster == "Prof. Jaya Vignesh"
+
+    def test_extract_poster_from_user_link(self):
+        from app.routers.lms import extract_assignment_poster
+
+        session = MagicMock()
+        r = MagicMock()
+        r.status_code = 200
+        r.text = '''
+        <html>
+        <body>
+          <div class="generalbox">
+            <a href="https://lms.vit.ac.in/user/view.php?id=999">Dr. K. Ramesh</a>
+          </div>
+        </body>
+        </html>
+        '''
+        session.get.return_value = r
+
+        poster = extract_assignment_poster(
+            session=session,
+            assign_url="https://lms.vit.ac.in/mod/assign/view.php?id=789",
+            title="Lab Task 3",
+            student_name="Pragyan Jain",
+        )
+        assert poster == "Dr. K. Ramesh"
+
+    def test_extract_poster_from_table_faculty_column(self):
+        from app.routers.lms import fetch_assignments_for_lms_course
+
+        session = MagicMock()
+        r = MagicMock()
+        r.status_code = 200
+        r.text = '''
+        <table class="generaltable mod_index">
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Assignment</th>
+              <th>Faculty</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Module 1</td>
+              <td><a href="/mod/assign/view.php?id=555">Networks Lab 1</a></td>
+              <td>Dr. Priya Sharma</td>
+              <td>Monday, 15 September 2026, 11:59 PM</td>
+              <td>No submission</td>
+            </tr>
+          </tbody>
+        </table>
+        '''
+        session.get.return_value = r
+
+        vtop_course = {
+            "code": "BCSE308P",
+            "title": "Computer Networks Lab",
+            "faculty": "RISHIKESHAN C A",  # VTOP course faculty
+            "semester": "Fall Semester 2026-27",
+        }
+
+        assignments = fetch_assignments_for_lms_course(
+            session=session,
+            course_id="101",
+            course_title="Computer Networks Lab",
+            vtop_course=vtop_course,
+        )
+        assert len(assignments) == 1
+        assign = assignments[0]
+        # Must tell the name of the professor who posted it!
+        assert assign["postedBy"] == "Dr. Priya Sharma"
+        assert assign["facultyName"] == "Dr. Priya Sharma"
+        assert assign["lmsProfessor"] == "Dr. Priya Sharma"
+
+    def test_unified_assignments_preserves_lms_poster_over_vtop_faculty(self):
+        from app.routers.unified_assignments import build_unified_assignment_dashboard
+
+        store = {
+            "selectedSemester": {"name": "Fall Semester 2026-27", "id": "CH20262701"},
+            "courses": [
+                {
+                    "code": "BCSE302L",
+                    "title": "Database Systems",
+                    "faculty": "RISHIKESHAN C A",  # VTOP faculty
+                }
+            ],
+            "assignments": [
+                {
+                    "id": "lms-808-123",
+                    "courseCode": "BCSE302L",
+                    "courseTitle": "Database Systems",
+                    "title": "Digital Assignment 1",
+                    "postedBy": "Dr. S. Geetha",  # Authentically posted on LMS by Dr. Geetha
+                    "lmsProfessor": "Dr. S. Geetha",
+                    "faculty": "RISHIKESHAN C A",
+                    "source": "LMS",
+                    "dueDate": "2026-09-30",
+                    "dueTime": "23:59",
+                    "status": "Pending",
+                    "lmsCourseId": "808",
+                    "verifiedCourseMatchId": "match-lms-808",
+                }
+            ],
+        }
+
+        dashboard = build_unified_assignment_dashboard(store)
+        sub = next(s for s in dashboard["subjects"] if s["courseCode"] == "BCSE302L")
+        assert len(sub["assignments"]) == 1
+        assign = sub["assignments"][0]
+        # In the assignment section, it must tell the name of the professor who posted it!
+        assert assign["postedBy"] == "Dr. S. Geetha"
+        assert assign["lmsProfessor"] == "Dr. S. Geetha"
+        assert assign["facultyName"] == "Dr. S. Geetha"
