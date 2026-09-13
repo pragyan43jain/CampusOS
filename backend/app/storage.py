@@ -118,22 +118,23 @@ _MEM_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
 def get_default_local_reg() -> Optional[str]:
     """
-    Find existing student store files in DATA_DIR.
+    Find existing student store files in the active data directory.
     If a valid store exists, return the student registration number.
     This guarantees that on local, preview, or single-student deployments, data is never
     lost due to temporary session restarts or missing request headers.
     """
-    if not os.path.exists(DATA_DIR):
+    target_dir = os.path.dirname(DATA_FILE) if DATA_FILE else DATA_DIR
+    if not target_dir or not os.path.exists(target_dir):
         return None
     try:
         candidates = [
-            f for f in os.listdir(DATA_DIR)
+            f for f in os.listdir(target_dir)
             if f.startswith("store_") and f.endswith(".json") and not f.endswith(".tmp") and not f.endswith(".old")
         ]
         if not candidates:
             return None
         # Sort candidates by modification time descending to prioritize active student
-        candidates.sort(key=lambda f: os.path.getmtime(os.path.join(DATA_DIR, f)), reverse=True)
+        candidates.sort(key=lambda f: os.path.getmtime(os.path.join(target_dir, f)), reverse=True)
         for cand in candidates:
             reg = cand[len("store_"):-len(".json")].strip().upper()
             if reg and reg not in ("NOT AVAILABLE", "SYNC REQUIRED"):

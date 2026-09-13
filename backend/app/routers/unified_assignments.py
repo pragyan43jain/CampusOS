@@ -743,7 +743,7 @@ def sync_all_academic_accounts(
     if store.get("teamsConnected"):
         try:
             from app.routers.teams import sync_teams
-            sync_teams(x_session_id, x_reg_no, sessionId, regNo)
+            sync_teams(x_session_id=x_session_id, x_reg_no=x_reg_no or reg, sessionId=sessionId, regNo=regNo or reg)
             synced_sources.append("Microsoft Teams")
         except Exception as e:
             logger.warning("Teams sync error during sync-all: %s", e)
@@ -753,7 +753,7 @@ def sync_all_academic_accounts(
     if store.get("lmsConnected"):
         try:
             from app.routers.lms import sync_lms
-            sync_lms(x_session_id, x_reg_no, sessionId, regNo)
+            sync_lms(x_session_id=x_session_id, x_reg_no=x_reg_no or reg, sessionId=sessionId, regNo=regNo or reg)
             synced_sources.append("VIT LMS")
         except Exception as e:
             logger.warning("LMS sync error during sync-all: %s", e)

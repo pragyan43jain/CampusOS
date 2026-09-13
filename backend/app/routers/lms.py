@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import empty_store, load_store, save_store
+from app.storage import empty_store, get_default_local_reg, load_store, save_store
 from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
@@ -838,8 +838,10 @@ def login_and_sync_lms(
         reg = resolve_student_reg(x_session_id, x_reg_no)
         if not reg and payload.username:
             clean_u = payload.username.strip().split("@")[0].upper()
-            if any(c.isdigit() for c in clean_u) and len(clean_u) >= 6:
+            if re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", clean_u):
                 reg = clean_u
+        if not reg:
+            reg = get_default_local_reg()
 
         session, auth_info = authenticate_lms_session(
             payload.username, payload.password, payload.sessionCookie, payload.campus

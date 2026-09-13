@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import empty_store, load_store, save_store
+from app.storage import empty_store, get_default_local_reg, load_store, save_store
 from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
@@ -1315,8 +1315,10 @@ def login_and_sync_teams(
     reg = resolve_student_reg(x_session_id, x_reg_no)
     if not reg and email:
         local_part = email.strip().split("@")[0].upper()
-        if any(c.isdigit() for c in local_part) and len(local_part) >= 6:
+        if re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", local_part):
             reg = local_part
+    if not reg:
+        reg = get_default_local_reg()
 
     try:
         # 1. Verify that email domain belongs to an authentic Microsoft 365 tenant

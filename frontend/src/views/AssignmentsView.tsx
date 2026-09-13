@@ -102,7 +102,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   useEffect(() => {
     loadUnifiedData();
-  }, [_assignments]);
+  }, []);
 
   const handleRefreshAll = async () => {
     if (onSyncAll) {

@@ -54,6 +54,9 @@ def resolve_student_reg(
         handle = client_manager._get(sid)
         if handle and handle.reg_no:
             return handle.reg_no.strip().upper()
+    default_reg = get_default_local_reg()
+    if default_reg:
+        return default_reg
     return None
 
 

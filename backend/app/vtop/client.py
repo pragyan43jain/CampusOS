@@ -255,7 +255,14 @@ class VTOPClientManager:
 
                     # Success! Adopt this fresh authenticated session
                     if session_id:
-                        self._drop(session_id)
+                        old_handle = None
+                        with self._lock:
+                            old_handle = self._sessions.pop(session_id, None)
+                        if old_handle and old_handle.session != fresh_session:
+                            try:
+                                old_handle.session.logout()
+                            except Exception:
+                                pass
                     new_session_id = self._put(fresh_session)
                     session_id = new_session_id
                     handle = self._get(new_session_id)
@@ -280,13 +287,11 @@ class VTOPClientManager:
             err_code = last_error.code if last_error else CODE_TRANSPORT
             return self._error(err_msg, err_code, retryable=True)
 
-        # Ensure authenticated session is serialized into a fresh, stateless token
-        if session_id:
-            self._drop(session_id)
-        auth_session_id = self._put(session)
+        # Ensure session is registered and handle has registration number
+        auth_session_id = session_id or self._put(session)
         auth_handle = self._get(auth_session_id)
         if auth_handle:
-            auth_handle.reg_no = session.username
+            auth_handle.reg_no = session.username or (username.strip().upper() if username else None)
             auth_handle.touch()
         return self._run_sync(auth_session_id, auth_handle or handle, semester_id)
 
@@ -376,7 +381,23 @@ class VTOPClientManager:
             "message": _summarise(report),
             "lastSynced": payload.get("student", {}).get("lastSynced"),
         }
-        save_store(payload)
+        reg = handle.reg_no or (payload.get("student") or {}).get("regNo")
+        if reg and not (payload.get("student") or {}).get("regNo"):
+            payload.setdefault("student", {})["regNo"] = reg
+
+        # Merge and preserve existing connected integrations (Teams, LMS) and assignments
+        from app.storage import load_store
+        existing_store = load_store(reg)
+        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
+            if key in existing_store and key not in payload:
+                payload[key] = existing_store[key]
+
+        existing_assignments = existing_store.get("assignments") or []
+        external_assignments = [a for a in existing_assignments if a.get("source") in ("Teams", "LMS")]
+        vtop_assignments = payload.get("assignments") or []
+        payload["assignments"] = vtop_assignments + external_assignments
+
+        save_store(payload, reg)
 
         failed: List[str] = list(report.get("failed") or [])
         logger.info(
