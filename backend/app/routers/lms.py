@@ -95,28 +95,61 @@ def get_base_code(code: Optional[str]) -> str:
     return norm[:-1] if norm and norm[-1] in ("L", "P", "J") else norm
 
 
+BLACKLIST_FACULTY_WORDS = {
+    "course", "theory", "lab", "fall", "winter", "spring", "summer", "sem", "semester",
+    "slot", "chennai", "vit", "vellore", "scope", "sense", "select", "sas", "site",
+    "embedded", "project", "assignment", "quiz", "assessment", "engineering",
+    "science", "networks", "algorithms", "structures", "mathematics", "calculus",
+    "programming", "software", "digital", "physics", "chemistry", "general", "moodle",
+    "ep", "pj", "th", "lo", "ss", "cat1", "cat2", "fat", "da1", "da2", "da",
+    "topic", "topics", "unit", "units", "module", "modules", "section", "sections",
+    "chapter", "chapters", "week", "weeks", "session", "sessions", "lesson", "lessons",
+    "lecture", "lectures", "intro", "introduction", "announcement", "announcements"
+}
+
+
 def extract_teacher_from_lms_title(title: str) -> Optional[str]:
-    """Extracts professor/faculty names embedded in LMS course titles or text."""
+    """Extracts professor/faculty names embedded in LMS course titles, section titles, or text."""
     if not title:
         return None
-    # 1. Look for Dr. / Prof. / Professor / Mr. / Ms. / Mrs.
-    m = re.search(r"(?:Dr\.|Prof\.|Professor|Dr|Prof)\s+([A-Za-z\.\s]+?)(?:[-–_\(\)\[\]\|]|$)", title, re.IGNORECASE)
-    if m:
-        cand = m.group(0).strip(" -–_()[]|")
-        if 4 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["course", "theory", "lab", "fall", "winter", "semester"]):
+
+    # 1. Look for Dr. / Prof. / Professor / Mr. / Ms. / Mrs. anywhere in text
+    m_title = re.search(r"\b(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s+([A-Za-z\.\s]{3,50})", title, re.IGNORECASE)
+    if m_title:
+        cand = m_title.group(0).strip(" -–—_()[]|:,")
+        cand = re.split(r"[-–—\(\)\[\]\|]", cand)[0].strip()
+        words = set(re.findall(r"\b[a-zA-Z]+\b", cand.lower()))
+        if not words.intersection(BLACKLIST_FACULTY_WORDS):
             return cand
-    # 2. Look for parenthesized or bracketed teacher name e.g. "(Dr. K. Ramesh)" or "(Ramesh Kumar)"
-    m_par = re.search(r"[\(\[]\s*([A-Za-z\.\s]{4,40})\s*[\)\]]", title)
-    if m_par:
+
+    # 2. Look for explicit parenthesized or bracketed teacher name e.g. (Dr. K. Ramesh) or (Ramesh Kumar) or (Jaya Vignesh T)
+    for m_par in re.finditer(r"[\(\[]\s*([A-Za-z\.\s]{3,50})\s*[\)\]]", title):
         cand_par = m_par.group(1).strip()
-        if not any(kw in cand_par.lower() for kw in ["course", "theory", "lab", "fall", "winter", "sem", "slot", "chennai", "vit"]):
-            return cand_par
-    # 3. Look for trailing teacher names like "- Ramesh Kumar"
-    m2 = re.search(r"[-–]\s*([A-Za-z\.\s]{4,40})\s*$", title)
-    if m2:
-        cand2 = m2.group(1).strip()
-        if not any(kw in cand2.lower() for kw in ["theory", "lab", "fall", "winter", "sem", "slot", "chennai", "vit"]):
-            return cand2
+        words = set(re.findall(r"\b[a-zA-Z]+\b", cand_par.lower()))
+        if not words.intersection(BLACKLIST_FACULTY_WORDS) and len(cand_par) >= 3:
+            if not re.search(r"\b[A-Z]\d\b", cand_par):
+                return cand_par
+
+    # 3. Clean away semester IDs, academic years, semester phrases, and slot codes from title
+    t_clean = re.sub(r"\b[A-Z]{2}\d{6,10}\b", "", title)
+    t_clean = re.sub(r"[\(\[]?\s*(?:Fall|Winter|Spring|Summer|Sem|Semester)?\s*(?:Semester|Sem)?\s*20\d{2}[-\s/]*\d{2,4}\s*[\)\]]?", "", t_clean, flags=re.IGNORECASE)
+    t_clean = re.sub(r"\bSlot\s+[A-Za-z0-9\+\s]+", "", t_clean, flags=re.IGNORECASE)
+
+    # 4. Split by typical VIT LMS delimiters: - – — | : /
+    parts = [p.strip() for p in re.split(r"[-–—|:/]", t_clean) if p.strip()]
+    for part in reversed(parts):
+        if re.search(r"\d", part):
+            continue
+        words = set(re.findall(r"\b[a-zA-Z]+\b", part.lower()))
+        if words.intersection(BLACKLIST_FACULTY_WORDS):
+            continue
+        if 3 <= len(part) <= 50 and all(c.isalpha() or c in ". " for c in part):
+            name_parts = part.split()
+            if 1 <= len(name_parts) <= 5:
+                if len(name_parts) == 1 and len(name_parts[0]) < 4:
+                    continue
+                return part
+
     return None
 
 
@@ -148,6 +181,12 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
                 t_from_h = extract_teacher_from_lms_title(course_h.get_text())
                 if t_from_h and t_from_h not in teachers:
                     teachers.append(t_from_h)
+
+            # Check <title> tag
+            if soup.title and soup.title.string:
+                t_from_title_el = extract_teacher_from_lms_title(soup.title.string)
+                if t_from_title_el and t_from_title_el not in teachers:
+                    teachers.append(t_from_title_el)
 
             # Map sections/modules to teachers if section titles indicate a specific faculty
             for sec in soup.find_all(["li", "div", "section"], class_=lambda c: c and any(k in str(c).lower() for k in ["section", "course-section"])):
@@ -212,7 +251,7 @@ def extract_assignment_poster(
     if t_from_title:
         return t_from_title
 
-    if topic_name:
+    if topic_name and topic_name.strip().lower() not in ("topic", "general", "topics", "section", "module", "unit", "chapter", "week", "session"):
         t_from_topic = extract_teacher_from_lms_title(topic_name)
         if t_from_topic:
             return t_from_topic
@@ -782,7 +821,7 @@ def fetch_assignments_for_lms_course(
             if extracted:
                 return extracted, extracted
 
-            # 3. Fall back to course-level LMS instructor or course faculty
+            # 3. Fall back to course-level LMS instructor, NEVER VTOP registered faculty
             return lms_course_prof, None
 
         max_workers = min(5, max(1, len(parsed_candidates)))
@@ -790,7 +829,7 @@ def fetch_assignments_for_lms_course(
             posters = list(executor.map(_resolve_candidate_poster, parsed_candidates))
 
         for cand, (poster, explicit_poster) in zip(parsed_candidates, posters):
-            poster_display = explicit_poster or poster
+            poster_display = explicit_poster or poster or lms_course_prof
             assignments.append({
                 "id": cand["assign_id"],
                 "activityId": cand["activity_id"],
@@ -801,11 +840,11 @@ def fetch_assignments_for_lms_course(
                 "courseCode": course_code,
                 "courseTitle": vtop_title,
                 "subject": vtop_title,
-                "faculty": vtop_prof if not explicit_poster else poster,
+                "faculty": poster_display,
                 "facultyName": poster_display,
                 "professor": poster_display,
-                "lmsProfessor": explicit_poster or poster,
-                "postedBy": explicit_poster,
+                "lmsProfessor": poster_display,
+                "postedBy": explicit_poster or poster_display,
                 "instructor": poster_display,
                 "verified": True,
                 "source": "LMS",
@@ -861,8 +900,8 @@ def _process_single_lms_course(
     )
 
     if matched_rec and is_verified:
-        # Authentic LMS professor resolution: prefer LMS-specific teacher, fall back to matched VTOP faculty
-        lms_course_prof = (c_teachers[0] if c_teachers else None) or matched_rec.facultyName or "Faculty unassigned"
+        # Authentic LMS professor resolution: prefer LMS-specific teacher, NEVER fall back to VTOP registered faculty
+        lms_course_prof = (c_teachers[0] if c_teachers else None) or "LMS Instructor"
 
         matched_vtop = {
             "code": matched_rec.courseCode,
@@ -870,8 +909,8 @@ def _process_single_lms_course(
             "faculty": matched_rec.facultyName,
             "facultyName": lms_course_prof,
             "professor": lms_course_prof,
-            "lmsProfessor": (c_teachers[0] if c_teachers else None) or lms_course_prof,
-            "postedBy": (c_teachers[0] if c_teachers else None),
+            "lmsProfessor": lms_course_prof,
+            "postedBy": (c_teachers[0] if c_teachers else None) or lms_course_prof,
             "facultyId": matched_rec.facultyId,
             "slot": matched_rec.slot,
             "section": matched_rec.section,
@@ -888,18 +927,18 @@ def _process_single_lms_course(
         )
 
         for sa in sub_assignments:
-            # Preserve the authentic assignment-level poster if extracted
+            # Strictly preserve authentic assignment poster or LMS course instructor, NEVER VTOP registered faculty
             assign_poster = sa.get("postedBy") or sa.get("lmsProfessor") or lms_course_prof
             sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
             sa["subjectId"] = matched_rec.courseCode
             sa["courseCode"] = matched_rec.courseCode
             sa["courseTitle"] = matched_rec.courseName
             sa["subject"] = matched_rec.courseName
-            sa["faculty"] = matched_rec.facultyName
+            sa["faculty"] = assign_poster
             sa["facultyName"] = assign_poster
             sa["professor"] = assign_poster
-            sa["lmsProfessor"] = sa.get("postedBy") or sa.get("lmsProfessor") or assign_poster
-            sa["postedBy"] = sa.get("postedBy")
+            sa["lmsProfessor"] = assign_poster
+            sa["postedBy"] = sa.get("postedBy") or assign_poster
             sa["instructor"] = assign_poster
             sa["semester"] = matched_rec.semester
             sa["verified"] = True
@@ -911,7 +950,7 @@ def _process_single_lms_course(
             "courseTitle": matched_rec.courseName,
             "faculty": lms_course_prof,
             "lmsProfessor": lms_course_prof,
-            "postedBy": (c_teachers[0] if c_teachers else None),
+            "postedBy": (c_teachers[0] if c_teachers else None) or lms_course_prof,
             "lmsCourseId": c_id,
             "lmsCourseName": c_title,
             "assignmentsCount": len(sub_assignments),
@@ -1051,6 +1090,23 @@ def login_and_sync_lms(
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
 
+        manual_status = store.get("manualAssignmentStatus") or {}
+        for a in assignments:
+            a_id = str(a.get("id", ""))
+            a_title = str(a.get("title", ""))
+            if manual_status.get(a_id) is True or manual_status.get(a_title) is True:
+                a["status"] = "Submitted"
+                a["applicationStatus"] = "DONE"
+                a["displayStatus"] = "DONE"
+                a["isDone"] = True
+                a["isSubmitted"] = True
+            elif manual_status.get(a_id) is False or manual_status.get(a_title) is False:
+                a["status"] = "Pending"
+                a["applicationStatus"] = "PENDING"
+                a["displayStatus"] = "PENDING"
+                a["isDone"] = False
+                a["isSubmitted"] = False
+
         all_assignments = other_assignments + assignments
         store["assignments"] = all_assignments
         store["lmsConnected"] = True
@@ -1144,6 +1200,23 @@ def sync_lms(
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
+
+        manual_status = store.get("manualAssignmentStatus") or {}
+        for a in assignments:
+            a_id = str(a.get("id", ""))
+            a_title = str(a.get("title", ""))
+            if manual_status.get(a_id) is True or manual_status.get(a_title) is True:
+                a["status"] = "Submitted"
+                a["applicationStatus"] = "DONE"
+                a["displayStatus"] = "DONE"
+                a["isDone"] = True
+                a["isSubmitted"] = True
+            elif manual_status.get(a_id) is False or manual_status.get(a_title) is False:
+                a["status"] = "Pending"
+                a["applicationStatus"] = "PENDING"
+                a["displayStatus"] = "PENDING"
+                a["isDone"] = False
+                a["isSubmitted"] = False
 
         all_assignments = other_assignments + assignments
         store["assignments"] = all_assignments

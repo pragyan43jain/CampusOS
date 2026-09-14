@@ -1357,6 +1357,23 @@ def login_and_sync_teams(
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
 
+        manual_status = store.get("manualAssignmentStatus") or {}
+        for a in teams_assignments:
+            a_id = str(a.get("id", ""))
+            a_title = str(a.get("title", ""))
+            if manual_status.get(a_id) is True or manual_status.get(a_title) is True:
+                a["status"] = "Submitted"
+                a["applicationStatus"] = "DONE"
+                a["displayStatus"] = "DONE"
+                a["isDone"] = True
+                a["isSubmitted"] = True
+            elif manual_status.get(a_id) is False or manual_status.get(a_title) is False:
+                a["status"] = "Pending"
+                a["applicationStatus"] = "PENDING"
+                a["displayStatus"] = "PENDING"
+                a["isDone"] = False
+                a["isSubmitted"] = False
+
         # Combine authentic assignments
         all_assignments = other_assignments + teams_assignments
         store["assignments"] = all_assignments
@@ -1498,6 +1515,23 @@ def sync_teams(
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
+
+        manual_status = store.get("manualAssignmentStatus") or {}
+        for a in teams_assignments:
+            a_id = str(a.get("id", ""))
+            a_title = str(a.get("title", ""))
+            if manual_status.get(a_id) is True or manual_status.get(a_title) is True:
+                a["status"] = "Submitted"
+                a["applicationStatus"] = "DONE"
+                a["displayStatus"] = "DONE"
+                a["isDone"] = True
+                a["isSubmitted"] = True
+            elif manual_status.get(a_id) is False or manual_status.get(a_title) is False:
+                a["status"] = "Pending"
+                a["applicationStatus"] = "PENDING"
+                a["displayStatus"] = "PENDING"
+                a["isDone"] = False
+                a["isSubmitted"] = False
 
         all_assignments = other_assignments + teams_assignments
         store["assignments"] = all_assignments

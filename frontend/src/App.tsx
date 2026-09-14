@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, X, RefreshCw } from 'lucide-react';
 import {
   StudentProfile,
   Course,
@@ -77,6 +77,42 @@ const getRouteFromPath = (path: string): RouteInfo => {
     return { isLanding: false, isLogin: false, view: 'ai-planner' };
   }
   return { isLanding: true, isLogin: false, view: 'dashboard' };
+};
+
+const applyManualStatusOverrides = (items: Assignment[], regNo?: string): Assignment[] => {
+  if (typeof window === 'undefined' || !items || items.length === 0) return items;
+  try {
+    const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
+    const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
+    if (!raw) return items;
+    const overrides = JSON.parse(raw);
+    return items.map((a) => {
+      let isDone: boolean | undefined = undefined;
+      if (a.id && overrides[a.id] !== undefined) isDone = overrides[a.id];
+      else if (a.title && overrides[a.title] !== undefined) isDone = overrides[a.title];
+      else if (a.id && a.id.startsWith('unified-')) {
+        for (const p of a.id.replace('unified-', '').split('-')) {
+          if (p && overrides[p] !== undefined) {
+            isDone = overrides[p];
+            break;
+          }
+        }
+      }
+      if (isDone !== undefined) {
+        return {
+          ...a,
+          isDone,
+          isSubmitted: isDone,
+          status: isDone ? 'Submitted' : 'Pending',
+          displayStatus: isDone ? 'DONE' : 'PENDING',
+          applicationStatus: isDone ? 'DONE' : 'PENDING',
+        };
+      }
+      return a;
+    });
+  } catch {
+    return items;
+  }
 };
 
 export const App: React.FC = () => {
@@ -237,7 +273,7 @@ export const App: React.FC = () => {
         if (marksData && marksData.length > 0) setMarks(marksData);
         if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
         if (facultyData && facultyData.length > 0) setFaculty(facultyData);
-        if (assignmentsData && assignmentsData.length > 0) setAssignments(assignmentsData);
+        if (assignmentsData && assignmentsData.length > 0) setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
         if (feesData && feesData.length > 0) setFees(feesData);
         if (placementsData && placementsData.length > 0) setPlacements(placementsData);
         if (dsaData && dsaData.length > 0) setDsaTopics(dsaData);
@@ -277,12 +313,12 @@ export const App: React.FC = () => {
           flatList.push(...res.dashboard.unmatchedAssignments);
         }
         if (flatList.length > 0) {
-          setAssignments(flatList);
+          setAssignments(applyManualStatusOverrides(flatList, student?.regNo));
         }
       } else {
         const freshAssignments = await CampusAPI.getAssignments();
         if (freshAssignments) {
-          setAssignments(freshAssignments);
+          setAssignments(applyManualStatusOverrides(freshAssignments, student?.regNo));
         }
       }
 
@@ -601,7 +637,9 @@ export const App: React.FC = () => {
     if (data && data.marks && data.marks.length > 0) setMarks(data.marks);
     if (data && data.exams && Object.keys(data.exams).length > 0) setExams(data.exams);
     if (data && data.faculty && data.faculty.length > 0) setFaculty(data.faculty);
-    if (data && data.assignments && data.assignments.length > 0) setAssignments(data.assignments);
+    if (data && data.assignments && data.assignments.length > 0) {
+      setAssignments(applyManualStatusOverrides(data.assignments, data.student?.regNo || student?.regNo));
+    }
     if (data && data.fees && data.fees.length > 0) setFees(data.fees);
     if (data && data.placements && data.placements.length > 0) setPlacements(data.placements);
     if (data && data.dsaTopics && data.dsaTopics.length > 0) setDsaTopics(data.dsaTopics);
@@ -618,65 +656,140 @@ export const App: React.FC = () => {
 
   const handleToggleAssignment = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
     const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
+    const isDone = nextStatus === 'Submitted';
+
+    // 1. Immediately persist manual checkmark to student-scoped localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const reg = student?.regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
+        const key = `campus_manual_assignment_status_${reg}`;
+        const raw = window.localStorage.getItem(key);
+        const overrides = raw ? JSON.parse(raw) : {};
+        overrides[id] = isDone;
+        const target = assignments.find((x) => x.id === id);
+        if (target?.title) overrides[target.title] = isDone;
+        if (id.startsWith('unified-')) {
+          id.replace('unified-', '').split('-').forEach((p) => {
+            if (p) overrides[p] = isDone;
+          });
+        }
+        window.localStorage.setItem(key, JSON.stringify(overrides));
+      } catch (e) {
+        console.warn('[CampusOS] Could not save manual assignment override:', e);
+      }
+    }
+
+    // 2. Optimistic UI update for immediate responsiveness
+    const updatedAssignments = assignments.map((a) => {
+      let isMatch = a.id === id;
+      if (!isMatch && id.startsWith('unified-')) {
+        const parts = id.replace('unified-', '').split('-');
+        isMatch = parts.includes(a.id);
+      } else if (!isMatch && a.id.startsWith('unified-')) {
+        const parts = a.id.replace('unified-', '').split('-');
+        isMatch = parts.includes(id);
+      }
+      if (isMatch) {
+        return {
+          ...a,
+          status: nextStatus,
+          displayStatus: isDone ? 'DONE' : 'PENDING',
+          applicationStatus: isDone ? 'DONE' : 'PENDING',
+          isDone: isDone,
+          isSubmitted: isDone,
+        };
+      }
+      return a;
+    });
+    setAssignments(updatedAssignments);
+
     try {
-      const updated = await CampusAPI.updateAssignmentStatus(id, nextStatus);
-      setAssignments((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                ...updated,
-                status: nextStatus,
-                isDone: nextStatus === 'Submitted',
-                isSubmitted: nextStatus === 'Submitted',
-                displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
-              }
-            : a
-        )
-      );
-    } catch {
-      setAssignments((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                status: nextStatus,
-                isDone: nextStatus === 'Submitted',
-                isSubmitted: nextStatus === 'Submitted',
-                displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
-              }
-            : a
-        )
-      );
+      await CampusAPI.updateAssignmentStatus(id, nextStatus);
+    } catch (err) {
+      console.warn('Backend update failed, keeping optimistic status in localStorage:', err);
     }
   };
+
+  // 1-Hour Background Auto-Sync
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await CampusAPI.syncAllAcademicAccounts();
+        if (res.dashboard) {
+          const flatList: Assignment[] = [];
+          if (res.dashboard.subjects) {
+            res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
+              if (s.assignments) flatList.push(...s.assignments);
+            });
+          }
+          if (res.dashboard.unmatchedAssignments) {
+            flatList.push(...res.dashboard.unmatchedAssignments);
+          }
+          if (flatList.length > 0) {
+            setAssignments((prev) => {
+              const merged = [...flatList];
+              prev.forEach((old) => {
+                if (!merged.find((m) => m.id === old.id)) {
+                  merged.push(old);
+                }
+              });
+              return applyManualStatusOverrides(merged, student?.regNo);
+            });
+          }
+        }
+      } catch (e) {
+        console.debug('Background auto-sync failed silently:', e);
+      }
+    }, 60 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, student]);
 
   if (authInitializing) {
     return (
       <div
+        data-theme={currentTheme}
         style={{
-          height: '100vh',
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: 'var(--bg-primary)',
+          background: 'var(--bg-primary)',
           color: 'var(--text-primary)',
-          gap: '12px',
         }}
       >
-        <div className="brand-icon-box" style={{ width: '48px', height: '48px' }}>
-          ⚡
-        </div>
-        <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Initializing CampusOS Workspace...</h2>
-        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          Validating VTOP authentication and academic schedule models
+        <RefreshCw size={36} className="animate-spin" style={{ color: 'var(--accent-primary)', marginBottom: '16px' }} />
+        <p style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>
+          Restoring Verified CampusOS Session...
         </p>
       </div>
     );
   }
 
   const pendingAssignmentsCount = assignments.filter((a) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const reg = student?.regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
+        const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
+        if (raw) {
+          const overrides = JSON.parse(raw);
+          let isDone: boolean | undefined = undefined;
+          if (a.id && overrides[a.id] !== undefined) isDone = overrides[a.id];
+          else if (a.title && overrides[a.title] !== undefined) isDone = overrides[a.title];
+          else if (a.id && a.id.startsWith('unified-')) {
+            for (const p of a.id.replace('unified-', '').split('-')) {
+              if (p && overrides[p] !== undefined) {
+                isDone = overrides[p];
+                break;
+              }
+            }
+          }
+          if (isDone !== undefined) return !isDone;
+        }
+      } catch {}
+    }
     const st = (a.displayStatus || a.status || '').toUpperCase().trim();
     const isDone = Boolean(a.isDone || a.isSubmitted || st === 'DONE' || st === 'SUBMITTED' || st === 'COMPLETED');
     return !isDone;
@@ -811,7 +924,7 @@ export const App: React.FC = () => {
             assignments={assignments}
             courses={courses}
             onToggleStatus={handleToggleAssignment}
-            onAssignmentsUpdated={(updated) => setAssignments(updated)}
+            onAssignmentsUpdated={(updated) => setAssignments(applyManualStatusOverrides(updated, student?.regNo))}
             onLinkTeams={() => setIsTeamsModalOpen(true)}
             onLinkLMS={() => setIsLMSModalOpen(true)}
             onSyncAll={handleSyncAll}

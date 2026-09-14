@@ -42,7 +42,45 @@ interface EnrichedAssignment extends Assignment {
   postedBy?: string;
 }
 
-const isAssignmentDone = (a: Assignment): boolean => {
+const getManualOverrides = (regNo?: string): Record<string, boolean> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
+    const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const setManualOverride = (id: string, title: string | undefined, isDone: boolean, regNo?: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
+    const key = `campus_manual_assignment_status_${reg}`;
+    const raw = window.localStorage.getItem(key);
+    const overrides = raw ? JSON.parse(raw) : {};
+    overrides[id] = isDone;
+    if (title) overrides[title] = isDone;
+    if (id.startsWith('unified-')) {
+      id.replace('unified-', '').split('-').forEach((p) => {
+        if (p) overrides[p] = isDone;
+      });
+    }
+    window.localStorage.setItem(key, JSON.stringify(overrides));
+  } catch {}
+};
+
+const isAssignmentDone = (a: Assignment, regNo?: string): boolean => {
+  const overrides = getManualOverrides(regNo);
+  if (a.id && overrides[a.id] !== undefined) return overrides[a.id];
+  if (a.title && overrides[a.title] !== undefined) return overrides[a.title];
+  if (a.id && a.id.startsWith('unified-')) {
+    const parts = a.id.replace('unified-', '').split('-');
+    for (const p of parts) {
+      if (p && overrides[p] !== undefined) return overrides[p];
+    }
+  }
   const st = (a.displayStatus || a.status || '').toUpperCase().trim();
   return Boolean(
     a.isDone ||
@@ -87,11 +125,40 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   const loadUnifiedData = async () => {
     try {
       const data = await CampusAPI.getUnifiedAssignments();
-      setDashboard(data);
+      const processed: UnifiedAssignmentsDashboard = {
+        ...data,
+        subjects: (data.subjects || []).map((s) => ({
+          ...s,
+          assignments: s.assignments.map((item) => {
+            const done = isAssignmentDone(item, studentRegNo);
+            return {
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? 'Submitted' : item.status,
+              displayStatus: done ? 'DONE' : item.displayStatus,
+              applicationStatus: done ? 'DONE' : item.applicationStatus,
+            };
+          }),
+        })),
+        unmatchedAssignments: (data.unmatchedAssignments || []).map((item) => {
+          const done = isAssignmentDone(item, studentRegNo);
+          return {
+            ...item,
+            isDone: done,
+            isSubmitted: done,
+            status: done ? 'Submitted' : item.status,
+            displayStatus: done ? 'DONE' : item.displayStatus,
+            applicationStatus: done ? 'DONE' : item.applicationStatus,
+          };
+        }),
+      };
+      setDashboard(processed);
 
-      if (onAssignmentsUpdated && data.subjects) {
+      if (onAssignmentsUpdated && processed.subjects) {
         const flatList: Assignment[] = [];
-        data.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
+        processed.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
+        if (processed.unmatchedAssignments) flatList.push(...processed.unmatchedAssignments);
         if (flatList.length > 0) {
           onAssignmentsUpdated(flatList);
         }
@@ -142,9 +209,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     ) => {
       // For LMS assignments, strictly use the professor who posted it on LMS, NEVER fallback to VTOP course faculty
       if (source?.toUpperCase().includes('LMS')) {
-        const lmsPoster = postedBy || lmsProfessor || professor || fallbackFaculty;
-        if (lmsPoster && lmsPoster.trim() && lmsPoster !== 'Faculty unassigned') {
-          return lmsPoster.trim();
+        const cand = postedBy || lmsProfessor || (professor && professor !== fallbackFaculty ? professor : undefined);
+        if (cand && cand.trim() && cand !== 'Faculty unassigned') {
+          return cand.trim();
         }
         return 'LMS Instructor';
       }
@@ -167,29 +234,35 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     if (dashboard && dashboard.subjects && dashboard.subjects.length > 0) {
       dashboard.subjects.forEach((subj) => {
         subj.assignments.forEach((a) => {
+          const isLms = a.source?.toUpperCase().includes('LMS');
           const prof = findFaculty(
             a.courseCode || subj.courseCode,
             a.courseTitle || subj.courseTitle,
-            a.faculty || subj.faculty,
+            subj.faculty,
             (a as any).lmsProfessor,
             (a as any).professor,
             (a as any).postedBy,
             a.source
           );
+          const finalPoster = isLms
+            ? (a as any).postedBy || (a as any).lmsProfessor || (prof !== subj.faculty ? prof : 'LMS Instructor')
+            : prof;
+
           list.push({
             ...a,
             subject: subj.courseTitle,
             subjectName: subj.courseTitle,
             courseCode: a.courseCode || subj.courseCode,
-            facultyName: prof,
-            professor: prof,
-            lmsProfessor: (a as any).lmsProfessor || (a as any).postedBy || prof,
-            postedBy: (a as any).postedBy || (a as any).lmsProfessor || prof,
+            facultyName: finalPoster,
+            professor: finalPoster,
+            lmsProfessor: (a as any).lmsProfessor || finalPoster,
+            postedBy: (a as any).postedBy || finalPoster,
           });
         });
       });
       if (dashboard.unmatchedAssignments) {
         dashboard.unmatchedAssignments.forEach((a) => {
+          const isLms = a.source?.toUpperCase().includes('LMS');
           const prof = findFaculty(
             a.courseCode,
             a.courseTitle,
@@ -199,21 +272,26 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             (a as any).postedBy,
             a.source
           );
+          const finalPoster = isLms
+            ? (a as any).postedBy || (a as any).lmsProfessor || (prof !== a.faculty ? prof : 'LMS Instructor')
+            : prof;
+
           list.push({
             ...a,
             subject: a.courseTitle || a.courseCode || 'General Task',
             subjectName: a.courseTitle || a.courseCode || 'General Task',
             courseCode: a.courseCode || 'GENERAL',
-            facultyName: prof,
-            professor: prof,
-            lmsProfessor: (a as any).lmsProfessor || (a as any).postedBy || prof,
-            postedBy: (a as any).postedBy || (a as any).lmsProfessor || prof,
+            facultyName: finalPoster,
+            professor: finalPoster,
+            lmsProfessor: (a as any).lmsProfessor || finalPoster,
+            postedBy: (a as any).postedBy || finalPoster,
           });
         });
       }
       if (list.length > 0) return list;
     }
     return (_assignments || []).map((a) => {
+      const isLms = a.source?.toUpperCase().includes('LMS');
       const prof = findFaculty(
         a.courseCode,
         a.courseTitle || a.subject,
@@ -223,22 +301,28 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         (a as any).postedBy,
         a.source
       );
+      const finalPoster = isLms
+        ? (a as any).postedBy || (a as any).lmsProfessor || (prof !== a.faculty ? prof : 'LMS Instructor')
+        : prof;
       return {
         ...a,
         subject: a.courseTitle || a.subject || a.courseCode || 'Course',
         subjectName: a.courseTitle || a.subject || a.courseCode || 'Course',
         courseCode: a.courseCode || 'COURSE',
-        facultyName: prof,
-        professor: prof,
-        lmsProfessor: (a as any).lmsProfessor || (a as any).postedBy || prof,
-        postedBy: (a as any).postedBy || (a as any).lmsProfessor || prof,
+        facultyName: finalPoster,
+        professor: finalPoster,
+        lmsProfessor: (a as any).lmsProfessor || finalPoster,
+        postedBy: (a as any).postedBy || finalPoster,
       };
     });
   }, [dashboard, _assignments, courses]);
 
   const handleToggle = (a: EnrichedAssignment) => {
-    const isDone = isAssignmentDone(a);
+    const isDone = isAssignmentDone(a, studentRegNo);
     const nextStatus = isDone ? 'Pending' : 'Submitted';
+    const nextIsDone = nextStatus === 'Submitted';
+
+    setManualOverride(a.id, a.title, nextIsDone, studentRegNo);
     onToggleStatus(a.id, isDone ? 'Submitted' : 'Pending');
 
     if (dashboard) {
@@ -251,10 +335,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
               ? {
                   ...item,
                   status: nextStatus,
-                  displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
-                  applicationStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
-                  isDone: nextStatus === 'Submitted',
-                  isSubmitted: nextStatus === 'Submitted',
+                  displayStatus: nextIsDone ? 'DONE' : 'PENDING',
+                  applicationStatus: nextIsDone ? 'DONE' : 'PENDING',
+                  isDone: nextIsDone,
+                  isSubmitted: nextIsDone,
                 }
               : item
           ),
@@ -264,10 +348,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             ? {
                 ...item,
                 status: nextStatus,
-                displayStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
-                applicationStatus: nextStatus === 'Submitted' ? 'DONE' : 'PENDING',
-                isDone: nextStatus === 'Submitted',
-                isSubmitted: nextStatus === 'Submitted',
+                displayStatus: nextIsDone ? 'DONE' : 'PENDING',
+                applicationStatus: nextIsDone ? 'DONE' : 'PENDING',
+                isDone: nextIsDone,
+                isSubmitted: nextIsDone,
               }
             : item
         ),
@@ -283,7 +367,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         if (sourceFilter === 'TEAMS' && !srcUpper.includes('TEAMS')) return false;
         if (sourceFilter === 'LMS' && !srcUpper.includes('LMS')) return false;
 
-        const isDone = isAssignmentDone(a);
+        const isDone = isAssignmentDone(a, studentRegNo);
         if (statusFilter === 'PENDING' && isDone) return false;
         if (statusFilter === 'SUBMITTED' && !isDone) return false;
 
@@ -298,8 +382,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         return true;
       })
       .sort((a, b) => {
-        const doneA = isAssignmentDone(a);
-        const doneB = isAssignmentDone(b);
+        const doneA = isAssignmentDone(a, studentRegNo);
+        const doneB = isAssignmentDone(b, studentRegNo);
 
         // 1. Pending assignments strictly on top, completed assignments strictly at the bottom
         if (!doneA && doneB) return -1;
@@ -313,15 +397,15 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         }
         return (a.courseCode || a.subject || '').localeCompare(b.courseCode || b.subject || '');
       });
-  }, [allAssignments, sourceFilter, statusFilter, searchQuery, sortOrder]);
+  }, [allAssignments, sourceFilter, statusFilter, searchQuery, sortOrder, studentRegNo]);
 
   const pendingCount = useMemo(() => {
-    return allAssignments.filter((a) => !isAssignmentDone(a)).length;
-  }, [allAssignments]);
+    return allAssignments.filter((a) => !isAssignmentDone(a, studentRegNo)).length;
+  }, [allAssignments, studentRegNo]);
 
   const completedCount = useMemo(() => {
-    return allAssignments.filter((a) => isAssignmentDone(a)).length;
-  }, [allAssignments]);
+    return allAssignments.filter((a) => isAssignmentDone(a, studentRegNo)).length;
+  }, [allAssignments, studentRegNo]);
 
   return (
     <div className="page-container">
@@ -461,10 +545,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {filteredAssignments.map((a, idx) => {
-              const isDone = isAssignmentDone(a);
+              const isDone = isAssignmentDone(a, studentRegNo);
               const isOverdue = !isDone && (Boolean(a.isOverdue) || (a.displayStatus || '').toUpperCase() === 'OVERDUE');
               const isDueSoon = !isDone && !isOverdue && (Boolean(a.isDueSoon) || (a.displayStatus || '').toUpperCase() === 'DUE SOON');
-              const showCompletedHeader = isDone && idx > 0 && !isAssignmentDone(filteredAssignments[idx - 1]);
+              const showCompletedHeader = isDone && idx > 0 && !isAssignmentDone(filteredAssignments[idx - 1], studentRegNo);
 
               return (
                 <React.Fragment key={a.id}>

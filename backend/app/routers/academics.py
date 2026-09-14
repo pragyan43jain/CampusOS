@@ -16,12 +16,13 @@ Two groups:
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
-from app.storage import empty_store, load_store, save_store
+from app.storage import empty_store, get_default_local_reg, load_store, save_store
 from app.vtop.hostel import fetch_laundry_schedule, fetch_mess_menu
 from app.routers.auth import normalize_marks_item, normalize_faculty_item, resolve_student_reg
 
@@ -449,6 +450,7 @@ def get_assignments(
 
 
 @router.post("/assignments/{assignment_id}/status")
+@router.put("/assignments/{assignment_id}/status")
 def update_assignment_status(
     assignment_id: str,
     payload: AssignmentStatusUpdate,
@@ -459,22 +461,72 @@ def update_assignment_status(
 ) -> Dict[str, Any]:
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
-    assignments = store.get("assignments") or []
-    for assignment in assignments:
-        if assignment.get("id") == assignment_id:
-            assignment["status"] = payload.status
-            if payload.status == "Submitted":
-                assignment["applicationStatus"] = "DONE"
-                assignment["isDone"] = True
-                assignment["isSubmitted"] = True
-            elif payload.status == "Pending":
-                assignment["applicationStatus"] = "PENDING"
-                assignment["isDone"] = False
-                assignment["isSubmitted"] = False
-            if reg:
-                save_store(store, reg)
-            return assignment
-    raise HTTPException(status_code=404, detail=f"No assignment {assignment_id}")
+    assignments = list(store.get("assignments") or [])
+    manual_status = dict(store.get("manualAssignmentStatus") or {})
+
+    is_done = payload.status.upper() in ("SUBMITTED", "DONE", "COMPLETED")
+    
+    # 1. Update manual override registry
+    manual_status[assignment_id] = is_done
+    if assignment_id.startswith("unified-"):
+        rest = assignment_id[len("unified-"):]
+        for sep in ("-lms-", "-teams-", "-vtop-", "-canvas-"):
+            if sep in rest:
+                idx = rest.find(sep)
+                part1 = rest[:idx]
+                part2 = rest[idx + 1:]
+                if part1:
+                    manual_status[part1] = is_done
+                if part2:
+                    manual_status[part2] = is_done
+        for part in rest.split("-"):
+            if part:
+                manual_status[part] = is_done
+
+    for a in assignments:
+        a_id = str(a.get("id", ""))
+        if a_id and (a_id == assignment_id or a_id in assignment_id or assignment_id in a_id):
+            manual_status[a_id] = is_done
+            if a.get("title"):
+                manual_status[a["title"]] = is_done
+
+    updated_assignment = None
+    found = False
+
+    for a in assignments:
+        a_id = str(a.get("id", ""))
+        if a_id == assignment_id or assignment_id in a_id or a_id in assignment_id:
+            found = True
+            a["status"] = "Submitted" if is_done else "Pending"
+            a["applicationStatus"] = "DONE" if is_done else "PENDING"
+            a["displayStatus"] = "DONE" if is_done else "PENDING"
+            a["isDone"] = is_done
+            a["isSubmitted"] = is_done
+            if is_done:
+                a["submittedAt"] = datetime.now(timezone.utc).isoformat()
+            else:
+                a["submittedAt"] = None
+            if a.get("title"):
+                manual_status[a["title"]] = is_done
+            updated_assignment = a
+
+    if not found:
+        # Create a stub record so it is permanently tracked in the ledger
+        updated_assignment = {
+            "id": assignment_id,
+            "status": "Submitted" if is_done else "Pending",
+            "applicationStatus": "DONE" if is_done else "PENDING",
+            "displayStatus": "DONE" if is_done else "PENDING",
+            "isDone": is_done,
+            "isSubmitted": is_done,
+            "submittedAt": datetime.now(timezone.utc).isoformat() if is_done else None,
+        }
+        assignments.append(updated_assignment)
+
+    store["assignments"] = assignments
+    store["manualAssignmentStatus"] = manual_status
+    save_store(store, reg or get_default_local_reg())
+    return updated_assignment
 
 
 @router.get("/fees")

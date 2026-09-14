@@ -388,15 +388,34 @@ class VTOPClientManager:
         # Merge and preserve existing connected integrations (Teams, LMS) and assignments
         from app.storage import load_store
         existing_store = load_store(reg)
-        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
+        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount", "manualAssignmentStatus"):
             if key in existing_store and key not in payload:
                 payload[key] = existing_store[key]
 
         existing_assignments = existing_store.get("assignments") or []
         external_assignments = [a for a in existing_assignments if a.get("source") in ("Teams", "LMS")]
         vtop_assignments = payload.get("assignments") or []
-        payload["assignments"] = vtop_assignments + external_assignments
+        combined_assignments = vtop_assignments + external_assignments
 
+        # Apply manual completion status to combined assignments
+        manual_status = payload.get("manualAssignmentStatus") or {}
+        for a in combined_assignments:
+            a_id = str(a.get("id", ""))
+            a_title = str(a.get("title", ""))
+            if manual_status.get(a_id) is True or manual_status.get(a_title) is True:
+                a["status"] = "Submitted"
+                a["applicationStatus"] = "DONE"
+                a["displayStatus"] = "DONE"
+                a["isDone"] = True
+                a["isSubmitted"] = True
+            elif manual_status.get(a_id) is False or manual_status.get(a_title) is False:
+                a["status"] = "Pending"
+                a["applicationStatus"] = "PENDING"
+                a["displayStatus"] = "PENDING"
+                a["isDone"] = False
+                a["isSubmitted"] = False
+
+        payload["assignments"] = combined_assignments
         save_store(payload, reg)
 
         failed: List[str] = list(report.get("failed") or [])

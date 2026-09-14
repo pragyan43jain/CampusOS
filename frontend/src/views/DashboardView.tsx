@@ -157,8 +157,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const lmsFailed = Boolean(lmsAccount?.status === 'failed' || lmsAccount?.failed);
 
   const pendingAssignments = assignments.filter((a) => {
+    let isDone = Boolean(a.isDone || a.isSubmitted);
     const st = (a.displayStatus || a.status || '').toUpperCase().trim();
-    const isDone = Boolean(a.isDone || a.isSubmitted || st === 'DONE' || st === 'SUBMITTED' || st === 'COMPLETED');
+    if (st === 'DONE' || st === 'SUBMITTED' || st === 'COMPLETED') {
+      isDone = true;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const reg = student?.regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
+        const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
+        if (raw) {
+          const overrides = JSON.parse(raw);
+          if (a.id && overrides[a.id] !== undefined) isDone = overrides[a.id];
+          else if (a.title && overrides[a.title] !== undefined) isDone = overrides[a.title];
+          else if (a.id && a.id.startsWith('unified-')) {
+            for (const p of a.id.replace('unified-', '').split('-')) {
+              if (p && overrides[p] !== undefined) {
+                isDone = overrides[p];
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
     return !isDone;
   });
 
@@ -483,15 +505,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {item.title}
                 </div>
 
-                {((item as any).postedBy || (item as any).lmsProfessor || item.faculty) && ((item as any).postedBy !== 'Faculty unassigned' && (item as any).lmsProfessor !== 'Faculty unassigned' && item.faculty !== 'Faculty unassigned') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: 'var(--accent-purple)' }}>
-                    <User size={12} />
-                    <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.source === 'LMS' && !((item as any).postedBy || (item as any).lmsProfessor || item.faculty).startsWith('Dr.') && !((item as any).postedBy || (item as any).lmsProfessor || item.faculty).startsWith('Prof.') ? 'Prof. ' : ''}
-                      {((item as any).postedBy || (item as any).lmsProfessor || item.faculty)}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  const isLms = item.source === 'LMS';
+                  const pName = isLms
+                    ? ((item as any).postedBy || (item as any).lmsProfessor || (item as any).facultyName || 'LMS Instructor')
+                    : ((item as any).postedBy || item.faculty || (item as any).facultyName || 'Faculty unassigned');
+                  if (!pName || pName === 'Faculty unassigned') return null;
+                  const formattedName = isLms && !pName.startsWith('Dr.') && !pName.startsWith('Prof.') ? `Prof. ${pName}` : pName;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: 'var(--accent-purple)' }}>
+                      <User size={12} />
+                      <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {formattedName}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', color: 'var(--accent-orange)' }}>
                   <Clock size={13} />

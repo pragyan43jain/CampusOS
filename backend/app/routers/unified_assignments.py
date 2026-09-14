@@ -113,7 +113,8 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
 
     submitted_at = teams_item.get("submittedAt") or lms_item.get("submittedAt")
 
-    prof_name = lms_item.get("postedBy") or lms_item.get("lmsProfessor") or lms_item.get("faculty") or teams_item.get("faculty")
+    lms_poster = lms_item.get("postedBy") or lms_item.get("lmsProfessor")
+    prof_name = lms_poster or teams_item.get("faculty") or lms_item.get("faculty") or "Instructor"
 
     return {
         "id": f"unified-{teams_item.get('id', '')}-{lms_item.get('id', '')}",
@@ -122,8 +123,8 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
         "faculty": prof_name,
         "facultyName": prof_name,
         "professor": prof_name,
-        "lmsProfessor": lms_item.get("postedBy") or lms_item.get("lmsProfessor") or lms_item.get("faculty"),
-        "postedBy": lms_item.get("postedBy") or lms_item.get("lmsProfessor"),
+        "lmsProfessor": lms_poster or "LMS Instructor",
+        "postedBy": lms_poster,
         "title": title,
         "description": desc,
         "instructions": desc,
@@ -373,7 +374,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             )
             continue
 
-        is_lms = (a.get("source") == "LMS" or "lms" in str(a.get("id", "")).lower())
+        is_lms = (a.get("source") == "LMS" or "lms" in str(a.get("id", "")).lower() or "LMS" in a.get("sourceList", []))
         has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("postedBy"))
 
         # Check 4: Exact Faculty Match (Section 5)
@@ -400,7 +401,14 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 )
                 continue
 
-        prof_to_use = a.get("postedBy") or a.get("lmsProfessor") or a.get("facultyName") or a.get("faculty") or matched_rec.facultyName or "Faculty unassigned"
+        if is_lms:
+            # Strictly use authentic LMS poster/instructor, NEVER VTOP registered course faculty
+            assign_lms_prof = a.get("postedBy") or a.get("lmsProfessor")
+            if not assign_lms_prof or assign_lms_prof == matched_rec.facultyName:
+                assign_lms_prof = (a.get("facultyName") if a.get("facultyName") != matched_rec.facultyName else None) or (a.get("faculty") if a.get("faculty") != matched_rec.facultyName else None) or "LMS Instructor"
+            prof_to_use = assign_lms_prof
+        else:
+            prof_to_use = a.get("postedBy") or a.get("facultyName") or a.get("faculty") or matched_rec.facultyName or "Faculty unassigned"
 
         raw_assignments.append({
             **a,
@@ -410,11 +418,11 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "courseCode": matched_rec.courseCode,
             "courseTitle": matched_rec.courseName,
             "subject": matched_rec.courseName,
-            "faculty": matched_rec.facultyName,
+            "faculty": prof_to_use if is_lms else matched_rec.facultyName,
             "facultyName": prof_to_use,
             "professor": prof_to_use,
-            "lmsProfessor": a.get("postedBy") or a.get("lmsProfessor") or (prof_to_use if is_lms else None),
-            "postedBy": a.get("postedBy") or a.get("lmsProfessor") or (prof_to_use if is_lms else None),
+            "lmsProfessor": prof_to_use if is_lms else (a.get("lmsProfessor") or None),
+            "postedBy": prof_to_use if is_lms else a.get("postedBy"),
             "instructor": prof_to_use,
             "verified": True,
         })
@@ -466,7 +474,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         l_id = l_item.get("id")
         if l_id not in used_ids:
             used_ids.add(l_id)
-            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("faculty") or l_item.get("facultyName") or "LMS Instructor"
+            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("facultyName") or l_item.get("faculty") or "LMS Instructor"
             deduped_assignments.append({
                 **l_item,
                 "sourceList": ["LMS"],
@@ -487,25 +495,66 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 "sourceList": [o_item.get("source", "Portal")],
             })
 
-    # 5. Enrich with dynamic relative deadlines
+    # 5. Enrich with dynamic relative deadlines and honor manual completion status
     now_utc = datetime.now(timezone.utc)
     enriched_assignments: List[Dict[str, Any]] = []
+    manual_status: Dict[str, Any] = store.get("manualAssignmentStatus") or {}
+
     for a in deduped_assignments:
+        a_id = str(a.get("id", ""))
+        a_title = str(a.get("title", ""))
+
+        # Check manual status overrides
+        is_manually_set = None
+        if a_id in manual_status:
+            is_manually_set = bool(manual_status[a_id])
+        elif a_title in manual_status:
+            is_manually_set = bool(manual_status[a_title])
+        elif a_id.startswith("unified-"):
+            rest = a_id[len("unified-"):]
+            for sep in ("-lms-", "-teams-", "-vtop-", "-canvas-"):
+                if sep in rest:
+                    idx = rest.find(sep)
+                    p1 = rest[:idx]
+                    p2 = rest[idx + 1:]
+                    if p1 in manual_status:
+                        is_manually_set = bool(manual_status[p1])
+                        break
+                    if p2 in manual_status:
+                        is_manually_set = bool(manual_status[p2])
+                        break
+            if is_manually_set is None:
+                for part in rest.split("-"):
+                    if part and part in manual_status:
+                        is_manually_set = bool(manual_status[part])
+                        break
+
         due_d = a.get("dueDate") or "TBA"
         due_t = a.get("dueTime") or "23:59"
-        raw_st = a.get("applicationStatus") or a.get("status") or "PENDING"
-        is_done = bool(a.get("isDone") or a.get("isSubmitted") or raw_st.upper() in ("DONE", "SUBMITTED", "COMPLETED"))
+
+        if is_manually_set is not None:
+            is_done = is_manually_set
+            raw_st = "SUBMITTED" if is_done else "PENDING"
+            a["status"] = "Submitted" if is_done else "Pending"
+            a["applicationStatus"] = "DONE" if is_done else "PENDING"
+            a["displayStatus"] = "DONE" if is_done else "PENDING"
+            a["isDone"] = is_done
+            a["isSubmitted"] = is_done
+        else:
+            raw_st = a.get("applicationStatus") or a.get("status") or "PENDING"
+            is_done = bool(a.get("isDone") or a.get("isSubmitted") or raw_st.upper() in ("DONE", "SUBMITTED", "COMPLETED"))
+
         meta = compute_relative_deadline(due_d, due_t, raw_st, now_utc, is_done=is_done)
 
         enriched = {
             **a,
             "formattedDeadline": meta["formattedDeadline"],
             "relativeDeadline": meta["relativeDeadline"],
-            "isOverdue": meta["isOverdue"],
-            "isDueSoon": meta["isDueSoon"],
+            "isOverdue": meta["isOverdue"] if is_manually_set is None else False,
+            "isDueSoon": meta["isDueSoon"] if is_manually_set is None else False,
             "sortKey": meta["sortKey"],
-            "displayStatus": meta["finalStatus"],
-            "status": meta["finalStatus"],
+            "displayStatus": "DONE" if is_done else meta["finalStatus"],
+            "status": "DONE" if is_done else meta["finalStatus"],
             "isDone": is_done or meta["finalStatus"] == "DONE",
         }
         enriched_assignments.append(enriched)
@@ -801,6 +850,7 @@ def get_all_assignments_endpoint(
 
 
 @router.post("/assignments/{assignment_id}/status")
+@router.put("/assignments/{assignment_id}/status")
 def update_assignment_status_endpoint(
     assignment_id: str,
     payload: AssignmentStatusUpdateRequest,
@@ -815,8 +865,32 @@ def update_assignment_status_endpoint(
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
     assignments = list(store.get("assignments") or [])
+    manual_status = dict(store.get("manualAssignmentStatus") or {})
     new_status = payload.status
     is_done = new_status.upper() in ("SUBMITTED", "DONE", "COMPLETED")
+
+    manual_status[assignment_id] = is_done
+    if assignment_id.startswith("unified-"):
+        rest = assignment_id[len("unified-"):]
+        for sep in ("-lms-", "-teams-", "-vtop-", "-canvas-"):
+            if sep in rest:
+                idx = rest.find(sep)
+                part1 = rest[:idx]
+                part2 = rest[idx + 1:]
+                if part1:
+                    manual_status[part1] = is_done
+                if part2:
+                    manual_status[part2] = is_done
+        for part in rest.split("-"):
+            if part:
+                manual_status[part] = is_done
+
+    for a in assignments:
+        a_id = str(a.get("id", ""))
+        if a_id and (a_id == assignment_id or a_id in assignment_id or assignment_id in a_id):
+            manual_status[a_id] = is_done
+            if a.get("title"):
+                manual_status[a["title"]] = is_done
 
     updated_assignment = None
     new_assignments = []
@@ -824,7 +898,7 @@ def update_assignment_status_endpoint(
 
     for a in assignments:
         a_id = str(a.get("id"))
-        if a_id == str(assignment_id) or assignment_id in a_id:
+        if a_id == str(assignment_id) or assignment_id in a_id or a_id in str(assignment_id):
             found = True
             a["status"] = "Submitted" if is_done else "Pending"
             a["displayStatus"] = "DONE" if is_done else "PENDING"
@@ -835,6 +909,8 @@ def update_assignment_status_endpoint(
                 a["submittedAt"] = datetime.now(timezone.utc).isoformat()
             else:
                 a["submittedAt"] = None
+            if a.get("title"):
+                manual_status[a["title"]] = is_done
             updated_assignment = a
         new_assignments.append(a)
 
@@ -851,8 +927,8 @@ def update_assignment_status_endpoint(
         new_assignments.append(updated_assignment)
 
     store["assignments"] = new_assignments
-    if reg:
-        save_store(store, reg)
+    store["manualAssignmentStatus"] = manual_status
+    save_store(store, reg or get_default_local_reg())
     return {
         "success": True,
         "assignment": updated_assignment,

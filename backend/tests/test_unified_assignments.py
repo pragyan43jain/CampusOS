@@ -235,3 +235,65 @@ class TestSubjectFirstDashboard:
         assert data["teams"]["connected"] is True
         assert data["lms"]["connected"] is True
         assert data["currentSemester"]["name"] == "Fall Semester 2026-27"
+
+    def test_manual_status_preserved_in_unified_dashboard(self):
+        """When manualAssignmentStatus records an assignment as done, the unified dashboard must show it as DONE."""
+        store = storage.load_store()
+        store["assignments"] = [
+            {
+                "id": "lms-assign-1",
+                "courseCode": "BCSE302L",
+                "courseTitle": "Database Systems",
+                "faculty": "Prof. LMS Author",
+                "postedBy": "Prof. LMS Author",
+                "title": "Lab Worksheet 1",
+                "source": "LMS",
+                "dueDate": "2026-09-20",
+                "dueTime": "23:59",
+                "status": "Pending",
+                "verifiedCourseMatchId": "BCSE302L",
+            }
+        ]
+        store["manualAssignmentStatus"] = {
+            "lms-assign-1": True,
+        }
+        storage.save_store(store)
+
+        res = client.get("/api/assignments/unified")
+        assert res.status_code == 200
+        data = res.json()
+        dbms = next(s for s in data["subjects"] if s["courseCode"] == "BCSE302L")
+        assert len(dbms["assignments"]) == 1
+        assign = dbms["assignments"][0]
+        assert assign["isDone"] is True
+        assert assign["displayStatus"] == "DONE"
+        assert dbms["pendingCount"] == 0
+        assert dbms["submittedCount"] == 1
+
+    def test_update_assignment_status_persists_manual_status(self):
+        """PUT /api/assignments/{id}/status updates manual status map and works for unified IDs."""
+        store = storage.load_store()
+        store["assignments"] = [
+            {
+                "id": "teams-comp-1",
+                "courseCode": "BCSE302L",
+                "title": "Quiz 1",
+                "status": "Pending",
+            }
+        ]
+        storage.save_store(store)
+
+        # Call endpoint for unified ID
+        res = client.put("/api/assignments/unified-teams-comp-1-lms-comp-2/status", json={"status": "Submitted"})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["isDone"] is True
+        assert data["displayStatus"] == "DONE"
+
+        # Verify storage was updated with manualAssignmentStatus
+        updated_store = storage.load_store()
+        assert "manualAssignmentStatus" in updated_store
+        assert updated_store["manualAssignmentStatus"]["unified-teams-comp-1-lms-comp-2"] is True
+        assert updated_store["manualAssignmentStatus"]["teams-comp-1"] is True
+        assert updated_store["manualAssignmentStatus"]["lms-comp-2"] is True
+
