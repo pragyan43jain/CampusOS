@@ -28,6 +28,7 @@ from app.course_verification import (
     ExternalCourseMatch,
     canonicalize_course_code,
     canonicalize_faculty_name,
+    lms_course_matches_vtop_professor,
     build_verified_semester_course_records,
     verify_external_course,
 )
@@ -925,66 +926,85 @@ def _process_single_lms_course(
         current_semester=curr_sem_name,
     )
 
-    if matched_rec and is_verified:
-        # Authentic LMS professor resolution: prefer LMS-specific teacher, fallback to verified course faculty
-        lms_course_prof = (c_teachers[0] if c_teachers else None) or matched_rec.facultyName or "Faculty unassigned"
-
-        matched_vtop = {
-            "code": matched_rec.courseCode,
-            "title": matched_rec.courseName,
-            "faculty": matched_rec.facultyName,
-            "facultyName": lms_course_prof,
-            "professor": lms_course_prof,
-            "lmsProfessor": lms_course_prof,
-            "postedBy": (c_teachers[0] if c_teachers else None) or lms_course_prof,
-            "facultyId": matched_rec.facultyId,
-            "slot": matched_rec.slot,
-            "section": matched_rec.section,
-            "semester": matched_rec.semester,
-        }
-
-        sub_assignments = fetch_assignments_for_lms_course(
-            session=session,
-            course_id=c_id,
-            course_title=c_title,
-            vtop_course=matched_vtop,
+    # Strict Verification: verify whether the course name is matching in the vtop course professor name
+    # If they match then only fetch, otherwise do not fetch!
+    prof_matched = False
+    if matched_rec:
+        prof_matched = lms_course_matches_vtop_professor(
+            lms_title=c_title,
+            vtop_faculty=matched_rec.facultyName,
             lms_teachers=c_teachers,
-            course_sections_map=c_sections_map,
         )
 
-        for sa in sub_assignments:
-            # Strictly preserve authentic assignment poster or LMS course instructor, NEVER VTOP registered faculty
-            assign_poster = sa.get("postedBy") or sa.get("lmsProfessor") or lms_course_prof
-            sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
-            sa["subjectId"] = matched_rec.courseCode
-            sa["courseCode"] = matched_rec.courseCode
-            sa["courseTitle"] = matched_rec.courseName
-            sa["subject"] = matched_rec.courseName
-            sa["faculty"] = assign_poster
-            sa["facultyName"] = assign_poster
-            sa["professor"] = assign_poster
-            sa["lmsProfessor"] = assign_poster
-            sa["postedBy"] = sa.get("postedBy") or assign_poster
-            sa["instructor"] = assign_poster
-            sa["semester"] = matched_rec.semester
-            sa["verified"] = True
-            sa["source"] = "LMS"
-            sa["lmsCourseId"] = c_id
+    if not (is_verified and matched_rec and prof_matched):
+        logger.info(
+            "LMS course %s ('%s') does not match VTOP course professor '%s'. Skipping fetch.",
+            c_id,
+            c_title,
+            matched_rec.facultyName if matched_rec else "None",
+        )
+        if match_meta:
+            match_meta.verified = False
+            match_meta.facultyMatch = False
+            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{matched_rec.facultyName if matched_rec else 'None'}'"
+            return match_meta.model_dump(), None, [], None
+        return {}, None, [], None
 
-        matched_summary = {
-            "courseCode": matched_rec.courseCode,
-            "courseTitle": matched_rec.courseName,
-            "faculty": lms_course_prof,
-            "lmsProfessor": lms_course_prof,
-            "postedBy": (c_teachers[0] if c_teachers else None) or lms_course_prof,
-            "lmsCourseId": c_id,
-            "lmsCourseName": c_title,
-            "assignmentsCount": len(sub_assignments),
-        }
+    # Both Course Code and Professor Name match in the LMS course name! Fetch assignments.
+    real_faculty = matched_rec.facultyName
 
-        return match_meta.model_dump(), matched_vtop, sub_assignments, matched_summary
-    else:
-        return match_meta.model_dump(), None, [], None
+    matched_vtop = {
+        "code": matched_rec.courseCode,
+        "title": matched_rec.courseName,
+        "faculty": real_faculty,
+        "facultyName": real_faculty,
+        "professor": real_faculty,
+        "lmsProfessor": real_faculty,
+        "postedBy": real_faculty,
+        "facultyId": matched_rec.facultyId,
+        "slot": matched_rec.slot,
+        "section": matched_rec.section,
+        "semester": matched_rec.semester,
+    }
+
+    sub_assignments = fetch_assignments_for_lms_course(
+        session=session,
+        course_id=c_id,
+        course_title=c_title,
+        vtop_course=matched_vtop,
+        lms_teachers=c_teachers,
+        course_sections_map=c_sections_map,
+    )
+
+    for sa in sub_assignments:
+        sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
+        sa["subjectId"] = matched_rec.courseCode
+        sa["courseCode"] = matched_rec.courseCode
+        sa["courseTitle"] = matched_rec.courseName
+        sa["subject"] = matched_rec.courseName
+        sa["faculty"] = real_faculty
+        sa["facultyName"] = real_faculty
+        sa["professor"] = real_faculty
+        sa["lmsProfessor"] = real_faculty
+        sa["postedBy"] = real_faculty
+        sa["instructor"] = real_faculty
+        sa["semester"] = matched_rec.semester
+        sa["verified"] = True
+        sa["source"] = "LMS"
+        sa["lmsCourseId"] = c_id
+
+    matched_summary = {
+        "courseCode": matched_rec.courseCode,
+        "courseTitle": matched_rec.courseName,
+        "faculty": real_faculty,
+        "lmsProfessor": real_faculty,
+        "postedBy": real_faculty,
+        "lmsCourseId": c_id,
+        "lmsCourseName": c_title,
+        "assignmentsCount": len(sub_assignments),
+    }
+
+    return match_meta.model_dump(), matched_vtop, sub_assignments, matched_summary
 
 
 def fetch_vit_lms_coursework(

@@ -159,6 +159,72 @@ def canonicalize_faculty_name(name: Optional[str]) -> Optional[str]:
     return " ".join(tokens)
 
 
+def lms_course_matches_vtop_professor(
+    lms_title: str,
+    vtop_faculty: str,
+    lms_teachers: Optional[List[str]] = None,
+) -> bool:
+    """
+    Strict Verification: Verifies whether an LMS course name (or its explicit LMS teachers)
+    matches the enrolled VTOP course's professor name.
+    If they match -> True (eligible to fetch assignments).
+    Otherwise -> False (do not fetch).
+    """
+    if not vtop_faculty:
+        return False
+
+    vtop_clean = canonicalize_faculty_name(vtop_faculty)
+    if not vtop_clean:
+        return False
+
+    # 1. Check if any explicit LMS teacher matches VTOP faculty
+    if lms_teachers:
+        for t in lms_teachers:
+            if not t:
+                continue
+            t_clean = canonicalize_faculty_name(t)
+            if t_clean:
+                if t_clean == vtop_clean or t_clean in vtop_clean or vtop_clean in t_clean:
+                    return True
+                # Check distinctive tokens
+                t_tokens = [tok for tok in t_clean.split() if len(tok) >= 3]
+                v_tokens = [tok for tok in vtop_clean.split() if len(tok) >= 3]
+                if t_tokens and v_tokens and set(t_tokens) == set(v_tokens):
+                    return True
+
+    if not lms_title:
+        return False
+
+    title_upper = lms_title.upper()
+    vtop_upper = vtop_faculty.upper().strip()
+
+    # 2. Direct substring check (e.g. "RISHIKESHAN C A" in "BCSE302L - DATABASE SYSTEMS - RISHIKESHAN C A")
+    if vtop_upper in title_upper or vtop_clean in title_upper:
+        return True
+
+    # 3. Token-based matching against normalized LMS course title
+    title_normalized = re.sub(r"[\-–—_:\(\)\[\]\|/,\.]+", " ", title_upper)
+    title_words = set(re.findall(r"\b[A-Z0-9]+\b", title_normalized))
+
+    faculty_tokens = [tok for tok in vtop_clean.split() if len(tok) >= 3]
+    initials = [tok for tok in vtop_clean.split() if len(tok) == 1]
+
+    # All distinctive name tokens (e.g. ['RISHIKESHAN'] or ['JAYA', 'VIGNESH']) must appear in LMS title
+    if faculty_tokens and all(tok in title_words for tok in faculty_tokens):
+        return True
+
+    # Check for initials + single distinctive name (e.g. 'S' + 'GEETHA')
+    if len(faculty_tokens) == 1 and initials:
+        tok = faculty_tokens[0]
+        if tok in title_words:
+            if any(init in title_words for init in initials):
+                return True
+            if re.search(rf"\b(?:{'|'.join(initials)})\b.*\b{tok}\b", title_normalized) or re.search(rf"\b{tok}\b.*\b(?:{'|'.join(initials)})\b", title_normalized):
+                return True
+
+    return False
+
+
 def canonicalize_faculty_id(fac_id: Optional[str]) -> Optional[str]:
     """Normalizes stable faculty ID if available."""
     if not fac_id:
@@ -573,12 +639,12 @@ def verify_external_course(
                 faculty_name_matched = True
                 match_result.sourceFacultyName = cand
                 break
-    elif source == "LMS" and source_professors is not None and matched_code == matched_enrolled.courseCode:
-        # In VIT LMS, Moodle permissions restrict students from viewing the teacher profile page.
-        # When course code, course title, and semester match the authenticated student's enrolled course,
-        # and no conflicting instructor is found, verify and accept the LMS course.
-        faculty_name_matched = True
-        match_result.sourceFacultyName = matched_enrolled.facultyName
+
+    # For LMS: strict user requirement — verify whether the course name is matching in the VTOP course professor name
+    if source == "LMS" and not faculty_name_matched:
+        if lms_course_matches_vtop_professor(source_name, matched_enrolled.facultyName, source_professors):
+            faculty_name_matched = True
+            match_result.sourceFacultyName = matched_enrolled.facultyName
 
     # Fail closed if faculty is missing or mismatched
     if not (faculty_id_matched or faculty_name_matched):

@@ -283,7 +283,7 @@ class VTOPClientManager:
         if not authenticated or handle is None or session is None:
             if session_id:
                 self._drop(session_id)
-            err_msg = last_error.message if last_error else "Could not verify credentials with VTOP. Please retry."
+            err_msg = last_error.message if last_error else "Authentication failed: could not verify credentials with VTOP. Please retry."
             err_code = last_error.code if last_error else CODE_TRANSPORT
             return self._error(err_msg, err_code, retryable=True)
 

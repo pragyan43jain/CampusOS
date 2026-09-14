@@ -811,3 +811,83 @@ class TestLMSAssignmentPosterExtraction:
         assert assign["postedBy"] == "Dr. S. Geetha"
         assert assign["lmsProfessor"] == "Dr. S. Geetha"
         assert assign["facultyName"] == "Dr. S. Geetha"
+
+    def test_lms_fetch_only_when_course_name_matches_vtop_professor(self):
+        """
+        Verify whether the course name is matching in the VTOP course professor name:
+        If they match -> ONLY THEN fetch assignments!
+        Otherwise -> DO NOT FETCH!
+        """
+        from app.routers.lms import _process_single_lms_course
+        from app.course_verification import build_verified_semester_course_records
+
+        store_data = {
+            "selectedSemester": {"name": "Fall Semester 2026-27", "id": "CH20262701"},
+            "courses": [
+                {
+                    "code": "BCSE302L",
+                    "title": "Database Systems",
+                    "faculty": "RISHIKESHAN C A",
+                }
+            ],
+        }
+        verified_enrolled = build_verified_semester_course_records(store_data)
+
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>No assignments table</body></html>"
+        mock_session.get.return_value = mock_response
+
+        # 1. LMS course name matches VTOP professor name -> Succeeded and eligible to fetch
+        matching_course = {
+            "id": "1001",
+            "title": "BCSE302L - Database Systems - RISHIKESHAN C A",
+            "teachers": [],
+        }
+        meta, vtop, sub_assigns, summary = _process_single_lms_course(
+            lms_c=matching_course,
+            verified_enrolled=verified_enrolled,
+            curr_sem_name="Fall Semester 2026-27",
+            session=mock_session,
+        )
+        assert meta["verified"] is True
+        assert vtop is not None
+        assert vtop["facultyName"] == "RISHIKESHAN C A"
+        assert summary is not None
+        assert summary["faculty"] == "RISHIKESHAN C A"
+
+        # 2. LMS course name has DIFFERENT professor -> DO NOT FETCH (rejected)
+        wrong_prof_course = {
+            "id": "1002",
+            "title": "BCSE302L - Database Systems - DR. WRONG PROFESSOR",
+            "teachers": [],
+        }
+        meta_wrong, vtop_wrong, sub_wrong, summary_wrong = _process_single_lms_course(
+            lms_c=wrong_prof_course,
+            verified_enrolled=verified_enrolled,
+            curr_sem_name="Fall Semester 2026-27",
+            session=mock_session,
+        )
+        assert meta_wrong["verified"] is False
+        assert vtop_wrong is None
+        assert sub_wrong == []
+        assert summary_wrong is None
+
+        # 3. LMS course name MISSING professor -> DO NOT FETCH (rejected)
+        missing_prof_course = {
+            "id": "1003",
+            "title": "BCSE302L - Database Systems",
+            "teachers": [],
+        }
+        meta_missing, vtop_missing, sub_missing, summary_missing = _process_single_lms_course(
+            lms_c=missing_prof_course,
+            verified_enrolled=verified_enrolled,
+            curr_sem_name="Fall Semester 2026-27",
+            session=mock_session,
+        )
+        assert meta_missing["verified"] is False
+        assert vtop_missing is None
+        assert sub_missing == []
+        assert summary_missing is None
+
