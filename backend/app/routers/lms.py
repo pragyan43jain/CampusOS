@@ -301,6 +301,27 @@ def extract_assignment_poster(
                 intro_box = soup.find(id="intro") or soup.find(class_=lambda c: c and any(k in str(c).lower() for k in ["intro", "generalbox", "description", "activity-description"]))
                 intro_text = intro_box.get_text() if intro_box else r.text
 
+                # Look for explicit faculty / instructor intro headers
+                m_faculty_intro = re.search(
+                    r"(?:Faculty\s*(?:Name|In-charge)?|Course\s*(?:Instructor|Faculty|Teacher|Coordinator)|Instructor|Teacher|Evaluator|Grader|Uploaded\s*by|Prepared\s*by|Assigned\s*by)\s*[:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
+                    intro_text,
+                    re.IGNORECASE,
+                )
+                if m_faculty_intro:
+                    cand = m_faculty_intro.group(1).strip().split("\n")[0].strip()
+                    if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["assignment", "submission", "deadline", "student", "batch", "slot", "lms", "course", "status", "general", "activity"]):
+                        return cand
+
+                # Look for all-caps faculty name e.g. "FACULTY: RISHIKESHAN C A"
+                m_caps = re.search(
+                    r"(?:FACULTY|INSTRUCTOR|PROFESSOR|TEACHER|PREPARED BY|UPLOADED BY)\s*[:\-]\s*([A-Z]{2,}(?:\s+[A-Z]{1,2}\.?)*(?:\s+[A-Z]{2,})*)",
+                    intro_text,
+                )
+                if m_caps:
+                    cand_caps = m_caps.group(1).strip()
+                    if 3 <= len(cand_caps) < 50 and not any(kw in cand_caps.lower() for kw in ["assignment", "submission", "deadline", "course"]):
+                        return cand_caps
+
                 # Look for sign-offs e.g. "Regards, Dr. S. Geetha" or "Posted by Dr. ..."
                 m_signoff = re.search(
                     r"(?:Regards|Thanks\s*(?:&|and)\s*Regards|Best\s*Wishes|Sincerely|Assigned\s*by|Posted\s*by|Created\s*by|Faculty|Instructor|Submitted\s*to)\s*[,:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
@@ -821,8 +842,11 @@ def fetch_assignments_for_lms_course(
             if extracted:
                 return extracted, extracted
 
-            # 3. Fall back to course-level LMS instructor, NEVER VTOP registered faculty
-            return lms_course_prof, None
+            # 3. Fall back to course-level LMS instructor, then verified course faculty
+            fallback_prof = lms_course_prof
+            if not fallback_prof or fallback_prof in ("LMS Instructor", "Instructor", "LMS Teacher", "Faculty unassigned"):
+                fallback_prof = (c_teachers[0] if c_teachers else None) or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
+            return fallback_prof, None
 
         max_workers = min(5, max(1, len(parsed_candidates)))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -830,6 +854,8 @@ def fetch_assignments_for_lms_course(
 
         for cand, (poster, explicit_poster) in zip(parsed_candidates, posters):
             poster_display = explicit_poster or poster or lms_course_prof
+            if not poster_display or poster_display in ("LMS Instructor", "Instructor", "LMS Teacher"):
+                poster_display = vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
             assignments.append({
                 "id": cand["assign_id"],
                 "activityId": cand["activity_id"],
@@ -900,8 +926,8 @@ def _process_single_lms_course(
     )
 
     if matched_rec and is_verified:
-        # Authentic LMS professor resolution: prefer LMS-specific teacher, NEVER fall back to VTOP registered faculty
-        lms_course_prof = (c_teachers[0] if c_teachers else None) or "LMS Instructor"
+        # Authentic LMS professor resolution: prefer LMS-specific teacher, fallback to verified course faculty
+        lms_course_prof = (c_teachers[0] if c_teachers else None) or matched_rec.facultyName or "Faculty unassigned"
 
         matched_vtop = {
             "code": matched_rec.courseCode,

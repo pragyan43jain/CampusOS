@@ -123,8 +123,8 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
         "faculty": prof_name,
         "facultyName": prof_name,
         "professor": prof_name,
-        "lmsProfessor": lms_poster or "LMS Instructor",
-        "postedBy": lms_poster,
+        "lmsProfessor": lms_poster or lms_item.get("facultyName") or lms_item.get("faculty") or prof_name or "Faculty unassigned",
+        "postedBy": lms_poster or lms_item.get("facultyName") or lms_item.get("faculty") or prof_name,
         "title": title,
         "description": desc,
         "instructions": desc,
@@ -402,10 +402,21 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 continue
 
         if is_lms:
-            # Strictly use authentic LMS poster/instructor, NEVER VTOP registered course faculty
-            assign_lms_prof = a.get("postedBy") or a.get("lmsProfessor")
-            if not assign_lms_prof or assign_lms_prof == matched_rec.facultyName:
-                assign_lms_prof = (a.get("facultyName") if a.get("facultyName") != matched_rec.facultyName else None) or (a.get("faculty") if a.get("faculty") != matched_rec.facultyName else None) or "LMS Instructor"
+            # Strictly use authentic assignment poster or LMS course faculty; never replace with 'LMS Instructor'
+            assign_lms_prof = (
+                a.get("postedBy")
+                or a.get("lmsProfessor")
+                or a.get("facultyName")
+                or a.get("faculty")
+                or (matched_rec.facultyName if matched_rec else None)
+                or "Faculty unassigned"
+            )
+            if assign_lms_prof in ("LMS Instructor", "Instructor", "LMS Teacher"):
+                assign_lms_prof = (
+                    a.get("facultyName") if a.get("facultyName") not in ("LMS Instructor", "Instructor", "LMS Teacher") else None
+                ) or (
+                    matched_rec.facultyName if matched_rec else None
+                ) or "Faculty unassigned"
             prof_to_use = assign_lms_prof
         else:
             prof_to_use = a.get("postedBy") or a.get("facultyName") or a.get("faculty") or matched_rec.facultyName or "Faculty unassigned"
@@ -474,7 +485,9 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         l_id = l_item.get("id")
         if l_id not in used_ids:
             used_ids.add(l_id)
-            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("facultyName") or l_item.get("faculty") or "LMS Instructor"
+            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("facultyName") or l_item.get("faculty") or (matched_rec.facultyName if matched_rec else None) or "Faculty unassigned"
+            if prof in ("LMS Instructor", "Instructor", "LMS Teacher") and matched_rec and matched_rec.facultyName:
+                prof = matched_rec.facultyName
             deduped_assignments.append({
                 **l_item,
                 "sourceList": ["LMS"],

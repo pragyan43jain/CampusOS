@@ -205,36 +205,42 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       lmsProfessor?: string,
       professor?: string,
       postedBy?: string,
-      source?: string
+      _source?: string
     ) => {
-      // For LMS assignments, strictly use the professor who posted it on LMS, NEVER fallback to VTOP course faculty
-      if (source?.toUpperCase().includes('LMS')) {
-        const cand = postedBy || lmsProfessor || (professor && professor !== fallbackFaculty ? professor : undefined);
-        if (cand && cand.trim() && cand !== 'Faculty unassigned') {
-          return cand.trim();
-        }
-        return 'LMS Instructor';
-      }
-
-      const explicitProf = lmsProfessor || professor || fallbackFaculty;
-      if (explicitProf && explicitProf.trim() && explicitProf !== 'Faculty unassigned') {
+      // 1. Prefer explicit authentic poster / instructor from assignment or LMS
+      const explicitProf = postedBy || lmsProfessor || professor || fallbackFaculty;
+      if (
+        explicitProf &&
+        explicitProf.trim() &&
+        explicitProf !== 'Faculty unassigned' &&
+        explicitProf !== 'LMS Instructor' &&
+        explicitProf !== 'Instructor'
+      ) {
         return explicitProf.trim();
       }
+
+      // 2. Search courses catalog by courseCode or courseTitle
       if (courses && courses.length > 0) {
         const found = courses.find((c) =>
           (courseCode && c.code && c.code.toUpperCase() === courseCode.toUpperCase()) ||
           (courseTitle && c.title && c.title.toLowerCase() === courseTitle.toLowerCase())
         );
-        if (found?.faculty) return found.faculty;
+        if (found?.faculty && found.faculty !== 'Faculty unassigned' && found.faculty !== 'LMS Instructor') {
+          return found.faculty;
+        }
       }
-      return fallbackFaculty || 'Faculty unassigned';
+
+      if (fallbackFaculty && fallbackFaculty !== 'Faculty unassigned' && fallbackFaculty !== 'LMS Instructor') {
+        return fallbackFaculty.trim();
+      }
+
+      return 'Faculty unassigned';
     };
 
     const list: EnrichedAssignment[] = [];
     if (dashboard && dashboard.subjects && dashboard.subjects.length > 0) {
       dashboard.subjects.forEach((subj) => {
         subj.assignments.forEach((a) => {
-          const isLms = a.source?.toUpperCase().includes('LMS');
           const prof = findFaculty(
             a.courseCode || subj.courseCode,
             a.courseTitle || subj.courseTitle,
@@ -244,9 +250,15 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             (a as any).postedBy,
             a.source
           );
-          const finalPoster = isLms
-            ? (a as any).postedBy || (a as any).lmsProfessor || (prof !== subj.faculty ? prof : 'LMS Instructor')
-            : prof;
+          const rawPoster = (a as any).postedBy || (a as any).lmsProfessor || (a as any).facultyName || (a as any).professor;
+          const finalPoster =
+            rawPoster && rawPoster !== 'LMS Instructor' && rawPoster !== 'Faculty unassigned'
+              ? rawPoster
+              : prof && prof !== 'LMS Instructor'
+              ? prof
+              : subj.faculty && subj.faculty !== 'LMS Instructor'
+              ? subj.faculty
+              : 'Faculty unassigned';
 
           list.push({
             ...a,
@@ -262,7 +274,6 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       });
       if (dashboard.unmatchedAssignments) {
         dashboard.unmatchedAssignments.forEach((a) => {
-          const isLms = a.source?.toUpperCase().includes('LMS');
           const prof = findFaculty(
             a.courseCode,
             a.courseTitle,
@@ -272,9 +283,15 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             (a as any).postedBy,
             a.source
           );
-          const finalPoster = isLms
-            ? (a as any).postedBy || (a as any).lmsProfessor || (prof !== a.faculty ? prof : 'LMS Instructor')
-            : prof;
+          const rawPoster = (a as any).postedBy || (a as any).lmsProfessor || (a as any).facultyName || (a as any).professor;
+          const finalPoster =
+            rawPoster && rawPoster !== 'LMS Instructor' && rawPoster !== 'Faculty unassigned'
+              ? rawPoster
+              : prof && prof !== 'LMS Instructor'
+              ? prof
+              : a.faculty && a.faculty !== 'LMS Instructor'
+              ? a.faculty
+              : 'Faculty unassigned';
 
           list.push({
             ...a,
@@ -291,7 +308,6 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       if (list.length > 0) return list;
     }
     return (_assignments || []).map((a) => {
-      const isLms = a.source?.toUpperCase().includes('LMS');
       const prof = findFaculty(
         a.courseCode,
         a.courseTitle || a.subject,
@@ -301,9 +317,16 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         (a as any).postedBy,
         a.source
       );
-      const finalPoster = isLms
-        ? (a as any).postedBy || (a as any).lmsProfessor || (prof !== a.faculty ? prof : 'LMS Instructor')
-        : prof;
+      const rawPoster = (a as any).postedBy || (a as any).lmsProfessor || (a as any).facultyName || (a as any).professor;
+      const finalPoster =
+        rawPoster && rawPoster !== 'LMS Instructor' && rawPoster !== 'Faculty unassigned'
+          ? rawPoster
+          : prof && prof !== 'LMS Instructor'
+          ? prof
+          : a.faculty && a.faculty !== 'LMS Instructor'
+          ? a.faculty
+          : 'Faculty unassigned';
+
       return {
         ...a,
         subject: a.courseTitle || a.subject || a.courseCode || 'Course',
@@ -680,7 +703,19 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                           <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>
                             {a.source?.toUpperCase().includes('LMS') ? 'Posted By (LMS):' : 'Faculty:'}
                           </span>
-                          <span>{a.postedBy || a.lmsProfessor || a.facultyName || a.professor || (a.source?.toUpperCase().includes('LMS') ? 'LMS Instructor' : 'Faculty unassigned')}</span>
+                          <span>
+                            {a.postedBy && a.postedBy !== 'LMS Instructor' && a.postedBy !== 'Faculty unassigned'
+                              ? a.postedBy
+                              : a.lmsProfessor && a.lmsProfessor !== 'LMS Instructor' && a.lmsProfessor !== 'Faculty unassigned'
+                              ? a.lmsProfessor
+                              : a.facultyName && a.facultyName !== 'LMS Instructor' && a.facultyName !== 'Faculty unassigned'
+                              ? a.facultyName
+                              : a.professor && a.professor !== 'LMS Instructor' && a.professor !== 'Faculty unassigned'
+                              ? a.professor
+                              : a.faculty && a.faculty !== 'LMS Instructor'
+                              ? a.faculty
+                              : 'Faculty unassigned'}
+                          </span>
                         </span>
                       </div>
 

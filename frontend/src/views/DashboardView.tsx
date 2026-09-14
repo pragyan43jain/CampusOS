@@ -507,10 +507,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 {(() => {
                   const isLms = item.source === 'LMS';
-                  const pName = isLms
-                    ? ((item as any).postedBy || (item as any).lmsProfessor || (item as any).facultyName || 'LMS Instructor')
-                    : ((item as any).postedBy || item.faculty || (item as any).facultyName || 'Faculty unassigned');
-                  if (!pName || pName === 'Faculty unassigned') return null;
+                  const rawPoster = (item as any).postedBy || (item as any).lmsProfessor || (item as any).facultyName || (item as any).faculty || (item as any).professor;
+                  const pName = rawPoster && rawPoster !== 'LMS Instructor' && rawPoster !== 'Faculty unassigned'
+                    ? rawPoster
+                    : item.faculty || (item as any).facultyName || 'Faculty unassigned';
+                  if (!pName || pName === 'Faculty unassigned' || pName === 'LMS Instructor') return null;
                   const formattedName = isLms && !pName.startsWith('Dr.') && !pName.startsWith('Prof.') ? `Prof. ${pName}` : pName;
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: 'var(--accent-purple)' }}>
