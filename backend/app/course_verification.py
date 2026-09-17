@@ -229,6 +229,143 @@ def lms_course_matches_vtop_professor(
     return False
 
 
+def normalize_faculty_name(name: Optional[str]) -> str:
+    """
+    Normalizes a faculty name for reliable cross-platform comparison (VTOP vs LMS):
+    - Lowercase, trim leading/trailing whitespace
+    - Remove honorifics and titles: Dr, Prof, Professor, Mr, Ms, Mrs, Doc, Er
+    - Remove academic degrees or department labels: PhD, MTech, BTech, MSc, Dept, Department
+    - Strip punctuation and symbols
+    - Filter out generic words and placeholders ('LMS Instructor', 'unassigned', 'none', 'tba')
+    """
+    if not name:
+        return ""
+    clean = str(name).strip().lower()
+    clean = re.sub(r"\b(?:dr|prof|professor|mr|ms|mrs|doc|er)\b\.?\s*", " ", clean)
+    clean = re.sub(r"\bph\.?\s*d\.?\b", " ", clean)
+    clean = re.sub(r"\b(?:phd|mtech|btech|msc|dept|department)\b\.?\s*", " ", clean)
+    clean = re.sub(r"[\.,;:_\-\(\)\[\]\{\}/\\\|@#\$%\^&\*\+=\<\>\?~!]", " ", clean)
+    ignored = {
+        "dr", "prof", "professor", "mr", "ms", "mrs", "doc", "er",
+        "faculty", "instructor", "teacher", "unassigned", "none", "tba", "lms",
+        "staff", "user", "admin",
+    }
+    tokens = [t for t in clean.split() if t not in ignored and not t.isdigit()]
+    return " ".join(tokens)
+
+
+def words_match(w1: str, w2: str) -> bool:
+    """Checks if two distinctive name words match exactly or by prefix stem (length >= 5)."""
+    if w1 == w2:
+        return True
+    if len(w1) >= 5 and len(w2) >= 5:
+        if w1.startswith(w2[:5]) or w2.startswith(w1[:5]):
+            return True
+    return False
+
+
+def match_faculty_names(vtop_faculty: Optional[str], lms_faculty: Optional[str]) -> bool:
+    """
+    Matches faculty names between VTOP and LMS dynamically and resiliently:
+    - Normalizes both names (case, honorifics, punctuation)
+    - Verifies token subsets and order variations ('Geetha S' == 'S. Geetha')
+    - Handles stem variations (e.g. 'Saravanan' vs 'Saravana')
+    - Strictly prevents false positives:
+      Conflicting distinctive words (length >= 3) cause mismatch (e.g. 'Arun Kumar' != 'Ashok Kumar', 'Sharma' != 'Patel')
+      Conflicting single-letter initials cause mismatch (e.g. 'S. Geetha' != 'R. Geetha')
+    - Rejects invalid or placeholder names
+    """
+    if not vtop_faculty or not lms_faculty:
+        return False
+    norm_v = normalize_faculty_name(vtop_faculty)
+    norm_l = normalize_faculty_name(lms_faculty)
+    if not norm_v or not norm_l:
+        return False
+    if norm_v == norm_l:
+        return True
+
+    v_tokens = norm_v.split()
+    l_tokens = norm_l.split()
+    if set(v_tokens) == set(l_tokens):
+        return True
+
+    v_initials = {t for t in v_tokens if len(t) == 1}
+    l_initials = {t for t in l_tokens if len(t) == 1}
+
+    # Distinctive words (len >= 3)
+    v_distinct = [t for t in v_tokens if len(t) >= 3]
+    l_distinct = [t for t in l_tokens if len(t) >= 3]
+
+    # Check for conflicting distinctive words
+    # A distinctive word is conflicting if it exists in one and has NO match in the other
+    v_unmatched = [w for w in v_distinct if not any(words_match(w, lw) for lw in l_distinct)]
+    l_unmatched = [w for w in l_distinct if not any(words_match(w, vw) for vw in v_distinct)]
+
+    if v_unmatched and l_unmatched:
+        # Both have different distinctive words -> Conflicting professors (e.g. Arun Kumar != Ashok Kumar, Sharma != Patel)
+        return False
+
+    # Check if there is at least one matching substantive word (or initial matching a word)
+    matched_words = []
+    for vw in v_distinct:
+        for lw in l_distinct:
+            if words_match(vw, lw):
+                matched_words.append((vw, lw))
+
+    if not matched_words:
+        # Check initials
+        if v_initials and l_distinct:
+            if not any(lw[0] in v_initials for lw in l_distinct):
+                return False
+        elif l_initials and v_distinct:
+            if not any(vw[0] in l_initials for vw in v_distinct):
+                return False
+        else:
+            return False
+
+    # Check conflicting initials if both have initials
+    if v_initials and l_initials:
+        if not v_initials.intersection(l_initials):
+            return False
+
+    return True
+
+
+def find_matching_vtop_subject(
+    vtop_subjects: List[Dict[str, Any]],
+    lms_faculty: Optional[str],
+    preferred_code: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Finds the student's enrolled VTOP subject whose assigned faculty matches the given LMS faculty.
+    If multiple subjects match (e.g. Theory and Lab taught by same professor),
+    prefers the one matching preferred_code if supplied.
+    """
+    if not lms_faculty or not vtop_subjects:
+        return None
+
+    matched_subjects = []
+    for sub in vtop_subjects:
+        v_fac = sub.get("faculty") or sub.get("facultyName")
+        if match_faculty_names(v_fac, lms_faculty):
+            matched_subjects.append(sub)
+
+    if not matched_subjects:
+        return None
+
+    if len(matched_subjects) == 1:
+        return matched_subjects[0]
+
+    if preferred_code:
+        c_code_canon = canonicalize_course_code(preferred_code)
+        for sub in matched_subjects:
+            sub_code = canonicalize_course_code(sub.get("code") or sub.get("courseCode"))
+            if sub_code and c_code_canon and sub_code == c_code_canon:
+                return sub
+
+    return matched_subjects[0]
+
+
 def canonicalize_faculty_id(fac_id: Optional[str]) -> Optional[str]:
     """Normalizes stable faculty ID if available."""
     if not fac_id:

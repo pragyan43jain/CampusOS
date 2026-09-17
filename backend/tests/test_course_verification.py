@@ -16,6 +16,9 @@ from app.course_verification import (
     canonicalize_course_code,
     canonicalize_faculty_name,
     canonicalize_faculty_id,
+    normalize_faculty_name,
+    match_faculty_names,
+    find_matching_vtop_subject,
     extract_course_code_candidates,
     verify_course_title_match,
     verify_semester_match,
@@ -524,4 +527,70 @@ class TestStrictRegressionScenarios:
         assert merged_item["displayStatus"] == "DONE"
         assert merged_item["teamsSubmissionUrl"] == "https://teams.microsoft.com/assign/1"
         assert merged_item["lmsSubmissionUrl"] == "https://lms.vit.ac.in/assign/1"
+
+
+class TestFacultyMatchingSystem:
+    """Tests for the VTOP + LMS Faculty Normalization and Matching System."""
+
+    def test_normalize_faculty_name_removes_titles_and_punctuation(self):
+        assert normalize_faculty_name("Dr. Sharma") == "sharma"
+        assert normalize_faculty_name("Dr. Kumar") == "kumar"
+        assert normalize_faculty_name("Dr. Patel") == "patel"
+        assert normalize_faculty_name("Prof. S. Geetha") == "s geetha"
+        assert normalize_faculty_name("Professor Arun Kumar, Ph.D.") == "arun kumar"
+        assert normalize_faculty_name("RISHIKESHAN C A") == "rishikeshan c a"
+        assert normalize_faculty_name("Dr. B. Saravanan") == "b saravanan"
+
+    def test_normalize_faculty_name_handles_placeholders_and_empty(self):
+        assert normalize_faculty_name("LMS Instructor") == ""
+        assert normalize_faculty_name("Instructor") == ""
+        assert normalize_faculty_name("Faculty unassigned") == ""
+        assert normalize_faculty_name("unassigned") == ""
+        assert normalize_faculty_name("") == ""
+        assert normalize_faculty_name(None) == ""
+
+    def test_match_faculty_names_exact_and_word_order(self):
+        assert match_faculty_names("Dr. Sharma", "Dr. Sharma") is True
+        assert match_faculty_names("Dr. Sharma", "Sharma") is True
+        assert match_faculty_names("Dr. Arun Kumar", "Arun Kumar") is True
+        assert match_faculty_names("Dr. Arun Kumar", "Kumar Arun") is True
+        assert match_faculty_names("Prof. S. Geetha", "Geetha S") is True
+        assert match_faculty_names("RISHIKESHAN C A", "C A Rishikeshan") is True
+
+    def test_match_faculty_names_rejects_conflicting_faculty(self):
+        # Different surnames
+        assert match_faculty_names("Dr. Sharma", "Dr. Patel") is False
+        assert match_faculty_names("Dr. Kumar", "Dr. Patel") is False
+        # Conflicting distinctive names with shared surname
+        assert match_faculty_names("Dr. Arun Kumar", "Dr. Ashok Kumar") is False
+        # Conflicting initials
+        assert match_faculty_names("Prof. S. Geetha", "Prof. R. Geetha") is False
+
+    def test_match_faculty_names_rejects_generic_placeholders(self):
+        assert match_faculty_names("Dr. Sharma", "LMS Instructor") is False
+        assert match_faculty_names("Dr. Sharma", "Faculty unassigned") is False
+        assert match_faculty_names("Dr. Sharma", "") is False
+        assert match_faculty_names("Dr. Sharma", None) is False
+
+    def test_find_matching_vtop_subject(self):
+        subjects = [
+            {"code": "BCSE202L", "title": "Data Structures", "faculty": "Dr. Sharma"},
+            {"code": "BCSE301L", "title": "Operating Systems", "faculty": "Dr. Kumar"},
+        ]
+        # Match Dr. Sharma -> Data Structures
+        m1 = find_matching_vtop_subject(subjects, "Dr. Sharma")
+        assert m1 is not None
+        assert m1["title"] == "Data Structures"
+        assert m1["code"] == "BCSE202L"
+
+        # Match Dr. Kumar -> Operating Systems
+        m2 = find_matching_vtop_subject(subjects, "Dr. Kumar")
+        assert m2 is not None
+        assert m2["title"] == "Operating Systems"
+        assert m2["code"] == "BCSE301L"
+
+        # Dr. Patel -> No match
+        m3 = find_matching_vtop_subject(subjects, "Dr. Patel")
+        assert m3 is None
+
 

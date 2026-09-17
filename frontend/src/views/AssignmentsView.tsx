@@ -274,6 +274,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       });
       if (dashboard.unmatchedAssignments) {
         dashboard.unmatchedAssignments.forEach((a) => {
+          if (a.source?.toUpperCase().includes('LMS')) return;
           const prof = findFaculty(
             a.courseCode,
             a.courseTitle,
@@ -560,9 +561,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
             <div className="empty-state-icon">
               <CheckCircle2 size={26} color="var(--accent-emerald)" />
             </div>
-            <div className="empty-state-title">No Assignments Found</div>
+            <div className="empty-state-title">No matching assignments found</div>
             <p className="empty-state-desc">
-              You are completely caught up! No pending deadlines match your current search and filters.
+              You are completely caught up! No matching assignments found for your enrolled subjects.
             </p>
           </div>
         ) : (

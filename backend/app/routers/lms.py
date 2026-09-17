@@ -28,6 +28,8 @@ from app.course_verification import (
     ExternalCourseMatch,
     canonicalize_course_code,
     canonicalize_faculty_name,
+    normalize_faculty_name,
+    match_faculty_names,
     lms_course_matches_vtop_professor,
     build_verified_semester_course_records,
     verify_external_course,
@@ -990,22 +992,42 @@ def _process_single_lms_course(
         course_sections_map=c_sections_map,
     )
 
+    verified_sub_assignments: List[Dict[str, Any]] = []
     for sa in sub_assignments:
+        sa_poster = sa.get("postedBy") or sa.get("lmsProfessor") or sa.get("faculty") or sa.get("facultyName")
+        if sa_poster and normalize_faculty_name(sa_poster) == "":
+            sa_poster = None
+
+        if sa_poster:
+            if not match_faculty_names(real_faculty, sa_poster):
+                logger.warning(
+                    "[LMS ASSIGNMENT FILTER] Dropping assignment '%s' (ID: %s): poster '%s' does not match VTOP faculty '%s'",
+                    sa.get("title"),
+                    sa.get("id"),
+                    sa_poster,
+                    real_faculty,
+                )
+                continue
+            poster_to_use = sa_poster
+        else:
+            poster_to_use = real_faculty
+
         sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
         sa["subjectId"] = matched_rec.courseCode
         sa["courseCode"] = matched_rec.courseCode
         sa["courseTitle"] = matched_rec.courseName
         sa["subject"] = matched_rec.courseName
-        sa["faculty"] = real_faculty
-        sa["facultyName"] = real_faculty
-        sa["professor"] = real_faculty
-        sa["lmsProfessor"] = real_faculty
-        sa["postedBy"] = real_faculty
-        sa["instructor"] = real_faculty
+        sa["faculty"] = poster_to_use
+        sa["facultyName"] = poster_to_use
+        sa["professor"] = poster_to_use
+        sa["lmsProfessor"] = poster_to_use
+        sa["postedBy"] = poster_to_use
+        sa["instructor"] = poster_to_use
         sa["semester"] = matched_rec.semester
         sa["verified"] = True
         sa["source"] = "LMS"
         sa["lmsCourseId"] = c_id
+        verified_sub_assignments.append(sa)
 
     matched_summary = {
         "courseCode": matched_rec.courseCode,
@@ -1015,10 +1037,10 @@ def _process_single_lms_course(
         "postedBy": real_faculty,
         "lmsCourseId": c_id,
         "lmsCourseName": c_title,
-        "assignmentsCount": len(sub_assignments),
+        "assignmentsCount": len(verified_sub_assignments),
     }
 
-    return match_meta.model_dump(), matched_vtop, sub_assignments, matched_summary
+    return match_meta.model_dump(), matched_vtop, verified_sub_assignments, matched_summary
 
 
 def fetch_vit_lms_coursework(

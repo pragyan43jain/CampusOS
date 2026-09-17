@@ -297,3 +297,176 @@ class TestSubjectFirstDashboard:
         assert updated_store["manualAssignmentStatus"]["teams-comp-1"] is True
         assert updated_store["manualAssignmentStatus"]["lms-comp-2"] is True
 
+
+class TestVtopLmsFacultyMatchingDashboard:
+    """
+    Tests the VTOP + LMS Faculty Matching and Assignment Association flow.
+    Ensures ONLY LMS assignments belonging to faculty members actually associated
+    with the student's enrolled VTOP subjects are shown.
+    """
+
+    def test_example_flow_from_user_specification(self):
+        """
+        VTOP:
+          Data Structures -> Dr. Sharma
+          Operating Systems -> Dr. Kumar
+        LMS:
+          Dr. Sharma -> Assignment 1
+          Dr. Kumar -> Assignment 2
+          Dr. Patel -> Assignment 3
+        CampusOS must show:
+          Data Structures: [Assignment 1]
+          Operating Systems: [Assignment 2]
+          Assignment 3 should NOT appear anywhere!
+        """
+        store = storage.load_store()
+        store["courses"] = [
+            {
+                "code": "BCSE202L",
+                "title": "Data Structures",
+                "faculty": "Dr. Sharma",
+                "type": "Theory",
+            },
+            {
+                "code": "BCSE301L",
+                "title": "Operating Systems",
+                "faculty": "Dr. Kumar",
+                "type": "Theory",
+            },
+        ]
+        store["assignments"] = [
+            {
+                "id": "lms-assign-1",
+                "title": "Assignment 1",
+                "source": "LMS",
+                "faculty": "Dr. Sharma",
+                "postedBy": "Dr. Sharma",
+                "dueDate": "2026-09-30",
+                "status": "Pending",
+            },
+            {
+                "id": "lms-assign-2",
+                "title": "Assignment 2",
+                "source": "LMS",
+                "faculty": "Dr. Kumar",
+                "postedBy": "Dr. Kumar",
+                "dueDate": "2026-10-05",
+                "status": "Pending",
+            },
+            {
+                "id": "lms-assign-3",
+                "title": "Assignment 3",
+                "source": "LMS",
+                "faculty": "Dr. Patel",
+                "postedBy": "Dr. Patel",
+                "dueDate": "2026-10-10",
+                "status": "Pending",
+            },
+        ]
+        storage.save_store(store)
+
+        res = client.get("/api/assignments/unified")
+        assert res.status_code == 200
+        data = res.json()
+
+        subjects = data["subjects"]
+        ds_subj = next((s for s in subjects if s["courseCode"] == "BCSE202L"), None)
+        os_subj = next((s for s in subjects if s["courseCode"] == "BCSE301L"), None)
+
+        assert ds_subj is not None
+        assert os_subj is not None
+
+        # Data Structures must have Assignment 1
+        assert len(ds_subj["assignments"]) == 1
+        assert ds_subj["assignments"][0]["title"] == "Assignment 1"
+        assert ds_subj["assignments"][0]["faculty"] == "Dr. Sharma"
+
+        # Operating Systems must have Assignment 2
+        assert len(os_subj["assignments"]) == 1
+        assert os_subj["assignments"][0]["title"] == "Assignment 2"
+        assert os_subj["assignments"][0]["faculty"] == "Dr. Kumar"
+
+        # Assignment 3 (Dr. Patel) must NOT appear in any subject
+        all_assigned_titles = [
+            a["title"]
+            for s in subjects
+            for a in s["assignments"]
+        ]
+        assert "Assignment 3" not in all_assigned_titles
+
+        # Assignment 3 must NOT appear in unmatched assignments
+        unmatched_titles = [a["title"] for a in data.get("unmatchedAssignments", [])]
+        assert "Assignment 3" not in unmatched_titles
+
+        # Total assignments must strictly be 2 (Assignment 1 and 2)
+        assert data["totalAssignments"] == 2
+
+    def test_unmatched_faculty_lms_assignments_dropped_completely(self):
+        """When an LMS assignment belongs to an unassociated professor, it is dropped."""
+        store = storage.load_store()
+        store["courses"] = [
+            {
+                "code": "BMAT201L",
+                "title": "Complex Variables and Linear Algebra",
+                "faculty": "Prof. S. Geetha",
+            }
+        ]
+        store["assignments"] = [
+            {
+                "id": "lms-cv-1",
+                "title": "Linear Algebra Problem Set",
+                "source": "LMS",
+                "postedBy": "Geetha S",
+                "faculty": "Geetha S",
+            },
+            {
+                "id": "lms-unrelated",
+                "title": "Thermodynamics Quiz",
+                "source": "LMS",
+                "postedBy": "Dr. R. Sundaram",
+                "faculty": "Dr. R. Sundaram",
+            },
+        ]
+        storage.save_store(store)
+
+        res = client.get("/api/assignments/unified")
+        assert res.status_code == 200
+        data = res.json()
+
+        cv_subj = next(s for s in data["subjects"] if s["courseCode"] == "BMAT201L")
+        assert len(cv_subj["assignments"]) == 1
+        assert cv_subj["assignments"][0]["title"] == "Linear Algebra Problem Set"
+        assert data["totalAssignments"] == 1
+        assert len(data.get("unmatchedAssignments", [])) == 0
+
+    def test_empty_state_when_no_faculty_matches(self):
+        """When zero LMS assignments match enrolled faculty, total assignments is 0."""
+        store = storage.load_store()
+        store["courses"] = [
+            {
+                "code": "BCSE202L",
+                "title": "Data Structures",
+                "faculty": "Dr. Sharma",
+            }
+        ]
+        store["assignments"] = [
+            {
+                "id": "lms-other",
+                "title": "Assignment 99",
+                "source": "LMS",
+                "postedBy": "Dr. Patel",
+                "faculty": "Dr. Patel",
+            }
+        ]
+        storage.save_store(store)
+
+        res = client.get("/api/assignments/unified")
+        assert res.status_code == 200
+        data = res.json()
+
+        assert data["totalAssignments"] == 0
+        ds_subj = next(s for s in data["subjects"] if s["courseCode"] == "BCSE202L")
+        assert len(ds_subj["assignments"]) == 0
+        assert len(data.get("unmatchedAssignments", [])) == 0
+
+

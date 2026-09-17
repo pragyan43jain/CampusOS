@@ -23,6 +23,9 @@ from app.course_verification import (
     ExternalCourseMatch,
     canonicalize_course_code,
     canonicalize_faculty_name,
+    normalize_faculty_name,
+    match_faculty_names,
+    find_matching_vtop_subject,
     verify_course_title_match,
     verify_semester_match,
     build_verified_semester_course_records,
@@ -300,143 +303,252 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     # 2. Student's enrolled courses for the current semester
     courses = list(store.get("courses") or [])
 
+    # Extract student's subjects and the faculty assigned to each subject
+    vtop_subjects_summary: List[Dict[str, Any]] = []
+    for c in courses:
+        code = canonicalize_course_code(c.get("code") or c.get("courseCode"))
+        title = (c.get("title") or c.get("courseTitle") or c.get("courseName") or "").strip()
+        faculty = (c.get("faculty") or c.get("facultyName") or "").strip()
+        if code:
+            vtop_subjects_summary.append({
+                "code": code,
+                "title": title or code,
+                "faculty": faculty,
+                "course": c,
+            })
+
+    # Requirement 5: Log VTOP faculty list
+    logger.info(
+        "\n======================================================\n"
+        "[VTOP + LMS FACULTY MATCHING] Active Enrolled VTOP Subjects (%d):\n%s\n"
+        "======================================================",
+        len(vtop_subjects_summary),
+        "\n".join([f"  - Subject: '{s['title']}' [{s['code']}] | Faculty: '{s['faculty']}' (norm: '{normalize_faculty_name(s['faculty'])}')" for s in vtop_subjects_summary])
+    )
+
     # 3. Raw assignments stored from connected sources
-    # Strictly verify: 1. Enrolled in current semester 2. Professor name matches course faculty
-    # 3. Course title matches 4. Semester/Academic year matches
     verified_enrolled = build_verified_semester_course_records(store)
     raw_unfiltered = list(store.get("assignments") or [])
     raw_assignments: List[Dict[str, Any]] = []
 
     for a in raw_unfiltered:
+        is_lms = (
+            a.get("source") == "LMS"
+            or "lms" in str(a.get("id", "")).lower()
+            or "LMS" in a.get("sourceList", [])
+            or a.get("platformName") == "VIT LMS"
+        )
         c_code = canonicalize_course_code(a.get("courseCode"))
-        matched_rec = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == c_code), None)
-        
-        # Check 1: Course code enrolled in current semester
-        if not matched_rec:
-            logger.warning(
-                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
-                "Source: %s\n"
-                "Assignment: %s (ID: %s)\n"
-                "Assignment Code: %s\n"
-                "Current Semester: %s\n"
-                "Reason: COURSE CODE NOT ENROLLED IN CURRENT SEMESTER",
-                a.get("source"),
-                a.get("title"),
-                a.get("id"),
-                c_code,
-                sem_name,
-            )
-            continue
 
-        # Check 2: Semester & Academic Year Match (Section 7)
-        combined_sem_meta = f"{a.get('semester', '')} {a.get('matchedLmsCourse', '')} {a.get('matchedTeamName', '')}"
-        sem_ok, sem_reason = verify_semester_match(sem_name, combined_sem_meta)
-        if not sem_ok:
-            logger.warning(
-                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
-                "Source: %s\n"
-                "Assignment: %s (ID: %s)\n"
-                "Current VTOP Course: %s\n"
-                "Current VTOP Semester: %s\n"
-                "Reason: %s",
-                a.get("source"),
-                a.get("title"),
-                a.get("id"),
-                matched_rec.courseCode,
-                sem_name,
-                sem_reason,
-            )
-            continue
-
-        # Check 3: Course Title Verification (Section 6 - prevent Computer Architecture under Computer Networks)
-        assign_title_meta = f"{a.get('courseTitle', '')} {a.get('subject', '')} {a.get('matchedLmsCourse', '')} {a.get('matchedTeamName', '')}"
-        title_ok, title_reason = verify_course_title_match(matched_rec.courseName, assign_title_meta)
-        if not title_ok:
-            logger.warning(
-                "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
-                "Source: %s\n"
-                "Assignment: %s (ID: %s)\n"
-                "Assignment Title Metadata: %s\n"
-                "Current VTOP Course: %s\n"
-                "Current VTOP Title: %s\n"
-                "Current VTOP Faculty: %s\n"
-                "Current VTOP Semester: %s\n"
-                "Reason: %s",
-                a.get("source"),
-                a.get("title"),
-                a.get("id"),
-                assign_title_meta,
-                matched_rec.courseCode,
-                matched_rec.courseName,
-                matched_rec.facultyName,
-                sem_name,
-                title_reason,
-            )
-            continue
-
-        is_lms = (a.get("source") == "LMS" or "lms" in str(a.get("id", "")).lower() or "LMS" in a.get("sourceList", []))
-        has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("postedBy"))
-
-        # Check 4: Exact Faculty Match (Section 5)
-        # Drops unverified coursework from other professors, while honoring verified LMS course matches
-        enrolled_fac = canonicalize_faculty_name(matched_rec.facultyName)
-        assign_fac = canonicalize_faculty_name(a.get("faculty"))
-        
-        if not has_verified_match and assign_fac and assign_fac not in ("unassigned", "none", "tba", "") and enrolled_fac and enrolled_fac not in ("unassigned", "none", "tba", ""):
-            if assign_fac != enrolled_fac and assign_fac not in enrolled_fac and enrolled_fac not in assign_fac:
+        if c_code:
+            # -------------------------------------------------------------
+            # Path A: Assignment has an explicit Course Code
+            # -------------------------------------------------------------
+            matched_rec = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == c_code), None)
+            if not matched_rec:
                 logger.warning(
                     "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
                     "Source: %s\n"
                     "Assignment: %s (ID: %s)\n"
-                    "Assignment Faculty: %s\n"
-                    "Current VTOP Course: %s\n"
-                    "Current VTOP Faculty: %s\n"
-                    "Reason: FACULTY MISMATCH",
+                    "Assignment Code: %s\n"
+                    "Current Semester: %s\n"
+                    "Reason: COURSE CODE NOT ENROLLED IN CURRENT SEMESTER",
                     a.get("source"),
                     a.get("title"),
                     a.get("id"),
-                    a.get("faculty"),
-                    matched_rec.courseCode,
-                    matched_rec.facultyName,
+                    c_code,
+                    sem_name,
                 )
                 continue
 
-        if is_lms:
-            # Strictly use authentic assignment poster or LMS course faculty; never replace with 'LMS Instructor'
-            assign_lms_prof = (
+            # Semester & Academic Year Match
+            combined_sem_meta = f"{a.get('semester', '')} {a.get('matchedLmsCourse', '')} {a.get('matchedTeamName', '')}"
+            sem_ok, sem_reason = verify_semester_match(sem_name, combined_sem_meta)
+            if not sem_ok:
+                logger.warning(
+                    "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                    "Source: %s\n"
+                    "Assignment: %s (ID: %s)\n"
+                    "Reason: %s",
+                    a.get("source"),
+                    a.get("title"),
+                    a.get("id"),
+                    sem_reason,
+                )
+                continue
+
+            # Course Title Verification (e.g. reject Computer Architecture under Computer Networks)
+            assign_title_meta = f"{a.get('courseTitle', '')} {a.get('subject', '')} {a.get('matchedLmsCourse', '')} {a.get('matchedTeamName', '')}"
+            title_ok, title_reason = verify_course_title_match(matched_rec.courseName, assign_title_meta)
+            if not title_ok:
+                logger.warning(
+                    "\n[ASSIGNMENT VERIFICATION REJECTED]\n"
+                    "Source: %s\n"
+                    "Assignment: %s (ID: %s)\n"
+                    "Reason: %s",
+                    a.get("source"),
+                    a.get("title"),
+                    a.get("id"),
+                    title_reason,
+                )
+                continue
+
+            # Faculty Matching
+            enrolled_fac = matched_rec.facultyName
+            assign_fac = a.get("faculty")
+            assign_poster = a.get("postedBy") or a.get("lmsProfessor")
+            has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId"))
+
+            fac_matches = False
+            if assign_fac and match_faculty_names(enrolled_fac, assign_fac):
+                fac_matches = True
+            elif assign_poster and match_faculty_names(enrolled_fac, assign_poster):
+                fac_matches = True
+            elif has_verified_match:
+                fac_matches = True
+            elif not assign_fac or normalize_faculty_name(assign_fac) == "":
+                fac_matches = True
+
+            if not fac_matches:
+                logger.warning(
+                    "[FACULTY MATCHING] REJECTED/UNMATCHED:\n"
+                    "  Assignment: '%s' (ID: %s)\n"
+                    "  Faculty: '%s' (Poster: '%s')\n"
+                    "  Enrolled VTOP Course: %s (%s)\n"
+                    "  Enrolled VTOP Faculty: %s\n"
+                    "  Reason: Faculty does not match enrolled VTOP faculty.",
+                    a.get("title"),
+                    a.get("id"),
+                    assign_fac,
+                    assign_poster,
+                    matched_rec.courseCode,
+                    matched_rec.courseName,
+                    enrolled_fac,
+                )
+                continue
+
+            poster_to_use = assign_poster or assign_fac or enrolled_fac
+            if poster_to_use in ("LMS Instructor", "Instructor", "LMS Teacher") or normalize_faculty_name(poster_to_use) == "":
+                poster_to_use = enrolled_fac
+
+            logger.info(
+                "[FACULTY MATCHING] SUCCESSFUL MATCH:\n"
+                "  Assignment: '%s' (ID: %s)\n"
+                "  Associated VTOP Subject: '%s' [%s]\n"
+                "  Poster/Faculty: '%s'",
+                a.get("title"),
+                a.get("id"),
+                matched_rec.courseName,
+                matched_rec.courseCode,
+                poster_to_use,
+            )
+
+            raw_assignments.append({
+                **a,
+                "academicYear": matched_rec.academicYear,
+                "semester": matched_rec.semester,
+                "semesterId": matched_rec.semesterId,
+                "courseCode": matched_rec.courseCode,
+                "courseTitle": matched_rec.courseName,
+                "subject": matched_rec.courseName,
+                "faculty": poster_to_use,
+                "facultyName": poster_to_use,
+                "professor": poster_to_use,
+                "lmsProfessor": poster_to_use if is_lms else (a.get("lmsProfessor") or None),
+                "postedBy": poster_to_use if is_lms else a.get("postedBy"),
+                "instructor": poster_to_use,
+                "source": "LMS" if is_lms else a.get("source", "Portal"),
+                "verified": True,
+            })
+
+        else:
+            # -------------------------------------------------------------
+            # Path B: Assignment has NO course code (Pure Faculty -> Assignment flow)
+            # E.g. LMS provides: Dr. Sharma -> Assignment 1, Dr. Kumar -> Assignment 2, Dr. Patel -> Assignment 3
+            # -------------------------------------------------------------
+            lms_faculty = (
                 a.get("postedBy")
                 or a.get("lmsProfessor")
                 or a.get("facultyName")
                 or a.get("faculty")
-                or (matched_rec.facultyName if matched_rec else None)
-                or "Faculty unassigned"
+                or a.get("professor")
             )
-            if assign_lms_prof in ("LMS Instructor", "Instructor", "LMS Teacher"):
-                assign_lms_prof = (
-                    a.get("facultyName") if a.get("facultyName") not in ("LMS Instructor", "Instructor", "LMS Teacher") else None
-                ) or (
-                    matched_rec.facultyName if matched_rec else None
-                ) or "Faculty unassigned"
-            prof_to_use = assign_lms_prof
-        else:
-            prof_to_use = a.get("postedBy") or a.get("facultyName") or a.get("faculty") or matched_rec.facultyName or "Faculty unassigned"
+            if lms_faculty and normalize_faculty_name(lms_faculty) == "":
+                lms_faculty = None
 
-        raw_assignments.append({
-            **a,
-            "academicYear": matched_rec.academicYear,
-            "semester": matched_rec.semester,
-            "semesterId": matched_rec.semesterId,
-            "courseCode": matched_rec.courseCode,
-            "courseTitle": matched_rec.courseName,
-            "subject": matched_rec.courseName,
-            "faculty": prof_to_use if is_lms else matched_rec.facultyName,
-            "facultyName": prof_to_use,
-            "professor": prof_to_use,
-            "lmsProfessor": prof_to_use if is_lms else (a.get("lmsProfessor") or None),
-            "postedBy": prof_to_use if is_lms else a.get("postedBy"),
-            "instructor": prof_to_use,
-            "verified": True,
-        })
+            if not lms_faculty:
+                from app.routers.lms import extract_teacher_from_lms_title
+                for text_cand in [a.get("matchedLmsCourse"), a.get("instructions"), a.get("title")]:
+                    if text_cand:
+                        cand_t = extract_teacher_from_lms_title(str(text_cand))
+                        if cand_t and normalize_faculty_name(cand_t) != "":
+                            lms_faculty = cand_t
+                            break
+
+            logger.info(
+                "[FACULTY MATCHING] Evaluating Assignment without Course Code:\n"
+                "  Title: '%s'\n"
+                "  ID: %s\n"
+                "  Faculty: '%s'",
+                a.get("title"),
+                a.get("id"),
+                lms_faculty,
+            )
+
+            matched_vtop = find_matching_vtop_subject(
+                vtop_subjects=vtop_subjects_summary,
+                lms_faculty=lms_faculty,
+            )
+
+            if matched_vtop:
+                m_code = matched_vtop["code"]
+                m_title = matched_vtop["title"]
+                matched_rec = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == m_code), None)
+                poster_prof = lms_faculty or matched_vtop["faculty"]
+
+                logger.info(
+                    "[FACULTY MATCHING] SUCCESSFUL MATCH:\n"
+                    "  Assignment: '%s' (ID: %s)\n"
+                    "  Faculty: '%s'\n"
+                    "  --> Associated VTOP Subject: '%s' [%s]\n"
+                    "  --> VTOP Faculty: '%s'",
+                    a.get("title"),
+                    a.get("id"),
+                    lms_faculty,
+                    m_title,
+                    m_code,
+                    matched_vtop["faculty"],
+                )
+
+                raw_assignments.append({
+                    **a,
+                    "academicYear": matched_rec.academicYear if matched_rec else "2026",
+                    "semester": matched_rec.semester if matched_rec else sem_name,
+                    "semesterId": matched_rec.semesterId if matched_rec else "CH20262701",
+                    "courseCode": m_code,
+                    "courseTitle": m_title,
+                    "subject": m_title,
+                    "faculty": poster_prof,
+                    "facultyName": poster_prof,
+                    "professor": poster_prof,
+                    "lmsProfessor": poster_prof,
+                    "postedBy": poster_prof,
+                    "instructor": poster_prof,
+                    "source": "LMS" if is_lms else a.get("source", "Portal"),
+                    "verified": True,
+                })
+            else:
+                logger.warning(
+                    "[FACULTY MATCHING] REJECTED/UNMATCHED:\n"
+                    "  Assignment: '%s' (ID: %s)\n"
+                    "  Faculty: '%s'\n"
+                    "  Reason: Faculty does not match any enrolled VTOP faculty for this student.\n"
+                    "  Result: EXCLUDED / DROPPED from CampusOS.",
+                    a.get("title"),
+                    a.get("id"),
+                    lms_faculty,
+                )
+                continue
 
     # Account metadata
     teams_account = store.get("teamsAccount") or {}
@@ -608,7 +720,15 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         if matched_sub:
             matched_sub["assignments"].append(a)
         else:
-            unmatched_assignments.append(a)
+            is_lms_item = (
+                a.get("source") == "LMS"
+                or "lms" in str(a.get("id", "")).lower()
+                or "LMS" in a.get("sourceList", [])
+                or a.get("platformName") == "VIT LMS"
+            )
+            # Unmatched/unverified LMS coursework MUST NOT be shown anywhere in CampusOS
+            if not is_lms_item:
+                unmatched_assignments.append(a)
 
     # 7. Sort assignments under each subject: Overdue first, Due Soonest next, then Later deadlines
     total_pending_all = 0
@@ -674,6 +794,20 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 
     # Sort subjects: subjects with pending/overdue assignments first, then by code
     subject_list.sort(key=lambda s: (-s["overdueCount"], -s["pendingCount"], s["courseCode"]))
+
+    # Requirement 5: Log final subject-assignment mapping
+    logger.info(
+        "\n======================================================\n"
+        "[FACULTY MATCHING] Final Subject-Assignment Mapping (%d subjects):\n%s\n"
+        "======================================================",
+        len(subject_list),
+        "\n".join([
+            f"  - Subject: [{sub['courseCode']}] {sub['courseTitle']} (Faculty: {sub.get('faculty')}) -> {len(sub['assignments'])} assignments:\n" +
+            "\n".join([f"      * '{item['title']}' (Poster: {item.get('postedBy') or item.get('faculty')})" for item in sub["assignments"]])
+            if sub["assignments"] else f"  - Subject: [{sub['courseCode']}] {sub['courseTitle']} (Faculty: {sub.get('faculty')}) -> 0 assignments"
+            for sub in subject_list
+        ])
+    )
 
     # 8. Determine empty state & sync status
     teams_connected = bool(store.get("teamsConnected"))
@@ -855,11 +989,16 @@ def get_all_assignments_endpoint(
     regNo: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
     """
-    Returns all assignments in store for the active student.
+    Returns all verified assignments in store for the active student.
     """
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
-    return store.get("assignments") or []
+    dash = build_unified_assignment_dashboard(store)
+    flat: List[Dict[str, Any]] = []
+    for s in dash.get("subjects", []):
+        flat.extend(s.get("assignments", []))
+    flat.extend(dash.get("unmatchedAssignments", []))
+    return flat
 
 
 @router.post("/assignments/{assignment_id}/status")
