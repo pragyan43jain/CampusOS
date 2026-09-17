@@ -961,3 +961,59 @@ class TestLMSAssignmentPosterExtraction:
         assert sub_missing == []
         assert summary_missing is None
 
+
+class TestTeacherExtractionAndSectionParsing:
+    def test_extract_teacher_from_lms_title(self):
+        from app.routers.lms import extract_teacher_from_lms_title
+        # Test various Moodle section and course titles
+        assert extract_teacher_from_lms_title("Dr.Jayavignesh - L9L10") == "Dr.Jayavignesh"
+        assert extract_teacher_from_lms_title("Dr Thangaraj M_E2 Slot") == "Dr Thangaraj M"
+        assert extract_teacher_from_lms_title("Dr Thangaraj M_L19+L20") == "Dr Thangaraj M"
+        assert extract_teacher_from_lms_title("Dr Rolla Subrahmanyam_A1 Slot") == "Dr Rolla Subrahmanyam"
+        assert extract_teacher_from_lms_title("Dr Rishikeshan C A") == "Dr Rishikeshan C A"
+        assert extract_teacher_from_lms_title("Prof. B. Saravanan") == "Prof. B. Saravanan"
+        # Generic titles without a teacher
+        assert extract_teacher_from_lms_title("Computer Networks Lab(BCSE308P)") is None
+        assert extract_teacher_from_lms_title("General") is None
+        assert extract_teacher_from_lms_title("Topic 1") is None
+        assert extract_teacher_from_lms_title("") is None
+        assert extract_teacher_from_lms_title(None) is None
+
+    def test_fetch_lms_course_teachers_and_sections(self):
+        from app.routers.lms import fetch_lms_course_teachers_and_sections
+        from unittest.mock import MagicMock
+
+        html_content = """
+        <html>
+          <body>
+            <li id="section-1" class="section main clearfix">
+              <h3 class="sectionname">Dr.Jayavignesh - L9L10</h3>
+              <div class="content">
+                <a href="https://lms.vit.ac.in/mod/assign/view.php?id=20144">Assignment 1</a>
+                <a href="https://lms.vit.ac.in/mod/assign/view.php?id=20145">Assignment 2</a>
+              </div>
+            </li>
+            <li id="section-2" class="section main clearfix">
+              <h3 class="sectionname">Dr. Saranya Nair - L11L12</h3>
+              <div class="content">
+                <a href="https://lms.vit.ac.in/mod/assign/view.php?id=20200">Assignment X</a>
+              </div>
+            </li>
+          </body>
+        </html>
+        """
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.url = "https://lms.vit.ac.in/course/view.php?id=2057"
+        mock_resp.text = html_content
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_resp
+
+        teachers, sections_map = fetch_lms_course_teachers_and_sections(mock_session, "2057")
+        assert "Dr.Jayavignesh" in teachers
+        assert "Dr. Saranya Nair" in teachers
+        assert sections_map.get("20144") == "Dr.Jayavignesh"
+        assert sections_map.get("20145") == "Dr.Jayavignesh"
+        assert sections_map.get("20200") == "Dr. Saranya Nair"
+
+

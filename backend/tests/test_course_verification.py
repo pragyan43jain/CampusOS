@@ -593,4 +593,14 @@ class TestFacultyMatchingSystem:
         m3 = find_matching_vtop_subject(subjects, "Dr. Patel")
         assert m3 is None
 
+    def test_match_faculty_names_compound_joined_names(self):
+        # VIT LMS often writes 'Jayavignesh' while VTOP writes 'JAYA VIGNESH T'
+        assert match_faculty_names("JAYA VIGNESH T", "Dr.Jayavignesh") is True
+        assert match_faculty_names("JAYA VIGNESH T", "Dr Jayavignesh") is True
+        assert match_faculty_names("THANGARAJ M", "Dr Thangaraj M") is True
+        # Mismatched faculty must still be rejected
+        assert match_faculty_names("RISHIKESHAN C A", "Dr Rolla Subrahmanyam") is False
+        assert match_faculty_names("JAYA VIGNESH T", "Dr. Saranya Nair") is False
+
+
 

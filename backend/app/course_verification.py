@@ -182,6 +182,8 @@ def lms_course_matches_vtop_professor(
         for t in lms_teachers:
             if not t:
                 continue
+            if match_faculty_names(vtop_faculty, t):
+                return True
             t_clean = canonicalize_faculty_name(t)
             if t_clean:
                 if t_clean == vtop_clean or t_clean in vtop_clean or vtop_clean in t_clean:
@@ -190,6 +192,8 @@ def lms_course_matches_vtop_professor(
                 t_tokens = [tok for tok in t_clean.split() if len(tok) >= 3]
                 v_tokens = [tok for tok in vtop_clean.split() if len(tok) >= 3]
                 if t_tokens and v_tokens and set(t_tokens) == set(v_tokens):
+                    return True
+                if "".join(t_tokens) == "".join(v_tokens):
                     return True
 
     if not lms_title:
@@ -295,6 +299,13 @@ def match_faculty_names(vtop_faculty: Optional[str], lms_faculty: Optional[str])
     # Distinctive words (len >= 3)
     v_distinct = [t for t in v_tokens if len(t) >= 3]
     l_distinct = [t for t in l_tokens if len(t) >= 3]
+
+    # Check compound joined name (e.g. 'Jaya Vignesh' == 'Jayavignesh' or 'Saravana Kumar' == 'Saravanakumar')
+    v_joined = "".join(v_distinct)
+    l_joined = "".join(l_distinct)
+    if v_joined and l_joined and (v_joined == l_joined or (len(v_joined) >= 6 and len(l_joined) >= 6 and (v_joined in l_joined or l_joined in v_joined))):
+        if not (v_initials and l_initials and not v_initials.intersection(l_initials)):
+            return True
 
     # Check for conflicting distinctive words
     # A distinctive word is conflicting if it exists in one and has NO match in the other

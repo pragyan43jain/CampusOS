@@ -136,20 +136,23 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
     if not title:
         return None
 
-    # 1. Look for Dr. / Prof. / Professor / Mr. / Ms. / Mrs. anywhere in text
-    m_title = re.search(r"\b(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s+([A-Za-z\.\s]{3,50})", title, re.IGNORECASE)
+    # 1. Look for Dr / Dr. / Prof / Prof. / Professor / Mr / Mr. / Ms / Ms. / Mrs / Mrs. anywhere in text
+    m_title = re.search(r"\b(?:Dr\.?|Prof\.?|Professor|Mr\.?|Ms\.?|Mrs\.?)\s*([A-Za-z\.\s]{3,50})", title, re.IGNORECASE)
     if m_title:
         cand = m_title.group(0).strip(" -–—_()[]|:,")
-        cand = re.split(r"[-–—\(\)\[\]\|]", cand)[0].strip()
+        cand = re.split(r"[-–—\(\)\[\]\|_]", cand)[0].strip()
+        cand = re.sub(r"\b(?:Slot|Sec|Section|L\d+|F\d+|E\d+|A\d+|B\d+|C\d+|D\d+|G\d+)\b.*", "", cand, flags=re.IGNORECASE).strip()
         words = set(re.findall(r"\b[a-zA-Z]+\b", cand.lower()))
-        if not words.intersection(BLACKLIST_FACULTY_WORDS):
+        clean_words = words - {"dr", "prof", "professor", "mr", "ms", "mrs"}
+        if clean_words and not clean_words.issubset(BLACKLIST_FACULTY_WORDS):
             return cand
 
     # 2. Look for explicit parenthesized or bracketed teacher name e.g. (Dr. K. Ramesh) or (Ramesh Kumar) or (Jaya Vignesh T)
     for m_par in re.finditer(r"[\(\[]\s*([A-Za-z\.\s]{3,50})\s*[\)\]]", title):
         cand_par = m_par.group(1).strip()
         words = set(re.findall(r"\b[a-zA-Z]+\b", cand_par.lower()))
-        if not words.intersection(BLACKLIST_FACULTY_WORDS) and len(cand_par) >= 3:
+        clean_words = words - {"dr", "prof", "professor", "mr", "ms", "mrs"}
+        if clean_words and not clean_words.issubset(BLACKLIST_FACULTY_WORDS) and len(cand_par) >= 3:
             if not re.search(r"\b[A-Z]\d\b", cand_par):
                 return cand_par
 
@@ -158,13 +161,14 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
     t_clean = re.sub(r"[\(\[]?\s*(?:Fall|Winter|Spring|Summer|Sem|Semester)?\s*(?:Semester|Sem)?\s*20\d{2}[-\s/]*\d{2,4}\s*[\)\]]?", "", t_clean, flags=re.IGNORECASE)
     t_clean = re.sub(r"\bSlot\s+[A-Za-z0-9\+\s]+", "", t_clean, flags=re.IGNORECASE)
 
-    # 4. Split by typical VIT LMS delimiters: - – — | : /
-    parts = [p.strip() for p in re.split(r"[-–—|:/]", t_clean) if p.strip()]
-    for part in reversed(parts):
+    # 4. Split by typical VIT LMS delimiters: - – — | : / _
+    parts = [p.strip() for p in re.split(r"[-–—|:/_]", t_clean) if p.strip()]
+    for part in parts:
         if re.search(r"\d", part):
             continue
         words = set(re.findall(r"\b[a-zA-Z]+\b", part.lower()))
-        if words.intersection(BLACKLIST_FACULTY_WORDS):
+        clean_words = words - {"dr", "prof", "professor", "mr", "ms", "mrs"}
+        if not clean_words or clean_words.issubset(BLACKLIST_FACULTY_WORDS):
             continue
         if 3 <= len(part) <= 50 and all(c.isalpha() or c in ". " for c in part):
             name_parts = part.split()
@@ -211,21 +215,32 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
                 if t_from_title_el and t_from_title_el not in teachers:
                     teachers.append(t_from_title_el)
 
-            # Map sections/modules to teachers if section titles indicate a specific faculty
+            # Map sections/modules to teachers and collect section-level teachers
             for sec in soup.find_all(["li", "div", "section"], class_=lambda c: c and any(k in str(c).lower() for k in ["section", "course-section"])):
-                sec_text = sec.get_text()
-                sec_teacher = extract_teacher_from_lms_title(sec_text)
+                title_el = sec.find(class_=lambda c: c and "sectionname" in str(c).lower()) or sec.find(["h2", "h3", "h4", "h5"])
+                sec_title = title_el.get_text().strip() if title_el else sec.get_text()
+                sec_teacher = extract_teacher_from_lms_title(sec_title)
                 if not sec_teacher:
-                    m_sec = re.search(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", sec_text, flags=re.IGNORECASE)
+                    sec_teacher = extract_teacher_from_lms_title(sec.get_text())
+                if not sec_teacher:
+                    m_sec = re.search(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", sec.get_text(), flags=re.IGNORECASE)
                     if m_sec:
                         c_cand = m_sec.group(1).strip().split("\n")[0].strip()
                         if 3 <= len(c_cand) < 60:
                             sec_teacher = c_cand
                 if sec_teacher:
+                    if sec_teacher not in teachers:
+                        teachers.append(sec_teacher)
                     for a_link in sec.find_all("a", href=re.compile(r"/mod/assign/view\.php\?id=(\d+)")):
                         m_id = re.search(r"id=(\d+)", a_link.get("href", ""))
                         if m_id:
                             sections_map[m_id.group(1)] = sec_teacher
+
+            # Also check all headings on the page
+            for h in soup.find_all(["h2", "h3", "h4", "h5"]):
+                h_teacher = extract_teacher_from_lms_title(h.get_text().strip())
+                if h_teacher and h_teacher not in teachers:
+                    teachers.append(h_teacher)
     except Exception as exc:
         logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
 
