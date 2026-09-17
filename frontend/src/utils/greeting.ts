@@ -10,13 +10,13 @@ export type TimePeriod = 'morning' | 'afternoon' | 'evening' | 'night';
  * Categorizes a given 24-hour hour into a time period
  * 05:00 - 11:59 -> morning
  * 12:00 - 16:59 -> afternoon
- * 17:00 - 21:59 -> evening
- * 22:00 - 04:59 -> night
+ * 17:00 - 20:59 -> evening
+ * 21:00 - 04:59 -> night
  */
 export function getTimePeriod(hour: number): TimePeriod {
   if (hour >= 5 && hour < 12) return 'morning';
   if (hour >= 12 && hour < 17) return 'afternoon';
-  if (hour >= 17 && hour < 22) return 'evening';
+  if (hour >= 17 && hour < 21) return 'evening';
   return 'night';
 }
 
@@ -51,7 +51,9 @@ export function getTimeGreetings(name: string, period: TimePeriod): string[] {
         `Good evening, ${name}`,
         `Burning the midnight oil, ${name}?`,
         `Working late tonight, ${name}?`,
+        `Late night studying, ${name}?`,
         `Welcome back, ${name}`,
+        `Good to see you, ${name}`,
       ];
   }
 }
@@ -69,6 +71,45 @@ export function getPlayfulReturnGreetings(name: string): string[] {
     `Welcome back, ${name}`,
     `Good to see you, ${name}`,
   ];
+}
+
+/**
+ * Validates whether a candidate greeting text matches the current time period.
+ * Strict time-of-day compatibility check:
+ * E.g., 'Good morning' must NEVER be accepted when period is evening, afternoon, or night.
+ */
+export function isGreetingValidForPeriod(greetingText: string, currentPeriod: TimePeriod): boolean {
+  if (!greetingText || typeof greetingText !== 'string') return false;
+  const lower = greetingText.toLowerCase().trim();
+
+  // Invalidate any legacy/tacky cached greetings
+  if (
+    lower.includes('🦉') ||
+    lower.includes('night owl') ||
+    lower.includes('grind') ||
+    lower.includes('focus mode')
+  ) {
+    return false;
+  }
+
+  // Strict time period compatibility checks
+  if (lower.includes('morning') && currentPeriod !== 'morning') {
+    return false;
+  }
+  if (lower.includes('afternoon') && currentPeriod !== 'afternoon') {
+    return false;
+  }
+  if (lower.includes('evening') && currentPeriod !== 'evening' && currentPeriod !== 'night') {
+    return false;
+  }
+  if (
+    (lower.includes('midnight') || lower.includes('late tonight') || lower.includes('late night')) &&
+    currentPeriod !== 'night'
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -108,37 +149,64 @@ export function cycleNextGreeting(current: string, name: string, hour?: number):
 
 /**
  * Gets or stores a session-stable greeting so it doesn't flicker during navigation,
- * with support for force-refreshing when clicked or re-rolled.
+ * with strict time-of-day validation and auto-invalidation when day/period changes.
  */
 export function getSessionGreeting(name: string, forceNew = false, hour?: number): string {
   if (!name) return 'Welcome to CampusOS';
 
+  const currentHour = hour !== undefined ? hour : new Date().getHours();
+  const currentPeriod = getTimePeriod(currentHour);
+
   if (typeof window === 'undefined') {
-    return generateGreeting(name, hour);
+    return generateGreeting(name, currentHour);
   }
 
   const storageKey = `campus_session_greeting_${name}`;
   if (!forceNew) {
     try {
-      const cached = sessionStorage.getItem(storageKey);
-      // Invalidate any legacy/tacky cached greetings
-      if (
-        cached &&
-        !cached.includes('🦉') &&
-        !cached.toLowerCase().includes('night owl') &&
-        !cached.toLowerCase().includes('grind') &&
-        !cached.toLowerCase().includes('focus mode')
-      ) {
-        return cached;
+      const rawCached = sessionStorage.getItem(storageKey);
+      if (rawCached) {
+        let candidateGreeting = rawCached;
+        let cachedPeriod: TimePeriod | null = null;
+        let cachedDate: string | null = null;
+
+        // Try parsing structured JSON
+        try {
+          const parsed = JSON.parse(rawCached);
+          if (parsed && typeof parsed.greeting === 'string') {
+            candidateGreeting = parsed.greeting;
+            cachedPeriod = parsed.period || null;
+            cachedDate = parsed.date || null;
+          }
+        } catch {
+          // Plain string format from legacy sessions
+        }
+
+        const today = new Date().toDateString();
+        const isSameDay = !cachedDate || cachedDate === today;
+        const isSamePeriod = !cachedPeriod || cachedPeriod === currentPeriod;
+
+        if (isSameDay && isSamePeriod && isGreetingValidForPeriod(candidateGreeting, currentPeriod)) {
+          return candidateGreeting;
+        }
       }
     } catch (e) {
       // sessionStorage unavailable
     }
   }
 
-  const fresh = generateGreeting(name, hour);
+  const fresh = generateGreeting(name, currentHour);
   try {
-    sessionStorage.setItem(storageKey, fresh);
+    sessionStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        greeting: fresh,
+        period: currentPeriod,
+        date: new Date().toDateString(),
+        timestamp: Date.now(),
+      })
+    );
   } catch (e) {}
   return fresh;
 }
+

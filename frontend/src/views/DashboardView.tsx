@@ -15,7 +15,7 @@ import { StudentProfile, TimetableSlot, DayOfWeek, Assignment } from '../types';
 import { MetricCard } from '../components/MetricCard';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
-import { getSessionGreeting, cycleNextGreeting } from '../utils/greeting';
+import { getSessionGreeting, cycleNextGreeting, isGreetingValidForPeriod, getTimePeriod } from '../utils/greeting';
 
 interface DashboardViewProps {
   student: StudentProfile;
@@ -142,11 +142,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setGreeting(getSessionGreeting(studentDisplayName));
   }, [studentDisplayName]);
 
+  // Auto-refresh greeting when the time period transitions or tab regains visibility
+  useEffect(() => {
+    const checkGreetingPeriod = () => {
+      const currentPeriod = getTimePeriod(new Date().getHours());
+      if (!isGreetingValidForPeriod(greeting, currentPeriod)) {
+        const fresh = getSessionGreeting(studentDisplayName, true);
+        setGreeting(fresh);
+      }
+    };
+
+    // Periodically re-evaluate (every 60s)
+    const interval = setInterval(checkGreetingPeriod, 60 * 1000);
+
+    // Also check when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkGreetingPeriod();
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [greeting, studentDisplayName]);
+
   const handleCycleGreeting = () => {
     const next = cycleNextGreeting(greeting, studentDisplayName);
     setGreeting(next);
     try {
-      sessionStorage.setItem(`campus_session_greeting_${studentDisplayName}`, next);
+      const currentPeriod = getTimePeriod(new Date().getHours());
+      sessionStorage.setItem(
+        `campus_session_greeting_${studentDisplayName}`,
+        JSON.stringify({
+          greeting: next,
+          period: currentPeriod,
+          date: new Date().toDateString(),
+          timestamp: Date.now(),
+        })
+      );
     } catch (e) {}
   };
 
