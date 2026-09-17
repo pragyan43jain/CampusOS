@@ -213,13 +213,17 @@ def lms_course_matches_vtop_professor(
     if faculty_tokens and all(tok in title_words for tok in faculty_tokens):
         return True
 
-    # Check for initials + single distinctive name (e.g. 'S' + 'GEETHA')
-    if len(faculty_tokens) == 1 and initials:
-        tok = faculty_tokens[0]
-        if tok in title_words:
-            if any(init in title_words for init in initials):
+    # 4. Single distinctive token (length >= 4, e.g. 'THANGARAJ', 'UPENDER', 'MAHARISHI', 'ETHNUS', 'RISHIKESHAN')
+    if faculty_tokens:
+        for tok in faculty_tokens:
+            if len(tok) >= 4 and tok in title_words:
                 return True
-            if re.search(rf"\b(?:{'|'.join(initials)})\b.*\b{tok}\b", title_normalized) or re.search(rf"\b{tok}\b.*\b(?:{'|'.join(initials)})\b", title_normalized):
+
+    # 5. Check if any long token stem (length >= 5) matches (e.g. 'SARAVAN' in 'SARAVANA KUMAR' matching 'SARAVANAN')
+    for tok in faculty_tokens:
+        if len(tok) >= 5:
+            stem = tok[:5]
+            if any(w.startswith(stem) for w in title_words):
                 return True
 
     return False

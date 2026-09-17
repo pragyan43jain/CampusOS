@@ -86,8 +86,9 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     setSuccessMsg(null);
 
     try {
+      const resolvedUsername = username.includes('@') ? username.trim() : username.trim().toUpperCase();
       const res = await CampusAPI.loginLMS({
-        username: loginMode === 'credentials' ? username.trim().toUpperCase() : undefined,
+        username: loginMode === 'credentials' ? resolvedUsername : undefined,
         password: loginMode === 'credentials' ? password.trim() : undefined,
         sessionCookie: loginMode === 'session_cookie' ? sessionCookie.trim() : undefined,
         campus: campus,
@@ -101,7 +102,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
 
       if (typeof window !== 'undefined') {
         if (rememberMe && loginMode === 'credentials') {
-          localStorage.setItem('campus_lms_saved_username', username.trim().toUpperCase());
+          localStorage.setItem('campus_lms_saved_username', resolvedUsername);
           localStorage.setItem('campus_lms_saved_password', password);
           localStorage.setItem('campus_lms_remember', 'true');
         } else {
@@ -116,8 +117,9 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
         onClose();
       }, 800);
     } catch (err: any) {
-      setError('Sync Failed');
-      onLoginFailure?.('Sync Failed');
+      const msg = err?.message || 'Sync Failed';
+      setError(msg);
+      onLoginFailure?.(msg);
     } finally {
       setLoading(false);
     }

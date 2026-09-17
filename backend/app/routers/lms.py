@@ -56,7 +56,7 @@ LMS_MY_URL = "https://lms.vit.ac.in/my/"
 LMS_COURSES_URL = "https://lms.vit.ac.in/my/courses.php"
 LMS_CALENDAR_URL = "https://lms.vit.ac.in/calendar/view.php?view=upcoming"
 
-REQUEST_TIMEOUT = 6.0
+REQUEST_TIMEOUT = 25.0
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
@@ -105,7 +105,14 @@ BLACKLIST_FACULTY_WORDS = {
     "ep", "pj", "th", "lo", "ss", "cat1", "cat2", "fat", "da1", "da2", "da",
     "topic", "topics", "unit", "units", "module", "modules", "section", "sections",
     "chapter", "chapters", "week", "weeks", "session", "sessions", "lesson", "lessons",
-    "lecture", "lectures", "intro", "introduction", "announcement", "announcements"
+    "lecture", "lectures", "intro", "introduction", "announcement", "announcements",
+    "database", "databases", "systems", "system", "cloud", "computing", "machine", "learning",
+    "artificial", "intelligence", "statistics", "probability", "traditional", "knowledge",
+    "essence", "vlsi", "design", "communication", "processing", "signals", "signal",
+    "circuits", "circuit", "electronics", "electronic", "management", "security", "cryptography",
+    "operating", "compiler", "automata", "discrete", "graph", "optimization", "microprocessors",
+    "microcontrollers", "applied", "advanced", "basics", "basic", "principles", "foundations",
+    "data", "network", "networking", "technologies", "technology", "competitive", "coding",
 }
 
 
@@ -520,11 +527,18 @@ def authenticate_lms_session(
                     detail=f"VIT LMS authentication failed: {err_text}",
                 )
 
+        active_cookie = None
+        for c in s.cookies:
+            if "moodle" in c.name.lower() or "session" in c.name.lower():
+                active_cookie = c.value
+                break
+        if not active_cookie:
+            active_cookie = s.cookies.get("MoodleSession")
+
         # Check if redirected to dashboard or courses
         if "/my" in final_url or "/course" in final_url or soup_post.find(class_=lambda x: x and "userbutton" in x):
             user_elem = soup_post.find(class_=lambda x: x and ("usertext" in x or "userbutton" in x or "username" in x))
             disp_name = user_elem.get_text().strip() if user_elem else username
-            active_cookie = s.cookies.get("MoodleSession")
             return s, {
                 "username": username,
                 "displayName": disp_name,
@@ -548,7 +562,7 @@ def authenticate_lms_session(
             "username": username,
             "displayName": username,
             "authMethod": "credentials",
-            "sessionCookie": s.cookies.get("MoodleSession"),
+            "sessionCookie": active_cookie,
         }
 
     except HTTPException:
@@ -1236,13 +1250,30 @@ def sync_lms(
 
         s = get_lms_session()
         if session_cookie:
-            s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in")
+            s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in", path="/")
+            s.cookies.set("MoodleSession", session_cookie, domain=".vit.ac.in", path="/")
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="VIT LMS session has expired. Please re-authenticate with your credentials.",
+            )
 
         vtop_courses = list(store.get("courses") or [])
         current_sem = (store.get("selectedSemester") or {}).get("name")
         assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
             s, vtop_courses, current_semester=current_sem
         )
+
+        if total_courses == 0:
+            # Verify if Moodle session is still alive
+            r_check = s.get(LMS_MY_URL, verify=False, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+            if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
+                store["lmsConnected"] = False
+                save_store(store, reg)
+                raise HTTPException(
+                    status_code=401,
+                    detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
+                )
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]

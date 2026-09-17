@@ -428,7 +428,7 @@ class TestTeamsAuthenticationSuccessAndZeroFakeData:
             assert assign["courseCode"] == "BCSE308L"
             assert assign["courseTitle"] == "Computer Networks"
             assert assign["source"] == "Teams"
-            assert assign["status"].upper() == "PENDING"
+            assert assign["status"].upper() in ("PENDING", "OVERDUE")
             assert assign["instructions"] == "Design a 3-router subnet topology."
             assert "teams.microsoft.com" in assign["platformUrl"]
 

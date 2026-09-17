@@ -843,7 +843,8 @@ export const CampusAPI = {
     submittedCount?: number;
     lastSynced?: string;
   }> => {
-    const cleanUser = (credentials.username || '').trim().toUpperCase();
+    const rawUser = (credentials.username || '').trim();
+    const cleanUser = rawUser.includes('@') ? rawUser : rawUser.toUpperCase();
     const campus = credentials.campus || 'chennai';
     const isCookie = Boolean(credentials.sessionCookie && credentials.sessionCookie.trim());
 
@@ -856,7 +857,7 @@ export const CampusAPI = {
 
     try {
       const extraHeaders: Record<string, string> = {};
-      if (cleanUser) {
+      if (cleanUser && !cleanUser.includes('@')) {
         extraHeaders['X-Reg-No'] = cleanUser;
       }
       const res = await fetchWithTimeout(`${getApiBase()}/lms/login`, {
