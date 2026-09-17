@@ -72,7 +72,10 @@ export const parseSafeJson = async <T = any>(res: Response): Promise<T> => {
 
   // If response is HTML (e.g. Netlify index.html fallback or reverse proxy error page)
   if (contentType.includes('text/html') || trimmed.startsWith('<') || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
-    throw new Error('API server returned HTML instead of JSON. The backend API is not mapped at this URL.');
+    if (res.status >= 500) {
+      throw new Error(`CampusOS API gateway temporarily unavailable (HTTP ${res.status}). Please retry shortly.`);
+    }
+    throw new Error(`API server returned HTML instead of JSON (HTTP ${res.status}).`);
   }
 
   try {
@@ -881,7 +884,16 @@ export const CampusAPI = {
 
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        throw new Error('API server returned HTML instead of JSON');
+        let errMsg = `Server returned an unexpected response (HTTP ${res.status}).`;
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          errMsg = `CampusOS API gateway is temporarily unavailable (HTTP ${res.status}). Please retry in a few moments.`;
+        } else if (res.status === 404) {
+          errMsg = 'CampusOS LMS API endpoint not found. Please verify the server configuration.';
+        }
+        return {
+          success: false,
+          message: errMsg,
+        };
       }
 
       const data = await res.json();
@@ -916,7 +928,16 @@ export const CampusAPI = {
       }, 60000);
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('application/json')) {
-        throw new Error('API server returned HTML instead of JSON');
+        let errMsg = `Server returned an unexpected response (HTTP ${res.status}).`;
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          errMsg = `CampusOS API gateway is temporarily unavailable (HTTP ${res.status}). Please retry in a few moments.`;
+        } else if (res.status === 404) {
+          errMsg = 'CampusOS LMS API endpoint not found. Please verify the server configuration.';
+        }
+        return {
+          success: false,
+          message: errMsg,
+        };
       }
       const data = await res.json();
       if (!res.ok) {

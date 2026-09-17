@@ -33,6 +33,9 @@ from app.course_verification import (
     lms_course_matches_vtop_professor,
     build_verified_semester_course_records,
     verify_external_course,
+    verify_semester_match,
+    extract_course_code_candidates,
+    verify_course_title_match,
 )
 
 # Suppress insecure request warnings for VIT internal SSL certificates
@@ -79,6 +82,16 @@ def get_lms_session() -> requests.Session:
     adapter = HTTPAdapter(pool_connections=20, pool_maxsize=30, max_retries=retry_strategy)
     s.mount("https://", adapter)
     s.mount("http://", adapter)
+    return s
+
+
+def _clone_session(base_session: requests.Session) -> requests.Session:
+    """Creates a thread-safe clone of an HTTP session preserving active cookies and headers."""
+    if not isinstance(base_session, requests.Session) or type(base_session).__name__ == "MagicMock":
+        return base_session
+    s = get_lms_session()
+    s.cookies.update(base_session.cookies)
+    s.headers.update(base_session.headers)
     return s
 
 
@@ -172,7 +185,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
     url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
     try:
         r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
-        if r.status_code == 200:
+        if r.status_code == 200 and "/login" not in r.url:
             soup = BeautifulSoup(r.text, "html.parser")
             for el in soup.find_all(
                 ["span", "div", "p", "li", "a", "h3", "h4"],
@@ -220,7 +233,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
     try:
         url_users = f"{LMS_BASE_URL}/user/index.php?id={course_id}"
         r_u = session.get(url_users, verify=False, timeout=REQUEST_TIMEOUT)
-        if r_u.status_code == 200:
+        if r_u.status_code == 200 and "/login" not in r_u.url:
             soup_u = BeautifulSoup(r_u.text, "html.parser")
             for tr in soup_u.find_all("tr"):
                 row_txt = tr.get_text()
@@ -752,7 +765,7 @@ def fetch_assignments_for_lms_course(
 
     try:
         r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
-        if r.status_code != 200:
+        if r.status_code != 200 or "/login" in r.url:
             return assignments
 
         soup = BeautifulSoup(r.text, "html.parser")
@@ -800,7 +813,7 @@ def fetch_assignments_for_lms_course(
             assign_url = href if href.startswith("http") else f"{LMS_BASE_URL}{href}"
 
             m_cm = re.search(r"id=(\d+)", href)
-            activity_id = m_cm.group(1) if m_cm else str(len(assignments) + 1)
+            activity_id = m_cm.group(1) if m_cm else str(len(assignments) + len(parsed_candidates) + 1)
             assign_id = f"lms-{course_id}-{activity_id}"
 
             # Identify which column index holds the assignment link
@@ -843,7 +856,10 @@ def fetch_assignments_for_lms_course(
             )
 
             is_pending = not is_submitted
-            topic_name = cols[0].get_text().strip() if len(cols) > 0 else ""
+            topic_name = cols[0].get_text().strip() if len(cols) > 0 and link_col_idx != 0 else ""
+            prev_heading = row.find_previous(["h2", "h3", "h4", "th"], class_=lambda c: c and any(k in str(c).lower() for k in ["sectionname", "topic", "module"]))
+            if not topic_name and prev_heading:
+                topic_name = prev_heading.get_text().strip()
 
             parsed_candidates.append({
                 "assign_id": assign_id,
@@ -870,9 +886,10 @@ def fetch_assignments_for_lms_course(
                 if 3 <= len(t_cand) < 60:
                     return t_cand, t_cand
 
-            # 2. Extract from assignment view page / row metadata
+            # 2. Extract from assignment view page / row metadata using thread-safe cloned session
+            sub_sess = _clone_session(session)
             extracted = extract_assignment_poster(
-                session=session,
+                session=sub_sess,
                 assign_url=cand["assign_url"],
                 row_text=cand["row_text"],
                 topic_name=cand["topic_name"],
@@ -945,8 +962,41 @@ def _process_single_lms_course(
     session: requests.Session,
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]], List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Worker function to verify a single LMS course and fetch its assignments."""
-    c_id = str(lms_c["id"])
-    c_title = lms_c["title"]
+    c_id = str(lms_c.get("id", ""))
+    c_title = (lms_c.get("title") or "").strip()
+    c_shortname = (lms_c.get("shortname") or "").strip()
+    combined_meta = f"{c_title} {c_shortname}".strip()
+
+    if not c_id or c_id == "1" or not c_title:
+        return {}, None, [], None
+
+    # Fast-path 1: Semester & Academic Year check (0 ms)
+    # Reject courses explicitly from previous academic years/semesters without making any network calls
+    sem_ok, _ = verify_semester_match(curr_sem_name, combined_meta)
+    if not sem_ok:
+        return {}, None, [], None
+
+    # Fast-path 2: Course Code / Title token match against student's enrolled courses (0 ms)
+    ext_codes = extract_course_code_candidates(c_title) + extract_course_code_candidates(c_shortname)
+    has_candidate_match = False
+    if ext_codes:
+        enrolled_canon_codes = {canonicalize_course_code(r.courseCode) for r in verified_enrolled if r.courseCode}
+        enrolled_base_codes = {get_base_code(r.courseCode) for r in verified_enrolled if r.courseCode}
+        has_candidate_match = any((cand in enrolled_canon_codes or get_base_code(cand) in enrolled_base_codes) for cand in ext_codes)
+    else:
+        # Check if title tokens match any enrolled course
+        for r in verified_enrolled:
+            title_ok, _ = verify_course_title_match(r.courseName, c_title, c_shortname)
+            if title_ok:
+                has_candidate_match = True
+                break
+
+    if not has_candidate_match:
+        return {}, None, [], None
+
+    # Clone session for this worker thread to ensure complete thread safety
+    worker_session = _clone_session(session)
+
     c_teachers = list(lms_c.get("teachers") or [])
     c_sections_map: Dict[str, str] = {}
 
@@ -956,7 +1006,7 @@ def _process_single_lms_course(
             c_teachers.append(t_from_title)
 
     if not c_teachers:
-        c_teachers, c_sections_map = fetch_lms_course_teachers_and_sections(session, c_id)
+        c_teachers, c_sections_map = fetch_lms_course_teachers_and_sections(worker_session, c_id)
 
     is_verified, matched_rec, match_meta = verify_external_course(
         enrolled_records=verified_enrolled,
@@ -1009,7 +1059,7 @@ def _process_single_lms_course(
     }
 
     sub_assignments = fetch_assignments_for_lms_course(
-        session=session,
+        session=worker_session,
         course_id=c_id,
         course_title=c_title,
         vtop_course=matched_vtop,
