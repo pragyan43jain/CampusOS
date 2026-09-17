@@ -430,12 +430,25 @@ def authenticate_lms_session(
     urls = get_lms_urls(campus)
     domain_host = urls["base"].replace("https://", "").replace("http://", "").split("/")[0]
 
-    # Mode 1: Validate provided session cookie (MoodleSession)
+    # Mode 1: Validate provided session cookie (MoodleSession or full cookie jar)
     if session_cookie:
-        clean_cookie = session_cookie.strip()
-        if clean_cookie.startswith("MoodleSession="):
-            clean_cookie = clean_cookie.split("MoodleSession=")[1].split(";")[0].strip()
-        s.cookies.set("MoodleSession", clean_cookie, domain=domain_host)
+        raw_cookie = session_cookie.strip()
+        extracted_moodle = None
+        for part in raw_cookie.split(";"):
+            part = part.strip()
+            if "=" in part:
+                k, v = part.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                s.cookies.set(k, v, domain=domain_host, path="/")
+                s.cookies.set(k, v, domain=f".{domain_host}", path="/")
+                if k.lower() == "moodlesession" or "moodle" in k.lower():
+                    extracted_moodle = v
+        if not extracted_moodle:
+            # Assume raw MoodleSession token was pasted directly
+            extracted_moodle = raw_cookie
+            s.cookies.set("MoodleSession", extracted_moodle, domain=domain_host, path="/")
+            s.cookies.set("MoodleSession", extracted_moodle, domain=f".{domain_host}", path="/")
 
         try:
             r = s.get(urls["my"], verify=False, allow_redirects=False, timeout=REQUEST_TIMEOUT)
@@ -447,7 +460,8 @@ def authenticate_lms_session(
                     "username": username or display_name,
                     "displayName": display_name,
                     "authMethod": "cookie",
-                    "sessionCookie": clean_cookie,
+                    "sessionCookie": extracted_moodle,
+                    "cookies": s.cookies.get_dict(),
                     "campus": campus or "chennai",
                 }
             elif r.status_code in (302, 303):
@@ -529,13 +543,20 @@ def authenticate_lms_session(
                     detail=f"VIT LMS authentication failed: {err_text}",
                 )
 
-        active_cookie = None
-        for c in s.cookies:
-            if "moodle" in c.name.lower() or "session" in c.name.lower():
-                active_cookie = c.value
-                break
-        if not active_cookie:
-            active_cookie = s.cookies.get("MoodleSession")
+        # Accurately isolate MoodleSession cookie, ignoring NetScaler cookiesession1
+        moodle_cookie = s.cookies.get("MoodleSession")
+        if not moodle_cookie:
+            for c in s.cookies:
+                if c.name.lower() == "moodlesession":
+                    moodle_cookie = c.value
+                    break
+        if not moodle_cookie:
+            for c in s.cookies:
+                if "moodle" in c.name.lower():
+                    moodle_cookie = c.value
+                    break
+
+        all_cookies = s.cookies.get_dict()
 
         # Check if redirected to dashboard or courses
         if "/my" in final_url or "/course" in final_url or soup_post.find(class_=lambda x: x and "userbutton" in x):
@@ -545,7 +566,9 @@ def authenticate_lms_session(
                 "username": username,
                 "displayName": disp_name,
                 "authMethod": "credentials",
-                "sessionCookie": active_cookie,
+                "sessionCookie": moodle_cookie,
+                "cookies": all_cookies,
+                "campus": campus or "chennai",
             }
 
         # If still on login page without error, check for MFA
@@ -564,7 +587,9 @@ def authenticate_lms_session(
             "username": username,
             "displayName": username,
             "authMethod": "credentials",
-            "sessionCookie": active_cookie,
+            "sessionCookie": moodle_cookie,
+            "cookies": all_cookies,
+            "campus": campus or "chennai",
         }
 
     except HTTPException:
@@ -1197,6 +1222,9 @@ def login_and_sync_lms(
             "displayName": auth_info.get("displayName"),
             "authMethod": auth_info.get("authMethod"),
             "sessionCookie": auth_info.get("sessionCookie"),
+            "cookies": auth_info.get("cookies") or {},
+            "campus": payload.campus or "chennai",
+            "status": "connected",
             "connectedAt": now_iso,
             "lastSynced": now_iso,
             "matchedSubjects": matched_subjects,
@@ -1248,11 +1276,15 @@ def login_and_sync_lms(
 def sync_lms(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    x_auth_pass: Optional[str] = Header(None, alias="X-Auth-Pass"),
+    x_lms_user: Optional[str] = Header(None, alias="X-LMS-User"),
+    x_lms_pass: Optional[str] = Header(None, alias="X-LMS-Pass"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
-    """Re-synchronizes authentic coursework from VIT LMS."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    """Re-synchronizes authentic coursework from VIT LMS with multi-cookie resilience and auto-reauth."""
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user)
     if not reg:
         raise HTTPException(
             status_code=400,
@@ -1260,7 +1292,7 @@ def sync_lms(
         )
 
     store = load_store(reg)
-    if not store.get("lmsConnected"):
+    if not store.get("lmsConnected") and not store.get("lmsAccount"):
         raise HTTPException(
             status_code=400,
             detail="VIT LMS is not currently connected. Please link your account first.",
@@ -1269,16 +1301,69 @@ def sync_lms(
     try:
         account = store.get("lmsAccount") or {}
         session_cookie = account.get("sessionCookie")
+        cookies_dict = account.get("cookies") or {}
+        campus = account.get("campus") or "chennai"
+
+        candidate_user = (x_lms_user or account.get("username") or x_auth_user or reg or "").strip()
+        candidate_pass = (x_lms_pass or x_auth_pass or "").strip()
 
         s = get_lms_session()
-        if session_cookie:
-            s.cookies.set("MoodleSession", session_cookie, domain="lms.vit.ac.in", path="/")
-            s.cookies.set("MoodleSession", session_cookie, domain=".vit.ac.in", path="/")
+
+        def apply_cookies_to_session(sess: requests.Session):
+            for domain in ("lms.vit.ac.in", ".vit.ac.in"):
+                if cookies_dict:
+                    for c_name, c_val in cookies_dict.items():
+                        sess.cookies.set(c_name, c_val, domain=domain, path="/")
+                if session_cookie:
+                    sess.cookies.set("MoodleSession", session_cookie, domain=domain, path="/")
+
+        # If cookies are missing, attempt silent auto-reauth if credentials are provided
+        reauth_performed = False
+        if not session_cookie and not cookies_dict:
+            if candidate_user and candidate_pass:
+                logger.info("[LMS] Session cookie missing in store. Attempting silent auto-reauth for %s...", candidate_user)
+                try:
+                    s, auth_info = authenticate_lms_session(candidate_user, candidate_pass, None, campus=campus)
+                    session_cookie = auth_info.get("sessionCookie")
+                    cookies_dict = auth_info.get("cookies") or {}
+                    account["sessionCookie"] = session_cookie
+                    account["cookies"] = cookies_dict
+                    account["displayName"] = auth_info.get("displayName") or account.get("displayName")
+                    account["campus"] = campus
+                    account["status"] = "connected"
+                    store["lmsConnected"] = True
+                    store["lmsAccount"] = account
+                    save_store(store, reg)
+                    reauth_performed = True
+                except HTTPException as he:
+                    store["lmsConnected"] = False
+                    account["status"] = "expired"
+                    store["lmsAccount"] = account
+                    save_store(store, reg)
+                    raise HTTPException(
+                        status_code=401,
+                        detail=f"VIT LMS session has expired. {he.detail}",
+                    )
+                except Exception as exc:
+                    store["lmsConnected"] = False
+                    account["status"] = "expired"
+                    store["lmsAccount"] = account
+                    save_store(store, reg)
+                    raise HTTPException(
+                        status_code=401,
+                        detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
+                    )
+            else:
+                store["lmsConnected"] = False
+                account["status"] = "expired"
+                store["lmsAccount"] = account
+                save_store(store, reg)
+                raise HTTPException(
+                    status_code=401,
+                    detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
+                )
         else:
-            raise HTTPException(
-                status_code=401,
-                detail="VIT LMS session has expired. Please re-authenticate with your credentials.",
-            )
+            apply_cookies_to_session(s)
 
         vtop_courses = list(store.get("courses") or [])
         current_sem = (store.get("selectedSemester") or {}).get("name")
@@ -1286,11 +1371,46 @@ def sync_lms(
             s, vtop_courses, current_semester=current_sem
         )
 
-        if total_courses == 0:
+        session_expired = False
+        if total_courses == 0 and not reauth_performed:
             # Verify if Moodle session is still alive
             r_check = s.get(LMS_MY_URL, verify=False, timeout=REQUEST_TIMEOUT, allow_redirects=False)
             if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
+                session_expired = True
+
+        if session_expired:
+            if candidate_user and candidate_pass:
+                logger.info("[LMS] Session expired during sync. Attempting silent auto-reauth for %s...", candidate_user)
+                try:
+                    s, auth_info = authenticate_lms_session(candidate_user, candidate_pass, None, campus=campus)
+                    session_cookie = auth_info.get("sessionCookie")
+                    cookies_dict = auth_info.get("cookies") or {}
+                    account["sessionCookie"] = session_cookie
+                    account["cookies"] = cookies_dict
+                    account["displayName"] = auth_info.get("displayName") or account.get("displayName")
+                    account["campus"] = campus
+                    account["status"] = "connected"
+                    store["lmsConnected"] = True
+                    store["lmsAccount"] = account
+                    save_store(store, reg)
+                    # Re-run coursework fetch with new authenticated session
+                    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
+                        s, vtop_courses, current_semester=current_sem
+                    )
+                except Exception as exc:
+                    logger.warning("[LMS] Auto-reauth during sync failed: %s", exc)
+                    store["lmsConnected"] = False
+                    account["status"] = "expired"
+                    store["lmsAccount"] = account
+                    save_store(store, reg)
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
+                    )
+            else:
                 store["lmsConnected"] = False
+                account["status"] = "expired"
+                store["lmsAccount"] = account
                 save_store(store, reg)
                 raise HTTPException(
                     status_code=401,
@@ -1319,6 +1439,7 @@ def sync_lms(
 
         all_assignments = other_assignments + assignments
         store["assignments"] = all_assignments
+        store["lmsConnected"] = True
 
         now_iso = datetime.now(timezone.utc).isoformat()
         account["lastSynced"] = now_iso
@@ -1326,6 +1447,7 @@ def sync_lms(
         account["matchedCount"] = len(matched_subjects)
         account["totalCoursesCount"] = total_courses
         account["courseMatches"] = course_matches
+        account["status"] = "connected"
         store["lmsAccount"] = account
 
         save_store(store, reg)

@@ -924,6 +924,9 @@ def sync_all_academic_accounts(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    x_auth_pass: Optional[str] = Header(None, alias="X-Auth-Pass"),
+    x_lms_user: Optional[str] = Header(None, alias="X-LMS-User"),
+    x_lms_pass: Optional[str] = Header(None, alias="X-LMS-Pass"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
@@ -931,7 +934,7 @@ def sync_all_academic_accounts(
     Re-synchronizes all connected academic platforms (Teams + LMS)
     and returns the updated unified assignment dashboard.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user)
     if not reg:
         return {
             "success": False,
@@ -949,6 +952,9 @@ def sync_all_academic_accounts(
             from app.routers.teams import sync_teams
             sync_teams(x_session_id=x_session_id, x_reg_no=x_reg_no or reg, sessionId=sessionId, regNo=regNo or reg)
             synced_sources.append("Microsoft Teams")
+        except HTTPException as he:
+            logger.warning("Teams HTTP error during sync-all: %s", he.detail)
+            errors.append(f"Microsoft Teams: {he.detail}")
         except Exception as e:
             logger.warning("Teams sync error during sync-all: %s", e)
             errors.append(f"Microsoft Teams: {e}")
@@ -957,8 +963,20 @@ def sync_all_academic_accounts(
     if store.get("lmsConnected"):
         try:
             from app.routers.lms import sync_lms
-            sync_lms(x_session_id=x_session_id, x_reg_no=x_reg_no or reg, sessionId=sessionId, regNo=regNo or reg)
+            sync_lms(
+                x_session_id=x_session_id,
+                x_reg_no=x_reg_no or reg,
+                x_auth_user=x_auth_user,
+                x_auth_pass=x_auth_pass,
+                x_lms_user=x_lms_user,
+                x_lms_pass=x_lms_pass,
+                sessionId=sessionId,
+                regNo=regNo or reg,
+            )
             synced_sources.append("VIT LMS")
+        except HTTPException as he:
+            logger.warning("LMS HTTP error during sync-all: %s", he.detail)
+            errors.append(f"VIT LMS: {he.detail}")
         except Exception as e:
             logger.warning("LMS sync error during sync-all: %s", e)
             errors.append(f"VIT LMS: {e}")
@@ -970,8 +988,10 @@ def sync_all_academic_accounts(
     if errors:
         msg += f" Note: {'; '.join(errors)}"
 
+    overall_success = (len(synced_sources) > 0) or (len(errors) == 0)
+
     return {
-        "success": len(errors) == 0,
+        "success": overall_success,
         "message": msg,
         "dashboard": dashboard,
     }

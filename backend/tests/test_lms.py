@@ -236,6 +236,76 @@ class TestLMSAuthentication:
         assert status["connected"] is False
         assert status["totalAssignments"] == 0
 
+    def test_multi_cookie_support(self):
+        from app.routers.lms import authenticate_lms_session
+        with patch("app.routers.lms.requests.Session.get") as mock_get:
+            r = MagicMock()
+            r.status_code = 200
+            r.text = '<div class="userbutton"><span class="usertext">Pragyan Jain</span></div>'
+            mock_get.return_value = r
+
+            sess, info = authenticate_lms_session(
+                username=None,
+                password=None,
+                session_cookie="MoodleSession=test_session_123; cookiesession1=load_balancer_456",
+            )
+            assert info["sessionCookie"] == "test_session_123"
+            assert "cookiesession1" in info["cookies"]
+            assert info["cookies"]["cookiesession1"] == "load_balancer_456"
+
+    def test_sync_lms_auto_reauth(self):
+        store = storage.load_store()
+        store["lmsConnected"] = True
+        store["lmsAccount"] = {
+            "username": "24BLC1100",
+            "sessionCookie": None,
+            "cookies": {},
+        }
+        storage.save_store(store)
+
+        with patch("app.routers.lms.authenticate_lms_session") as mock_auth, \
+             patch("app.routers.lms.fetch_vit_lms_coursework") as mock_fetch:
+            fake_sess = MagicMock()
+            mock_auth.return_value = (fake_sess, {
+                "username": "24BLC1100",
+                "displayName": "Pragyan Jain",
+                "sessionCookie": "new_moodle_session",
+                "cookies": {"MoodleSession": "new_moodle_session", "cookiesession1": "lb123"},
+            })
+            mock_fetch.return_value = ([], [], 0, [])
+
+            res = client.post(
+                "/api/lms/sync",
+                headers={
+                    "X-Reg-No": "24BLC1100",
+                    "X-LMS-User": "24BLC1100",
+                    "X-LMS-Pass": "SuperSecret123!",
+                },
+            )
+            assert res.status_code == 200
+            assert res.json()["success"] is True
+
+            updated = storage.load_store()
+            assert updated["lmsAccount"]["sessionCookie"] == "new_moodle_session"
+            assert updated["lmsAccount"]["status"] == "connected"
+
+    def test_sync_lms_expired_fails_descriptively_without_credentials(self):
+        store = storage.load_store()
+        store["lmsConnected"] = True
+        store["lmsAccount"] = {
+            "username": "24BLC1100",
+            "sessionCookie": None,
+            "cookies": {},
+        }
+        storage.save_store(store)
+
+        res = client.post(
+            "/api/lms/sync",
+            headers={"X-Reg-No": "24BLC1100"},
+        )
+        assert res.status_code == 401
+        assert "expired" in res.json()["detail"].lower()
+
 
 class TestLMSStrictVerificationAndAssignmentPipeline:
     """

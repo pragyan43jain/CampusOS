@@ -71,12 +71,12 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     e.preventDefault();
     if (loginMode === 'credentials') {
       if (!username.trim() || !password.trim()) {
-        setError('Sync Failed');
+        setError('Please enter both your registration number and LMS password.');
         return;
       }
     } else {
       if (!sessionCookie.trim()) {
-        setError('Sync Failed');
+        setError('Please paste your MoodleSession cookie from your browser.');
         return;
       }
     }
@@ -95,7 +95,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       });
 
       if (!res.success) {
-        throw new Error(res.message || 'Sync Failed');
+        throw new Error(res.message || 'LMS authentication failed. Please check your credentials.');
       }
 
       setSuccessMsg('✓ Moodle LMS Connected');
@@ -117,7 +117,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
         onClose();
       }, 800);
     } catch (err: any) {
-      const msg = err?.message || 'Sync Failed';
+      const msg = err?.message || 'Failed to authenticate with VIT LMS. Please try again.';
       setError(msg);
       onLoginFailure?.(msg);
     } finally {
@@ -255,7 +255,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
               onChange={(e) => setCampus(e.target.value as any)}
               className="input-field"
             >
-              <option value="chennai">VIT Chennai (lmscc.vit.ac.in)</option>
+              <option value="chennai">VIT Moodle LMS (lms.vit.ac.in)</option>
               <option value="vellore">VIT Vellore (lms.vit.ac.in)</option>
             </select>
           </div>

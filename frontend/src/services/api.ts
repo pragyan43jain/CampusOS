@@ -149,6 +149,14 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
     if (savedPass && savedPass.trim()) {
       headers['X-Auth-Pass'] = savedPass;
     }
+    const lmsUser = window.localStorage.getItem('campus_lms_saved_username');
+    const lmsPass = window.localStorage.getItem('campus_lms_saved_password');
+    if (lmsUser && lmsUser.trim()) {
+      headers['X-LMS-User'] = lmsUser.trim();
+    }
+    if (lmsPass && lmsPass.trim()) {
+      headers['X-LMS-Pass'] = lmsPass;
+    }
   }
   if (extra) {
     Object.assign(headers, extra);
@@ -972,10 +980,14 @@ export const CampusAPI = {
     dashboard?: UnifiedAssignmentsDashboard;
   }> => {
     try {
-      const res = await fetch(`${getApiBase()}/academic-accounts/sync-all`, {
+      const res = await fetchWithTimeout(`${getApiBase()}/academic-accounts/sync-all`, {
         method: 'POST',
         headers: getAuthHeaders(),
-      });
+      }, 60000);
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) {
+        throw new Error('API server returned unexpected response while syncing platforms.');
+      }
       const data = await res.json();
       if (!res.ok) {
         return {

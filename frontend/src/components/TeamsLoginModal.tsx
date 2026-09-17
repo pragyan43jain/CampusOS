@@ -71,7 +71,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
-      setError('Sync Failed');
+      setError('Please enter both your student email and password.');
       return;
     }
 
@@ -83,7 +83,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       const res = await CampusAPI.loginTeams(email.trim(), password.trim());
 
       if (!res.success) {
-        throw new Error(res.message || 'Sync Failed');
+        throw new Error(res.message || 'Failed to connect to Microsoft Teams.');
       }
 
       setSuccessMsg('✓ Microsoft Teams Connected');
@@ -105,8 +105,9 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
         onClose();
       }, 700);
     } catch (err: any) {
-      setError('Sync Failed');
-      onLoginFailure?.('Sync Failed');
+      const msg = err?.message || 'Failed to connect to Microsoft Teams. Please check your credentials.';
+      setError(msg);
+      onLoginFailure?.(msg);
     } finally {
       setLoading(false);
     }
