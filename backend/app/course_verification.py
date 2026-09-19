@@ -252,9 +252,15 @@ def normalize_faculty_name(name: Optional[str]) -> str:
     ignored = {
         "dr", "prof", "professor", "mr", "ms", "mrs", "doc", "er",
         "faculty", "instructor", "teacher", "unassigned", "none", "tba", "lms",
-        "staff", "user", "admin",
+        "staff", "user", "admin", "slot", "sec", "section", "batch", "lab", "theory", "course",
     }
-    tokens = [t for t in clean.split() if t not in ignored and not t.isdigit()]
+    tokens = []
+    for t in clean.split():
+        if t in ignored or t.isdigit():
+            continue
+        if re.match(r"^[a-z]\d+(?:[a-z]\d+)*$", t):
+            continue
+        tokens.append(t)
     return " ".join(tokens)
 
 

@@ -774,7 +774,8 @@ def fetch_assignments_for_lms_course(
 
     course_code = canonicalize_course_code(vtop_course.get("code") or vtop_course.get("courseCode")) or "LMS"
     vtop_prof = vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
-    lms_course_prof = (lms_teachers[0] if lms_teachers else None) or vtop_course.get("lmsProfessor") or vtop_prof
+    matching_lms_teacher = next((t for t in (lms_teachers or []) if match_faculty_names(vtop_prof, t)), None)
+    lms_course_prof = matching_lms_teacher or vtop_course.get("lmsProfessor") or (lms_teachers[0] if lms_teachers else None) or vtop_prof
     vtop_title = vtop_course.get("title") or vtop_course.get("courseTitle") or course_title
     semester_name = vtop_course.get("semester") or "Fall Semester 2026-27"
 
@@ -1015,13 +1016,9 @@ def _process_single_lms_course(
     c_teachers = list(lms_c.get("teachers") or [])
     c_sections_map: Dict[str, str] = {}
 
-    if not c_teachers:
-        t_from_title = extract_teacher_from_lms_title(c_title)
-        if t_from_title:
-            c_teachers.append(t_from_title)
-
-    if not c_teachers:
-        c_teachers, c_sections_map = fetch_lms_course_teachers_and_sections(worker_session, c_id)
+    t_from_title = extract_teacher_from_lms_title(c_title)
+    if t_from_title and t_from_title not in c_teachers:
+        c_teachers.append(t_from_title)
 
     is_verified, matched_rec, match_meta = verify_external_course(
         enrolled_records=verified_enrolled,
@@ -1031,6 +1028,32 @@ def _process_single_lms_course(
         source_professors=c_teachers,
         current_semester=curr_sem_name,
     )
+
+    # Check if any teacher currently in c_teachers matches VTOP faculty
+    target_vtop_faculty = matched_rec.facultyName if matched_rec else None
+    has_matching_teacher = False
+    if target_vtop_faculty and c_teachers:
+        has_matching_teacher = any(match_faculty_names(target_vtop_faculty, t) for t in c_teachers)
+
+    # If we do not have a matching teacher yet, OR we don't have section mappings:
+    # Always fetch course sections and headings to discover section instructors!
+    if not has_matching_teacher or not c_sections_map:
+        page_teachers, page_sections = fetch_lms_course_teachers_and_sections(worker_session, c_id)
+        for pt in page_teachers:
+            if pt and pt not in c_teachers:
+                c_teachers.append(pt)
+        if page_sections:
+            c_sections_map.update(page_sections)
+
+        # Re-verify with complete list of discovered section teachers
+        is_verified, matched_rec, match_meta = verify_external_course(
+            enrolled_records=verified_enrolled,
+            source="LMS",
+            source_id=c_id,
+            source_name=c_title,
+            source_professors=c_teachers,
+            current_semester=curr_sem_name,
+        )
 
     # Strict Verification: verify whether the course name is matching in the vtop course professor name
     # If they match then only fetch, otherwise do not fetch!

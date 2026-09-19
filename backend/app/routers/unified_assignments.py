@@ -397,17 +397,22 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             enrolled_fac = matched_rec.facultyName
             assign_fac = a.get("faculty")
             assign_poster = a.get("postedBy") or a.get("lmsProfessor")
-            has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId"))
+            norm_assign_fac = normalize_faculty_name(assign_fac)
+            norm_poster = normalize_faculty_name(assign_poster)
 
             fac_matches = False
-            if assign_fac and match_faculty_names(enrolled_fac, assign_fac):
+            if norm_assign_fac and match_faculty_names(enrolled_fac, assign_fac):
                 fac_matches = True
-            elif assign_poster and match_faculty_names(enrolled_fac, assign_poster):
+            elif norm_poster and match_faculty_names(enrolled_fac, assign_poster):
                 fac_matches = True
-            elif has_verified_match:
-                fac_matches = True
-            elif not assign_fac or normalize_faculty_name(assign_fac) == "":
-                fac_matches = True
+            elif not norm_assign_fac and not norm_poster:
+                # No specific faculty was specified on the assignment, rely on course-level verified match
+                has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId"))
+                if has_verified_match:
+                    fac_matches = True
+            else:
+                # A specific faculty was specified, but it DOES NOT match enrolled VTOP faculty -> REJECT!
+                fac_matches = False
 
             if not fac_matches:
                 logger.warning(
