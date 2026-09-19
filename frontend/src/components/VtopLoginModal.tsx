@@ -110,7 +110,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
     e.preventDefault();
     const cleanUsername = username.trim().toUpperCase();
     const cleanPassword = password;
-    const cleanCaptcha = captcha.trim();
+    const cleanCaptcha = captcha.trim().toUpperCase();
 
     if (!cleanUsername) {
       setErrorMsg('Please enter your Username or VTOP Nickname');
@@ -173,9 +173,10 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
         setErrorMsg(displayError);
 
-        // Load new captcha while keeping the error message visible on screen
+        // Clear rejected characters, load fresh captcha, and re-focus input
         if (isCaptchaError) {
-          loadCaptcha(false, true);
+          loadCaptcha(true, true);
+          setTimeout(() => captchaInputRef.current?.focus(), 150);
         }
       }
     } catch (err: any) {
@@ -187,7 +188,8 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
 
       setErrorMsg(displayError);
       if (isCaptchaError) {
-        loadCaptcha(false, true);
+        loadCaptcha(true, true);
+        setTimeout(() => captchaInputRef.current?.focus(), 150);
       }
     } finally {
       setSubmitting(false);
@@ -409,8 +411,12 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 ref={captchaInputRef}
                 type="text"
                 value={captcha}
-                onChange={(e) => setCaptcha(e.target.value)}
-                placeholder="Enter CAPTCHA"
+                onChange={(e) => setCaptcha(e.target.value.toUpperCase().slice(0, 6))}
+                maxLength={6}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck="false"
+                placeholder="Enter 6-char CAPTCHA"
                 className="input-field"
                 style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', letterSpacing: '1px' }}
                 autoComplete="off"

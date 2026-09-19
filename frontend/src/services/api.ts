@@ -593,8 +593,8 @@ export const CampusAPI = {
     const data = await fetchJson<{ sessionId: string; captchaImage: string; solvedCaptcha: string; campus: string }>(
       `/vtop/captcha?campus=${campus}`
     );
-    if (data && data.sessionId && !activeSessionId) {
-      activeSessionId = data.sessionId;
+    if (data && data.sessionId) {
+      persistSessionId(data.sessionId);
     }
     return data;
   },
@@ -613,6 +613,9 @@ export const CampusAPI = {
         const extraHeaders: Record<string, string> = {};
         if (req.username) {
           extraHeaders['X-Reg-No'] = req.username.trim().toUpperCase();
+        }
+        if (payload.sessionId) {
+          extraHeaders['X-Session-ID'] = payload.sessionId;
         }
         const res = await fetchWithTimeout(`${getApiBase()}/vtop/login`, {
           method: 'POST',

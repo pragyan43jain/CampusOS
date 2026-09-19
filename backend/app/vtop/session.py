@@ -235,7 +235,7 @@ class VTOPSession:
     @staticmethod
     def _detect_captcha_kind(html: str) -> str:
         """VTOP serves either its own image captcha or an invisible reCAPTCHA."""
-        if "recaptcha/api.js" in html or 'class="g-recaptcha"' in html:
+        if 'class="g-recaptcha"' in html or 'g-recaptcha-response' in html or 'grecaptcha.render' in html:
             return "grecaptcha"
         return "default"
 
@@ -321,15 +321,14 @@ class VTOPSession:
         """
         reg_no = username.strip().upper()
         self.username = reg_no
+        clean_captcha = (captcha or "").strip().upper()
 
         fields: List[Tuple[str, str]] = [
             ("_csrf", self.csrf or ""),
             ("username", reg_no),
             ("password", password),
-            # VTOP reads one or the other depending on which captcha mode is
-            # live; StudentCC populates both with the same value.
-            ("captchaStr", captcha or ""),
-            ("gResponse", captcha or ""),
+            ("captchaStr", clean_captcha if getattr(self, "captcha_kind", "default") != "grecaptcha" else ""),
+            ("gResponse", clean_captcha if getattr(self, "captcha_kind", "default") == "grecaptcha" else ""),
         ]
 
         logger.info("[VTOP] Submitting credentials for %s", reg_no)

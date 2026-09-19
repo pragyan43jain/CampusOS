@@ -210,21 +210,27 @@ class VTOPClientManager:
         handle = self._get(session_id) if session_id else None
         session: Optional[VTOPSession] = handle.session if handle else None
 
+        if session is None and session_id:
+            logger.warning("[VTOP] Session %s not found or expired", session_id[:8])
+            return self._error(
+                "VTOP session has expired or is invalid. Please refresh the captcha and try again.",
+                CODE_SESSION_EXPIRED,
+                retryable=True,
+            )
+
         # 1. First attempt: Use active handle session & provided captcha if available
         authenticated = False
         last_error: Optional[VTOPAuthError] = None
 
         if session is not None and captcha:
             try:
-                session.login(username, password, captcha.strip())
+                session.login(username, password, captcha.strip().upper())
                 authenticated = True
             except VTOPAuthError as exc:
                 last_error = exc
-                if exc.code != 1:
-                    # Non-captcha error (e.g. incorrect credentials, account locked) — abort immediately
-                    self._drop(session_id)
-                    return self._error(exc.message, exc.code, retryable=exc.retryable)
-                logger.info("[VTOP] Initial captcha rejected. Starting automatic background retry...")
+                self._drop(session_id)
+                # If user entered captcha and it was rejected, return immediately so client gets fast feedback
+                return self._error(exc.message, exc.code, retryable=exc.retryable)
             except Exception as exc:
                 logger.error("[VTOP] Login transport error on initial attempt: %s", exc)
                 self._drop(session_id)
@@ -234,8 +240,8 @@ class VTOPClientManager:
                     retryable=True,
                 )
 
-        # 2. If not yet authenticated, run automatic background solver only if OCR is available
-        if not authenticated and is_ocr_available():
+        # 2. If not yet authenticated and no manual captcha was supplied (headless reauth), run OCR solver
+        if not authenticated and not captcha and is_ocr_available():
             max_retries = 2
             for attempt in range(max_retries):
                 try:
