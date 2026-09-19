@@ -191,8 +191,7 @@
 /* ==========================================================================
    THEME: WARM ESPRESSO (Outfit & Sober Off-White Cream on Dark Roast)
    ========================================================================== */
-[data-theme="sunset-amber"],
-[data-theme="baby-pink"] {
+[data-theme="sunset-amber"] {
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: 'Outfit', -apple-system, sans-serif;
 
@@ -234,6 +233,57 @@
   --shadow-elevated: 0 12px 36px rgba(0, 0, 0, 0.75);
   --shadow-glow-cyan: 0 0 24px rgba(245, 158, 11, 0.30);
   --shadow-glow-purple: 0 0 24px rgba(251, 146, 60, 0.28);
+}
+
+/* ==========================================================================
+   THEME: BABY PINK (Outfit & Sakura Blush on Midnight Rose Velvet)
+   ========================================================================== */
+[data-theme="baby-pink"],
+[data-theme="babypink"] {
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Outfit', -apple-system, sans-serif;
+
+  --bg-primary: #140A15;
+  --bg-secondary: #1B0E1E;
+  --surface-primary: #241228;
+  --surface-secondary: #2F1734;
+  --surface-elevated: #3A1D40;
+  --surface-input: #1B0D1E;
+  --surface-hover: rgba(244, 114, 182, 0.10);
+  --surface-active: rgba(244, 114, 182, 0.18);
+  --surface-header: rgba(20, 10, 21, 0.92);
+  --surface-sidebar: #170B19;
+
+  --border-subtle: rgba(244, 114, 182, 0.12);
+  --border-card: rgba(244, 114, 182, 0.18);
+  --border-medium: rgba(244, 114, 182, 0.28);
+  --border-highlight: rgba(244, 114, 182, 0.55);
+
+  --text-primary: #FFF0F5;
+  --text-secondary: #FBCFE8;
+  --text-muted: #D4A3BE;
+  --text-inverse: #140A15;
+
+  --accent-cyan: #F472B6;
+  --accent-blue: #FB7185;
+  --accent-purple: #E879F9;
+  --accent-orange: #FDA4AF;
+  --accent-yellow: #FDE047;
+  --accent-emerald: #34D399;
+  --accent-crimson: #F43F5E;
+
+  --brand-color: #F472B6;
+  --brand-bg: rgba(244, 114, 182, 0.12);
+
+  --gradient-primary: linear-gradient(135deg, #F472B6 0%, #FB7185 50%, #FDA4AF 100%);
+  --gradient-hero: linear-gradient(180deg, rgba(36, 18, 40, 0.92) 0%, rgba(27, 14, 30, 0.96) 100%);
+  --gradient-purple: linear-gradient(135deg, rgba(232, 121, 249, 0.20) 0%, rgba(244, 114, 182, 0.20) 100%);
+  --gradient-orange: linear-gradient(135deg, rgba(251, 113, 133, 0.20) 0%, rgba(253, 164, 175, 0.20) 100%);
+
+  --shadow-default: 0 4px 20px rgba(10, 3, 11, 0.55);
+  --shadow-elevated: 0 12px 36px rgba(10, 3, 11, 0.75);
+  --shadow-glow-cyan: 0 0 26px rgba(244, 114, 182, 0.38);
+  --shadow-glow-purple: 0 0 26px rgba(232, 121, 249, 0.32);
 }
 
 /* ==========================================================================
@@ -391,12 +441,19 @@ body {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='85' height='85' viewBox='0 0 85 85' style='color: rgba(16, 185, 129, 0.025)' fill='none'%3E%3Cpath d='M-1 27.4453L1087 27.4454' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 55.8887L1087 55.8888' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 84.334L1087 84.3341' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M27.4453 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M55.8906 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M84.332 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3C/svg%3E");
 }
 
-[data-theme="sunset-amber"] body,
-[data-theme="baby-pink"] body {
+[data-theme="sunset-amber"] body {
   background-image:
     radial-gradient(circle at 18% 12%, rgba(245, 158, 11, 0.06), transparent 45%),
     radial-gradient(circle at 82% 28%, rgba(236, 72, 153, 0.05), transparent 45%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='85' height='85' viewBox='0 0 85 85' style='color: rgba(245, 158, 11, 0.025)' fill='none'%3E%3Cpath d='M-1 27.4453L1087 27.4454' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 55.8887L1087 55.8888' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 84.334L1087 84.3341' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M27.4453 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M55.8906 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M84.332 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+
+[data-theme="baby-pink"] body,
+[data-theme="babypink"] body {
+  background-image:
+    radial-gradient(circle at 18% 12%, rgba(244, 114, 182, 0.09), transparent 45%),
+    radial-gradient(circle at 82% 28%, rgba(232, 121, 249, 0.07), transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='85' height='85' viewBox='0 0 85 85' style='color: rgba(244, 114, 182, 0.03)' fill='none'%3E%3Cpath d='M-1 27.4453L1087 27.4454' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 55.8887L1087 55.8888' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 84.334L1087 84.3341' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M27.4453 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M55.8906 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M84.332 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3C/svg%3E");
 }
 
 [data-theme="nordic-frost"] body {

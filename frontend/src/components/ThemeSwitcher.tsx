@@ -87,6 +87,20 @@ export const THEMES: ThemeOption[] = [
     badge: 'Warm',
   },
   {
+    id: 'baby-pink',
+    label: 'Baby Pink',
+    fontName: 'Outfit',
+    fontFamily: "'Outfit', sans-serif",
+    tag: 'Sakura Blush & Rose',
+    description: 'Midnight rose velvet canvas with luminous baby pink & sakura petals',
+    previewBg: '#140A15',
+    previewCard: '#241228',
+    previewAccent: '#F472B6',
+    previewSecondary: '#FB7185',
+    previewText: '#FFF0F5',
+    badge: 'Blush ✨',
+  },
+  {
     id: 'nordic-frost',
     label: 'Nordic Frost',
     fontName: 'Inter',
@@ -195,7 +209,7 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({
               <span>THEMES & FONTS</span>
             </span>
             <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', opacity: 0.8 }}>
-              6 STYLES
+              {THEMES.length} STYLES
             </span>
           </div>
           <div className="theme-menu-list">
