@@ -217,16 +217,19 @@ def lms_course_matches_vtop_professor(
     if faculty_tokens and all(tok in title_words for tok in faculty_tokens):
         return True
 
-    # 4. Single distinctive token (length >= 4, e.g. 'THANGARAJ', 'UPENDER', 'MAHARISHI', 'ETHNUS', 'RISHIKESHAN')
-    if faculty_tokens:
-        for tok in faculty_tokens:
-            if len(tok) >= 4 and tok in title_words:
-                return True
+    # Check compound joined name (e.g. 'JAYAVIGNESH' in 'JAYA VIGNESH' or 'SARAVANAKUMAR')
+    if len(faculty_tokens) >= 2:
+        joined = "".join(faculty_tokens)
+        if any(joined in w or w in joined for w in title_words if len(w) >= 6):
+            return True
 
-    # 5. Check if any long token stem (length >= 5) matches (e.g. 'SARAVAN' in 'SARAVANA KUMAR' matching 'SARAVANAN')
-    for tok in faculty_tokens:
-        if len(tok) >= 5:
-            stem = tok[:5]
+    # 4. If faculty has only ONE distinctive token (e.g. 'THANGARAJ' or 'RISHIKESHAN')
+    if len(faculty_tokens) == 1:
+        single_tok = faculty_tokens[0]
+        if len(single_tok) >= 4 and single_tok in title_words:
+            return True
+        if len(single_tok) >= 5:
+            stem = single_tok[:5]
             if any(w.startswith(stem) for w in title_words):
                 return True
 

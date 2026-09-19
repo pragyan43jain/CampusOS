@@ -1252,6 +1252,7 @@ def login_and_sync_lms(
     payload: LMSLoginRequest,
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
 ) -> Dict[str, Any]:
     """
     Connects to VIT LMS, validates credentials or session cookie,
@@ -1260,13 +1261,23 @@ def login_and_sync_lms(
     """
     try:
         # Determine the student regNo for this LMS session
-        reg = resolve_student_reg(x_session_id, x_reg_no)
-        if not reg and payload.username:
+        cand_user = None
+        if payload.username:
             clean_u = payload.username.strip().split("@")[0].upper()
-            if re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", clean_u):
-                reg = clean_u
-        if not reg:
-            reg = get_default_local_reg()
+            m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", clean_u)
+            if m:
+                cand_user = m.group(1).upper()
+            elif re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", clean_u):
+                cand_user = clean_u
+
+        # Prioritize active student registration number from headers or LMS username
+        reg = (
+            (x_reg_no.strip().upper() if x_reg_no and x_reg_no.strip() not in ("Not available", "Sync Required") else None)
+            or cand_user
+            or (x_auth_user.strip().upper() if x_auth_user and x_auth_user.strip() not in ("Not available", "Sync Required") else None)
+            or resolve_student_reg(x_session_id=x_session_id, x_reg_no=x_reg_no, x_auth_user=x_auth_user)
+            or get_default_local_reg()
+        )
 
         session, auth_info = authenticate_lms_session(
             payload.username, payload.password, payload.sessionCookie, payload.campus

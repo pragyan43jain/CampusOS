@@ -469,4 +469,68 @@ class TestVtopLmsFacultyMatchingDashboard:
         assert len(ds_subj["assignments"]) == 0
         assert len(data.get("unmatchedAssignments", [])) == 0
 
+    def test_multi_user_faculty_matching_isolation(self):
+        """Verifies faculty matching applies dynamically to different users based strictly on their credentials."""
+        # Setup User 1 (23BCE0001)
+        store_user1 = {
+            "authenticated": True,
+            "student": {"regNo": "23BCE0001", "name": "Student One"},
+            "selectedSemester": {"id": "CH20262701", "name": "Fall Semester 2026-27"},
+            "courses": [
+                {"code": "BCSE202L", "title": "Data Structures", "faculty": "Dr. Sharma", "type": "Theory"},
+                {"code": "BCSE205L", "title": "Operating Systems", "faculty": "Dr. Kumar", "type": "Theory"},
+            ],
+            "assignments": [
+                {"id": "lms-1", "title": "Assignment 1", "source": "LMS", "postedBy": "Dr. Sharma", "faculty": "Dr. Sharma"},
+                {"id": "lms-2", "title": "Assignment 2", "source": "LMS", "postedBy": "Dr. Kumar", "faculty": "Dr. Kumar"},
+                {"id": "lms-3", "title": "Assignment 3", "source": "LMS", "postedBy": "Dr. Patel", "faculty": "Dr. Patel"},
+                {"id": "lms-4", "title": "Assignment 4", "source": "LMS", "postedBy": "Dr. Roy", "faculty": "Dr. Roy"},
+                {"id": "lms-5", "title": "Assignment 5", "source": "LMS", "postedBy": "Dr. Unknown", "faculty": "Dr. Unknown"},
+            ],
+        }
+        storage.save_store(store_user1, "23BCE0001")
+
+        # Setup User 2 (23BCE0002)
+        store_user2 = {
+            "authenticated": True,
+            "student": {"regNo": "23BCE0002", "name": "Student Two"},
+            "selectedSemester": {"id": "CH20262701", "name": "Fall Semester 2026-27"},
+            "courses": [
+                {"code": "BCSE301L", "title": "Artificial Intelligence", "faculty": "Dr. Patel", "type": "Theory"},
+                {"code": "BCSE305L", "title": "Computer Graphics", "faculty": "Dr. Roy", "type": "Theory"},
+            ],
+            "assignments": [
+                {"id": "lms-1", "title": "Assignment 1", "source": "LMS", "postedBy": "Dr. Sharma", "faculty": "Dr. Sharma"},
+                {"id": "lms-2", "title": "Assignment 2", "source": "LMS", "postedBy": "Dr. Kumar", "faculty": "Dr. Kumar"},
+                {"id": "lms-3", "title": "Assignment 3", "source": "LMS", "postedBy": "Dr. Patel", "faculty": "Dr. Patel"},
+                {"id": "lms-4", "title": "Assignment 4", "source": "LMS", "postedBy": "Dr. Roy", "faculty": "Dr. Roy"},
+                {"id": "lms-5", "title": "Assignment 5", "source": "LMS", "postedBy": "Dr. Unknown", "faculty": "Dr. Unknown"},
+            ],
+        }
+        storage.save_store(store_user2, "23BCE0002")
+
+        # Query User 1
+        res1 = client.get("/api/assignments/unified", headers={"X-Reg-No": "23BCE0001"})
+        assert res1.status_code == 200
+        data1 = res1.json()
+        assert data1["totalAssignments"] == 2
+        assigned_ids_1 = {a["id"] for s in data1["subjects"] for a in s["assignments"]}
+        assert assigned_ids_1 == {"lms-1", "lms-2"}
+        ds_subj = next(s for s in data1["subjects"] if s["courseCode"] == "BCSE202L")
+        assert ds_subj["assignments"][0]["title"] == "Assignment 1"
+        os_subj = next(s for s in data1["subjects"] if s["courseCode"] == "BCSE205L")
+        assert os_subj["assignments"][0]["title"] == "Assignment 2"
+
+        # Query User 2
+        res2 = client.get("/api/assignments/unified", headers={"X-Reg-No": "23BCE0002"})
+        assert res2.status_code == 200
+        data2 = res2.json()
+        assert data2["totalAssignments"] == 2
+        assigned_ids_2 = {a["id"] for s in data2["subjects"] for a in s["assignments"]}
+        assert assigned_ids_2 == {"lms-3", "lms-4"}
+        ai_subj = next(s for s in data2["subjects"] if s["courseCode"] == "BCSE301L")
+        assert ai_subj["assignments"][0]["title"] == "Assignment 3"
+        cg_subj = next(s for s in data2["subjects"] if s["courseCode"] == "BCSE305L")
+        assert cg_subj["assignments"][0]["title"] == "Assignment 4"
+
 
