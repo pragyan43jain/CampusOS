@@ -20,7 +20,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.storage import (
@@ -32,6 +32,7 @@ from app.storage import (
     load_store,
     save_store,
 )
+from app.supabase_client import get_login_stats, record_login_event
 from app.vtop.client import client_manager
 
 logger = logging.getLogger("vtop.routes")
@@ -112,7 +113,7 @@ def get_captcha() -> Dict[str, Any]:
 
 
 @router.post("/login")
-def login(req: LoginRequest) -> Dict[str, Any]:
+def login(req: LoginRequest, request: Request) -> Dict[str, Any]:
     """
     Authenticate with VTOP, then scrape and persist everything.
 
@@ -124,21 +125,90 @@ def login(req: LoginRequest) -> Dict[str, Any]:
     or kept on the session, which is why a later ``/sync`` needs the session to
     still be alive rather than being able to silently re-authenticate.
     """
+    client_ip = None
+    user_agent = None
+    if request:
+        try:
+            forwarded = request.headers.get("x-forwarded-for")
+            client_ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else None)
+            user_agent = request.headers.get("user-agent")
+        except Exception:
+            pass
+
     try:
-        return client_manager.login_and_sync(
+        res = client_manager.login_and_sync(
             session_id=req.sessionId,
             username=req.username,
             password=req.password,
             captcha=req.captcha,
             semester_id=req.semesterId,
         )
+        # Record telemetry safely (non-blocking, never fails auth)
+        try:
+            if res.get("success"):
+                student = (res.get("data") or {}).get("student") or {}
+                record_login_event(
+                    reg_no=student.get("regNo") or req.username,
+                    name=student.get("name"),
+                    program=student.get("program"),
+                    branch=student.get("branch"),
+                    semester=student.get("semester"),
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                    status="SUCCESS",
+                )
+            else:
+                record_login_event(
+                    reg_no=req.username,
+                    status="FAILED",
+                    error_message=res.get("message"),
+                    ip_address=client_ip,
+                    user_agent=user_agent,
+                )
+        except Exception as tele_err:
+            logger.debug("[Auth] Failed to record login telemetry: %s", tele_err)
+
+        return res
     except Exception as exc:
         logger.exception("[Auth] login exception: %s", exc)
+        try:
+            record_login_event(
+                reg_no=req.username,
+                status="FAILED",
+                error_message=str(exc),
+                ip_address=client_ip,
+                user_agent=user_agent,
+            )
+        except Exception:
+            pass
         return {
             "success": False,
             "message": f"Login process failed ({type(exc).__name__}: {str(exc)})",
             "code": 113,
             "retryable": True,
+        }
+
+
+@router.get("/login-stats")
+def login_stats() -> Dict[str, Any]:
+    """
+    Returns login activity and telemetry records:
+    total logins, unique students count, recent logins, and student registry.
+    """
+    try:
+        return {
+            "success": True,
+            **get_login_stats(),
+        }
+    except Exception as exc:
+        logger.error("[Auth] Error fetching login stats: %s", exc)
+        return {
+            "success": False,
+            "message": f"Could not retrieve login stats: {exc}",
+            "total_logins": 0,
+            "unique_students": 0,
+            "recent_logins": [],
+            "users_list": [],
         }
 
 
