@@ -432,7 +432,7 @@ export const LeetCodeDashboard: React.FC = () => {
 
       {/* Loading Skeleton */}
       {loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
           <div style={{ height: '180px', background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-lg)', animation: 'pulse 1.5s infinite' }} />
           <div style={{ height: '180px', background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-lg)', animation: 'pulse 1.5s infinite' }} />
           <div style={{ height: '180px', background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-lg)', animation: 'pulse 1.5s infinite' }} />
@@ -659,7 +659,7 @@ export const LeetCodeDashboard: React.FC = () => {
           </div>
 
           {/* PROBLEM BREAKDOWN WITH CIRCULAR PROGRESS GAUGES & CONTEST ANALYTICS */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
             {/* Solved Problem Breakdown Rings */}
             <div
               style={{
@@ -872,7 +872,7 @@ export const LeetCodeDashboard: React.FC = () => {
           </div>
 
           {/* AI DSA ROADMAP & WEAKNESS ANALYZER */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
             {/* Topic Mastery Grid */}
             <div
               style={{

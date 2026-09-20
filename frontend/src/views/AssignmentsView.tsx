@@ -606,21 +606,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                     </div>
                   )}
 
-                  <div
-                    style={{
-                    padding: '20px 24px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--surface-input)',
-                    border: '1px solid var(--border-card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '16px',
-                    transition: 'all var(--transition-fast)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '280px' }}>
+                  <div className="assignment-card-item">
+                    <div className="assignment-card-main">
                     <button
                       onClick={() => handleToggle(a)}
                       style={{ color: isDone ? 'var(--accent-emerald)' : 'var(--text-muted)', cursor: 'pointer' }}
@@ -733,7 +720,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="assignment-card-actions">
                     <span className={`status-badge ${isDone ? 'safe' : isOverdue ? 'critical' : 'warning'}`}>
                       {isDone ? 'Submitted ✓' : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
                     </span>

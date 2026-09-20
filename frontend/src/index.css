@@ -1364,7 +1364,15 @@ a {
 @media (max-width: 767px) {
   .metrics-stat-grid,
   .metrics-stat-grid.metrics-stat-grid-4 {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 460px) {
+  .metrics-stat-grid,
+  .metrics-stat-grid.metrics-stat-grid-4 {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -2067,7 +2075,142 @@ a {
 }
 
 /* ==========================================================================
-   MOBILE & TABLET APPLICATION RESPONSIVE OVERHAUL (< 768px)
+   LAPTOP COMPACT RAIL (1025px - 1200px)
+   ========================================================================== */
+
+@media (min-width: 1025px) and (max-width: 1200px) {
+  .app-sidebar {
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
+  }
+
+  .main-viewport, .app-main-content-wrap {
+    width: calc(100% - 220px) !important;
+    margin-left: 220px !important;
+  }
+
+  .sidebar-brand-block {
+    padding: 0 var(--space-lg) !important;
+  }
+
+  .nav-item-btn {
+    padding: 0 10px !important;
+    font-size: 0.88rem !important;
+  }
+
+  .page-container {
+    padding: 24px 28px !important;
+    gap: 24px !important;
+  }
+
+  .app-header {
+    padding: 0 24px !important;
+  }
+}
+
+/* ==========================================================================
+   TABLET ADAPTIVE ICON RAIL (768px - 1024px)
+   ========================================================================== */
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .app-sidebar {
+    width: 72px !important;
+    min-width: 72px !important;
+    max-width: 72px !important;
+  }
+
+  .main-viewport, .app-main-content-wrap {
+    width: calc(100% - 72px) !important;
+    margin-left: 72px !important;
+  }
+
+  .sidebar-brand-block {
+    padding: 0 !important;
+    justify-content: center !important;
+    height: 72px !important;
+  }
+
+  .brand-info {
+    display: none !important;
+  }
+
+  .sidebar-section-header {
+    display: none !important;
+  }
+
+  .sidebar-nav-list {
+    padding: var(--space-md) 8px !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .nav-item-btn {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    position: relative !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .nav-item-left {
+    justify-content: center !important;
+    gap: 0 !important;
+  }
+
+  .nav-item-left span {
+    display: none !important;
+  }
+
+  .nav-item-btn.active::before {
+    left: 2px !important;
+    top: 10px !important;
+    bottom: 10px !important;
+    width: 3px !important;
+  }
+
+  .nav-badge-pill {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    font-size: 0.62rem !important;
+    padding: 1px 5px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    line-height: 14px !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .sidebar-footer-block {
+    padding: 12px 8px !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .sidebar-footer-block button {
+    width: 48px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+  }
+
+  .sidebar-footer-block button span {
+    display: none !important;
+  }
+
+  .page-container {
+    padding: 24px 20px !important;
+    gap: 20px !important;
+  }
+
+  .app-header {
+    padding: 0 20px !important;
+  }
+}
+
+/* ==========================================================================
+   MOBILE & TOUCH APPLICATION OVERHAUL (< 768px)
    ========================================================================== */
 
 /* Desktop defaults */
@@ -2151,9 +2294,9 @@ a {
     gap: 16px;
   }
 
-  /* Metric cards single column stack on phones */
+  /* Metric cards: fluid 2 columns on wide phones, 1 column below 460px */
   .metrics-stat-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)) !important;
     gap: 12px;
   }
 
@@ -2219,8 +2362,94 @@ a {
   .modal-content-glass {
     padding: 22px 18px;
     border-radius: 18px;
-    max-height: 92vh;
+    max-height: min(92vh, calc(100dvh - 32px));
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 460px) {
+  .metrics-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ==========================================================================
+   ADAPTIVE CARD LAYOUTS (Timetable & Assignments)
+   ========================================================================== */
+
+.timetable-slot-card {
+  padding: 18px 22px;
+  border-radius: var(--radius-md);
+  background-color: var(--surface-input);
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  transition: all var(--transition-fast);
+}
+
+.slot-attendance-block {
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .timetable-slot-card {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .slot-attendance-block {
+    width: 100%;
+    align-items: flex-start;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.assignment-card-item {
+  padding: 20px 24px;
+  border-radius: var(--radius-md);
+  background-color: var(--surface-input);
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  transition: all var(--transition-fast);
+}
+
+.assignment-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1 1 min(100%, 280px);
+  min-width: 0;
+}
+
+.assignment-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .assignment-card-item {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+  .assignment-card-actions {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
   }
 }
 

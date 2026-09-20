@@ -89,7 +89,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({ drives, student 
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
             {drives.map((drive) => (
               <div
                 key={drive.id}

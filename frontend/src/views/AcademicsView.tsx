@@ -604,7 +604,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   <span>Individual Evaluation Breakdown</span>
                 </h4>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
                   {filteredMarks.map((courseMark, cIdx) => (
                     <div
                       key={courseMark.id || cIdx}
@@ -797,7 +797,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <p className="empty-state-desc">Sync your VTOP profile to extract instructors assigned to your registered courses.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
               {faculty.map((fac, idx) => (
                 <div
                   key={idx}
@@ -883,7 +883,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <p className="empty-state-desc">Synchronize with VTOP to load all semester curriculum courses.</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
               {courses
                 .filter(
                   (c) =>

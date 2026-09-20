@@ -35,20 +35,7 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
   const facultyName = slot.faculty || slot.facultyName || 'Course Faculty';
 
   return (
-    <div
-      style={{
-        padding: '18px 22px',
-        borderRadius: 'var(--radius-md)',
-        backgroundColor: 'var(--surface-input)',
-        border: '1px solid var(--border-card)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px',
-        transition: 'all var(--transition-fast)',
-      }}
-    >
+    <div className="timetable-slot-card">
       {/* Time & Slot Indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '150px' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -113,7 +100,7 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
       </div>
 
       {/* Attendance Metrics Block */}
-      <div style={{ minWidth: '180px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+      <div className="slot-attendance-block">
         {attendance && attendance.percentage !== null && attendance.percentage !== undefined ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

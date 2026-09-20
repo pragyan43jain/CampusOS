@@ -644,7 +644,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
 
       {/* TAB 1: POMODORO FOCUS STATION */}
       {activeTab === 'POMODORO' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
           <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px' }}>
             {/* Mode Selectors */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -1156,7 +1156,7 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
             </form>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
             {/* Free Timetable Slots Column */}
             <div className="card">
               <div className="card-header-bar">
