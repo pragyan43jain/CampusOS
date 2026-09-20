@@ -343,6 +343,39 @@ def get_login_stats() -> Dict[str, Any]:
     }
 
 
+def flush_local_telemetry_to_supabase() -> Dict[str, int]:
+    """
+    Backfills any local telemetry data to Supabase if Supabase is connected.
+    Useful when credentials are added after local logins occurred.
+    """
+    client = get_supabase()
+    if not client:
+        return {"synced_logins": 0, "synced_users": 0}
+
+    local_data = _load_local_telemetry()
+    synced_users = 0
+    synced_logins = 0
+
+    # 1. Sync users
+    for user in local_data.get("users", {}).values():
+        try:
+            client.table("campusos_users").upsert(user).execute()
+            synced_users += 1
+        except Exception as exc:
+            logger.debug("[Supabase Flush] User upsert skipped: %s", exc)
+
+    # 2. Sync logins
+    for login_item in local_data.get("logins", []):
+        try:
+            client.table("campusos_logins").insert(login_item).execute()
+            synced_logins += 1
+        except Exception as exc:
+            logger.debug("[Supabase Flush] Login insert skipped: %s", exc)
+
+    logger.info("[Supabase Flush] Synced %d users and %d logins to Supabase", synced_users, synced_logins)
+    return {"synced_logins": synced_logins, "synced_users": synced_users}
+
+
 def sync_store_to_supabase(data: Dict[str, Any], user_id: Optional[str] = None) -> bool:
     """
     Preserved for backwards compatibility with storage pipelines.
@@ -356,3 +389,4 @@ def sync_store_to_supabase(data: Dict[str, Any], user_id: Optional[str] = None) 
 
     logger.info("[Supabase] Syncing data for %s to Supabase", reg_no)
     return True
+

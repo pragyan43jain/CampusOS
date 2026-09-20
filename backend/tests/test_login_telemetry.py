@@ -95,3 +95,22 @@ def test_login_stats_api_endpoint(tmp_path):
         assert data["unique_students"] == 1
         assert len(data["recent_logins"]) == 1
         assert data["recent_logins"][0]["reg_no"] == "24BLC1100"
+
+
+def test_flush_local_telemetry_to_supabase(tmp_path):
+    from app.supabase_client import flush_local_telemetry_to_supabase
+
+    temp_file = str(tmp_path / "test_login_telemetry.json")
+    with patch("app.supabase_client.TELEMETRY_FILE", temp_file):
+        record_login_event(
+            reg_no="24BCE3003",
+            name="Charlie Brown",
+            status="SUCCESS",
+        )
+
+        mock_supabase = MagicMock()
+        with patch("app.supabase_client.get_supabase", return_value=mock_supabase):
+            result = flush_local_telemetry_to_supabase()
+            assert result["synced_users"] >= 1
+            assert result["synced_logins"] >= 1
+            assert mock_supabase.table.called
