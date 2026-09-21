@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -7,6 +8,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { NavView } from './Sidebar';
+import { MobileBridge } from '../services/mobileBridge';
 
 interface MobileBottomNavProps {
   activeView: NavView;
@@ -49,25 +51,38 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     },
   ];
 
+  const handleTabClick = (viewId: NavView) => {
+    MobileBridge.vibrate('selection');
+    onSelectView(viewId);
+  };
+
+  const handleMoreClick = () => {
+    MobileBridge.vibrate('light');
+    onOpenMore();
+  };
+
   return (
     <nav
       className="mobile-bottom-nav"
+      aria-label="Mobile Bottom Navigation"
       style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
-        height: 'calc(64px + env(safe-area-inset-bottom, 12px))',
+        height: 'calc(62px + env(safe-area-inset-bottom, 12px))',
         paddingBottom: 'env(safe-area-inset-bottom, 12px)',
         backgroundColor: 'var(--surface-header)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
+        backdropFilter: 'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
         borderTop: '1px solid var(--border-card)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 50,
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.25)',
+        boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.35)',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       }}
     >
       {tabs.map((tab) => {
@@ -75,9 +90,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         const isActive = activeView === tab.id;
 
         return (
-          <button
+          <motion.button
             key={tab.id}
-            onClick={() => onSelectView(tab.id)}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => handleTabClick(tab.id)}
             style={{
               flex: 1,
               display: 'flex',
@@ -85,22 +101,41 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
-              gap: '4px',
+              gap: '3px',
               color: isActive ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              transition: 'all var(--transition-fast)',
+              transition: 'color var(--transition-fast)',
               position: 'relative',
               padding: '6px 0',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
             }}
           >
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} />
+            {/* Active Pill Glow Background */}
+            {isActive && (
+              <motion.div
+                layoutId="mobileNavActivePill"
+                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                style={{
+                  position: 'absolute',
+                  inset: '6px 8px',
+                  backgroundColor: 'rgba(45, 231, 211, 0.08)',
+                  borderRadius: '12px',
+                  zIndex: 0,
+                }}
+              />
+            )}
+
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+              <Icon size={21} strokeWidth={isActive ? 2.4 : 1.8} />
               {tab.badge && (
                 <span
                   style={{
                     position: 'absolute',
                     top: '-6px',
                     right: '-10px',
-                    fontSize: '0.62rem',
+                    fontSize: '0.60rem',
                     fontWeight: 800,
                     padding: '1px 5px',
                     borderRadius: '9999px',
@@ -115,17 +150,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </span>
               )}
             </div>
+
             <span
               style={{
                 fontSize: '0.72rem',
                 fontWeight: isActive ? 700 : 500,
                 letterSpacing: '-0.1px',
+                zIndex: 1,
               }}
             >
               {tab.label}
             </span>
+
+            {/* Top Indicator Line */}
             {isActive && (
-              <span
+              <motion.span
+                layoutId="mobileNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -137,13 +178,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 }}
               />
             )}
-          </button>
+          </motion.button>
         );
       })}
 
       {/* More / Menu Button */}
-      <button
-        onClick={onOpenMore}
+      <motion.button
+        whileTap={{ scale: 0.92 }}
+        onClick={handleMoreClick}
         style={{
           flex: 1,
           display: 'flex',
@@ -151,16 +193,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           height: '100%',
-          gap: '4px',
+          gap: '3px',
           color: 'var(--text-muted)',
-          transition: 'all var(--transition-fast)',
+          transition: 'color var(--transition-fast)',
           position: 'relative',
           padding: '6px 0',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          touchAction: 'manipulation',
         }}
       >
-        <Menu size={20} strokeWidth={1.8} />
+        <Menu size={21} strokeWidth={1.8} />
         <span style={{ fontSize: '0.72rem', fontWeight: 500, letterSpacing: '-0.1px' }}>More</span>
-      </button>
+      </motion.button>
     </nav>
   );
 };

@@ -11,6 +11,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+import { MobileBridge, registerBackAction } from '../services/mobileBridge';
 
 interface VtopLoginModalProps {
   isOpen: boolean;
@@ -104,6 +105,15 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const unregister = registerBackAction(() => {
+      onClose();
+      return true;
+    });
+    return unregister;
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -160,11 +170,13 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           }
         }
 
+        MobileBridge.vibrate('success');
         setTimeout(() => {
           onLoginSuccess(response.data);
           onClose();
         }, 400);
       } else {
+        MobileBridge.vibrate('error');
         const msg = response?.message || '';
         const isCaptchaError = /captcha/i.test(msg) || (response as any)?.code === 1;
         const displayError = isCaptchaError
@@ -199,6 +211,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+        <div className="mobile-sheet-drag-handle" />
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

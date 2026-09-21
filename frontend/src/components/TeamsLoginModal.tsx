@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+import { MobileBridge, registerBackAction } from '../services/mobileBridge';
 
 interface TeamsLoginModalProps {
   isOpen: boolean;
@@ -60,6 +61,15 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   }, [initialEmail]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const unregister = registerBackAction(() => {
+      onClose();
+      return true;
+    });
+    return unregister;
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     if (isOpen) {
       setError(null);
       setSuccessMsg(null);
@@ -87,6 +97,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       }
 
       setSuccessMsg('✓ Microsoft Teams Connected');
+      MobileBridge.vibrate('success');
 
       if (typeof window !== 'undefined') {
         if (rememberMe) {
@@ -103,11 +114,14 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       setTimeout(() => {
         onLoginSuccess(res);
         onClose();
-      }, 700);
+      }, 500);
     } catch (err: any) {
-      const msg = err?.message || 'Failed to connect to Microsoft Teams. Please check your credentials.';
+      MobileBridge.vibrate('error');
+      const msg = err.message || 'An error occurred while connecting to Microsoft Teams.';
       setError(msg);
-      onLoginFailure?.(msg);
+      if (onLoginFailure) {
+        onLoginFailure(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -116,6 +130,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(480px, 94vw)', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+        <div className="mobile-sheet-drag-handle" />
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

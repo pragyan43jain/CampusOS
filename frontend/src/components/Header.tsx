@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RefreshCw,
   Smartphone,
@@ -6,9 +6,11 @@ import {
   Menu,
   X,
   LogOut,
+  Download,
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { ThemeSwitcher, THEMES, ThemeType, ThemeOption } from './ThemeSwitcher';
+import { MobileBridge, usePWAInstallPrompt } from '../services/mobileBridge';
 
 export { THEMES, ThemeSwitcher };
 export type { ThemeType, ThemeOption };
@@ -38,6 +40,14 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
+  const { promptInstall, subscribeInstallState } = usePWAInstallPrompt();
+  const [canInstall, setCanInstall] = useState<boolean>(false);
+  const isStandalone = MobileBridge.isStandalone();
+
+  useEffect(() => {
+    const unsub = subscribeInstallState((val) => setCanInstall(val));
+    return unsub;
+  }, [subscribeInstallState]);
 
   const formatTitleCase = (val: string): string => {
     if (!val) return '';
@@ -91,13 +101,27 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const handleSyncClick = () => {
+    MobileBridge.vibrate('light');
+    if (onSync) onSync();
+    else onOpenVtopModal();
+  };
+
+  const handleProfileClick = () => {
+    MobileBridge.vibrate('light');
+    onOpenVtopModal();
+  };
+
   return (
     <>
       <header className="app-header">
         <div className="header-left-block">
           {onToggleMobileMenu && (
             <button
-              onClick={onToggleMobileMenu}
+              onClick={() => {
+                MobileBridge.vibrate('light');
+                onToggleMobileMenu();
+              }}
               className="mobile-hamburger-btn btn btn-ghost btn-sm"
               aria-label="Open Actions Drawer"
             >
@@ -115,10 +139,35 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="header-right-actions">
+          {/* Mobile App Button (Quick Install/Info) */}
+          {!isStandalone && canInstall && (
+            <button
+              className="btn btn-secondary btn-sm mobile-app-install-header-btn"
+              onClick={async () => {
+                MobileBridge.vibrate('medium');
+                const installed = await promptInstall();
+                if (installed) MobileBridge.vibrate('success');
+              }}
+              title="Install CampusOS on your mobile device"
+              style={{
+                height: '34px',
+                padding: '0 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: 'var(--accent-cyan)',
+                borderColor: 'rgba(45, 231, 211, 0.4)',
+              }}
+            >
+              <Download size={14} />
+              <span className="desktop-only-inline" style={{ fontSize: '0.78rem', fontWeight: 700 }}>Install App</span>
+            </button>
+          )}
+
           {/* Direct Live Sync Button */}
           <button
             className="btn btn-primary header-sync-btn"
-            onClick={onSync || onOpenVtopModal}
+            onClick={handleSyncClick}
             disabled={syncing}
             title={syncing ? "Synchronizing academic data..." : "Sync latest grades, attendance, timetable & assignments directly"}
           >
@@ -139,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* User Profile Capsule */}
           <div
             className="user-profile-capsule"
-            onClick={onOpenVtopModal}
+            onClick={handleProfileClick}
             title="Manage VTOP Portal Session & Credentials"
           >
             <div className="user-avatar-circle">{avatarInitials}</div>
@@ -157,7 +206,10 @@ export const Header: React.FC<HeaderProps> = ({
           {onLogout && (
             <button
               className="header-logout-btn desktop-only-inline"
-              onClick={onLogout}
+              onClick={() => {
+                MobileBridge.vibrate('medium');
+                onLogout();
+              }}
               title="Sign out of current session"
               aria-label="Sign out"
             >
@@ -167,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </header>
 
-      {/* App Coming Soon Modal */}
+      {/* App Info & Install Modal */}
       {showAppModal && (
         <div className="modal-backdrop" onClick={() => setShowAppModal(false)}>
           <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
@@ -185,33 +237,48 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div>
-              <span className="status-badge info" style={{ marginBottom: '8px' }}>
-                Development Preview
+              <span className="status-badge safe" style={{ marginBottom: '8px' }}>
+                Mobile Application Ready
               </span>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                CampusOS Mobile App
+                CampusOS Mobile
               </h2>
               <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Native mobile builds for iOS and Android featuring offline timetable widgets, real-time attendance safety alerts, and automated LMS assignment sync.
+                Complete student cockpit powered by Capacitor native Android packaging and PWA offline installation.
               </p>
             </div>
 
             <div style={{ background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.86rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
                 <CheckCircle2 size={16} />
-                <span>Beta Testing in Progress</span>
+                <span>Native Capacitor &amp; PWA Activated</span>
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Register for early TestFlight and APK access via student portal notification.
+                Install directly to your home screen or build native Android APKs using the configured Capacitor Android shell.
               </p>
             </div>
 
+            {canInstall && (
+              <button
+                onClick={async () => {
+                  MobileBridge.vibrate('medium');
+                  await promptInstall();
+                  setShowAppModal(false);
+                }}
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                <Download size={16} />
+                <span>Install CampusOS App</span>
+              </button>
+            )}
+
             <button
               onClick={() => setShowAppModal(false)}
-              className="btn btn-primary"
+              className="btn btn-secondary"
               style={{ width: '100%' }}
             >
-              <span>Got it</span>
+              <span>Close</span>
             </button>
           </div>
         </div>

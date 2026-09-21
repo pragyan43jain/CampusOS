@@ -7,9 +7,19 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "node --test --experimental-strip-types src/utils/greeting.test.ts 2>/dev/null || node -e \"console.log('Greeting test verified')\""
+    "test": "node --test --experimental-strip-types src/utils/greeting.test.ts 2>/dev/null || node -e \"console.log('Greeting test verified')\"",
+    "cap:sync": "cap sync",
+    "cap:open:android": "cap open android",
+    "build:mobile": "tsc && vite build && cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@supabase/supabase-js": "^2.116.0",
     "@types/three": "^0.185.4",
     "framer-motion": "^13.1.1",

@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+import { MobileBridge, registerBackAction } from '../services/mobileBridge';
 
 interface LMSLoginModalProps {
   isOpen: boolean;
@@ -65,6 +66,15 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     }
   }, [initialVal]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const unregister = registerBackAction(() => {
+      onClose();
+      return true;
+    });
+    return unregister;
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,6 +109,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       }
 
       setSuccessMsg('✓ Moodle LMS Connected');
+      MobileBridge.vibrate('success');
 
       if (typeof window !== 'undefined') {
         if (rememberMe && loginMode === 'credentials') {
@@ -115,8 +126,9 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       setTimeout(() => {
         onLoginSuccess(res);
         onClose();
-      }, 800);
+      }, 500);
     } catch (err: any) {
+      MobileBridge.vibrate('error');
       const msg = err?.message || 'Failed to authenticate with VIT LMS. Please try again.';
       setError(msg);
       onLoginFailure?.(msg);
@@ -128,6 +140,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
+        <div className="mobile-sheet-drag-handle" />
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -412,6 +412,9 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: contain;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
@@ -2238,8 +2241,10 @@ a {
   }
 
   .app-header {
-    height: 58px;
-    padding: 0 14px;
+    height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+    padding: env(safe-area-inset-top, 0px) 14px 0 14px !important;
+    padding-left: max(14px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(14px, env(safe-area-inset-right, 0px)) !important;
   }
 
   .mobile-hamburger-btn {
@@ -2354,23 +2359,70 @@ a {
     font-size: 0.82rem;
   }
 
-  /* Modals full touch responsive */
+  /* Native Mobile Bottom-Sheet Modal Overhaul */
   .modal-backdrop {
-    padding: 12px;
+    padding: 0 !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
   }
 
   .modal-content-glass {
-    padding: 22px 18px;
-    border-radius: 18px;
-    max-height: min(92vh, calc(100dvh - 32px));
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    margin: 0 !important;
+    padding: 16px 18px calc(24px + env(safe-area-inset-bottom, 16px)) 18px !important;
+    max-height: min(90vh, calc(100dvh - 20px)) !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.75) !important;
+    animation: mobileModalSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  }
+
+  .mobile-sheet-drag-handle {
+    display: block;
+    width: 42px;
+    height: 4.5px;
+    border-radius: 9999px;
+    background-color: var(--border-medium, rgba(255, 255, 255, 0.25));
+    margin: 0 auto 12px auto;
+  }
+}
+
+.mobile-sheet-drag-handle {
+  display: none;
+}
+
+@keyframes mobileModalSheetUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
 @media (max-width: 460px) {
   .metrics-stat-grid {
     grid-template-columns: 1fr !important;
+  }
+  .header-sync-btn .sync-btn-label {
+    display: none;
+  }
+  .header-page-title {
+    font-size: 0.98rem !important;
+  }
+  .header-context-meta {
+    font-size: 0.65rem !important;
+  }
+  .academic-nav-btn {
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
   }
 }
 
