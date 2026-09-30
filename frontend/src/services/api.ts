@@ -14,6 +14,11 @@ import {
   VtopLoginRequest,
   VtopSyncResponse,
   UnifiedAssignmentsDashboard,
+  HostelDetails,
+  AllGradesResponse,
+  FeatureAvailabilityMap,
+  CalendarResponse,
+  ODResponse,
 } from '../types';
 import {
   DEFAULT_STUDENT_PROFILE,
@@ -231,12 +236,29 @@ export const CampusAPI = {
 
   // 2. Attendance
   getAttendance: async (): Promise<Attendance[]> => {
-    const list = await fetchJson<any[]>('/vtop/attendance', undefined, DEFAULT_ATTENDANCE as any[]);
-    return list.map((item: any) => {
+    let list: any[] = [];
+    try {
+      list = await fetchJson<any[]>('/vtop/attendance', undefined, []);
+    } catch (e) {
+      list = [];
+    }
+    if (!list || !Array.isArray(list) || list.length === 0) {
+      try {
+        list = await fetchJson<any[]>('/attendance', undefined, []);
+      } catch (e) {
+        list = [];
+      }
+    }
+    if (!list || !Array.isArray(list) || list.length === 0) {
+      list = DEFAULT_ATTENDANCE as any[];
+    }
+    return (list || []).map((item: any) => {
       const conducted = item.conducted ?? item.classesConducted ?? item.total ?? 0;
       const attended = item.attended ?? item.classesAttended ?? 0;
-      const percentage = item.percentage ?? item.attendancePercentage ?? (conducted > 0 ? Math.round((attended / conducted) * 100) : 0);
+      const percentage = item.percentage ?? item.attendancePercentage ?? (conducted > 0 ? Math.round((attended / conducted) * 1000) / 10 : 0);
       const title = item.courseTitle || item.courseName || item.title || item.courseCode || 'Course';
+      const safeToMiss = item.safeToMiss !== undefined ? item.safeToMiss : Math.max(0, Math.floor((attended - 0.75 * conducted) / 0.75));
+      const needToAttend = item.needToAttend !== undefined ? item.needToAttend : (percentage < 75 ? Math.ceil((0.75 * conducted - attended) / 0.25) : 0);
 
       return {
         ...item,
@@ -250,11 +272,17 @@ export const CampusAPI = {
         percentage,
         attendancePercentage: percentage,
         displayPercentage: `${percentage}%`,
+        safeToMiss,
+        needToAttend,
         status: item.status || item.attendanceStatus || (percentage >= 75 ? 'Safe' : 'Critical'),
         attendanceStatus: item.attendanceStatus || item.status || (percentage >= 75 ? 'Safe' : 'Critical'),
         faculty: item.faculty || item.facultyName || 'Faculty',
         facultyName: item.facultyName || item.faculty || 'Faculty',
+        slot: item.slot || item.slotName || 'TBA',
+        slotVenue: item.slotVenue || item.venue || 'TBA',
+        venue: item.venue || item.slotVenue || 'TBA',
         hasValidData: item.hasValidData ?? Boolean(conducted > 0 || item.percentage !== undefined),
+        viewLink: item.viewLink || [],
       };
     });
   },
@@ -319,9 +347,37 @@ export const CampusAPI = {
 
   // 6. Exams Schedule
   getExams: async (): Promise<Exam[]> => {
+    const extractExamRowCol = (seatLocation?: string | null): { row?: string; column?: string } => {
+      if (!seatLocation) return {};
+      const text = String(seatLocation).trim();
+      const m = text.match(/R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)\s*[,/-]?\s*C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
+      if (m) {
+        return { row: m[1], column: m[2] };
+      }
+      const mRow = text.match(/R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
+      const mCol = text.match(/C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
+      return {
+        row: mRow ? mRow[1] : undefined,
+        column: mCol ? mCol[1] : undefined,
+      };
+    };
+
     const data = await fetchJson<any>('/vtop/exams', undefined, DEFAULT_EXAMS as any);
     if (Array.isArray(data)) {
-      return data;
+      return data.map((it: any) => {
+        const seatLoc = it.seat_location || it.seatLocation;
+        const { row: derivedRow, column: derivedCol } = extractExamRowCol(seatLoc);
+        const rowVal = it.row ?? it.seatRow ?? it.seat_row ?? derivedRow;
+        const colVal = it.column ?? it.seatColumn ?? it.seat_column ?? it.col ?? it.seat_col ?? derivedCol;
+        return {
+          ...it,
+          seatLocation: seatLoc,
+          row: rowVal,
+          column: colVal,
+          seatRow: rowVal,
+          seatColumn: colVal,
+        };
+      });
     }
     if (data && typeof data === 'object') {
       const cards: Exam[] = [];
@@ -330,6 +386,11 @@ export const CampusAPI = {
         if (Array.isArray(items)) {
           for (const it of items) {
             const venueStr = it.venue || 'TBA';
+            const seatLoc = it.seat_location || it.seatLocation;
+            const { row: derivedRow, column: derivedCol } = extractExamRowCol(seatLoc);
+            const rowVal = it.row ?? it.seatRow ?? it.seat_row ?? derivedRow;
+            const colVal = it.column ?? it.seatColumn ?? it.seat_column ?? it.col ?? it.seat_col ?? derivedCol;
+
             cards.push({
               id: `exam-${idx}`,
               examType,
@@ -348,8 +409,12 @@ export const CampusAPI = {
               room: venueStr.includes('-') ? venueStr.split('-')[1] : venueStr,
               building: venueStr.includes('-') ? venueStr.split('-')[0] : venueStr,
               block: venueStr.includes('-') ? venueStr.split('-')[0] : venueStr,
-              seatNumber: it.seat_number ? String(it.seat_number) : undefined,
-              seatLocation: it.seat_location,
+              seatNumber: it.seat_number ? String(it.seat_number) : (it.seatNumber ? String(it.seatNumber) : undefined),
+              seatLocation: seatLoc,
+              row: rowVal,
+              column: colVal,
+              seatRow: rowVal,
+              seatColumn: colVal,
               status: 'Upcoming',
             });
             idx++;
@@ -586,6 +651,69 @@ export const CampusAPI = {
 
   getHostelLaundry: async (block: string = 'A'): Promise<any[]> => {
     return fetchJson<any[]>(`/hostel/laundry?block=${block}`, undefined, []);
+  },
+
+  getHostelDetails: async (): Promise<HostelDetails> => {
+    return fetchJson<HostelDetails>('/hostel/details', undefined, {
+      hostelInfo: {
+        gender: activeStudent?.gender || 'Male',
+        isHosteller: activeStudent?.isHosteller ?? true,
+        blockName: activeStudent?.blockName || 'A',
+        roomNo: activeStudent?.roomNo || '',
+        messInfo: activeStudent?.messInfo || 'NON VEG',
+      },
+      leaveHistory: [],
+    });
+  },
+
+  getAllGrades: async (): Promise<AllGradesResponse> => {
+    return fetchJson<AllGradesResponse>('/all-grades', undefined, {
+      grades: {},
+      cgpa: activeStudent?.cgpa ?? null,
+      creditsEarned: activeStudent?.creditsEarned ?? null,
+    });
+  },
+
+  getFeatureAvailability: async (): Promise<FeatureAvailabilityMap> => {
+    return fetchJson<FeatureAvailabilityMap>('/features', undefined, {});
+  },
+
+  getCalendar: async (semesterId?: string, type?: string): Promise<CalendarResponse> => {
+    const params = new URLSearchParams();
+    if (semesterId) params.append('semesterId', semesterId);
+    if (type) params.append('type', type);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    let res = await fetchJson<CalendarResponse>(`/calendar${q}`, undefined, {
+      semesterId: semesterId || 'CH20262701',
+      calendars: [],
+    });
+    if (!res || !res.calendars || res.calendars.length === 0) {
+      try {
+        const staticRes = await fetch('/calendar/academic_calendar.json');
+        if (staticRes.ok) {
+          const staticData = await staticRes.json();
+          if (staticData && staticData.calendars && staticData.calendars.length > 0) {
+            return staticData;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load static academic_calendar.json:', err);
+      }
+    }
+    return res;
+  },
+
+  getOD: async (): Promise<ODResponse> => {
+    return fetchJson<ODResponse>('/od', undefined, {
+      hasValidData: false,
+      usedHours: 0,
+      approvedHours: 0,
+      pendingHours: 0,
+      rejectedHours: 0,
+      maxHours: 40,
+      maxOdHours: 40,
+      records: [],
+    });
   },
 
   // 10. VTOP Auth & Synchronization Endpoints

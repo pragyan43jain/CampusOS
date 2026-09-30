@@ -6,6 +6,7 @@ import {
   Menu,
   X,
   LogOut,
+  Layers,
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { ThemeSwitcher, THEMES, ThemeType, ThemeOption } from './ThemeSwitcher';
@@ -24,6 +25,7 @@ interface HeaderProps {
   syncing: boolean;
   onToggleMobileMenu?: () => void;
   onLogout?: () => void;
+  onOpenFeatures?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   syncing,
   onToggleMobileMenu,
   onLogout,
+  onOpenFeatures,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
 
@@ -125,6 +128,18 @@ export const Header: React.FC<HeaderProps> = ({
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
             <span className="sync-btn-label">{syncing ? 'Syncing...' : 'Sync'}</span>
           </button>
+
+          {onOpenFeatures && (
+            <button
+              className="btn btn-secondary header-sync-btn desktop-only-inline"
+              onClick={onOpenFeatures}
+              title="Feature Readiness & Data Pipeline Status"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Layers size={13} color="#60a5fa" />
+              <span className="sync-btn-label">Features</span>
+            </button>
+          )}
 
           {/* Theme Switcher Button & Dropdown */}
           {onSelectTheme && (

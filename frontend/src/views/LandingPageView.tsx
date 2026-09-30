@@ -42,7 +42,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
   const marqueeItems = [
     'GDPR & FERPA Compliant Local Extraction',
-    '75% Attendance Safe-Bunk Calculator',
+    '75% Attendance Safe-Margin Calculator',
     'VIT Chennai & Vellore Multi-Campus Support',
     'Unified Microsoft Teams & Moodle LMS Sync',
     'Zero Cloud Credential Storage',
@@ -207,7 +207,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
                 <div>
                   <div className="caide-notif-title">Attendance Safe Buffer</div>
-                  <div className="caide-notif-desc">+3 Bunks Available (84.2%)</div>
+                  <div className="caide-notif-desc">+3 Classes Safe to Miss (84.2%)</div>
                 </div>
               </div>
 

@@ -226,6 +226,12 @@ _PROFILE_LABELS: List[Tuple[str, Tuple[str, ...]]] = [
     ("batch", ("batch",)),
     ("batch", ("admission", "year")),
     ("applicationNumber", ("application", "number")),
+    ("gender", ("gender",)),
+    ("hostellerStatus", ("hosteller",)),
+    ("blockName", ("block", "name")),
+    ("roomNo", ("room", "no")),
+    ("messInfo", ("mess", "info")),
+    ("messInfo", ("mess", "information")),
 ]
 
 
@@ -277,6 +283,11 @@ def parse_profile(html: str) -> Dict[str, Any]:
         profile["email"] = profile["email"].lower()
     if "regNo" in profile:
         profile["regNo"] = profile["regNo"].upper()
+
+    if "hostellerStatus" in profile:
+        profile["isHosteller"] = "HOSTELLER" in profile["hostellerStatus"].upper()
+    elif "blockName" in profile or "roomNo" in profile:
+        profile["isHosteller"] = True
 
     return profile
 

@@ -23,6 +23,8 @@ import { MobileMoreDrawer } from './components/MobileMoreDrawer';
 import { VtopLoginModal } from './components/VtopLoginModal';
 import { TeamsLoginModal } from './components/TeamsLoginModal';
 import { LMSLoginModal } from './components/LMSLoginModal';
+import { AdminAnalyticsModal } from './components/AdminAnalyticsModal';
+import { CampusAnalytics } from './services/analytics';
 import { DashboardView } from './views/DashboardView';
 import { AcademicsView } from './views/AcademicsView';
 import { AssignmentsView } from './views/AssignmentsView';
@@ -30,23 +32,29 @@ import { FeesView } from './views/FeesView';
 import { PlacementsView } from './views/PlacementsView';
 import { AIPlannerView } from './views/AIPlannerView';
 import { LandingPageView } from './views/LandingPageView';
+import { HostelView } from './views/HostelView';
+import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 
 interface RouteInfo {
   isLanding: boolean;
   isLogin: boolean;
+  isAdmin: boolean;
   view: NavView;
 }
 
 const getRouteFromPath = (path: string): RouteInfo => {
   const clean = (path || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  if (clean === '/admin') {
+    return { isLanding: false, isLogin: false, isAdmin: true, view: 'dashboard' };
+  }
   if (clean === '' || clean === '/' || clean === '/home' || clean === '/landing') {
-    return { isLanding: true, isLogin: false, view: 'dashboard' };
+    return { isLanding: true, isLogin: false, isAdmin: false, view: 'dashboard' };
   }
   if (clean === '/login') {
-    return { isLanding: true, isLogin: true, view: 'dashboard' };
+    return { isLanding: true, isLogin: true, isAdmin: false, view: 'dashboard' };
   }
   if (clean === '/dashboard') {
-    return { isLanding: false, isLogin: false, view: 'dashboard' };
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'dashboard' };
   }
   if (
     clean === '/vtop-sync' ||
@@ -55,28 +63,39 @@ const getRouteFromPath = (path: string): RouteInfo => {
     clean === '/academics' ||
     clean.startsWith('/academics/') ||
     clean === '/attendance' ||
+    clean === '/calendar' ||
     clean === '/timetable' ||
     clean === '/marks' ||
     clean === '/exams' ||
     clean === '/faculty' ||
     clean === '/profile' ||
-    clean === '/courses'
+    clean === '/courses' ||
+    clean === '/grades' ||
+    clean === '/predictor'
   ) {
-    return { isLanding: false, isLogin: false, view: 'academics' };
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'academics' };
   }
   if (clean === '/assignments' || clean === '/tasks') {
-    return { isLanding: false, isLogin: false, view: 'assignments' };
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'assignments' };
   }
   if (clean === '/fees' || clean === '/receipts' || clean === '/dues') {
-    return { isLanding: false, isLogin: false, view: 'fees' };
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'fees' };
   }
   if (clean === '/placements' || clean === '/dsa') {
-    return { isLanding: false, isLogin: false, view: 'placements' };
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'placements' };
   }
   if (clean === '/ai-planner' || clean === '/planner') {
-    return { isLanding: false, isLogin: false, view: 'ai-planner' };
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'ai-planner' };
   }
-  return { isLanding: true, isLogin: false, view: 'dashboard' };
+  if (
+    clean === '/hostel' ||
+    clean === '/mess' ||
+    clean === '/laundry' ||
+    clean === '/leave'
+  ) {
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'hostel' };
+  }
+  return { isLanding: true, isLogin: false, isAdmin: false, view: 'dashboard' };
 };
 
 const applyManualStatusOverrides = (items: Assignment[], regNo?: string): Assignment[] => {
@@ -130,6 +149,8 @@ export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('dashboard');
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
   const [showMobileMore, setShowMobileMore] = useState<boolean>(false);
+  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [isFeatureModalOpen, setIsFeatureModalOpen] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
 
   // Teams & LMS Integration States
@@ -184,6 +205,25 @@ export const App: React.FC = () => {
       localStorage.setItem('campusos_theme', currentTheme);
     }
   }, [currentTheme]);
+
+  // Track high-level view navigation with CampusAnalytics
+  useEffect(() => {
+    if (isAuthenticated && !showLanding) {
+      CampusAnalytics.trackPageView(activeView);
+    }
+  }, [activeView, isAuthenticated, showLanding]);
+
+  // Secret admin modal shortcut (Ctrl+Shift+A or Cmd+Shift+A)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        setShowAdminModal((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Load academic platform connection statuses (Teams & LMS)
   const loadAcademicAccountsStatus = async () => {
@@ -279,6 +319,13 @@ export const App: React.FC = () => {
         if (dsaData && dsaData.length > 0) setDsaTopics(dsaData);
         if (aiData && aiData.length > 0) setAiTasks(aiData);
         setIsAuthenticated(true);
+      } else {
+        // Offline / preview mode fallback so UI displays authentic academic data immediately
+        if (attendanceData && attendanceData.length > 0) setAttendance(attendanceData);
+        if (coursesData && coursesData.length > 0) setCourses(coursesData);
+        if (timetableData && timetableData.length > 0) setTimetable(timetableData);
+        if (marksData && marksData.length > 0) setMarks(marksData);
+        if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
       }
 
       await loadAcademicAccountsStatus();
@@ -342,6 +389,7 @@ export const App: React.FC = () => {
     }
 
     setSyncing(true);
+    CampusAnalytics.trackEvent('sync_started', '/sync');
     try {
       // 1. Direct VTOP background re-scrape with existing authenticated session (or silent auto-reauth)
       const vtopResult = await CampusAPI.syncVtop();
@@ -355,10 +403,12 @@ export const App: React.FC = () => {
       // 3. Reload all student data into React state
       await loadAllData();
       triggerSyncToast('Synced Successfully');
+      CampusAnalytics.trackEvent('sync_completed', '/sync');
     } catch (err) {
       console.warn('Direct live sync notice:', err);
       await loadAllData();
       triggerSyncToast('Synced Successfully');
+      CampusAnalytics.trackEvent('sync_failed', '/sync');
     } finally {
       setSyncing(false);
     }
@@ -367,6 +417,9 @@ export const App: React.FC = () => {
   const applyRoute = useCallback((path: string, overrideAuth?: boolean) => {
     const authed = overrideAuth !== undefined ? overrideAuth : isAuthenticated;
     const route = getRouteFromPath(path);
+    if (route.isAdmin) {
+      setShowAdminModal(true);
+    }
 
     if (route.isLanding) {
       setShowLanding(true);
@@ -464,6 +517,8 @@ export const App: React.FC = () => {
         if (authed) {
           if (studentProfile) {
             setStudent(studentProfile);
+            CampusAnalytics.syncProfile(studentProfile);
+            CampusAnalytics.trackEvent('session_restored', initialPath);
           }
           await loadAllData();
 
@@ -544,6 +599,7 @@ export const App: React.FC = () => {
 
   const handleSignOut = async () => {
     const currentReg = student?.regNo;
+    CampusAnalytics.trackEvent('logout', '/');
     try {
       setSyncing(true);
       await CampusAPI.logoutVtop();
@@ -623,6 +679,8 @@ export const App: React.FC = () => {
     if (studentObj) {
       CampusAPI.setActiveStudent(studentObj);
       setStudent(studentObj);
+      CampusAnalytics.syncProfile(studentObj);
+      CampusAnalytics.trackEvent('login_success', '/dashboard');
       if (typeof window !== 'undefined' && studentObj.regNo) {
         window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
         if (data) {
@@ -835,6 +893,11 @@ export const App: React.FC = () => {
           }}
           onLoginSuccess={handleLoginSuccess}
         />
+        <AdminAnalyticsModal
+          isOpen={showAdminModal}
+          onClose={() => setShowAdminModal(false)}
+          studentRegNo={student?.regNo}
+        />
         {syncToast.visible && (
           <div className="floating-sync-toast-container" role="status" aria-live="polite">
             <div className="floating-sync-toast">
@@ -872,6 +935,8 @@ export const App: React.FC = () => {
         pendingAssignmentsCount={pendingAssignmentsCount}
         criticalAttendanceCount={criticalAttendanceCount}
         onLogout={handleSignOut}
+        onOpenAdmin={() => setShowAdminModal(true)}
+        onOpenFeatures={() => setIsFeatureModalOpen(true)}
       />
 
       <div className="main-viewport">
@@ -882,6 +947,7 @@ export const App: React.FC = () => {
           onSelectTheme={setCurrentTheme}
           onSync={handleHeaderSync}
           onOpenVtopModal={() => setShowVtopModal(true)}
+          onOpenFeatures={() => setIsFeatureModalOpen(true)}
           onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
           syncing={syncing}
@@ -897,8 +963,14 @@ export const App: React.FC = () => {
             onOpenSyncModal={handleHeaderSync}
             teamsAccount={teamsAccount}
             lmsAccount={lmsAccount}
-            onLinkTeams={() => setIsTeamsModalOpen(true)}
-            onLinkLMS={() => setIsLMSModalOpen(true)}
+            onLinkTeams={() => {
+              setIsTeamsModalOpen(true);
+              CampusAnalytics.trackEvent('teams_opened', '/assignments/teams');
+            }}
+            onLinkLMS={() => {
+              setIsLMSModalOpen(true);
+              CampusAnalytics.trackEvent('lms_opened', '/assignments/lms');
+            }}
             onSyncAll={handleSyncAll}
             syncingAll={syncingAll}
             syncResultMsg={syncResultMsg}
@@ -925,8 +997,14 @@ export const App: React.FC = () => {
             courses={courses}
             onToggleStatus={handleToggleAssignment}
             onAssignmentsUpdated={(updated) => setAssignments(applyManualStatusOverrides(updated, student?.regNo))}
-            onLinkTeams={() => setIsTeamsModalOpen(true)}
-            onLinkLMS={() => setIsLMSModalOpen(true)}
+            onLinkTeams={() => {
+              setIsTeamsModalOpen(true);
+              CampusAnalytics.trackEvent('teams_opened', '/assignments/teams');
+            }}
+            onLinkLMS={() => {
+              setIsLMSModalOpen(true);
+              CampusAnalytics.trackEvent('lms_opened', '/assignments/lms');
+            }}
             onSyncAll={handleSyncAll}
             syncingAll={syncingAll}
             teamsAccount={teamsAccount}
@@ -951,6 +1029,8 @@ export const App: React.FC = () => {
             exams={exams}
           />
         )}
+
+        {activeView === 'hostel' && <HostelView student={student} />}
       </div>
 
       {/* VTOP Auth & Sync Modal */}
@@ -1004,6 +1084,18 @@ export const App: React.FC = () => {
         initialUsername={student?.regNo || ''}
       />
 
+      {/* CampusOS Admin Telemetry & Analytics Dashboard Modal */}
+      <AdminAnalyticsModal
+        isOpen={showAdminModal}
+        onClose={() => {
+          setShowAdminModal(false);
+          if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+            window.history.replaceState(null, '', '/dashboard');
+          }
+        }}
+        studentRegNo={student?.regNo}
+      />
+
       {/* Mobile Bottom Navigation Bar (< 768px) */}
       <MobileBottomNav
         activeView={activeView}
@@ -1034,7 +1126,23 @@ export const App: React.FC = () => {
         onSync={handleHeaderSync}
         syncing={syncing}
         onOpenVtopModal={handleHeaderSync}
+        onOpenFeatures={() => {
+          setShowMobileMore(false);
+          setIsFeatureModalOpen(true);
+        }}
         onLogout={handleSignOut}
+      />
+
+      {/* Feature Availability & System Readiness Modal */}
+      <FeatureAvailabilityModal
+        isOpen={isFeatureModalOpen}
+        onClose={() => setIsFeatureModalOpen(false)}
+        onNavigateTo={(view, subTab) => {
+          setActiveView(view as NavView);
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', `/${view}${subTab ? `?tab=${subTab}` : ''}`);
+          }
+        }}
       />
 
       {/* Floating Synced Successfully Toast Notification */}

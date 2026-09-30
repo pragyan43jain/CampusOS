@@ -8,6 +8,8 @@ import {
   ExternalLink,
   Palette,
   Check,
+  Building,
+  Layers,
 } from 'lucide-react';
 import { NavView } from './Sidebar';
 import { ThemeType, THEMES } from './Header';
@@ -23,6 +25,7 @@ interface MobileMoreDrawerProps {
   syncing?: boolean;
   onOpenVtopModal?: () => void;
   onLogout?: () => void;
+  onOpenFeatures?: () => void;
 }
 
 export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
@@ -36,6 +39,7 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
   syncing = false,
   onOpenVtopModal,
   onLogout,
+  onOpenFeatures,
 }) => {
   if (!isOpen) return null;
 
@@ -171,6 +175,58 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>LeetCode tracker & career drives</span>
             </div>
           </button>
+
+          <button
+            onClick={() => {
+              onSelectView('hostel');
+              onClose();
+            }}
+            className={`nav-item-btn ${activeView === 'hostel' ? 'active' : ''}`}
+            style={{
+              height: '50px',
+              padding: '0 16px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: activeView === 'hostel' ? 'var(--surface-active)' : 'var(--surface-secondary)',
+              border: '1px solid var(--border-card)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <Building size={18} color="#6366f1" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Hostel &amp; Dining Hub</span>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Mess menu, laundry &amp; leave records</span>
+            </div>
+          </button>
+
+          {onOpenFeatures && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenFeatures();
+              }}
+              className="nav-item-btn"
+              style={{
+                height: '50px',
+                padding: '0 16px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--surface-secondary)',
+                border: '1px solid var(--border-card)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <Layers size={18} color="#60a5fa" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Features &amp; Availability</span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>System operational readiness ledger</span>
+              </div>
+            </button>
+          )}
         </div>
 
         {/* Appearance & Themes Section */}

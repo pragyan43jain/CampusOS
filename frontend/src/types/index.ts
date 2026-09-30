@@ -34,6 +34,11 @@ export interface Student {
   registeredCredits?: number | null;
   rank?: number | null;
   lastSynced?: string | null;
+  gender?: string | null;
+  isHosteller?: boolean | null;
+  blockName?: string | null;
+  roomNo?: string | null;
+  messInfo?: string | null;
   semesterGpa?: SemesterGpaRecord[];
   overallAttendance?: AttendanceRecord | null;
   proctor?: {
@@ -71,10 +76,15 @@ export interface Attendance {
   isCritical?: boolean;
   hasValidData?: boolean;
   slot?: string;
+  slots?: string;
   venue?: string;
+  slotVenue?: string;
+  courseType?: string;
   credits?: number;
   type?: string;
+  category?: string;
   resolved?: boolean;
+  viewLink?: Array<{ date: string; status: string }>;
 }
 
 // 3. Marks Model
@@ -217,6 +227,10 @@ export interface Exam {
   venue?: string;
   seatNumber?: string | number;
   seatLocation?: string;
+  row?: string | number;
+  column?: string | number;
+  seatRow?: string | number;
+  seatColumn?: string | number;
   faculty?: string;
   status: 'Upcoming' | 'Scheduled' | 'Completed' | string;
   syllabusCoverage?: string;
@@ -459,5 +473,127 @@ export interface LaundryScheduleItem {
   Id?: number;
   Date: string;
   RoomNumber: string;
+}
+
+export interface HostelInfo {
+  gender?: string | null;
+  isHosteller?: boolean | null;
+  blockName?: string | null;
+  roomNo?: string | null;
+  messInfo?: string | null;
+}
+
+export interface LeaveRecord {
+  leaveId: string;
+  visitPlace: string;
+  reason: string;
+  leaveType: string;
+  from: string;
+  to: string;
+  status: string;
+  remarks?: string;
+}
+
+export interface HostelDetails {
+  hostelInfo: HostelInfo;
+  leaveHistory: LeaveRecord[];
+}
+
+export interface FeatureAvailabilityItem {
+  source: string | null;
+  available: boolean;
+  count: number;
+  status: string;
+  message?: string | null;
+}
+
+export type FeatureAvailabilityMap = Record<string, FeatureAvailabilityItem>;
+
+export interface GradeComponentDetail {
+  slNo?: string;
+  component: string;
+  maxMark: string | number;
+  weightagePercent?: string | number;
+  status?: string;
+  scoredMark: string | number;
+  weightageMark: string | number;
+}
+
+export interface SemesterGradeItem {
+  slNo: string;
+  courseCode: string;
+  courseTitle: string;
+  courseType: string;
+  grandTotal?: string;
+  grade: string;
+  credits?: number;
+  courseId?: string | null;
+  range?: Record<string, string | number>;
+  details?: GradeComponentDetail[];
+}
+
+export interface SemesterGradeGroup {
+  gpa: string | null;
+  grades: SemesterGradeItem[];
+}
+
+export interface AllGradesResponse {
+  grades: Record<string, SemesterGradeGroup>;
+  cgpa?: number | null;
+  creditsEarned?: number | null;
+}
+
+export interface CalendarEvent {
+  text: string;
+  type: 'Instructional Day' | 'Holiday' | 'Other' | string;
+  color?: string;
+  category?: string;
+}
+
+export interface CalendarDay {
+  date: number;
+  events: CalendarEvent[];
+}
+
+export interface MonthCalendar {
+  id?: string | number;
+  month: string;
+  year?: number;
+  days: CalendarDay[];
+}
+
+export interface CalendarResponse {
+  semesterId: string;
+  calendars: MonthCalendar[];
+}
+
+export interface ODRecord {
+  id: string;
+  date: string;
+  fromDate?: string;
+  toDate?: string;
+  subjectCode: string;
+  subjectTitle: string;
+  hours: number;
+  slot?: string;
+  type?: 'LAB' | 'TH' | string;
+  reason?: string;
+  status: string;
+  isApproved?: boolean;
+  approvedBy?: string;
+}
+
+export interface ODResponse {
+  state?: string;
+  hasValidData: boolean;
+  usedHours?: number | null;
+  odHours?: number | null;
+  totalOdHours?: number | null;
+  approvedHours: number;
+  pendingHours: number;
+  rejectedHours: number;
+  maxHours: number;
+  maxOdHours: number;
+  records: ODRecord[];
 }
 

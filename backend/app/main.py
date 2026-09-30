@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.routers import academics, auth, leetcode, lms, teams, unified_assignments
+from app.routers import academics, analytics, auth, leetcode, lms, teams, unified_assignments
 from app.vtop import constants as C
 
 logging.basicConfig(
@@ -60,7 +60,7 @@ async def normalize_api_route_middleware(request: Request, call_next):
     path = request.scope.get("path", "")
     # If path lacks /api prefix but targets our routers, normalize it
     if path and not path.startswith("/api"):
-        prefixes = ("/vtop", "/academics", "/leetcode", "/lms", "/teams", "/assignments", "/health")
+        prefixes = ("/vtop", "/academics", "/leetcode", "/lms", "/teams", "/assignments", "/health", "/analytics")
         if any(path.startswith(p) for p in prefixes):
             request.scope["path"] = f"/api{path}"
     return await call_next(request)
@@ -115,6 +115,7 @@ app.include_router(leetcode.router)
 app.include_router(teams.router)
 app.include_router(lms.router)
 app.include_router(unified_assignments.router)
+app.include_router(analytics.router)
 
 
 from app.storage import load_store

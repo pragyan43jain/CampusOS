@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   CreditCard,
   CheckCircle2,
   AlertTriangle,
   Receipt,
   Clock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { FeeItem } from '../types';
 import { MetricCard } from '../components/MetricCard';
@@ -14,6 +16,26 @@ interface FeesViewProps {
 }
 
 export const FeesView: React.FC<FeesViewProps> = ({ fees }) => {
+  const [showFeeDetails, setShowFeeDetails] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('campusos_hide_fee_details');
+      return saved !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleShowFees = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setShowFeeDetails((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('campusos_hide_fee_details', (!next).toString());
+      } catch {}
+      return next;
+    });
+  };
+
   const totalPaid = fees.reduce(
     (acc, f) => acc + (f.paidAmount ?? (f.status === 'Paid' ? f.amount || f.totalAmount || 0 : 0)),
     0
@@ -51,7 +73,9 @@ export const FeesView: React.FC<FeesViewProps> = ({ fees }) => {
               <span>
                 {totalPending === 0
                   ? 'All Academic Dues Cleared ✓'
-                  : `Pending Dues: ₹${totalPending.toLocaleString('en-IN')}`}
+                  : showFeeDetails
+                  ? `Pending Dues: ₹${totalPending.toLocaleString('en-IN')}`
+                  : 'Pending Dues: ₹ ••••••'}
               </span>
             </span>
           </div>
@@ -62,22 +86,51 @@ export const FeesView: React.FC<FeesViewProps> = ({ fees }) => {
       <div className="metrics-stat-grid">
         <MetricCard
           label="Total Institutional Fees"
-          value={`₹${totalFees.toLocaleString('en-IN')}`}
-          subtext="Tuition, hostel &amp; curriculum fee"
-          icon={<CreditCard size={18} />}
+          value={showFeeDetails ? `₹${totalFees.toLocaleString('en-IN')}` : '₹ ••••••'}
+          subtext={showFeeDetails ? "Tuition, hostel & curriculum fee" : "Fee details hidden • Click eye to reveal"}
+          icon={
+            <button
+              onClick={toggleShowFees}
+              title={showFeeDetails ? "Hide total fee details" : "Show total fee details"}
+              aria-label={showFeeDetails ? "Hide total fee details" : "Show total fee details"}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'inherit',
+                outline: 'none',
+                transition: 'transform 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.15)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            >
+              {showFeeDetails ? <Eye size={18} /> : <EyeOff size={18} />}
+            </button>
+          }
+          onClick={toggleShowFees}
           variant="cyan"
         />
         <MetricCard
           label="Amount Disbursed (Paid)"
-          value={`₹${totalPaid.toLocaleString('en-IN')}`}
-          subtext="Verified university payments"
+          value={showFeeDetails ? `₹${totalPaid.toLocaleString('en-IN')}` : '₹ ••••••'}
+          subtext={showFeeDetails ? "Verified university payments" : "Verified university payments (Hidden)"}
           icon={<CheckCircle2 size={18} />}
           variant="emerald"
         />
         <MetricCard
           label="Pending Outstanding Dues"
-          value={`₹${totalPending.toLocaleString('en-IN')}`}
-          subtext={totalPending === 0 ? 'Zero outstanding balance' : 'Payment due before deadline'}
+          value={showFeeDetails ? `₹${totalPending.toLocaleString('en-IN')}` : '₹ ••••••'}
+          subtext={
+            !showFeeDetails
+              ? 'Pending balance hidden'
+              : totalPending === 0
+              ? 'Zero outstanding balance'
+              : 'Payment due before deadline'
+          }
           icon={<Clock size={18} />}
           variant={totalPending === 0 ? 'emerald' : 'amber'}
         />

@@ -1,0 +1,309 @@
+{
+  "grades": {
+    "CH20242501": {
+      "gpa": "9.03",
+      "grades": [
+        {
+          "slNo": "1",
+          "courseCode": "BCSE101E",
+          "courseTitle": "Computer Programming: Python",
+          "courseType": "Embedded Theory and Lab",
+          "grandTotal": "91",
+          "grade": "S",
+          "courseId": "CH_BCSE101E_48291",
+          "range": {
+            "S": ">=90",
+            "A": ">=80 and <90",
+            "B": ">=70 and < 80",
+            "C": ">=60 and <70",
+            "D": ">=55 and <60",
+            "E": ">=50 and <55",
+            "F": "<50"
+          },
+          "details": [
+            {
+              "slNo": "1",
+              "component": "Final Assessment Test",
+              "maxMark": "100",
+              "weightagePercent": "100",
+              "status": "Present",
+              "scoredMark": "91.2",
+              "weightageMark": "91.2"
+            }
+          ]
+        },
+        {
+          "slNo": "2",
+          "courseCode": "BCSE101N",
+          "courseTitle": "Introduction to Engineering",
+          "courseType": "Project",
+          "grandTotal": "85",
+          "grade": "A",
+          "courseId": "CH_BCSE101N_73210",
+          "range": {
+            "S": ">=90",
+            "A": ">=80 and <90",
+            "B": ">=70 and < 80",
+            "C": ">=60 and <70",
+            "D": ">=55 and <60",
+            "E": ">=50 and <55",
+            "F": "<50"
+          },
+          "details": [
+            {
+              "slNo": "1",
+              "component": "Review - I",
+              "maxMark": "5",
+              "weightagePercent": "5",
+              "status": "Present",
+              "scoredMark": "4.5",
+              "weightageMark": "4.5"
+            },
+            {
+              "slNo": "2",
+              "component": "Review - II",
+              "maxMark": "40",
+              "weightagePercent": "40",
+              "status": "Present",
+              "scoredMark": "36",
+              "weightageMark": "36"
+            },
+            {
+              "slNo": "3",
+              "component": "Draft / Project Report",
+              "maxMark": "5",
+              "weightagePercent": "5",
+              "status": "Present",
+              "scoredMark": "4",
+              "weightageMark": "4"
+            },
+            {
+              "slNo": "4",
+              "component": "Review - III",
+              "maxMark": "50",
+              "weightagePercent": "50",
+              "status": "Present",
+              "scoredMark": "41",
+              "weightageMark": "41"
+            }
+          ]
+        },
+        {
+          "slNo": "3",
+          "courseCode": "BEEE102L",
+          "courseTitle": "Basic Electrical and Electronics Engineering",
+          "courseType": "Theory Only",
+          "grandTotal": "84",
+          "grade": "A",
+          "courseId": "CH_BEEE102L_61382",
+          "range": {
+            "S": ">=87",
+            "A": ">=73 and <87",
+            "B": ">=63 and <73",
+            "C": ">=58 and <63",
+            "D": ">=53 and <58",
+            "E": ">=48 and <53",
+            "F": "<48"
+          },
+          "details": [
+            {
+              "slNo": "1",
+              "component": "Digital Assignment - I",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "9",
+              "weightageMark": "9"
+            },
+            {
+              "slNo": "2",
+              "component": "Quiz - I",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "8",
+              "weightageMark": "8"
+            },
+            {
+              "slNo": "3",
+              "component": "Quiz - II",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "9",
+              "weightageMark": "9"
+            },
+            {
+              "slNo": "4",
+              "component": "CAT - I",
+              "maxMark": "50",
+              "weightagePercent": "15",
+              "status": "Present",
+              "scoredMark": "40",
+              "weightageMark": "12"
+            },
+            {
+              "slNo": "5",
+              "component": "CAT - II",
+              "maxMark": "50",
+              "weightagePercent": "15",
+              "status": "Present",
+              "scoredMark": "39",
+              "weightageMark": "11.7"
+            },
+            {
+              "slNo": "6",
+              "component": "Final Assessment",
+              "maxMark": "100",
+              "weightagePercent": "40",
+              "status": "Present",
+              "scoredMark": "80",
+              "weightageMark": "32"
+            }
+          ]
+        }
+      ]
+    },
+    "CH20242505": {
+      "gpa": "8.97",
+      "grades": [
+        {
+          "slNo": "1",
+          "courseCode": "BCHY101L",
+          "courseTitle": "Engineering Chemistry",
+          "courseType": "Theory Only",
+          "grandTotal": "71",
+          "grade": "B",
+          "courseId": "CH_BCHY101L_55129",
+          "range": {
+            "S": ">=84",
+            "A": ">=75 and <84",
+            "B": ">=62 and <75",
+            "C": ">=56 and <62",
+            "D": ">=49 and <56",
+            "E": ">=43 and <49",
+            "F": "<43"
+          },
+          "details": [
+            {
+              "slNo": "1",
+              "component": "Digital Assignment - I",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "9",
+              "weightageMark": "9"
+            },
+            {
+              "slNo": "2",
+              "component": "Quiz - I",
+              "maxMark": "20",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "16",
+              "weightageMark": "8"
+            },
+            {
+              "slNo": "3",
+              "component": "Quiz - II",
+              "maxMark": "20",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "15",
+              "weightageMark": "7.5"
+            },
+            {
+              "slNo": "4",
+              "component": "CAT - I",
+              "maxMark": "50",
+              "weightagePercent": "15",
+              "status": "Present",
+              "scoredMark": "42",
+              "weightageMark": "12.6"
+            },
+            {
+              "slNo": "5",
+              "component": "CAT - II",
+              "maxMark": "50",
+              "weightagePercent": "15",
+              "status": "Present",
+              "scoredMark": "30",
+              "weightageMark": "9"
+            },
+            {
+              "slNo": "6",
+              "component": "Final Exam",
+              "maxMark": "100",
+              "weightagePercent": "40",
+              "status": "Present",
+              "scoredMark": "58",
+              "weightageMark": "23.2"
+            }
+          ]
+        }
+      ]
+    },
+    "CH20252601": {
+      "gpa": "9.08",
+      "grades": [
+        {
+          "slNo": "1",
+          "courseCode": "BCHY102N",
+          "courseTitle": "Environmental Sciences",
+          "courseType": "Online Course",
+          "grandTotal": "78",
+          "grade": "A",
+          "courseId": "CH_BCHY102N_90321",
+          "range": {
+            "S": ">=90",
+            "A": ">=80 and <90",
+            "B": ">=70 and < 80",
+            "C": ">=60 and <70",
+            "D": ">=55 and <60",
+            "E": ">=50 and <55",
+            "F": "<50"
+          },
+          "details": [
+            {
+              "slNo": "1",
+              "component": "Assessment - 1",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "9",
+              "weightageMark": "9"
+            },
+            {
+              "slNo": "2",
+              "component": "Assessment - 2",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "9",
+              "weightageMark": "9"
+            },
+            {
+              "slNo": "3",
+              "component": "Assessment - 3",
+              "maxMark": "10",
+              "weightagePercent": "10",
+              "status": "Present",
+              "scoredMark": "8",
+              "weightageMark": "8"
+            },
+            {
+              "slNo": "4",
+              "component": "Final Assessment",
+              "maxMark": "100",
+              "weightagePercent": "40",
+              "status": "Present",
+              "scoredMark": "55",
+              "weightageMark": "22"
+            }
+          ]
+        }
+      ]
+    },
+    "CH20252605": null
+  }
+}

@@ -1,7 +1,7 @@
 import { AttendanceStats } from '../types';
 
 /**
- * Calculates academic attendance metrics, including exact safe bunks or required catch-up classes to stay above 75%.
+ * Calculates academic attendance metrics, including exact safe absences or required catch-up classes to stay above 75%.
  */
 export function calculateAttendance(attended: number, total: number): AttendanceStats {
   if (total <= 0) {

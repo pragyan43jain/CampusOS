@@ -125,13 +125,28 @@ def login(req: LoginRequest) -> Dict[str, Any]:
     still be alive rather than being able to silently re-authenticate.
     """
     try:
-        return client_manager.login_and_sync(
+        res = client_manager.login_and_sync(
             session_id=req.sessionId,
             username=req.username,
             password=req.password,
             captcha=req.captcha,
             semester_id=req.semesterId,
         )
+        # Background telemetry tracking (never fails user login)
+        try:
+            from app.supabase_client import track_event, upsert_profile
+            clean_user = req.username.strip().upper() if req.username else "ANONYMOUS"
+            if res.get("success"):
+                track_event(clean_user, "login_success", "/vtop/login", {"status": "success"})
+                student = res.get("student") or {}
+                if student:
+                    upsert_profile(student)
+            else:
+                track_event(clean_user, "login_failed", "/vtop/login", {"code": res.get("code")})
+        except Exception as tel_exc:
+            logger.debug("[Auth] Telemetry hook notice: %s", tel_exc)
+
+        return res
     except Exception as exc:
         logger.exception("[Auth] login exception: %s", exc)
         return {
@@ -154,12 +169,25 @@ def sync_data(
     Re-scrape using the existing signed-in session or silently auto-reauthenticate in background.
     """
     resolved_sid = sessionId or x_session_id
-    return client_manager.resync_or_reauth(
+    res = client_manager.resync_or_reauth(
         session_id=resolved_sid,
         semester_id=semesterId,
         username=x_auth_user,
         password=x_auth_pass,
     )
+    try:
+        from app.supabase_client import track_event, upsert_profile
+        clean_user = x_auth_user.strip().upper() if x_auth_user else None
+        if res.get("success"):
+            track_event(clean_user, "sync_completed", "/vtop/sync")
+            student = res.get("student") or {}
+            if student:
+                upsert_profile(student)
+        else:
+            track_event(clean_user, "sync_failed", "/vtop/sync")
+    except Exception as tel_exc:
+        logger.debug("[Auth] Telemetry sync notice: %s", tel_exc)
+    return res
 
 
 @router.post("/semester")
@@ -189,6 +217,11 @@ def logout(
     resolved_reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     result = client_manager.logout(resolved_sid)
     clear_store(resolved_reg)
+    try:
+        from app.supabase_client import track_event
+        track_event(resolved_reg, "logout", "/vtop/logout")
+    except Exception as tel_exc:
+        logger.debug("[Auth] Telemetry logout notice: %s", tel_exc)
     return {**result, "message": "Signed out of VTOP and cleared local data."}
 
 
@@ -267,7 +300,13 @@ def get_vtop_attendance(
     regNo: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    return load_store(reg).get("attendance") or []
+    store = load_store(reg)
+    att = store.get("attendance") or []
+    if not att:
+        def_reg = get_default_local_reg()
+        if def_reg and def_reg != reg:
+            att = load_store(def_reg).get("attendance") or []
+    return att
 
 
 def normalize_marks_item(m: Dict[str, Any], courses: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -466,22 +505,86 @@ def get_vtop_od(
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
     
-    has_valid = bool(od.get("hasValidData") or is_auth)
+    has_valid = bool(od.get("hasValidData") or (is_auth and (store.get("courses") or store.get("attendance"))))
     used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if has_valid else None))
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = od.get("records") or od.get("odRecords") or []
-    remaining = max(0, max_h - (used or 0)) if used is not None else None
-    pct = round(((used or 0) / float(max_h)) * 100.0, 1) if used is not None else None
-    state = od.get("state") if od.get("state") and od.get("state") != "source_unavailable" else ("success_with_records" if records else ("success_with_no_records" if is_auth else "source_unavailable"))
+
+    # UniCC OD extraction mechanism from attendance drill-down logs (viewLink):
+    if not records and has_valid:
+        attendance_list = store.get("attendance") or []
+        derived_records = []
+        for course in attendance_list:
+            vlink = course.get("viewLink") or []
+            slot = course.get("slot") or course.get("slots") or ""
+            c_type = (course.get("courseType") or course.get("type") or "").upper()
+            is_lab = slot.upper().startswith("L") or "LAB" in c_type or "P" in (course.get("courseCode") or "")[-1:]
+            hours = 2 if is_lab else 1
+            has_course_vlink_od = False
+            if isinstance(vlink, list):
+                for day in vlink:
+                    if isinstance(day, dict) and (day.get("status") or "").strip().lower() in ("on duty", "od", "duty"):
+                        has_course_vlink_od = True
+                        d_date = day.get("date") or "Active Semester"
+                        derived_records.append({
+                            "id": f"od-{course.get('courseCode')}-{d_date}",
+                            "date": d_date,
+                            "fromDate": d_date,
+                            "toDate": d_date,
+                            "fromTime": None,
+                            "toTime": None,
+                            "timeRange": None,
+                            "subjectCode": course.get("courseCode") or "COURSE",
+                            "subjectTitle": course.get("courseTitle") or course.get("courseName") or course.get("courseCode") or "Course",
+                            "hours": hours,
+                            "days": 1,
+                            "slot": slot,
+                            "type": "LAB" if is_lab else "TH",
+                            "reason": f"Class Attendance On-Duty ({course.get('courseCode')})",
+                            "status": "Approved",
+                            "isApproved": True,
+                            "approvedBy": course.get("facultyName") or "Course Faculty / VTOP",
+                        })
+            if not has_course_vlink_od:
+                od_count = course.get("odAttended") or course.get("odHours") or 0
+                if od_count and int(od_count) > 0:
+                    cnt = int(od_count)
+                    derived_records.append({
+                        "id": f"od-{course.get('courseCode')}-summary",
+                        "date": "Active Semester",
+                        "fromDate": "Active Semester",
+                        "toDate": "Active Semester",
+                        "fromTime": None,
+                        "toTime": None,
+                        "timeRange": None,
+                        "subjectCode": course.get("courseCode") or "COURSE",
+                        "subjectTitle": course.get("courseTitle") or course.get("courseName") or course.get("courseCode") or "Course",
+                        "hours": cnt * hours,
+                        "days": cnt,
+                        "slot": slot,
+                        "type": "LAB" if is_lab else "TH",
+                        "reason": f"Sanctioned Class On-Duty ({cnt} class{'es' if cnt > 1 else ''})",
+                        "status": "Approved",
+                        "isApproved": True,
+                        "approvedBy": course.get("facultyName") or "Course Faculty / VTOP",
+                    })
+        if derived_records:
+            records = derived_records
+            used = sum(r["hours"] for r in records)
+
+    approved = used if used is not None else (0 if has_valid else None)
+    remaining = max(0, max_h - approved) if approved is not None else None
+    pct = round((approved / float(max_h)) * 100.0, 1) if approved is not None else None
+    state = "success_with_records" if records else ("success_with_no_records" if has_valid else "source_unavailable")
 
     return {
         **od,
         "state": state,
         "hasValidData": has_valid,
-        "usedHours": used,
-        "odHours": used,
-        "totalOdHours": used,
-        "approvedHours": od.get("approvedHours", used or 0),
+        "usedHours": approved,
+        "odHours": approved,
+        "totalOdHours": approved,
+        "approvedHours": approved if approved is not None else 0,
         "pendingHours": od.get("pendingHours", 0),
         "rejectedHours": od.get("rejectedHours", 0),
         "maxHours": max_h,
@@ -490,6 +593,11 @@ def get_vtop_od(
         "percentageUsed": pct,
         "records": records,
         "odRecords": records,
+        "message": (
+            f"{approved} On-Duty hours credited"
+            if records
+            else ("No sanctioned On-Duty leave records found on VTOP for this semester." if has_valid else "Sign in to VTOP to view On-Duty hours.")
+        ),
     }
 
 

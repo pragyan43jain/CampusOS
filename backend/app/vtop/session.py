@@ -477,6 +477,32 @@ class VTOPSession:
             fields.insert(1, ("semesterSubId", semester_id))
         return self._post(path, fields).text
 
+    def post_calendar(
+        self,
+        semester_id: str,
+        cal_date: str,
+        class_group_id: str = "ALL",
+    ) -> str:
+        """
+        Request a month of the academic calendar from processViewCalendar.
+        Matches UniCC / StudentCC calendar request shape.
+        """
+        import time
+        csrf, authorized_id = self._require_auth()
+        fields: List[Tuple[str, str]] = [
+            ("authorizedID", str(authorized_id)),
+            ("semSubId", str(semester_id)),
+            ("calDate", str(cal_date)),
+            ("classGroupId", str(class_group_id)),
+            ("_csrf", str(csrf)),
+            ("x", str(int(time.time() * 1000))),
+        ]
+        headers = {
+            "Referer": f"{self.base_url}/open/page",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        return self._post(C.CALENDAR, fields, headers=headers).text
+
     def post_custom(self, path: str, extra_fields: Optional[List[Tuple[str, str]]] = None) -> str:
         """
         Post custom fields with authenticated headers, auto-injected CSRF and authorizedID.

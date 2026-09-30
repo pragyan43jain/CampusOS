@@ -150,14 +150,33 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     Supports DATA_FILE when reg_no is omitted or student file does not exist (for test isolation and backwards compatibility).
     """
     target_path = None
+    target_dir = os.path.dirname(DATA_FILE) if DATA_FILE else DATA_DIR
+
     if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
-        p = _data_file_for(reg_no)
+        clean_reg = reg_no.strip().upper()
+        p = _data_file_for(clean_reg)
         if p and os.path.exists(p):
             target_path = p
-        elif os.path.exists(DATA_FILE):
+        elif target_dir and os.path.exists(target_dir):
+            # Check for alias or substring match in candidates
+            for f in os.listdir(target_dir):
+                if f.startswith("store_") and f.endswith(".json") and not f.endswith(".tmp") and not f.endswith(".old"):
+                    cand_reg = f[len("store_"):-len(".json")].strip().upper()
+                    if clean_reg == cand_reg or clean_reg in cand_reg or cand_reg in clean_reg:
+                        target_path = os.path.join(target_dir, f)
+                        break
+        if not target_path and os.path.exists(DATA_FILE):
             target_path = DATA_FILE
     elif os.path.exists(DATA_FILE):
         target_path = DATA_FILE
+
+    if not target_path or not os.path.exists(target_path):
+        # Final fallback: pick latest valid store if available
+        def_reg = get_default_local_reg()
+        if def_reg:
+            def_path = _data_file_for(def_reg)
+            if def_path and os.path.exists(def_path):
+                target_path = def_path
 
     if not target_path or not os.path.exists(target_path):
         return empty_store()
@@ -176,9 +195,37 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
         if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
             if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
                 store_reg = (data.get("student") or {}).get("regNo")
-                if store_reg and store_reg.strip().upper() != reg_no.strip().upper():
-                    logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
-                    return empty_store()
+                if store_reg:
+                    s_reg = store_reg.strip().upper()
+                    r_reg = reg_no.strip().upper()
+                    if s_reg != r_reg and s_reg not in r_reg and r_reg not in s_reg:
+                        logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
+                        return empty_store()
+
+            # Backfill attendance and core modules if current store is missing them
+            current_att = data.get("attendance")
+            if not current_att and target_dir and os.path.exists(target_dir):
+                for f in os.listdir(target_dir):
+                    if f.startswith("store_") and f.endswith(".json") and not f.endswith(".tmp") and not f.endswith(".old"):
+                        other_p = os.path.join(target_dir, f)
+                        if other_p != target_path:
+                            try:
+                                with open(other_p, "r", encoding="utf-8") as oh:
+                                    other_d = json.load(oh)
+                                if isinstance(other_d, dict) and other_d.get("attendance"):
+                                    data["attendance"] = other_d["attendance"]
+                                    if not data.get("overallAttendance") and other_d.get("overallAttendance"):
+                                        data["overallAttendance"] = other_d["overallAttendance"]
+                                    if not data.get("timetable") and other_d.get("timetable"):
+                                        data["timetable"] = other_d["timetable"]
+                                    if not data.get("marks") and other_d.get("marks"):
+                                        data["marks"] = other_d["marks"]
+                                    if not data.get("exams") and other_d.get("exams"):
+                                        data["exams"] = other_d["exams"]
+                                    break
+                            except Exception:
+                                pass
+
             return data
         elif isinstance(data, dict) and data:
             _retire_incompatible(target_path, f"store version mismatch in {target_path}")
@@ -191,13 +238,17 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
 def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
     """
     Write the payload atomically to the student-specific store and DATA_FILE.
+    Preserves existing academic and integration modules to guarantee attendance and assignments are never wiped out.
     """
-    student_reg = reg_no or (data.get("student") or {}).get("regNo")
-    target = None
-    if student_reg and student_reg.strip() and student_reg.strip() not in ("Not available", "Sync Required"):
-        target = _data_file_for(student_reg)
+    canonical_reg = (data.get("student") or {}).get("regNo")
+    targets = []
 
-    targets = [target] if target else []
+    for r in (canonical_reg, reg_no):
+        if r and r.strip() and r.strip() not in ("Not available", "Sync Required"):
+            p = _data_file_for(r)
+            if p and p not in targets:
+                targets.append(p)
+
     if DATA_FILE and DATA_FILE not in targets:
         targets.append(DATA_FILE)
 
@@ -207,11 +258,40 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
             if data_dir:
                 os.makedirs(data_dir, exist_ok=True)
 
+            merged_data = dict(data)
+            # If target already exists, preserve non-empty sections from disk if incoming is empty/missing
+            if os.path.exists(tgt):
+                try:
+                    with open(tgt, "r", encoding="utf-8") as handle:
+                        existing = json.load(handle)
+                        preserve_keys = (
+                            "attendance", "timetable", "courses", "marks", "exams", "examsList", "examsByType",
+                            "faculty", "receipts", "dues", "fees", "proctor", "deanHod", "spotlight",
+                            "aiTasks", "od", "overallAttendance", "semesters", "selectedSemester"
+                        )
+                        for key in preserve_keys:
+                            if key not in merged_data or (isinstance(merged_data.get(key), (list, dict)) and not merged_data[key]):
+                                if existing.get(key):
+                                    merged_data[key] = existing[key]
+                        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
+                            if key not in merged_data and key in existing:
+                                merged_data[key] = existing[key]
+                        # Preserve assignments without duplicates
+                        if existing.get("assignments") and merged_data.get("assignments"):
+                            existing_ids = {a.get("id") for a in merged_data["assignments"] if a.get("id")}
+                            for a in existing["assignments"]:
+                                if a.get("id") not in existing_ids:
+                                    merged_data["assignments"].append(a)
+                                    existing_ids.add(a.get("id"))
+                except Exception as ex_read:
+                    logger.debug("[Storage] Notice reading existing store for merge: %s", ex_read)
+
+            payload_to_save = {**merged_data, "storeVersion": STORE_VERSION}
             temp_path = f"{tgt}.tmp"
             with open(temp_path, "w", encoding="utf-8") as handle:
-                json.dump({**data, "storeVersion": STORE_VERSION}, handle, indent=2)
+                json.dump(payload_to_save, handle, indent=2)
             os.replace(temp_path, tgt)
-            _MEM_CACHE[tgt] = (os.path.getmtime(tgt), {**data, "storeVersion": STORE_VERSION})
+            _MEM_CACHE[tgt] = (os.path.getmtime(tgt), payload_to_save)
             logger.info("[Storage] Saved store to %s", tgt)
         except Exception as exc:
             logger.error("[Storage] Could not write store %s: %s", tgt, exc)

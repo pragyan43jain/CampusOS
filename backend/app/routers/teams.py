@@ -1396,6 +1396,11 @@ def login_and_sync_teams(
 
         if reg:
             save_store(store, reg)
+            try:
+                from app.supabase_client import track_event
+                track_event(reg, "teams_synced", "/teams", {"assignmentsCount": len(teams_assignments), "matchedCount": len(matched_subjects)})
+            except Exception as t_exc:
+                logger.debug("[Teams] Telemetry hook notice: %s", t_exc)
 
         logger.info(
             "Microsoft Teams authenticated for %s. %d subjects matched with VTOP. %d authentic assignments synced.",

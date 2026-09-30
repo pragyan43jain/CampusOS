@@ -1,0 +1,2893 @@
+{
+  "semesterId": "CH20262701",
+  "calendars": [
+    {
+      "month": "JULY 2026",
+      "year": 2026,
+      "days": [
+        {
+          "date": 1,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 2,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 3,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 4,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 5,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 6,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 7,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 8,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 9,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 10,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 11,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 12,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 13,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 14,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 15,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 16,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 17,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 18,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 19,
+          "events": [
+            {
+              "text": "Academic Registration / Pre-Semester",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Registration"
+            }
+          ]
+        },
+        {
+          "date": 20,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Commencement of Classes / First Instructional Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 21,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 22,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 23,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 24,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 25,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 26,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 27,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 28,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Moharram)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Moharram"
+            }
+          ]
+        },
+        {
+          "date": 29,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 30,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 31,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "month": "AUGUST 2026",
+      "year": 2026,
+      "days": [
+        {
+          "date": 1,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 2,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 3,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 4,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 5,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 6,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 7,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 8,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 9,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 10,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 11,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 12,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 13,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 14,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT I"
+            }
+          ]
+        },
+        {
+          "date": 15,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Independence Day)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Independence Day"
+            }
+          ]
+        },
+        {
+          "date": 16,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 17,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 18,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 19,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 20,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 21,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 22,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 23,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 24,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 25,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 26,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 27,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Krishna Janmashtami)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Janmashtami"
+            }
+          ]
+        },
+        {
+          "date": 28,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 29,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 30,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 31,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "month": "SEPTEMBER 2026",
+      "year": 2026,
+      "days": [
+        {
+          "date": 1,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 2,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 3,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 4,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 5,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 6,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 7,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Ganesh Chaturthi)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Ganesh Chaturthi"
+            }
+          ]
+        },
+        {
+          "date": 8,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 9,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 10,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 11,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 12,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 13,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 14,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 15,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 16,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Milad-un-Nabi)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Milad-un-Nabi"
+            }
+          ]
+        },
+        {
+          "date": 17,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 18,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 19,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 20,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 21,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 22,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 23,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 24,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        },
+        {
+          "date": 25,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        },
+        {
+          "date": 26,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        },
+        {
+          "date": 27,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        },
+        {
+          "date": 28,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        },
+        {
+          "date": 29,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        },
+        {
+          "date": 30,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "type": "Other",
+              "color": "#3b82f6",
+              "category": "CAT II"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "month": "OCTOBER 2026",
+      "year": 2026,
+      "days": [
+        {
+          "date": 1,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 2,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Gandhi Jayanti)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Gandhi Jayanti"
+            }
+          ]
+        },
+        {
+          "date": 3,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 4,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 5,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 6,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 7,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 8,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 9,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 10,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 11,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 12,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 13,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 14,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 15,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 16,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 17,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 18,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Dussehra / Puja Vacation)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Dussehra Vacation"
+            }
+          ]
+        },
+        {
+          "date": 19,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Dussehra / Puja Vacation)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Dussehra Vacation"
+            }
+          ]
+        },
+        {
+          "date": 20,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Dussehra / Puja Vacation)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Dussehra Vacation"
+            }
+          ]
+        },
+        {
+          "date": 21,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Dussehra / Puja Vacation)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Dussehra Vacation"
+            }
+          ]
+        },
+        {
+          "date": 22,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Dussehra / Puja Vacation)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Dussehra Vacation"
+            }
+          ]
+        },
+        {
+          "date": 23,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 24,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 25,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 26,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 27,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 28,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 29,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 30,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 31,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "month": "NOVEMBER 2026",
+      "year": 2026,
+      "days": [
+        {
+          "date": 1,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Deepavali / Diwali)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Diwali"
+            }
+          ]
+        },
+        {
+          "date": 2,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 3,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 4,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 5,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 6,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 7,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 8,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 9,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 10,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(LID for Laboratory Classes)",
+              "type": "Other",
+              "color": "#f59e0b",
+              "category": "lid for laboratory classes"
+            }
+          ]
+        },
+        {
+          "date": 11,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 12,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#eb556e",
+              "category": "Working Day"
+            }
+          ]
+        },
+        {
+          "date": 13,
+          "events": [
+            {
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "green",
+              "category": "General"
+            },
+            {
+              "text": "(LID for Theory Classes)",
+              "type": "Other",
+              "color": "#f59e0b",
+              "category": "LID FOR THEORY CLASSES"
+            }
+          ]
+        },
+        {
+          "date": 14,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 15,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            }
+          ]
+        },
+        {
+          "date": 16,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 17,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 18,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 19,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 20,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 21,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 22,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 23,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 24,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 25,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 26,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 27,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 28,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 29,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 30,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "month": "DECEMBER 2026",
+      "year": 2026,
+      "days": [
+        {
+          "date": 1,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 2,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 3,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 4,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 5,
+          "events": [
+            {
+              "text": "Examination",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            },
+            {
+              "text": "(Final Assessment Test - FAT)",
+              "type": "Other",
+              "color": "#8b5cf6",
+              "category": "FAT"
+            }
+          ]
+        },
+        {
+          "date": 6,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 7,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 8,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 9,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 10,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 11,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 12,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 13,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 14,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 15,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 16,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 17,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 18,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 19,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 20,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 21,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 22,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 23,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 24,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 25,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 26,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 27,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 28,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 29,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 30,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        },
+        {
+          "date": 31,
+          "events": [
+            {
+              "text": "Holiday",
+              "type": "Holiday",
+              "color": "red",
+              "category": "Holiday"
+            },
+            {
+              "text": "(Winter Vacation / Semester Break)",
+              "type": "Holiday",
+              "color": "#e11d48",
+              "category": "Winter Vacation"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

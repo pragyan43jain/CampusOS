@@ -43,6 +43,7 @@ SEMESTER_LIST = "academics/common/StudentTimeTableChn"
 TIMETABLE = "processViewTimeTable"
 
 ATTENDANCE = "processViewStudentAttendance"
+CALENDAR = "processViewCalendar"
 MARKS = "examinations/doStudentMarkView"
 EXAM_SCHEDULE = "examinations/doSearchExamScheduleForStudent"
 

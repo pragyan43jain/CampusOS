@@ -24,12 +24,14 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import constants as C
 from . import parser as P
+from .calendar import fetch_vtop_academic_calendar, get_fallback_calendar
 from .math_engine import calculate_attendance_metrics, calculate_od_metrics
 from .registry import CourseRegistry, build_registry
 from .session import VTOPSession
@@ -552,6 +554,20 @@ def build_marks(
     return records
 
 
+def extract_row_column(seat_location: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    if not seat_location:
+        return None, None
+    text = str(seat_location).strip()
+    m = re.search(r"R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)\s*[,/-]?\s*C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)", text, re.IGNORECASE)
+    if m:
+        return m.group(1), m.group(2)
+    m_row = re.search(r"R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)", text, re.IGNORECASE)
+    row_val = m_row.group(1) if m_row else None
+    m_col = re.search(r"C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)", text, re.IGNORECASE)
+    col_val = m_col.group(1) if m_col else None
+    return row_val, col_val
+
+
 def build_exams(
     schedule_by_type: Dict[str, List[Dict[str, Any]]],
     registry: CourseRegistry,
@@ -579,6 +595,14 @@ def build_exams(
             start_t = item.get("start_time")
             end_t = item.get("end_time")
 
+            seat_loc = item.get("seat_location")
+            row_val = item.get("row") or item.get("seat_row")
+            col_val = item.get("column") or item.get("seat_column") or item.get("col") or item.get("seat_col")
+            if (not row_val or not col_val) and seat_loc:
+                derived_r, derived_c = extract_row_column(seat_loc)
+                row_val = row_val or derived_r
+                col_val = col_val or derived_c
+
             cards.append({
                 "id": f"exam-{idx}-{slot or 'noslot'}",
                 "examType": exam_type,
@@ -599,8 +623,12 @@ def build_exams(
                 "room": room_str,
                 "building": bld_str,
                 "block": bld_str,
-                "seatLocation": item.get("seat_location"),
+                "seatLocation": seat_loc,
                 "seatNumber": item.get("seat_number"),
+                "row": row_val,
+                "column": col_val,
+                "seatRow": row_val,
+                "seatColumn": col_val,
                 "status": "Scheduled",
             })
             idx += 1
@@ -803,6 +831,11 @@ def build_student(
         "overallAttendance": overall,
         "semesterGpa": semester_gpa_list,
         "proctor": proctor,
+        "gender": profile.get("gender"),
+        "isHosteller": profile.get("isHosteller", False),
+        "blockName": profile.get("blockName"),
+        "roomNo": profile.get("roomNo"),
+        "messInfo": profile.get("messInfo"),
         "lastSynced": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1075,6 +1108,7 @@ def sync(
         f_marks = executor.submit(lambda: fetch_marks_page(session, sem_id)) if sem_id else None
         f_exams = executor.submit(lambda: fetch_exam_page(session, sem_id)) if (sem_id and not fast_mode) else None
         f_sem_grades = executor.submit(_step, report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if (sem_id and not fast_mode) else None
+        f_calendar = executor.submit(_step, report, "calendar", lambda: fetch_vtop_academic_calendar(session, sem_id)) if (sem_id and not fast_mode) else None
 
         profile = f_profile.result() if f_profile else None
         grade_history = f_grade_history.result() if f_grade_history else None
@@ -1083,6 +1117,7 @@ def sync(
         proctor = f_proctor.result() if f_proctor else None
         dean_hod = f_dean_hod.result() or [] if f_dean_hod else []
         spotlight = f_spotlight.result() or [] if f_spotlight else []
+        calendar_data = f_calendar.result() if f_calendar else None
 
         page = None
         if f_timetable:
@@ -1237,6 +1272,7 @@ def sync(
         "assignments": assignments,
         "aiTasks": ai_tasks,
         "od": od_data,
+        "calendar": calendar_data or get_fallback_calendar(sem_id),
         "registry": registry.report(),
         "syncReport": report.as_dict(),
     }

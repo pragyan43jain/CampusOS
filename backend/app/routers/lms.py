@@ -1334,6 +1334,11 @@ def login_and_sync_lms(
 
         if reg:
             save_store(store, reg)
+            try:
+                from app.supabase_client import track_event
+                track_event(reg, "lms_synced", "/lms", {"assignmentsCount": len(assignments), "matchedCount": len(matched_subjects)})
+            except Exception as t_exc:
+                logger.debug("[LMS] Telemetry hook notice: %s", t_exc)
 
         submitted = [
             a for a in assignments

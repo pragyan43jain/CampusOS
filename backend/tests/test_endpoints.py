@@ -233,6 +233,20 @@ class TestNewVTOPAndHostelEndpoints:
         assert isinstance(mess, list)
         laundry = client.get("/api/hostel/laundry?block=A").json()
         assert isinstance(laundry, list)
+        hostel_details = client.get("/api/hostel/details").json()
+        assert "hostelInfo" in hostel_details
+        assert "leaveHistory" in hostel_details
+        all_grades = client.get("/api/all-grades").json()
+        assert "grades" in all_grades
+        cal = client.get("/api/calendar").json()
+        assert "calendars" in cal
+        features = client.get("/api/features").json()
+        assert "hostel" in features
+        assert features["hostel"]["available"] is True
+        assert "grades" in features
+        assert "cgpaPredictor" in features
+        assert "attendancePredictor" in features
+        assert "calendar" in features
 
 
 class TestStudyMaterialsEndpoint:

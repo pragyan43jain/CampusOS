@@ -8,9 +8,12 @@ import {
   BrainCircuit,
   Zap,
   LogOut,
+  ShieldCheck,
+  Building,
+  Layers,
 } from 'lucide-react';
 
-export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
+export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner' | 'hostel';
 
 interface SidebarProps {
   activeView: NavView;
@@ -18,6 +21,8 @@ interface SidebarProps {
   pendingAssignmentsCount: number;
   criticalAttendanceCount: number;
   onLogout?: () => void;
+  onOpenAdmin?: () => void;
+  onOpenFeatures?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +31,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingAssignmentsCount,
   criticalAttendanceCount,
   onLogout,
+  onOpenAdmin,
+  onOpenFeatures,
 }) => {
 
   const mainNavItems = [
@@ -44,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { id: 'fees' as NavView, label: 'Fees & Ledger', icon: CreditCard },
     { id: 'placements' as NavView, label: 'Placements & DSA', icon: Briefcase },
+    { id: 'hostel' as NavView, label: 'Hostel & Living', icon: Building },
   ];
 
   const intelligenceNavItems = [
@@ -121,6 +129,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer / Sign Out Action */}
       <div className="sidebar-footer-block" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {onOpenFeatures && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ width: '100%', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.75rem' }}
+            onClick={onOpenFeatures}
+            title="View Real-Time Feature & Data Availability"
+          >
+            <Layers size={14} color="#60a5fa" />
+            <span>Feature Readiness</span>
+          </button>
+        )}
+
+        {onOpenAdmin && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ width: '100%', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.75rem' }}
+            onClick={onOpenAdmin}
+            title="Open Admin Analytics (Ctrl+Shift+A)"
+          >
+            <ShieldCheck size={14} />
+            <span>Admin Telemetry</span>
+          </button>
+        )}
 
         {onLogout && (
           <button

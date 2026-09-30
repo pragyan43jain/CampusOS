@@ -387,7 +387,10 @@ class VTOPClientManager:
             "message": _summarise(report),
             "lastSynced": payload.get("student", {}).get("lastSynced"),
         }
-        reg = handle.reg_no or (payload.get("student") or {}).get("regNo")
+        canonical_reg = (payload.get("student") or {}).get("regNo")
+        if canonical_reg:
+            handle.reg_no = canonical_reg
+        reg = canonical_reg or handle.reg_no
         if reg and not (payload.get("student") or {}).get("regNo"):
             payload.setdefault("student", {})["regNo"] = reg
 
@@ -423,6 +426,12 @@ class VTOPClientManager:
 
         payload["assignments"] = combined_assignments
         save_store(payload, reg)
+
+        try:
+            from app.supabase_client import sync_store_to_supabase
+            sync_store_to_supabase(payload)
+        except Exception as s_exc:
+            logger.debug("[VTOP] Background Supabase telemetry sync notice: %s", s_exc)
 
         failed: List[str] = list(report.get("failed") or [])
         logger.info(
