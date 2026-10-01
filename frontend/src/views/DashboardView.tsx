@@ -227,7 +227,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="page-container">
       {/* 1. Header Greeting & Academic Overview Banner */}
-      <div className="hero-card card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]">
+      <div className="hero-card card-hover">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
           <div style={{ minWidth: 0, flex: '1 1 320px' }}>
             <div className="hero-eyebrow">
@@ -310,7 +310,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 3. Platform Integrations Row */}
-      <div className="card card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]">
+      <div className="card card-hover">
         <div className="card-header-bar">
           <div>
             <h3 className="card-title">
@@ -354,7 +354,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px' }}>
           {/* Teams Integration Box */}
           <div
-            className="hub-card card card-hover hover-trigger transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]"
+            className="hub-card card card-hover hover-trigger"
             style={{
               padding: '18px 20px',
               borderRadius: 'var(--radius-md)',
@@ -429,7 +429,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* LMS Integration Box */}
           <div
-            className="hub-card card card-hover hover-trigger transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]"
+            className="hub-card card card-hover hover-trigger"
             style={{
               padding: '18px 20px',
               borderRadius: 'var(--radius-md)',
@@ -506,7 +506,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 4. Actionable Upcoming Deadlines & Urgencies */}
       {pendingAssignments.length > 0 && (
-        <div className="card card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]">
+        <div className="card card-hover">
           <div className="card-header-bar">
             <div>
               <h3 className="card-title">
@@ -523,7 +523,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {pendingAssignments.slice(0, 3).map((item) => (
               <div
                 key={item.id}
-                className="card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]"
+                className="card-hover"
                 style={{
                   padding: '16px 18px',
                   borderRadius: 'var(--radius-md)',
@@ -577,7 +577,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* 5. Daily Timetable Schedule & Day Selector */}
-      <div className="card card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]">
+      <div className="card card-hover">
         <div className="card-header-bar">
           <div>
             <h3 className="card-title">

@@ -174,7 +174,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
           {/* Row 1: 4 Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
             {/* Card 1: Total Contacts */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Total Contacts</span>
@@ -188,7 +188,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Card 2: Active Deals */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Active Deals</span>
@@ -202,7 +202,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Card 3: Revenue */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Revenue</span>
@@ -216,7 +216,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Card 4: Conversion Rate */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Conversion Rate</span>
@@ -233,7 +233,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
           {/* Row 2: Revenue Overview & Deal Pipeline Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
             {/* Chart 1: Revenue Overview Area Chart */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-white">Revenue Overview</h2>
                 <div className="relative">
@@ -314,7 +314,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Chart 2: Deal Pipeline Donut Chart */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold text-white">Deal Pipeline</h2>
                 <a href="#pipeline" className="text-xs text-gray-400 hover:text-white transition-colors">
@@ -408,7 +408,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
           {/* Row 3: Recent Contacts & Recent Activities */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Box 1: Recent Contacts */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-white">Recent Contacts</h2>
                 <a href="#contacts" className="text-xs text-gray-400 hover:text-white transition-colors">
@@ -456,7 +456,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Box 2: Recent Activities */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)] flex flex-col justify-between">
+            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-white">Recent Activities</h2>
                 <a href="#activities" className="text-xs text-gray-400 hover:text-white transition-colors">

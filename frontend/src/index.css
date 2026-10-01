@@ -30,7 +30,7 @@
   --border-subtle: rgba(255, 255, 255, 0.05);
   --border-card: rgba(255, 255, 255, 0.07);
   --border-medium: rgba(255, 255, 255, 0.12);
-  --border-highlight: rgba(255, 43, 214, 0.40);
+  --border-highlight: rgba(0, 242, 254, 0.40);
 
   /* Typography Colors (High Contrast) */
   --text-primary: #FFFFFF;
@@ -1240,30 +1240,92 @@ a {
 }
 
 /* ==========================================================================
-   REUSABLE CARD HOVER GLOW SYSTEM
-   Consistent neon purple/pink (#ff2bd6) border and glow on hover across all cards
+   INTERACTIVE RGB OUTLINE SYSTEM
+   Dynamic pointer-tracking & flowing RGB spectrum outline across cards.
+   Only outlines the specific innermost box where the cursor is placed.
    ========================================================================== */
-.card-hover,
-.card,
-.stat-card,
-.hero-card,
-.hub-card,
-.timetable-slot-card {
-  position: relative;
-  transition: border-color 300ms cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1),
-              transform 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
 }
 
-.card-hover:hover,
-.card:hover,
-.stat-card:hover,
-.hero-card:hover,
-.hub-card:hover,
-.timetable-slot-card:hover {
-  border-color: #ff2bd6 !important;
-  box-shadow: 0 0 25px rgba(255, 43, 214, 0.35), var(--shadow-default, 0 4px 20px rgba(0, 0, 0, 0.35)) !important;
+@keyframes rgb-flow {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(360deg);
+  }
+}
+
+.card-hover {
+  position: relative;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 280ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  --border-angle: 0deg;
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+}
+
+/* Pseudo-element for the 1.5px continuous interactive RGB outline ring */
+.card-hover::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--border-angle, 0deg),
+    #00f2fe 0%,
+    #4facfe 14%,
+    #7f00ff 28%,
+    #ff007f 45%,
+    #ff7f00 62%,
+    #ffe600 76%,
+    #00ff88 88%,
+    #00f2fe 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+  animation: rgb-flow 8s linear infinite;
+}
+
+/* ONLY the innermost card where the cursor is placed in gets the outline & glow */
+.card-hover:hover:not(:has(.card-hover:hover)) {
+  border-color: #00f2fe;
+  box-shadow: 0 0 22px rgba(0, 242, 254, 0.40),
+              0 0 38px rgba(255, 0, 127, 0.25),
+              var(--shadow-default, 0 4px 20px rgba(0, 0, 0, 0.35)) !important;
   transform: translateY(-2px);
+}
+
+@supports ((-webkit-mask: linear-gradient(#fff 0 0)) or (mask: linear-gradient(#fff 0 0))) {
+  .card-hover:hover:not(:has(.card-hover:hover)) {
+    border-color: transparent !important;
+  }
+}
+
+.card-hover:hover:not(:has(.card-hover:hover))::before {
+  opacity: 1;
+}
+
+/* Ensure parent/outside container NEVER gets outline if a child card is hovered */
+.card-hover:has(.card-hover:hover) {
+  border-color: var(--border-card, rgba(255, 255, 255, 0.07)) !important;
+  box-shadow: var(--shadow-default, 0 4px 20px rgba(0, 0, 0, 0.35)) !important;
+  transform: none !important;
+}
+
+.card-hover:has(.card-hover:hover)::before {
+  opacity: 0 !important;
 }
 
 .card {

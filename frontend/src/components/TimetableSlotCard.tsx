@@ -36,7 +36,7 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
 
   return (
     <div
-      className="timetable-slot-card card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]"
+      className="timetable-slot-card card-hover"
       style={{
         padding: '18px 22px',
         borderRadius: 'var(--radius-md)',

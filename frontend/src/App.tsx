@@ -225,6 +225,43 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Interactive RGB outline cursor tracking: calculates pointer angle and position on the deepest hovered card
+  useEffect(() => {
+    let ticking = false;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        ticking = false;
+        const hoveredCards = document.querySelectorAll('.card-hover:hover');
+        if (!hoveredCards.length) return;
+
+        // Select the deepest hovered card where the cursor is placed in
+        const target = Array.from(hoveredCards).reverse().find(
+          (el) => !el.querySelector('.card-hover:hover')
+        ) as HTMLElement | undefined;
+
+        if (target) {
+          const rect = target.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const rad = Math.atan2(y - centerY, x - centerX);
+          const deg = ((rad * 180) / Math.PI + 90 + 360) % 360;
+          target.style.setProperty('--border-angle', `${deg.toFixed(1)}deg`);
+          target.style.setProperty('--mouse-x', `${x.toFixed(1)}px`);
+          target.style.setProperty('--mouse-y', `${y.toFixed(1)}px`);
+        }
+      });
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    return () => window.removeEventListener('pointermove', handlePointerMove);
+  }, []);
+
   // Load academic platform connection statuses (Teams & LMS)
   const loadAcademicAccountsStatus = async () => {
     try {

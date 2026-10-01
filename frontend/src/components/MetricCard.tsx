@@ -26,7 +26,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div
-      className="stat-card card-hover transition-all duration-300 hover:border-[#ff2bd6] hover:shadow-[0_0_25px_rgba(255,43,214,0.35)]"
+      className="stat-card card-hover"
       onClick={onClick}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
