@@ -14,13 +14,14 @@ export { THEMES, ThemeSwitcher };
 export type { ThemeType, ThemeOption };
 
 interface HeaderProps {
-  student: StudentProfile;
+  student: StudentProfile | null;
   activeView: string;
   currentTheme?: ThemeType;
   onSelectTheme?: (t: ThemeType) => void;
   onRefresh?: () => void;
   onSync?: () => void;
   onOpenVtopModal: () => void;
+  onOpenProfileModal?: () => void;
   syncing: boolean;
   onToggleMobileMenu?: () => void;
   onLogout?: () => void;
@@ -34,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTheme,
   onSync,
   onOpenVtopModal,
+  onOpenProfileModal,
   syncing,
   onToggleMobileMenu,
   onLogout,
@@ -141,9 +143,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* User Profile Capsule */}
           <div
-            className="user-profile-capsule"
-            onClick={onOpenVtopModal}
-            title="Manage VTOP Portal Session & Credentials"
+            className="user-profile-capsule cursor-pointer"
+            onClick={onOpenProfileModal || onOpenVtopModal}
+            title="View & Edit Student Profile & Connected Credentials"
           >
             <div className="user-avatar-circle">{avatarInitials}</div>
             <div className="user-profile-text-block">

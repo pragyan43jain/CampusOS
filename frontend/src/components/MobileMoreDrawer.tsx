@@ -10,6 +10,7 @@ import {
   Check,
   Building,
   Layers,
+  User,
 } from 'lucide-react';
 import { NavView } from './Sidebar';
 import { ThemeType, THEMES } from './Header';
@@ -24,6 +25,7 @@ interface MobileMoreDrawerProps {
   onSync?: () => void;
   syncing?: boolean;
   onOpenVtopModal?: () => void;
+  onOpenProfileModal?: () => void;
   onLogout?: () => void;
   onOpenFeatures?: () => void;
 }
@@ -38,6 +40,7 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
   onSync,
   syncing = false,
   onOpenVtopModal,
+  onOpenProfileModal,
   onLogout,
   onOpenFeatures,
 }) => {
@@ -224,6 +227,33 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Features &amp; Availability</span>
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>System operational readiness ledger</span>
+              </div>
+            </button>
+          )}
+
+          {onOpenProfileModal && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenProfileModal();
+              }}
+              className="nav-item-btn"
+              style={{
+                height: '50px',
+                padding: '0 16px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--surface-secondary)',
+                border: '1px solid var(--border-card)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <User size={18} color="var(--accent-cyan)" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Student Profile &amp; Passwords</span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Insurance card, Teams &amp; LMS credentials</span>
               </div>
             </button>
           )}

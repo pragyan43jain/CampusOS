@@ -34,6 +34,7 @@ import { AIPlannerView } from './views/AIPlannerView';
 import { LandingPageView } from './views/LandingPageView';
 import { HostelView } from './views/HostelView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
+import { StudentProfileModal } from './components/StudentProfileModal';
 
 interface RouteInfo {
   isLanding: boolean;
@@ -148,6 +149,7 @@ export const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [activeView, setActiveView] = useState<NavView>('dashboard');
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [showMobileMore, setShowMobileMore] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
   const [isFeatureModalOpen, setIsFeatureModalOpen] = useState<boolean>(false);
@@ -998,6 +1000,7 @@ export const App: React.FC = () => {
           onSelectTheme={setCurrentTheme}
           onSync={handleHeaderSync}
           onOpenVtopModal={() => setShowVtopModal(true)}
+          onOpenProfileModal={() => setShowProfileModal(true)}
           onOpenFeatures={() => setIsFeatureModalOpen(true)}
           onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
@@ -1181,11 +1184,26 @@ export const App: React.FC = () => {
         onSync={handleHeaderSync}
         syncing={syncing}
         onOpenVtopModal={handleHeaderSync}
+        onOpenProfileModal={() => {
+          setShowMobileMore(false);
+          setShowProfileModal(true);
+        }}
         onOpenFeatures={() => {
           setShowMobileMore(false);
           setIsFeatureModalOpen(true);
         }}
         onLogout={handleSignOut}
+      />
+
+      {/* Student Profile & Passwords Policy Card Modal */}
+      <StudentProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        student={student}
+        onCredentialsUpdated={async () => {
+          await loadAcademicAccountsStatus();
+          await loadAllData();
+        }}
       />
 
       {/* Feature Availability & System Readiness Modal */}
