@@ -1240,84 +1240,94 @@ a {
 }
 
 /* ==========================================================================
-   GLOBAL SPOTLIGHT CARD GLOW SYSTEM
-   Applies dynamic mouse-following glow borders and background spotlights to all cards
+   GLOBAL SPOTLIGHT CARD & ILLUMINATED BORDER SYSTEM
+   Precision-masked neon edge glow matching Screenshot_20261001_133736.png
    ========================================================================== */
 :root {
-  --x: -500;
-  --y: -500;
-  --xp: 0;
-  --yp: 0;
-  --base: 220;
-  --spread: 200;
-  --radius: 16;
-  --border: 1.5;
-  --size: 280;
-  --border-size: calc(var(--border, 1.5) * 1px);
-  --spotlight-size: calc(var(--size, 280) * 1px);
-  --hue: calc(var(--base, 220) + (var(--xp, 0) * var(--spread, 200)));
+  --x: -1000;
+  --y: -1000;
+  --xp: 0.5;
+  --yp: 0.5;
+  --base: 280;         /* Purple hue matching reference */
+  --spread: 240;       /* Dynamic mouse spread */
+  --border: 2;         /* 2px glowing border */
+  --size: 260;         /* Spotlight radius */
+  --border-size: calc(var(--border, 2) * 1px);
+  --spotlight-size: calc(var(--size, 260) * 1px);
+  --hue: calc(var(--base, 280) + (var(--xp, 0.5) * var(--spread, 240)));
 }
 
 .card,
 .stat-card,
 .hero-card,
+.hub-card,
 [data-glow] {
   position: relative;
+  isolation: isolate;
 }
 
+/* Border Glow Mask - Ensures the interior is 100% transparent and only the border shines */
 .card::before,
 .stat-card::before,
 .hero-card::before,
+.hub-card::before,
 [data-glow]::before,
 .card::after,
 .stat-card::after,
 .hero-card::after,
+.hub-card::after,
 [data-glow]::after {
   pointer-events: none;
   content: "";
   position: absolute;
   inset: calc(var(--border-size) * -1);
-  border: var(--border-size) solid transparent;
   border-radius: inherit;
+  padding: var(--border-size);
   background-attachment: fixed;
-  background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
   background-repeat: no-repeat;
   background-position: 50% 50%;
-  mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
-  mask-clip: padding-box, border-box;
-  mask-composite: intersect;
-  -webkit-mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
-  -webkit-mask-clip: padding-box, border-box;
-  -webkit-mask-composite: destination-out;
-  z-index: 1;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  z-index: 2;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Primary Neon Edge Glow */
 .card:hover::before,
 .stat-card:hover::before,
 .hero-card:hover::before,
+.hub-card:hover::before,
 [data-glow]:hover::before {
   opacity: 1;
   background-image: radial-gradient(
-    calc(var(--spotlight-size) * 0.8) calc(var(--spotlight-size) * 0.8) at
-    calc(var(--x, -500) * 1px)
-    calc(var(--y, -500) * 1px),
-    hsl(var(--hue, 210) 100% 65% / 0.85), transparent 100%
+    var(--spotlight-size) var(--spotlight-size) at
+    calc(var(--x, -1000) * 1px)
+    calc(var(--y, -1000) * 1px),
+    hsl(var(--hue, 280) 100% 70% / 1) 0%,
+    hsl(calc(var(--hue, 280) - 25) 100% 58% / 0.85) 35%,
+    hsl(calc(var(--hue, 280) + 25) 100% 50% / 0.3) 65%,
+    transparent 100%
   );
-  filter: brightness(1.75);
+  filter: drop-shadow(0 0 8px hsl(var(--hue, 280) 100% 65% / 0.75));
 }
 
+/* Specular White Core Highlight at Cursor Center */
 .card:hover::after,
 .stat-card:hover::after,
 .hero-card:hover::after,
+.hub-card:hover::after,
 [data-glow]:hover::after {
-  opacity: 1;
+  opacity: 0.95;
   background-image: radial-gradient(
     calc(var(--spotlight-size) * 0.45) calc(var(--spotlight-size) * 0.45) at
-    calc(var(--x, -500) * 1px)
-    calc(var(--y, -500) * 1px),
-    hsl(0 100% 100% / 0.95), transparent 100%
+    calc(var(--x, -1000) * 1px)
+    calc(var(--y, -1000) * 1px),
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.4) 30%,
+    transparent 70%
   );
 }
 
@@ -1330,18 +1340,12 @@ a {
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
 }
 
 .card:hover {
-  background: radial-gradient(
-    var(--spotlight-size) var(--spotlight-size) at
-    calc(var(--x, -500) * 1px)
-    calc(var(--y, -500) * 1px),
-    hsl(var(--hue, 210) 90% 70% / 0.05), transparent 100%
-  ), var(--surface-secondary);
-  background-attachment: fixed;
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 
 .card-header-bar {
@@ -1384,14 +1388,7 @@ a {
 }
 
 .hero-card:hover {
-  background: radial-gradient(
-    var(--spotlight-size) var(--spotlight-size) at
-    calc(var(--x, -500) * 1px)
-    calc(var(--y, -500) * 1px),
-    hsl(var(--hue, 210) 90% 70% / 0.05), transparent 100%
-  ), var(--gradient-hero);
-  background-attachment: fixed;
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .hero-eyebrow {
@@ -1488,14 +1485,7 @@ a {
 }
 
 .stat-card:hover {
-  background: radial-gradient(
-    var(--spotlight-size) var(--spotlight-size) at
-    calc(var(--x, -500) * 1px)
-    calc(var(--y, -500) * 1px),
-    hsl(var(--hue, 210) 90% 70% / 0.05), transparent 100%
-  ), var(--surface-primary);
-  background-attachment: fixed;
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.18);
   transform: translateY(-1px);
 }
 

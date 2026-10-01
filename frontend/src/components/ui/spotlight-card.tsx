@@ -77,18 +77,9 @@ const GlowCard: React.FC<GlowCardProps> = ({
       '--size': '200',
       '--outer': '1',
       '--border-size': 'calc(var(--border, 2) * 1px)',
-      '--spotlight-size': 'calc(var(--size, 150) * 1px)',
+      '--spotlight-size': 'calc(var(--size, 200) * 1px)',
       '--hue': 'calc(var(--base) + (var(--xp, 0) * var(--spread, 0)))',
-      backgroundImage: `radial-gradient(
-        var(--spotlight-size) var(--spotlight-size) at
-        calc(var(--x, 0) * 1px)
-        calc(var(--y, 0) * 1px),
-        hsl(var(--hue, 210) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 70) * 1%) / var(--bg-spot-opacity, 0.1)), transparent
-      )`,
       backgroundColor: 'var(--backdrop, transparent)',
-      backgroundSize: 'calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)))',
-      backgroundPosition: '50% 50%',
-      backgroundAttachment: 'fixed',
       border: 'var(--border-size) solid var(--backup-border)',
       position: 'relative' as const,
       touchAction: 'none' as const,
@@ -113,28 +104,26 @@ const GlowCard: React.FC<GlowCardProps> = ({
       content: "";
       position: absolute;
       inset: calc(var(--border-size) * -1);
-      border: var(--border-size) solid transparent;
       border-radius: calc(var(--radius) * 1px);
+      padding: var(--border-size);
       background-attachment: fixed;
       background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
       background-repeat: no-repeat;
       background-position: 50% 50%;
-      mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
-      mask-clip: padding-box, border-box;
-      mask-composite: intersect;
-      -webkit-mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
-      -webkit-mask-clip: padding-box, border-box;
-      -webkit-mask-composite: source-out;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
     }
     
     [data-glow]::before {
       background-image: radial-gradient(
-        calc(var(--spotlight-size) * 0.75) calc(var(--spotlight-size) * 0.75) at
+        calc(var(--spotlight-size) * 0.85) calc(var(--spotlight-size) * 0.85) at
         calc(var(--x, 0) * 1px)
         calc(var(--y, 0) * 1px),
-        hsl(var(--hue, 210) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 50) * 1%) / var(--border-spot-opacity, 1)), transparent 100%
+        hsl(var(--hue, 280) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 65) * 1%) / var(--border-spot-opacity, 1)), transparent 100%
       );
-      filter: brightness(2);
+      filter: drop-shadow(0 0 8px hsl(var(--hue, 280) 100% 65% / 0.75));
     }
     
     [data-glow]::after {
