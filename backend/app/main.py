@@ -110,11 +110,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(auth.router)
+app.include_router(unified_assignments.router)
 app.include_router(academics.router)
 app.include_router(leetcode.router)
 app.include_router(teams.router)
 app.include_router(lms.router)
-app.include_router(unified_assignments.router)
 app.include_router(analytics.router)
 
 

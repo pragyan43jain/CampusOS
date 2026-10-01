@@ -276,13 +276,8 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                         for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
                             if key not in merged_data and key in existing:
                                 merged_data[key] = existing[key]
-                        # Preserve assignments without duplicates
-                        if existing.get("assignments") and merged_data.get("assignments"):
-                            existing_ids = {a.get("id") for a in merged_data["assignments"] if a.get("id")}
-                            for a in existing["assignments"]:
-                                if a.get("id") not in existing_ids:
-                                    merged_data["assignments"].append(a)
-                                    existing_ids.add(a.get("id"))
+                        if "assignments" not in merged_data and existing.get("assignments"):
+                            merged_data["assignments"] = existing["assignments"]
                 except Exception as ex_read:
                     logger.debug("[Storage] Notice reading existing store for merge: %s", ex_read)
 

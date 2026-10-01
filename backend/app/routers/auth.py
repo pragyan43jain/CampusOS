@@ -46,11 +46,11 @@ def resolve_student_reg(
     reg_no: Optional[str] = None,
     x_auth_user: Optional[str] = None,
 ) -> Optional[str]:
-    reg = reg_no or x_reg_no or x_auth_user
-    if reg and reg.strip() and reg.strip() not in ("Not available", "Sync Required"):
-        return reg.strip().upper()
+    for r in (reg_no, x_reg_no, x_auth_user):
+        if r and isinstance(r, str) and r.strip() and r.strip() not in ("Not available", "Sync Required"):
+            return r.strip().upper()
     sid = session_id or x_session_id
-    if sid:
+    if sid and isinstance(sid, str):
         handle = client_manager._get(sid)
         if handle and handle.reg_no:
             return handle.reg_no.strip().upper()
