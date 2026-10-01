@@ -932,6 +932,8 @@ def sync_all_academic_accounts(
     x_auth_pass: Optional[str] = Header(None, alias="X-Auth-Pass"),
     x_lms_user: Optional[str] = Header(None, alias="X-LMS-User"),
     x_lms_pass: Optional[str] = Header(None, alias="X-LMS-Pass"),
+    x_teams_user: Optional[str] = Header(None, alias="X-Teams-User"),
+    x_teams_pass: Optional[str] = Header(None, alias="X-Teams-Pass"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
@@ -939,7 +941,7 @@ def sync_all_academic_accounts(
     Re-synchronizes all connected academic platforms (Teams + LMS)
     and returns the updated unified assignment dashboard.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user or x_teams_user)
     if not reg:
         return {
             "success": False,
@@ -952,10 +954,19 @@ def sync_all_academic_accounts(
     errors = []
 
     # Sync Teams if connected
-    if store.get("teamsConnected"):
+    if store.get("teamsConnected") or store.get("teamsAccount"):
         try:
             from app.routers.teams import sync_teams
-            sync_teams(x_session_id=x_session_id, x_reg_no=x_reg_no or reg, sessionId=sessionId, regNo=regNo or reg)
+            sync_teams(
+                x_session_id=x_session_id,
+                x_reg_no=x_reg_no or reg,
+                x_auth_user=x_auth_user,
+                x_auth_pass=x_auth_pass,
+                x_teams_user=x_teams_user,
+                x_teams_pass=x_teams_pass,
+                sessionId=sessionId,
+                regNo=regNo or reg,
+            )
             synced_sources.append("Microsoft Teams")
         except HTTPException as he:
             logger.warning("Teams HTTP error during sync-all: %s", he.detail)

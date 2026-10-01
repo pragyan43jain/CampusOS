@@ -128,6 +128,10 @@ BLACKLIST_FACULTY_WORDS = {
     "operating", "compiler", "automata", "discrete", "graph", "optimization", "microprocessors",
     "microcontrollers", "applied", "advanced", "basics", "basic", "principles", "foundations",
     "data", "network", "networking", "technologies", "technology", "competitive", "coding",
+    "contact", "support", "log", "out", "powered", "weekly", "outline", "view", "link",
+    "dashboard", "notice", "news", "forum", "activities", "resources", "navigation",
+    "administration", "participants", "grades", "badges", "competencies", "home", "my",
+    "calendar", "private", "files", "content", "bank", "switch", "role",
 }
 
 
@@ -181,53 +185,34 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
 
 
 def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id: str) -> Tuple[List[str], Dict[str, str]]:
-    """Extracts teacher/instructor names and section-to-teacher mappings from the LMS course view and participants pages."""
+    """Extracts teacher/instructor names and section-to-teacher mappings from the LMS course view page."""
     teachers: List[str] = []
     sections_map: Dict[str, str] = {}
     
-    # 1. Main Course View Page
+    # Main Course View Page
     url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
     try:
         r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
         if r.status_code == 200 and "/login" not in r.url:
             soup = BeautifulSoup(r.text, "html.parser")
-            for el in soup.find_all(
-                ["span", "div", "p", "li", "a", "h3", "h4"],
-                class_=lambda c: c and any(k in str(c).lower() for k in ["teacher", "instructor", "faculty", "author", "user"]),
-            ):
-                txt = el.get_text().strip()
-                if 3 <= len(txt) < 80 and not any(kw in txt.lower() for kw in ["dashboard", "course", "activity", "assignment", "announcement"]):
-                    teachers.append(txt)
-            for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", r.text, flags=re.IGNORECASE):
-                cand = m.group(1).strip().split("\n")[0].strip()
-                if 3 <= len(cand) < 80 and cand not in teachers:
-                    teachers.append(cand)
-            # Check page header or course header text
+
+            # Check course header text if present
             course_h = soup.find(["h1", "h2"], class_=lambda c: c and any(k in str(c).lower() for k in ["course", "header", "title"]))
             if course_h:
                 t_from_h = extract_teacher_from_lms_title(course_h.get_text())
                 if t_from_h and t_from_h not in teachers:
                     teachers.append(t_from_h)
 
-            # Check <title> tag
-            if soup.title and soup.title.string:
-                t_from_title_el = extract_teacher_from_lms_title(soup.title.string)
-                if t_from_title_el and t_from_title_el not in teachers:
-                    teachers.append(t_from_title_el)
-
             # Map sections/modules to teachers and collect section-level teachers
             for sec in soup.find_all(["li", "div", "section"], class_=lambda c: c and any(k in str(c).lower() for k in ["section", "course-section"])):
                 title_el = sec.find(class_=lambda c: c and "sectionname" in str(c).lower()) or sec.find(["h2", "h3", "h4", "h5"])
-                sec_title = title_el.get_text().strip() if title_el else sec.get_text()
-                sec_teacher = extract_teacher_from_lms_title(sec_title)
+                sec_title = title_el.get_text().strip() if title_el else ""
+                sec_teacher = extract_teacher_from_lms_title(sec_title) if sec_title else None
                 if not sec_teacher:
-                    sec_teacher = extract_teacher_from_lms_title(sec.get_text())
-                if not sec_teacher:
-                    m_sec = re.search(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", sec.get_text(), flags=re.IGNORECASE)
-                    if m_sec:
-                        c_cand = m_sec.group(1).strip().split("\n")[0].strip()
-                        if 3 <= len(c_cand) < 60:
-                            sec_teacher = c_cand
+                    # Check first direct heading within section
+                    h_el = sec.find(["h2", "h3", "h4", "h5"])
+                    if h_el:
+                        sec_teacher = extract_teacher_from_lms_title(h_el.get_text().strip())
                 if sec_teacher:
                     if sec_teacher not in teachers:
                         teachers.append(sec_teacher)
@@ -235,31 +220,8 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
                         m_id = re.search(r"id=(\d+)", a_link.get("href", ""))
                         if m_id:
                             sections_map[m_id.group(1)] = sec_teacher
-
-            # Also check all headings on the page
-            for h in soup.find_all(["h2", "h3", "h4", "h5"]):
-                h_teacher = extract_teacher_from_lms_title(h.get_text().strip())
-                if h_teacher and h_teacher not in teachers:
-                    teachers.append(h_teacher)
     except Exception as exc:
         logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
-
-    # 2. Participants Page (/user/index.php?id=...)
-    try:
-        url_users = f"{LMS_BASE_URL}/user/index.php?id={course_id}"
-        r_u = session.get(url_users, verify=False, timeout=REQUEST_TIMEOUT)
-        if r_u.status_code == 200 and "/login" not in r_u.url:
-            soup_u = BeautifulSoup(r_u.text, "html.parser")
-            for tr in soup_u.find_all("tr"):
-                row_txt = tr.get_text()
-                if any(role in row_txt.lower() for role in ["teacher", "editing teacher", "instructor", "faculty"]):
-                    name_el = tr.find("a", href=re.compile(r"/user/view\.php"))
-                    if name_el:
-                        t_name = name_el.get_text().strip()
-                        if 3 <= len(t_name) < 80 and t_name not in teachers:
-                            teachers.append(t_name)
-    except Exception as exc:
-        logger.debug("Could not fetch participants from LMS course %s: %s", course_id, exc)
 
     return teachers, sections_map
 
@@ -1029,15 +991,33 @@ def _process_single_lms_course(
         current_semester=curr_sem_name,
     )
 
-    # Check if any teacher currently in c_teachers matches VTOP faculty
-    target_vtop_faculty = matched_rec.facultyName if matched_rec else None
-    has_matching_teacher = False
-    if target_vtop_faculty and c_teachers:
-        has_matching_teacher = any(match_faculty_names(target_vtop_faculty, t) for t in c_teachers)
+    if not matched_rec:
+        if match_meta:
+            match_meta.verified = False
+            return match_meta.model_dump(), None, [], None
+        return {"verified": False}, None, [], None
 
-    # If we do not have a matching teacher yet, OR we don't have section mappings:
-    # Always fetch course sections and headings to discover section instructors!
-    if not has_matching_teacher or not c_sections_map:
+    target_vtop_faculty = matched_rec.facultyName
+
+    # If the course title explicitly states a professor name that does NOT match the student's enrolled faculty,
+    # reject immediately! Never fetch another professor's section course!
+    if t_from_title and not match_faculty_names(target_vtop_faculty, t_from_title):
+        logger.info(
+            "LMS course %s ('%s') has explicit teacher '%s' which does not match VTOP faculty '%s'. Skipping fetch.",
+            c_id,
+            c_title,
+            t_from_title,
+            target_vtop_faculty,
+        )
+        if match_meta:
+            match_meta.verified = False
+            match_meta.facultyMatch = False
+            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{target_vtop_faculty}'"
+            return match_meta.model_dump(), None, [], None
+        return {}, None, [], None
+
+    # If we do not have teachers yet or need section mappings (e.g. shared lab shell)
+    if not c_teachers:
         page_teachers, page_sections = fetch_lms_course_teachers_and_sections(worker_session, c_id)
         for pt in page_teachers:
             if pt and pt not in c_teachers:
@@ -1045,7 +1025,6 @@ def _process_single_lms_course(
         if page_sections:
             c_sections_map.update(page_sections)
 
-        # Re-verify with complete list of discovered section teachers
         is_verified, matched_rec, match_meta = verify_external_course(
             enrolled_records=verified_enrolled,
             source="LMS",
@@ -1055,27 +1034,24 @@ def _process_single_lms_course(
             current_semester=curr_sem_name,
         )
 
-    # Strict Verification: verify whether the course name is matching in the vtop course professor name
-    # If they match then only fetch, otherwise do not fetch!
-    prof_matched = False
-    if matched_rec:
-        prof_matched = lms_course_matches_vtop_professor(
-            lms_title=c_title,
-            vtop_faculty=matched_rec.facultyName,
-            lms_teachers=c_teachers,
-        )
+    # Strict Verification: verify whether the course name / teachers match the VTOP course professor name
+    prof_matched = lms_course_matches_vtop_professor(
+        lms_title=c_title,
+        vtop_faculty=target_vtop_faculty,
+        lms_teachers=c_teachers,
+    )
 
     if not (is_verified and matched_rec and prof_matched):
         logger.info(
             "LMS course %s ('%s') does not match VTOP course professor '%s'. Skipping fetch.",
             c_id,
             c_title,
-            matched_rec.facultyName if matched_rec else "None",
+            target_vtop_faculty,
         )
         if match_meta:
             match_meta.verified = False
             match_meta.facultyMatch = False
-            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{matched_rec.facultyName if matched_rec else 'None'}'"
+            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{target_vtop_faculty}'"
             return match_meta.model_dump(), None, [], None
         return {}, None, [], None
 

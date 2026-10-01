@@ -165,6 +165,14 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
     if (lmsPass && lmsPass.trim()) {
       headers['X-LMS-Pass'] = lmsPass;
     }
+    const teamsUser = window.localStorage.getItem('campus_teams_saved_email');
+    const teamsPass = window.localStorage.getItem('campus_teams_saved_password');
+    if (teamsUser && teamsUser.trim()) {
+      headers['X-Teams-User'] = teamsUser.trim();
+    }
+    if (teamsPass && teamsPass.trim()) {
+      headers['X-Teams-Pass'] = teamsPass;
+    }
   }
   if (extra) {
     Object.assign(headers, extra);

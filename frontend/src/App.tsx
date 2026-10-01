@@ -435,7 +435,21 @@ export const App: React.FC = () => {
       }
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
-      await CampusAPI.syncAllAcademicAccounts();
+      const syncAllResult = await CampusAPI.syncAllAcademicAccounts();
+      if (syncAllResult?.dashboard?.subjects) {
+        const flatList: any[] = [];
+        syncAllResult.dashboard.subjects.forEach((s: any) => {
+          if (Array.isArray(s.assignments)) {
+            flatList.push(...s.assignments);
+          }
+        });
+        if (Array.isArray(syncAllResult.dashboard.unmatchedAssignments)) {
+          flatList.push(...syncAllResult.dashboard.unmatchedAssignments);
+        }
+        if (flatList.length > 0) {
+          setAssignments(applyManualStatusOverrides(flatList, student?.regNo));
+        }
+      }
 
       // 3. Reload all student data into React state
       await loadAllData();
