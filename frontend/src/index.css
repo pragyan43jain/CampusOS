@@ -14,22 +14,22 @@
   --font-heading: 'Space Grotesk', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
-  /* Surfaces & Backgrounds - Pure Obsidian Deep Black System matching Screenshot_20261001_135526.png */
-  --bg-primary: #000000;
-  --bg-secondary: #050507;
-  --surface-primary: #0a0b0e;
-  --surface-secondary: #0f1015;
-  --surface-elevated: #15161c;
-  --surface-input: #060608;
+  /* Surfaces & Backgrounds - Classy Jet Black System matching Screenshot_20261001_201016.png */
+  --bg-primary: #0b0b0b;
+  --bg-secondary: #0e0e0e;
+  --surface-primary: #141414;
+  --surface-secondary: #181818;
+  --surface-elevated: #1f1f1f;
+  --surface-input: #121212;
   --surface-hover: rgba(255, 255, 255, 0.05);
   --surface-active: rgba(255, 255, 255, 0.09);
-  --surface-header: rgba(0, 0, 0, 0.95);
-  --surface-sidebar: #040406;
+  --surface-header: rgba(11, 11, 11, 0.95);
+  --surface-sidebar: #090909;
 
   /* Hairline Borders */
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-card: rgba(255, 255, 255, 0.07);
-  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-card: #222222;
+  --border-medium: #2a2a2a;
   --border-highlight: rgba(0, 242, 254, 0.40);
 
   /* Typography Colors (High Contrast) */
@@ -38,8 +38,8 @@
   --text-muted: #94A3B8;
   --text-inverse: #000000;
 
-  /* Caide Accent Palette */
-  --accent-cyan: #2DE7D3;
+  /* Classy Accent Palette - Replaces loud cyan (#37d7da / #2DE7D3) with matching emerald from Screenshot 1 */
+  --accent-cyan: #10B981;
   --accent-blue: #4C8DFF;
   --accent-purple: #B575FF;
   --accent-orange: #FF7849;
@@ -51,8 +51,8 @@
   --bg-surface: var(--surface-primary);
   --bg-surface-elevated: var(--surface-elevated);
   --card-banner-bg: var(--surface-primary);
-  --brand-bg: rgba(45, 231, 211, 0.12);
-  --brand-color: var(--accent-cyan);
+  --brand-bg: rgba(16, 185, 129, 0.12);
+  --brand-color: #10B981;
   --danger-bg: rgba(244, 63, 94, 0.12);
   --danger-border: rgba(244, 63, 94, 0.28);
   --danger-crimson: var(--accent-crimson);
@@ -60,8 +60,8 @@
   --success-emerald: var(--accent-emerald);
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #2DE7D3 0%, #4C8DFF 100%);
-  --gradient-hero: linear-gradient(180deg, #0d0e13 0%, #050507 100%);
+  --gradient-primary: linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 100%);
+  --gradient-hero: linear-gradient(180deg, #161616 0%, #101010 100%);
   --gradient-purple: linear-gradient(135deg, rgba(181, 117, 255, 0.15) 0%, rgba(76, 141, 255, 0.15) 100%);
   --gradient-orange: linear-gradient(135deg, rgba(255, 120, 73, 0.15) 0%, rgba(254, 201, 1, 0.15) 100%);
 
@@ -874,6 +874,7 @@ a {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--border-card);
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -882,6 +883,17 @@ a {
   z-index: 30;
   flex-shrink: 0;
   transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.app-header::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(217, 119, 6, 0.40), transparent);
+  pointer-events: none;
 }
 
 .header-left-block {
@@ -1540,7 +1552,7 @@ a {
 .progress-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--accent-cyan);
+  background: var(--accent-emerald);
   transition: width 0.4s ease;
 }
 
@@ -1598,15 +1610,17 @@ a {
 }
 
 .btn-primary {
-  background: var(--gradient-primary);
-  color: var(--text-inverse);
-  font-weight: 750;
-  box-shadow: var(--shadow-glow-cyan);
-  border: 1px solid transparent;
+  background: #FFFFFF;
+  color: #000000 !important;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 28px rgba(45, 231, 211, 0.45);
+  background: #F1F5F9;
+  color: #000000 !important;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.30);
 }
 
 .btn-secondary {

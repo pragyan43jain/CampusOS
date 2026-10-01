@@ -28,11 +28,11 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
 
   return (
     <div
-      className={`w-full rounded-2xl border border-[#1e1e24] bg-[#000000] text-white shadow-2xl overflow-hidden font-sans ${className}`}
+      className={`w-full rounded-2xl border border-[#222222] bg-[#0b0b0b] text-white shadow-2xl overflow-hidden font-sans ${className}`}
     >
       <div className="flex flex-col md:flex-row min-h-[640px]">
         {/* Left Sidebar */}
-        <aside className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-[#1e1e24] bg-[#050507] p-4 flex flex-col justify-between">
+        <aside className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-[#222222] bg-[#090909] p-4 flex flex-col justify-between">
           <div>
             {/* Sidebar Brand Header */}
             <div className="flex items-center gap-2.5 px-3 py-2.5 mb-6">
@@ -142,7 +142,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-5 md:p-6 bg-[#08080a] overflow-y-auto">
+        <main className="flex-1 p-5 md:p-6 bg-[#0b0b0b] overflow-y-auto">
           {/* Header Row: Title & Search/Notifications */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
@@ -159,14 +159,14 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search..."
-                  className="w-48 sm:w-56 bg-[#111116] border border-[#1e1e24] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
+                  className="w-48 sm:w-56 bg-[#181818] border border-[#222222] rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
               </div>
 
               {/* Notification Icon */}
-              <div className="relative p-2 rounded-lg bg-[#111116] border border-[#1e1e24] text-gray-400 hover:text-white cursor-pointer transition-colors">
+              <div className="relative p-2 rounded-lg bg-[#181818] border border-[#222222] text-gray-400 hover:text-white cursor-pointer transition-colors">
                 <Bell size={15} />
-                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-[#08080a]" />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500 ring-2 ring-[#0b0b0b]" />
               </div>
             </div>
           </div>
@@ -174,7 +174,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
           {/* Row 1: 4 Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
             {/* Card 1: Total Contacts */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Total Contacts</span>
@@ -188,7 +188,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Card 2: Active Deals */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Active Deals</span>
@@ -202,7 +202,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Card 3: Revenue */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Revenue</span>
@@ -216,7 +216,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Card 4: Conversion Rate */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-4 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-4 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-xs text-gray-400 font-medium">Conversion Rate</span>
@@ -233,7 +233,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
           {/* Row 2: Revenue Overview & Deal Pipeline Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
             {/* Chart 1: Revenue Overview Area Chart */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-white">Revenue Overview</h2>
                 <div className="relative">
@@ -314,7 +314,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Chart 2: Deal Pipeline Donut Chart */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold text-white">Deal Pipeline</h2>
                 <a href="#pipeline" className="text-xs text-gray-400 hover:text-white transition-colors">
@@ -408,7 +408,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
           {/* Row 3: Recent Contacts & Recent Activities */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Box 1: Recent Contacts */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-white">Recent Contacts</h2>
                 <a href="#contacts" className="text-xs text-gray-400 hover:text-white transition-colors">
@@ -456,7 +456,7 @@ export const CrmDashboard: React.FC<CrmDashboardProps> = ({ className = '' }) =>
             </div>
 
             {/* Box 2: Recent Activities */}
-            <div className="card-hover bg-[#0d0e13] border border-[#1e1e24] rounded-xl p-5 flex flex-col justify-between">
+            <div className="card-hover bg-[#141414] border border-[#222222] rounded-xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-white">Recent Activities</h2>
                 <a href="#activities" className="text-xs text-gray-400 hover:text-white transition-colors">

@@ -231,8 +231,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
           <div style={{ minWidth: 0, flex: '1 1 320px' }}>
             <div className="hero-eyebrow">
-              <Sparkles size={14} color="var(--accent-cyan)" />
-              <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>{isAuth ? 'VTOP VERIFIED SESSION' : 'OFFLINE MODE'}</span>
+              <Sparkles size={14} color="var(--accent-emerald)" />
+              <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{isAuth ? 'VTOP VERIFIED SESSION' : 'OFFLINE MODE'}</span>
               <span>•</span>
               <span style={{ color: 'var(--text-muted)' }}>
                 {student.program || 'UG'} • {student.semester ? `SEMESTER ${student.semester}` : 'SEMESTER FALL SEMESTER 2026-27'}
@@ -305,7 +305,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           value={creditsDisplay}
           subtext={creditsSubtext}
           icon={<Award size={17} />}
-          variant={earnedCredits !== null ? "cyan" : undefined}
+          variant={earnedCredits !== null ? "emerald" : undefined}
         />
       </div>
 
@@ -314,7 +314,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="card-header-bar">
           <div>
             <h3 className="card-title">
-              <Sparkles size={19} color="var(--accent-cyan)" />
+              <Sparkles size={19} color="var(--accent-emerald)" />
               <span>Connected Academic Hubs</span>
             </h3>
             <p className="card-description">
@@ -536,7 +536,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.76rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                  <span style={{ fontSize: '0.76rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)', fontWeight: 700 }}>
                     {item.courseCode || 'COURSE'}
                   </span>
                   <span className={`status-badge ${item.source === 'TEAMS' ? 'info' : 'warning'}`}>
@@ -581,7 +581,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="card-header-bar">
           <div>
             <h3 className="card-title">
-              <Calendar size={19} color="var(--accent-cyan)" />
+              <Calendar size={19} color="var(--accent-emerald)" />
               <span>Daily Class Schedule ({dayTitles[selectedDay]})</span>
             </h3>
             <p className="card-description">
