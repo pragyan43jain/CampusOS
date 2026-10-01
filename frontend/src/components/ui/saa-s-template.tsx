@@ -1,5 +1,6 @@
 import React from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
+import { CrmDashboard } from "@/components/ui/crm-dashboard";
 
 // Inline Button Component
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -220,16 +221,8 @@ export const Hero = React.memo(() => {
           />
         </div>
         
-        <div className="relative z-10">
-          <img
-            src="https://cdn.21st.dev/assets/mirror/a9/a9c7043f8f41ca34d70f771cba29b4ba6d11ef8f5f51c90d21f220fea109d6af.png"
-            alt="Dashboard preview showing analytics and metrics interface"
-            className="w-full h-auto rounded-lg shadow-2xl border border-gray-800/80"
-            loading="eager"
-            onError={(e) => {
-              e.currentTarget.src = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80";
-            }}
-          />
+        <div className="relative z-10 w-full shadow-2xl">
+          <CrmDashboard />
         </div>
       </div>
     </section>

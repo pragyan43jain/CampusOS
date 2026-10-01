@@ -1,6 +1,7 @@
 'use client';
 
 import Component from "@/components/ui/saa-s-template";
+import { CrmDashboard } from "@/components/ui/crm-dashboard";
 import { SplineScene } from "@/components/ui/splite";
 import { Card } from "@/components/ui/card";
 import { Spotlight } from "@/components/ui/spotlight";
@@ -8,6 +9,14 @@ import { GlowCard } from "@/components/ui/spotlight-card";
 
 export function Demo() {
   return <Component />;
+}
+
+export function CrmDashboardDemo() {
+  return (
+    <div className="min-h-screen bg-black p-6 md:p-12 flex items-center justify-center">
+      <CrmDashboard className="max-w-6xl w-full" />
+    </div>
+  );
 }
 
 export function SplineSceneBasic() {
