@@ -1105,6 +1105,12 @@ export const App: React.FC = () => {
             error: errMsg,
           });
         }}
+        isConnected={teamsAccount?.connected}
+        onDisconnect={async () => {
+          await CampusAPI.disconnectTeams();
+          await loadAcademicAccountsStatus();
+          setIsTeamsModalOpen(false);
+        }}
         initialEmail={student?.email || ''}
       />
 
@@ -1123,6 +1129,12 @@ export const App: React.FC = () => {
             status: 'failed',
             error: errMsg,
           });
+        }}
+        isConnected={lmsAccount?.connected}
+        onDisconnect={async () => {
+          await CampusAPI.disconnectLMS();
+          await loadAcademicAccountsStatus();
+          setIsLMSModalOpen(false);
         }}
         initialRegNo={student?.regNo || ''}
         initialUsername={student?.regNo || ''}

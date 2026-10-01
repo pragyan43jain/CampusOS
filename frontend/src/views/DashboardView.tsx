@@ -14,6 +14,7 @@ import {
   Building,
   BrainCircuit,
   ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { StudentProfile, TimetableSlot, DayOfWeek, Assignment, FeeItem, PlacementDrive, AIStudyTask } from '../types';
 import { NavView } from '../components/Sidebar';
@@ -634,6 +635,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="status-badge safe" style={{ fontSize: '0.74rem' }}>
                   Connected ✓
                 </span>
+                <button
+                  type="button"
+                  onClick={onLinkTeams}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '0 10px',
+                    height: '28px',
+                    fontSize: '0.74rem',
+                    cursor: 'pointer',
+                  }}
+                  title="Reset or re-enter Microsoft Teams credentials"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset</span>
+                </button>
               </div>
             ) : (
               <button onClick={onLinkTeams} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
@@ -700,6 +719,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="status-badge safe" style={{ fontSize: '0.74rem' }}>
                   Connected ✓
                 </span>
+                <button
+                  type="button"
+                  onClick={onLinkLMS}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '0 10px',
+                    height: '28px',
+                    fontSize: '0.74rem',
+                    cursor: 'pointer',
+                  }}
+                  title="Reset or re-enter Moodle LMS credentials"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset</span>
+                </button>
               </div>
             ) : lmsFailed ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>

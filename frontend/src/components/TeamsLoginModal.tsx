@@ -20,6 +20,8 @@ interface TeamsLoginModalProps {
   onLoginSuccess: (data?: any) => void;
   onLoginFailure?: (errorMsg: string) => void;
   initialEmail?: string;
+  isConnected?: boolean;
+  onDisconnect?: () => Promise<void> | void;
 }
 
 export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
@@ -28,6 +30,8 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   onLoginSuccess,
   onLoginFailure,
   initialEmail = '',
+  isConnected = false,
+  onDisconnect,
 }) => {
   const [email, setEmail] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -244,6 +248,42 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '-6px' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+              {isConnected ? 'Re-enter or update your Microsoft credentials:' : 'Enter your Microsoft credentials:'}
+            </span>
+            {(email || password) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('');
+                  setPassword('');
+                  setError(null);
+                  setSuccessMsg(null);
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('campus_teams_saved_email');
+                    localStorage.removeItem('campus_teams_saved_password');
+                  }
+                }}
+                className="btn btn-ghost btn-xs"
+                style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--accent-cyan)',
+                  padding: '2px 6px',
+                  height: '24px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                }}
+                title="Clear inputs and stored credentials to enter fresh details"
+              >
+                <RotateCcw size={11} />
+                <span>Reset inputs</span>
+              </button>
+            )}
+          </div>
+
           <div className="form-group">
             <label className="form-label" htmlFor="teams-email">Microsoft Student Email</label>
             <div style={{ position: 'relative' }}>
@@ -324,21 +364,45 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary"
-            style={{ width: '100%', height: '46px', marginTop: '4px' }}
-          >
-            {loading ? (
-              <>
-                <RefreshCw size={15} className="animate-spin" />
-                <span>Connecting...</span>
-              </>
-            ) : (
-              <span>Connect</span>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+            {isConnected && onDisconnect && (
+              <button
+                type="button"
+                onClick={onDisconnect}
+                disabled={loading}
+                className="btn btn-secondary"
+                style={{
+                  height: '46px',
+                  padding: '0 14px',
+                  fontSize: '0.82rem',
+                  color: 'var(--accent-crimson)',
+                  borderColor: 'rgba(239, 68, 68, 0.35)',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+                title="Disconnect this account"
+              >
+                Disconnect
+              </button>
             )}
-          </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary"
+              style={{ flex: 1, height: '46px' }}
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Connecting...</span>
+                </>
+              ) : isConnected ? (
+                <span>Update Credentials</span>
+              ) : (
+                <span>Connect</span>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>
