@@ -1396,11 +1396,6 @@ def login_and_sync_teams(
 
         if reg:
             save_store(store, reg)
-            try:
-                from app.supabase_client import track_event
-                track_event(reg, "teams_synced", "/teams", {"assignmentsCount": len(teams_assignments), "matchedCount": len(matched_subjects)})
-            except Exception as t_exc:
-                logger.debug("[Teams] Telemetry hook notice: %s", t_exc)
 
         logger.info(
             "Microsoft Teams authenticated for %s. %d subjects matched with VTOP. %d authentic assignments synced.",
@@ -1456,17 +1451,13 @@ def login_and_sync_teams(
 def sync_teams(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
-    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
-    x_auth_pass: Optional[str] = Header(None, alias="X-Auth-Pass"),
-    x_teams_user: Optional[str] = Header(None, alias="X-Teams-User"),
-    x_teams_pass: Optional[str] = Header(None, alias="X-Teams-Pass"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """Re-synchronizes authentic coursework from Microsoft Teams for the connected student account."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_teams_user)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
-    if not store.get("teamsConnected") and not store.get("teamsAccount"):
+    if not store.get("teamsConnected"):
         raise HTTPException(
             status_code=400,
             detail="Microsoft Teams is not currently connected. Please link your account first.",
@@ -1517,37 +1508,13 @@ def sync_teams(
             except Exception as exc:
                 logger.warning("Assignments token refresh error: %s", exc)
 
-        candidate_user = (x_teams_user or x_auth_user or email or "").strip()
-        candidate_pass = (x_teams_pass or x_auth_pass or "").strip()
-        if candidate_user and candidate_pass and not access_token:
-            try:
-                verify_microsoft_realm(candidate_user)
-                auth_result = authenticate_microsoft_online(candidate_user, candidate_pass)
-                token_dict = auth_result.get("token") or {}
-                access_token = token_dict.get("access_token")
-                refresh_token = token_dict.get("refresh_token")
-                if refresh_token:
-                    account["refreshToken"] = refresh_token
-            except Exception as exc:
-                logger.warning("[Teams] Silent auto-reauth during sync failed: %s", exc)
-
         vtop_courses = list(store.get("courses") or [])
         user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
-            access_token, email or candidate_user, vtop_courses, assignments_token=assignments_token, session=session
+            access_token, email, vtop_courses, assignments_token=assignments_token, session=session
         )
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
-        existing_teams = [a for a in existing_assignments if a.get("source") == "Teams"]
-
-        if not teams_assignments and existing_teams and (not access_token or user_info.get("teamsCount", 0) == 0):
-            logger.info("[Teams] Preserving %d existing verified Teams assignments during sync.", len(existing_teams))
-            teams_assignments = existing_teams
-
-        if not matched_subjects and account.get("matchedSubjects"):
-            matched_subjects = account.get("matchedSubjects")
-        if not course_matches and account.get("courseMatches"):
-            course_matches = account.get("courseMatches")
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in teams_assignments:
@@ -1568,13 +1535,12 @@ def sync_teams(
 
         all_assignments = other_assignments + teams_assignments
         store["assignments"] = all_assignments
-        store["teamsConnected"] = True
 
         now_iso = datetime.now(timezone.utc).isoformat()
         account["lastSynced"] = now_iso
         account["matchedSubjects"] = matched_subjects
         account["matchedCount"] = len(matched_subjects)
-        account["totalTeamsCount"] = user_info.get("teamsCount", len(matched_subjects))
+        account["totalTeamsCount"] = user_info.get("teamsCount", 0)
         account["courseMatches"] = course_matches
         store["teamsAccount"] = account
 
