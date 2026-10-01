@@ -105,7 +105,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     padding: '1px 5px',
                     borderRadius: '9999px',
                     backgroundColor: tab.badge.alert ? 'var(--accent-crimson)' : 'var(--accent-cyan)',
-                    color: tab.badge.alert ? '#FFFFFF' : '#07080D',
+                    color: tab.badge.alert ? '#FFFFFF' : '#000000',
                     boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                     fontFamily: 'var(--font-mono)',
                     lineHeight: 1.2,

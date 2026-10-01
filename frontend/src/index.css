@@ -14,29 +14,29 @@
   --font-heading: 'Space Grotesk', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
-  /* Surfaces & Backgrounds */
-  --bg-primary: #07080D;
-  --bg-secondary: #0C0E17;
-  --surface-primary: #10121C;
-  --surface-secondary: #161826;
-  --surface-elevated: #1D2032;
-  --surface-input: #0B0D14;
-  --surface-hover: rgba(255, 255, 255, 0.06);
-  --surface-active: rgba(45, 231, 211, 0.10);
-  --surface-header: rgba(7, 8, 13, 0.90);
-  --surface-sidebar: #090A10;
+  /* Surfaces & Backgrounds - Pure Obsidian Deep Black System matching Screenshot_20261001_135526.png */
+  --bg-primary: #000000;
+  --bg-secondary: #050507;
+  --surface-primary: #0a0b0e;
+  --surface-secondary: #0f1015;
+  --surface-elevated: #15161c;
+  --surface-input: #060608;
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-active: rgba(255, 255, 255, 0.09);
+  --surface-header: rgba(0, 0, 0, 0.95);
+  --surface-sidebar: #040406;
 
   /* Hairline Borders */
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-card: rgba(255, 255, 255, 0.10);
-  --border-medium: rgba(255, 255, 255, 0.16);
-  --border-highlight: rgba(45, 231, 211, 0.40);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-card: rgba(255, 255, 255, 0.07);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-highlight: rgba(255, 43, 214, 0.40);
 
   /* Typography Colors (High Contrast) */
   --text-primary: #FFFFFF;
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
-  --text-inverse: #07080D;
+  --text-inverse: #000000;
 
   /* Caide Accent Palette */
   --accent-cyan: #2DE7D3;
@@ -61,7 +61,7 @@
 
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, #2DE7D3 0%, #4C8DFF 100%);
-  --gradient-hero: linear-gradient(180deg, rgba(22, 24, 38, 0.75) 0%, rgba(12, 14, 23, 0.95) 100%);
+  --gradient-hero: linear-gradient(180deg, #0d0e13 0%, #050507 100%);
   --gradient-purple: linear-gradient(135deg, rgba(181, 117, 255, 0.15) 0%, rgba(76, 141, 255, 0.15) 100%);
   --gradient-orange: linear-gradient(135deg, rgba(255, 120, 73, 0.15) 0%, rgba(254, 201, 1, 0.15) 100%);
 

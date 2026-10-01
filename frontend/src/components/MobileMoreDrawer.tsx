@@ -94,7 +94,7 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#07080D',
+                  color: '#000000',
                   fontWeight: 800,
                   fontSize: '0.85rem',
                 }}
