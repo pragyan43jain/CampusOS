@@ -227,15 +227,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="page-container">
       {/* 1. Header Greeting & Academic Overview Banner */}
-      <div className="hero-card">
+      <div className="hero-card" data-glow>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
           <div style={{ minWidth: 0, flex: '1 1 320px' }}>
             <div className="hero-eyebrow">
-              <Sparkles size={14} />
-              <span>{isAuth ? 'VTOP Verified Session' : 'Offline Mode'}</span>
+              <Sparkles size={14} color="var(--accent-cyan)" />
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>{isAuth ? 'VTOP VERIFIED SESSION' : 'OFFLINE MODE'}</span>
               <span>•</span>
               <span style={{ color: 'var(--text-muted)' }}>
-                {student.program || 'VIT Chennai'} • {student.semester ? `Semester ${student.semester}` : 'Fall 2026-27'}
+                {student.program || 'UG'} • {student.semester ? `SEMESTER ${student.semester}` : 'SEMESTER FALL SEMESTER 2026-27'}
               </span>
             </div>
 
@@ -354,6 +354,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '16px' }}>
           {/* Teams Integration Box */}
           <div
+            className="hub-card card hover-trigger"
+            data-glow
             style={{
               padding: '18px 20px',
               borderRadius: 'var(--radius-md)',
@@ -428,6 +430,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* LMS Integration Box */}
           <div
+            className="hub-card card hover-trigger"
+            data-glow
             style={{
               padding: '18px 20px',
               borderRadius: 'var(--radius-md)',

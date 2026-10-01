@@ -1,3 +1,6 @@
+@tailwind components;
+@tailwind utilities;
+
 /* ==========================================================================
    CAMPUSOS MASTER DESIGN SYSTEM (DARK THEME)
    ========================================================================== */
@@ -1236,6 +1239,88 @@ a {
   }
 }
 
+/* ==========================================================================
+   GLOBAL SPOTLIGHT CARD GLOW SYSTEM
+   Applies dynamic mouse-following glow borders and background spotlights to all cards
+   ========================================================================== */
+:root {
+  --x: -500;
+  --y: -500;
+  --xp: 0;
+  --yp: 0;
+  --base: 220;
+  --spread: 200;
+  --radius: 16;
+  --border: 1.5;
+  --size: 280;
+  --border-size: calc(var(--border, 1.5) * 1px);
+  --spotlight-size: calc(var(--size, 280) * 1px);
+  --hue: calc(var(--base, 220) + (var(--xp, 0) * var(--spread, 200)));
+}
+
+.card,
+.stat-card,
+.hero-card,
+[data-glow] {
+  position: relative;
+}
+
+.card::before,
+.stat-card::before,
+.hero-card::before,
+[data-glow]::before,
+.card::after,
+.stat-card::after,
+.hero-card::after,
+[data-glow]::after {
+  pointer-events: none;
+  content: "";
+  position: absolute;
+  inset: calc(var(--border-size) * -1);
+  border: var(--border-size) solid transparent;
+  border-radius: inherit;
+  background-attachment: fixed;
+  background-size: calc(100% + (2 * var(--border-size))) calc(100% + (2 * var(--border-size)));
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+  mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+  mask-clip: padding-box, border-box;
+  mask-composite: intersect;
+  -webkit-mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+  -webkit-mask-clip: padding-box, border-box;
+  -webkit-mask-composite: destination-out;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.card:hover::before,
+.stat-card:hover::before,
+.hero-card:hover::before,
+[data-glow]:hover::before {
+  opacity: 1;
+  background-image: radial-gradient(
+    calc(var(--spotlight-size) * 0.8) calc(var(--spotlight-size) * 0.8) at
+    calc(var(--x, -500) * 1px)
+    calc(var(--y, -500) * 1px),
+    hsl(var(--hue, 210) 100% 65% / 0.85), transparent 100%
+  );
+  filter: brightness(1.75);
+}
+
+.card:hover::after,
+.stat-card:hover::after,
+.hero-card:hover::after,
+[data-glow]:hover::after {
+  opacity: 1;
+  background-image: radial-gradient(
+    calc(var(--spotlight-size) * 0.45) calc(var(--spotlight-size) * 0.45) at
+    calc(var(--x, -500) * 1px)
+    calc(var(--y, -500) * 1px),
+    hsl(0 100% 100% / 0.95), transparent 100%
+  );
+}
+
 .card {
   background: var(--surface-primary);
   border: 1px solid var(--border-card);
@@ -1249,8 +1334,14 @@ a {
 }
 
 .card:hover {
-  background: var(--surface-secondary);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: radial-gradient(
+    var(--spotlight-size) var(--spotlight-size) at
+    calc(var(--x, -500) * 1px)
+    calc(var(--y, -500) * 1px),
+    hsl(var(--hue, 210) 90% 70% / 0.05), transparent 100%
+  ), var(--surface-secondary);
+  background-attachment: fixed;
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .card-header-bar {
@@ -1289,6 +1380,18 @@ a {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.hero-card:hover {
+  background: radial-gradient(
+    var(--spotlight-size) var(--spotlight-size) at
+    calc(var(--x, -500) * 1px)
+    calc(var(--y, -500) * 1px),
+    hsl(var(--hue, 210) 90% 70% / 0.05), transparent 100%
+  ), var(--gradient-hero);
+  background-attachment: fixed;
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .hero-eyebrow {
@@ -1385,7 +1488,14 @@ a {
 }
 
 .stat-card:hover {
-  border-color: rgba(255, 255, 255, 0.14);
+  background: radial-gradient(
+    var(--spotlight-size) var(--spotlight-size) at
+    calc(var(--x, -500) * 1px)
+    calc(var(--y, -500) * 1px),
+    hsl(var(--hue, 210) 90% 70% / 0.05), transparent 100%
+  ), var(--surface-primary);
+  background-attachment: fixed;
+  border-color: rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
 }
 
