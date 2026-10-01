@@ -434,7 +434,7 @@ export const OverallAttendancePredictorModal: React.FC<OverallAttendancePredicto
 
   const resetSelected = () => setDateStates({});
 
-  // Prediction calculation using exact UniCC formula:
+  // Prediction calculation using exact CampusOS formula:
   // effectiveFuture = isLab ? futureCount * 2 : futureCount
   // effectiveMissed = effectiveFuture > 0 ? (isLab ? missed * 2 : missed) : 0
   // predictedAttended = attended + (effectiveFuture - effectiveMissed)

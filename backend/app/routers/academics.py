@@ -449,7 +449,7 @@ class CalendarPostBody(BaseModel):
 @router.post("/calendar")
 def post_calendar_route(body: CalendarPostBody) -> Dict[str, Any]:
     """
-    Direct academic calendar endpoint compatible with UniCC request body.
+    Direct academic calendar endpoint compatible with CampusOS request body.
     """
     from app.vtop.calendar import fetch_vtop_academic_calendar, get_fallback_calendar
     from app.vtop.session import VTOPSession

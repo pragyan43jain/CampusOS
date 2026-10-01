@@ -1,7 +1,7 @@
 """
 VTOP Academic Calendar Parser & Live Scraper
 Scrapes monthly instructional days, holidays, order-of-day, and exam milestones
-directly from VTOP (/vtop/processViewCalendar) matching UniCC/StudentCC specs.
+directly from VTOP (/vtop/processViewCalendar) matching CampusOS specs.
 Falls back to cached academic calendar dataset when VTOP session is unavailable.
 """
 
@@ -253,7 +253,7 @@ def _build_empty_month_calendar(month_label: str, year: int, month_idx: int) -> 
 def get_semester_calendar_months(semester_id: Optional[str]) -> List[str]:
     """
     Generate target months for querying VTOP /processViewCalendar.
-    Follows UniCC & VIT semester calendar conventions.
+    Follows CampusOS & VIT semester calendar conventions.
     """
     sem_str = str(semester_id or "")
     sem_code = sem_str[-2:] if len(sem_str) >= 2 else "01"

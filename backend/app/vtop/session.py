@@ -485,7 +485,7 @@ class VTOPSession:
     ) -> str:
         """
         Request a month of the academic calendar from processViewCalendar.
-        Matches UniCC / StudentCC calendar request shape.
+        Matches CampusOS calendar request shape.
         """
         import time
         csrf, authorized_id = self._require_auth()

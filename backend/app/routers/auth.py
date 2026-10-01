@@ -510,7 +510,7 @@ def get_vtop_od(
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = od.get("records") or od.get("odRecords") or []
 
-    # UniCC OD extraction mechanism from attendance drill-down logs (viewLink):
+    # CampusOS OD extraction mechanism from attendance drill-down logs (viewLink):
     if not records and has_valid:
         attendance_list = store.get("attendance") or []
         derived_records = []

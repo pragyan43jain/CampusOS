@@ -423,7 +423,7 @@ export const FeatureAvailabilityModal: React.FC<FeatureAvailabilityModalProps> =
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <ShieldCheck size={14} color="#10b981" />
-            <span>CampusOS Update 1.1 Architecture &bull; UniCC Integrated</span>
+            <span>CampusOS Update 1.1 Architecture &bull; CampusOS Engine</span>
           </div>
           <button className="btn btn-secondary btn-sm" onClick={onClose}>
             Done

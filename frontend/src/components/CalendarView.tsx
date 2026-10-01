@@ -790,7 +790,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         })()}
       </div>
 
-      {/* 5. Calendar Type Switcher (UniCC Model) */}
+      {/* 5. Calendar Type Switcher (CampusOS Model) */}
       <div
         className="card"
         style={{

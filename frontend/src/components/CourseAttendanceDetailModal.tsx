@@ -467,7 +467,7 @@ export const CourseAttendanceDetailModal: React.FC<CourseAttendanceDetailModalPr
           </div>
         </div>
 
-        {/* Academic Calendar Exam Countdown & Upcoming Classes (UniCC feature) */}
+        {/* Academic Calendar Exam Countdown & Upcoming Classes (CampusOS feature) */}
         {[
           { key: 'CAT1', label: 'Classes left before CAT I', data: classesTillCAT1 },
           { key: 'CAT2', label: 'Classes left before CAT II', data: classesTillCAT2 },

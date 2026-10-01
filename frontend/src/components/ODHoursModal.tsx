@@ -45,7 +45,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
     };
   }, [isOpen, onClose]);
 
-  // UniCC OD extraction mechanism: extract sanctioned on-duty classes from attendance drill-down logs
+  // CampusOS OD extraction mechanism: extract sanctioned on-duty classes from attendance drill-down logs
   const derivedRecords = React.useMemo(() => {
     if (!attendance || !Array.isArray(attendance)) return [];
     const list: Array<{

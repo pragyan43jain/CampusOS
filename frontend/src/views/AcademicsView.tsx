@@ -613,7 +613,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* UniCC Sub-Tab Switcher: Attendance vs Semester Calendar */}
+            {/* CampusOS Sub-Tab Switcher: Attendance vs Semester Calendar */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 className="btn btn-sm btn-primary"
@@ -1104,7 +1104,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               )}
             </div>
 
-            {/* Course Attendance Detail & Simulator Modal (PopupCard from UniCC) */}
+            {/* Course Attendance Detail & Simulator Modal (PopupCard from CampusOS) */}
             <CourseAttendanceDetailModal
               isOpen={selectedAttDetail !== null}
               onClose={() => setSelectedAttDetail(null)}
@@ -2709,7 +2709,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         </div>
       )}
 
-      {/* === 3.10 SEMESTER ACADEMIC CALENDAR (UNICC IN-PAGE COMPONENT) === */}
+      {/* === 3.10 SEMESTER ACADEMIC CALENDAR (CAMPUSOS IN-PAGE COMPONENT) === */}
       {activeTab === 'calendar' && (
         <CalendarView
           initialCalendars={calendarData?.calendars}
@@ -2734,7 +2734,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         attendance={attendance}
       />
 
-      {/* Overall Attendance Predictor Modal (UniCC calendar days simulator) */}
+      {/* Overall Attendance Predictor Modal (CampusOS calendar days simulator) */}
       <OverallAttendancePredictorModal
         isOpen={isPredictorModalOpen}
         onClose={() => setIsPredictorModalOpen(false)}
