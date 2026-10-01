@@ -995,6 +995,10 @@ export const App: React.FC = () => {
             student={student}
             timetable={timetable}
             assignments={assignments}
+            fees={fees}
+            placements={placements}
+            aiTasks={aiTasks}
+            onSelectView={setActiveView}
             onSync={handleHeaderSync}
             syncing={syncing}
             onOpenSyncModal={handleHeaderSync}
