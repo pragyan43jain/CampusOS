@@ -88,74 +88,70 @@ def _derive_month_year(heading_text: str, cal_date: Optional[str] = None) -> Tup
 
 def parse_calendar_html(html: str, cal_date: Optional[str] = None) -> Dict[str, Any]:
     """
-    Parse VTOP calendar HTML output from /vtop/processViewCalendar.
-    Extracts every instructional day, holiday, exam date, and order-of-day.
-    Ensures no day is left blank or empty.
+    Parse VTOP /vtop/processViewCalendar HTML matching UniCC calendar representation.
+    Extracts month name from <h4> and days with events from table.calendar-table.
+    Populates full calendar month with exact event types, categories, and day order.
     """
     if not html:
         month_label, year, month_idx = _derive_month_year("", cal_date)
         return _build_empty_month_calendar(month_label, year, month_idx)
 
     soup = BeautifulSoup(html, "html.parser")
-    month_heading = soup.find(["h4", "h3", "h2", "center", "b"])
-    heading_text = month_heading.get_text().strip() if month_heading else ""
-    month_label, year, month_idx = _derive_month_year(heading_text, cal_date)
+    h4 = soup.find(["h4", "h3", "h2", "center", "b"])
+    raw_heading = h4.get_text().strip() if h4 else ""
+    month_label, year, month_idx = _derive_month_year(raw_heading, cal_date)
 
     days_in_month = cal_mod.monthrange(year, month_idx)[1]
     days_by_num: Dict[int, List[Dict[str, Any]]] = {}
 
     cells = soup.select("table.calendar-table tbody tr td") or soup.select("table tbody tr td")
-    for cell in cells:
-        spans = cell.find_all(["span", "font", "p", "div", "b", "strong"])
+
+    for td in cells:
+        spans = td.find_all("span")
         if not spans:
             continue
 
-        date_str = spans[0].get_text().strip()
-        if not date_str or not date_str.isdigit():
-            # Sometimes date number is in direct text
-            m_date = re.match(r"^(\d{1,2})", cell.get_text().strip())
+        date_text = spans[0].get_text().strip()
+        if not date_text or not date_text.isdigit():
+            m_date = re.match(r"^(\d{1,2})", td.get_text().strip())
             if not m_date:
                 continue
             date_num = int(m_date.group(1))
         else:
-            date_num = int(date_str)
+            date_num = int(date_text)
 
         if not (1 <= date_num <= days_in_month):
             continue
 
         events: List[Dict[str, Any]] = []
+        event_spans = spans[1:] if date_text.isdigit() else spans
 
-        # Parse distinct event elements
-        event_nodes = spans[1:] if date_str.isdigit() else spans
-        seen_texts = set()
-
-        for node in event_nodes:
-            text = node.get_text().strip()
-            if not text or text == str(date_num) or text in seen_texts:
+        for span in event_spans:
+            text = span.get_text().strip()
+            if not text or text == str(date_num):
                 continue
-            seen_texts.add(text)
 
-            style = node.get("style", "")
-            color_match = re.search(r"color:\s*([^;]+)", style, re.I)
+            style = span.get("style", "")
+            color_match = re.search(r"color:\s*([^;]+)", style, re.IGNORECASE)
             color = color_match.group(1).strip() if color_match else ""
 
-            lower_text = text.lower()
-            is_exam = any(k in lower_text for k in [
+            lower = text.lower()
+            is_exam = any(k in lower for k in [
                 "exam", "cat 1", "cat 2", "cat-1", "cat-2", "cat i", "cat ii",
                 "cat-i", "cat-ii", "fat", "assessment", "term end", "final test",
                 "mid term", "lab fat", "examination"
             ])
-            is_holiday = any(k in lower_text for k in [
+            is_fest = any(k in lower for k in [
+                "technovit", "vibrance", "riviera", "gravitas", "fest"
+            ])
+            is_holiday = any(k in lower for k in [
                 "holiday", "vacation", "pongal", "diwali", "deepavali",
                 "gandhi jayanti", "independence day", "republic day",
                 "ayudha", "puja", "pooja", "christmas", "new year",
                 "muharram", "milad", "eid", "good friday", "ramzan",
                 "no instructional", "non-instructional", "non instructional"
             ])
-            is_fest = any(k in lower_text for k in [
-                "technovit", "vibrance", "riviera", "gravitas", "fest"
-            ])
-            is_instructional = "instructional" in lower_text and not is_holiday
+            is_instructional = "instructional" in lower and not is_holiday
 
             if is_exam:
                 event_type = "Exam"
@@ -173,10 +169,10 @@ def parse_calendar_html(html: str, cal_date: Optional[str] = None) -> Dict[str, 
                 event_type = "Other"
                 default_color = "#94a3b8"
 
-            category_match = re.search(r"\(([^)]+)\)", text)
-            category = category_match.group(1).strip() if category_match else (
+            cat_match = re.search(r"\(([^)]+)\)", text)
+            category = cat_match.group(1).strip() if cat_match else (
                 "Instructional Day" if is_instructional
-                else ("Exam" if is_exam else ("Holiday" if is_holiday else "General"))
+                else ("Exam" if is_exam else ("Holiday" if is_holiday else ("Festival" if is_fest else "General")))
             )
 
             events.append({
@@ -223,7 +219,7 @@ def parse_calendar_html(html: str, cal_date: Optional[str] = None) -> Dict[str, 
         })
 
     return {
-        "month": month_label,
+        "month": raw_heading or month_label,
         "year": year,
         "days": days_list,
     }

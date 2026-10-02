@@ -1,56 +1,74 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { RefreshCw, ChevronLeft, ChevronRight, Info, CalendarDays } from 'lucide-react';
-import { CalendarResponse, MonthCalendar, CalendarDay, CalendarEvent } from '../types';
-import { CampusAPI } from '../services/api';
-import { buildExamScheduleMap, getExamForDay, ExamScheduleEntry } from './OverallAttendancePredictorModal';
+import { useMemo, useState, useEffect } from "react";
+import { RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
+import { MonthCalendar, CalendarDay, CalendarResponse } from "../types";
+import { CampusAPI } from "../services/api";
 
 export const CALENDAR_TYPES: Record<string, string> = {
-  ALL: 'General Semester',
-  ALL02: 'General Flexible',
-  ALL03: 'General Freshers',
-  ALL05: 'General LAW',
-  ALL06: 'Flexible Freshers',
-  ALL08: 'Cohort LAW',
-  ALL11: 'Flexible Research',
-  WEI: 'Weekend Intra Semester',
+  ALL: "General Semester",
+  ALL02: "General Flexible",
+  ALL03: "General Freshers",
+  ALL05: "General LAW",
+  ALL06: "Flexible Freshers",
+  ALL08: "Cohort LAW",
+  ALL11: "Flexible Research",
+  WEI: "Weekend Intra Semester",
 };
 
 const HOLIDAY_KEYWORDS = [
-  'holiday', 'pooja', 'puja', 'ayudha', 'diwali', 'deepavali', 'pongal', 'eid', 'christmas', 'good friday',
-  'independence', 'republic', 'onam', 'holi', 'ramadan', 'ganesh', 'maha shivaratri', 'vesak',
-  'vacation', 'term end', 'no instructional', 'noinstructional', 'vinayakar chathurthi', 'gandhi jayanthi', 'gandhi jayanti',
-  'thaipoosam', 'telugu', 'tamil', 'ambedkar', 'muharram', 'milad', 'dussera', 'dussehra'
+  "holiday", "pooja", "puja", "ayudha", "diwali", "deepavali", "pongal", "eid", "christmas", "good friday",
+  "independence", "republic", "onam", "holi", "ramadan", "ganesh", "maha shivaratri", "vesak",
+  "vacation", "term end", "no instructional", "noinstructional", "vinayakar chathurthi", "gandhi jayanthi",
+  "thaipoosam", "telugu", "tamil", "ambedkar"
 ];
 
-function normalize(str = '') {
-  return String(str).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+function normalize(str = ""): string {
+  return String(str).toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
 }
 
-function isHolidayEvent(e: CalendarEvent) {
+function isHolidayEvent(e: any): boolean {
   if (!e) return false;
-  const type = String(e.type || '').toLowerCase();
-  const text = normalize(e.text || '');
-  const cat = normalize(e.category || '');
-  if (type.includes('holiday')) return true;
-  if (type.includes('no instructional')) return true;
-  if (cat.includes('no instructional')) return true;
+  const type = String(e.type || "").toLowerCase();
+  const text = normalize(e.text || "");
+  const cat = normalize(e.category || "");
+  if (type.includes("holiday")) return true;
+  if (type.includes("no instructional")) return true;
+  if (cat.includes("no instructional")) return true;
   for (const kw of HOLIDAY_KEYWORDS) {
     if (text.includes(kw) || cat.includes(kw)) return true;
   }
   return false;
 }
 
-function isInstructionalEvent(e: CalendarEvent) {
+function isInstructionalEvent(e: any): boolean {
   if (!e) return false;
-  const type = String(e.type || '').toLowerCase();
-  const cat = normalize(e.category || '');
-  if (type === 'instructional day') return true;
-  if (cat.includes('working')) return true;
+  const type = String(e.type || "").toLowerCase();
+  const cat = normalize(e.category || "");
+  if (type === "instructional day") return true;
+  if (cat.includes("working")) return true;
   return false;
 }
 
+// Date helpers mirroring date-fns without external package dependency
+function endOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function eachDayOfInterval({ start, end }: { start: Date; end: Date }): Date[] {
+  const dates: Date[] = [];
+  const current = new Date(start);
+  while (current <= end) {
+    dates.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+function getDay(date: Date): number {
+  return date.getDay();
+}
+
 export interface CalendarDayDetails {
-  dayType: 'instructional' | 'holiday' | 'exam' | 'fest' | 'weekend';
+  dayType: "instructional" | "holiday" | "exam" | "fest" | "weekend";
   badgeLabel: string;
   badgeCol: string;
   badgeBg: string;
@@ -62,618 +80,362 @@ export interface CalendarDayDetails {
 }
 
 export function resolveCalendarDayDetails(
-  dayNum: number,
+  _dayNum: number,
   dayInfo: CalendarDay | undefined,
-  year: number,
-  monthIndex: number,
-  examMap: Map<string, ExamScheduleEntry>
+  _year: number,
+  _monthIndex: number,
+  _examMap?: any
 ): CalendarDayDetails {
-  const dateObj = new Date(year, monthIndex, dayNum);
-  const dow = dateObj.getDay(); // 0 = Sun, 6 = Sat
   const events = dayInfo?.events || [];
+  const hasHoliday = events.some(isHolidayEvent);
+  const hasInstructional = events.some(isInstructionalEvent);
+  const isEmpty = events.length === 0;
 
-  // 1. Check Exam
-  const examInfo = getExamForDay(dateObj, events, examMap);
-  if (examInfo.isExam) {
-    const coursePart = examInfo.courseCode ? ` (${examInfo.courseCode})` : '';
-    const slotPart = examInfo.slot ? ` [Slot ${examInfo.slot}]` : '';
+  const semiHolidayEvents = ["CAT - I", "CAT - II", "TechnoVIT", "Vibrance"];
+  const hasSemiHoliday = events.some((e: any) =>
+    semiHolidayEvents.some((keyword) =>
+      (e.text || "").toLowerCase().includes(keyword.toLowerCase()) ||
+      (e.category || "").toLowerCase().includes(keyword.toLowerCase())
+    )
+  );
+
+  let dayType: "semiholiday" | "holiday" | "instructional" | "other" = "other";
+  if (hasSemiHoliday) dayType = "semiholiday";
+  else if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) dayType = "holiday";
+  else if (hasInstructional) dayType = "instructional";
+
+  if (dayType === "semiholiday") {
     return {
-      dayType: 'exam',
-      badgeLabel: examInfo.label || 'Exam',
-      badgeCol: '#c084fc',
-      badgeBg: 'rgba(168, 85, 247, 0.25)',
-      bgCol: 'rgba(168, 85, 247, 0.08)',
-      borderCol: 'rgba(168, 85, 247, 0.4)',
-      primaryDetail: `${examInfo.label} Exam${coursePart}`,
-      secondaryDetail: examInfo.slot ? `Slot ${examInfo.slot}` : 'Semester Assessment',
-      fullDescription: `${examInfo.fullName || `${examInfo.label} Exam`}${coursePart}${slotPart}. Official University Examination Day.`,
+      dayType: "fest",
+      badgeLabel: "On Campus",
+      badgeCol: "#ca8a04",
+      badgeBg: "rgba(234, 179, 8, 0.2)",
+      bgCol: "rgba(234, 179, 8, 0.08)",
+      borderCol: "rgba(234, 179, 8, 0.3)",
+      primaryDetail: events[1]?.category || events[1]?.text || events[0]?.text || "On Campus Event",
+      fullDescription: "Campus Event / Continuous Assessment day.",
     };
   }
 
-  // 2. Check for Fest / College Events
-  const combinedEventText = events.map(e => `${e.text || ''} ${e.category || ''} ${e.type || ''}`).join(' ').toLowerCase();
-  if (combinedEventText.includes('technovit') || combinedEventText.includes('vibrance') || combinedEventText.includes('riviera') || combinedEventText.includes('gravitas')) {
-    const festName = combinedEventText.includes('technovit') ? 'TechnoVIT' : combinedEventText.includes('vibrance') ? 'Vibrance' : combinedEventText.includes('riviera') ? 'Riviera' : 'College Fest';
+  if (dayType === "holiday") {
     return {
-      dayType: 'fest',
-      badgeLabel: 'Event',
-      badgeCol: '#8b5cf6',
-      badgeBg: 'rgba(139, 92, 246, 0.2)',
-      bgCol: 'rgba(139, 92, 246, 0.08)',
-      borderCol: 'rgba(139, 92, 246, 0.35)',
-      primaryDetail: festName,
-      secondaryDetail: 'University Festival',
-      fullDescription: `${festName} Annual Cultural / Technical Festival. Non-Instructional Event.`,
+      dayType: "holiday",
+      badgeLabel: "Holiday",
+      badgeCol: "#dc2626",
+      badgeBg: "rgba(239, 68, 68, 0.2)",
+      bgCol: "rgba(239, 68, 68, 0.08)",
+      borderCol: "rgba(239, 68, 68, 0.3)",
+      primaryDetail: events[1]?.category || events[0]?.text || "University Holiday",
+      fullDescription: "Holiday / Non-instructional day.",
     };
-  }
-
-  // 3. Known Specific Festival / Public Holidays (Fall 2026 / Academic Semester)
-  let specificHolidayName: string | null = null;
-  for (const ev of events) {
-    const txt = (ev.text || '').trim();
-    const cat = (ev.category || '').trim();
-    if (cat && cat !== 'General' && cat !== 'Holiday' && cat !== 'Working Day') {
-      specificHolidayName = cat.replace(/[()]/g, '').trim();
-      break;
-    }
-    const m = txt.match(/\(([^)]+)\)/);
-    if (m && !m[1].toLowerCase().includes('working')) {
-      specificHolidayName = m[1].trim();
-      break;
-    }
-  }
-
-  const ymd = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-  const KNOWN_HOLIDAYS: Record<string, string> = {
-    '2026-08-15': 'Independence Day',
-    '2026-08-27': 'Krishna Janmashtami',
-    '2026-09-07': 'Vinayagar Chaturthi',
-    '2026-09-16': 'Milad-un-Nabi',
-    '2026-10-02': 'Gandhi Jayanti',
-    '2026-10-11': 'Ayudha Pooja',
-    '2026-10-12': 'Vijaya Dasami / Dussehra',
-    '2026-10-31': 'Deepavali (Diwali)',
-    '2026-11-01': 'Diwali Holiday',
-    '2026-11-15': 'Guru Nanak Jayanti',
-    '2026-12-25': 'Christmas',
-  };
-
-  if (!specificHolidayName && KNOWN_HOLIDAYS[ymd]) {
-    specificHolidayName = KNOWN_HOLIDAYS[ymd];
-  }
-
-  const isExplicitHoliday = events.some(isHolidayEvent) || Boolean(specificHolidayName) || combinedEventText.includes('holiday') || combinedEventText.includes('vacation');
-
-  if (isExplicitHoliday) {
-    const holidayTitle = specificHolidayName || 'University Holiday';
-    return {
-      dayType: 'holiday',
-      badgeLabel: 'Holiday',
-      badgeCol: '#ef4444',
-      badgeBg: 'rgba(239, 68, 68, 0.2)',
-      bgCol: 'rgba(239, 68, 68, 0.07)',
-      borderCol: 'rgba(239, 68, 68, 0.35)',
-      primaryDetail: holidayTitle,
-      secondaryDetail: 'Official Holiday',
-      fullDescription: `${holidayTitle} - Declared University Holiday. No classes conducted.`,
-    };
-  }
-
-  // 4. Sundays
-  if (dow === 0) {
-    return {
-      dayType: 'holiday',
-      badgeLabel: 'Sunday',
-      badgeCol: '#f43f5e',
-      badgeBg: 'rgba(244, 63, 94, 0.15)',
-      bgCol: 'rgba(244, 63, 94, 0.04)',
-      borderCol: 'rgba(244, 63, 94, 0.25)',
-      primaryDetail: 'Sunday (Holiday)',
-      secondaryDetail: 'Weekend Non-Working',
-      fullDescription: 'Sunday - Weekly university holiday. No regular classes or lab sessions.',
-    };
-  }
-
-  // 5. Saturdays
-  if (dow === 6) {
-    const isWorkingSaturday = events.some(isInstructionalEvent) || combinedEventText.includes('instructional') || combinedEventText.includes('order of');
-    let orderDetail = '';
-    const m = combinedEventText.match(/order of\s+([a-z]+)/i);
-    if (m) {
-      orderDetail = `Order of ${m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()}`;
-    }
-
-    if (isWorkingSaturday) {
-      return {
-        dayType: 'instructional',
-        badgeLabel: 'Working',
-        badgeCol: '#10b981',
-        badgeBg: 'rgba(16, 185, 129, 0.18)',
-        bgCol: 'rgba(16, 185, 129, 0.06)',
-        borderCol: 'rgba(16, 185, 129, 0.3)',
-        primaryDetail: orderDetail ? `Instructional (${orderDetail})` : 'Instructional Day',
-        secondaryDetail: orderDetail || 'Working Saturday',
-        fullDescription: `Working Saturday — ${orderDetail || 'Regular instructional day according to university notification'}. Attendance recorded.`,
-      };
-    }
-
-    return {
-      dayType: 'weekend',
-      badgeLabel: 'Weekend',
-      badgeCol: '#94a3b8',
-      badgeBg: 'rgba(148, 163, 184, 0.15)',
-      bgCol: 'rgba(148, 163, 184, 0.03)',
-      borderCol: 'rgba(148, 163, 184, 0.2)',
-      primaryDetail: 'Saturday (Weekend)',
-      secondaryDetail: 'No Classes',
-      fullDescription: 'Saturday - University weekend. No instructional classes scheduled.',
-    };
-  }
-
-  // 6. Regular Weekdays (Mon - Fri)
-  let orderInfo = '';
-  const orderMatch = combinedEventText.match(/order of\s+([a-z]+)/i);
-  if (orderMatch) {
-    orderInfo = `Order of ${orderMatch[1].charAt(0).toUpperCase() + orderMatch[1].slice(1).toLowerCase()}`;
   }
 
   return {
-    dayType: 'instructional',
-    badgeLabel: 'Working',
-    badgeCol: '#10b981',
-    badgeBg: 'rgba(16, 185, 129, 0.18)',
-    bgCol: 'rgba(16, 185, 129, 0.05)',
-    borderCol: 'rgba(16, 185, 129, 0.25)',
-    primaryDetail: orderInfo ? `Instructional (${orderInfo})` : 'Instructional Day',
-    secondaryDetail: orderInfo || 'Regular Timetable',
-    fullDescription: orderInfo
-      ? `Instructional Working Day following ${orderInfo} timetable.`
-      : 'Instructional Working Day following normal weekday schedule. Attendance recorded.',
+    dayType: "instructional",
+    badgeLabel: "Working",
+    badgeCol: "#16a34a",
+    badgeBg: "rgba(22, 163, 74, 0.2)",
+    bgCol: "rgba(22, 163, 74, 0.08)",
+    borderCol: "rgba(22, 163, 74, 0.3)",
+    primaryDetail: events[1]?.category || events[1]?.text || "Instructional Day",
+    fullDescription: "Regular instructional working day.",
   };
 }
 
-interface CalendarViewProps {
+export interface CalendarViewProps {
+  calendars?: any;
   initialCalendars?: MonthCalendar[];
   calendarType?: string;
+  handleCalendarFetch?: (type: string) => void | Promise<void>;
   onCalendarTypeChange?: (newType: string) => void;
   exams?: any;
   attendance?: any[];
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({
+export function CalendarView({
+  calendars,
   initialCalendars,
-  calendarType = 'ALL',
+  calendarType = "ALL",
+  handleCalendarFetch,
   onCalendarTypeChange,
-  exams,
-  attendance,
-}) => {
-  const [calendarData, setCalendarData] = useState<CalendarResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [selectedType, setSelectedType] = useState(calendarType || 'ALL');
-  const [activeIdx, setActiveIdx] = useState<number>(0);
-  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
+}: CalendarViewProps) {
+  const [internalCalendars, setInternalCalendars] = useState<any>(calendars || initialCalendars || null);
+  const [currentType, setCurrentType] = useState<string>(calendarType || "ALL");
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchCalendar = async (typeToFetch = selectedType) => {
+  // Sync props if parent updates them
+  useEffect(() => {
+    if (calendars) setInternalCalendars(calendars);
+    else if (initialCalendars) setInternalCalendars(initialCalendars);
+  }, [calendars, initialCalendars]);
+
+  // Built-in calendar fetcher if parent did not provide handleCalendarFetch
+  const executeCalendarFetch = async (typeToFetch: string) => {
+    if (handleCalendarFetch) {
+      handleCalendarFetch(typeToFetch);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await CampusAPI.getCalendar(undefined, typeToFetch);
+      const data: CalendarResponse = await CampusAPI.getCalendar(undefined, typeToFetch);
       if (data && data.calendars && data.calendars.length > 0) {
-        setCalendarData(data);
-        // Auto-select current month (e.g. SEPTEMBER)
-        const now = new Date();
-        const currentMonthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
-        const matchedIdx = data.calendars.findIndex((c) =>
-          c.month.toUpperCase().includes(currentMonthName)
-        );
-        setActiveIdx(matchedIdx >= 0 ? matchedIdx : 0);
+        setInternalCalendars(data.calendars);
+        setCurrentType(typeToFetch);
+        if (onCalendarTypeChange) {
+          onCalendarTypeChange(typeToFetch);
+        }
       }
     } catch (err) {
-      console.warn('[CalendarView] Failed to fetch academic calendar:', err);
+      console.error("[CalendarView] Failed to fetch academic calendar from VTOP:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  // If no calendar data exists at all on mount, trigger automatic fetch
   useEffect(() => {
-    if (initialCalendars && initialCalendars.length > 0) {
-      setCalendarData({ semesterId: 'CH20262701', calendars: initialCalendars });
-      const now = new Date();
-      const curMonth = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
-      const idx = initialCalendars.findIndex((c) => c.month.toUpperCase().includes(curMonth));
-      setActiveIdx(idx >= 0 ? idx : 0);
-    } else {
-      fetchCalendar();
+    if (!internalCalendars || (Array.isArray(internalCalendars) && internalCalendars.length === 0)) {
+      executeCalendarFetch(currentType);
     }
-  }, [initialCalendars]);
+  }, []);
 
-  const safeCalendars = useMemo<MonthCalendar[]>(() => {
-    if (!calendarData || !calendarData.calendars) return [];
-    return calendarData.calendars;
-  }, [calendarData]);
+  const safeCalendars = useMemo(() => {
+    const src = internalCalendars || calendars || initialCalendars;
+    if (!src) return [];
+    if (Array.isArray(src)) return src;
+    if (src.calendars && Array.isArray(src.calendars)) return src.calendars;
+    return [src];
+  }, [internalCalendars, calendars, initialCalendars]);
 
-  const activeCalendar = safeCalendars[activeIdx] || null;
+  const [activeIdx, setActiveIdx] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("calendar-active-index");
+      return saved ? Number(saved) || 0 : 0;
+    }
+    return 0;
+  });
 
-  // Month parse
+  useEffect(() => {
+    localStorage.setItem("calendar-active-index", String(activeIdx));
+  }, [activeIdx]);
+
+  const activeCalendar = safeCalendars[activeIdx] || {};
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
   const { year, monthIndex } = useMemo(() => {
     const now = new Date();
-    if (!activeCalendar) return { year: now.getFullYear(), monthIndex: now.getMonth() };
 
     const MONTH_NAME_MAP: Record<string, number> = {
       jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
       jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
     };
 
-    const rawMonth = String(activeCalendar.month || '').trim();
+    const rawMonth = String(activeCalendar.month || "").trim();
     const match = rawMonth.match(/([a-zA-Z]+)\s+(\d{4})/);
 
     let parsedMonthIndex = now.getMonth();
     let parsedYear = now.getFullYear();
 
     if (match) {
-      const monthPrefix = match[1].toLowerCase().slice(0, 3);
-      parsedMonthIndex = MONTH_NAME_MAP[monthPrefix] ?? parsedMonthIndex;
+      const monthName = match[1].toLowerCase().slice(0, 3);
+      parsedMonthIndex = MONTH_NAME_MAP[monthName] ?? parsedMonthIndex;
       parsedYear = parseInt(match[2], 10);
-    } else if (activeCalendar.year) {
-      parsedYear = activeCalendar.year;
     }
 
-    return { year: parsedYear, monthIndex: parsedMonthIndex };
-  }, [activeCalendar]);
-
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  const daysGrid = useMemo(() => {
-    if (!activeCalendar) return { blanks: [], days: [] };
-    const monthStart = new Date(year, monthIndex, 1);
-    const firstDay = monthStart.getDay(); // 0 is Sunday
-    // Monday as first day of week: (firstDay + 6) % 7
-    const blanksCount = (firstDay + 6) % 7;
-    const blanks = Array.from({ length: blanksCount }, (_, i) => i);
-
-    const totalDays = new Date(year, monthIndex + 1, 0).getDate();
-    const days: number[] = Array.from({ length: totalDays }, (_, i) => i + 1);
-
-    return { blanks, days };
-  }, [activeCalendar, year, monthIndex]);
-
-  const examMap = useMemo(() => {
-    return buildExamScheduleMap(exams, attendance);
-  }, [exams, attendance]);
-
-  const dayDetailsMap = useMemo(() => {
-    const map = new Map<number, CalendarDayDetails>();
-    daysGrid.days.forEach((dayNum) => {
-      const dayInfo = activeCalendar?.days?.find((d) => d.date === dayNum);
-      const details = resolveCalendarDayDetails(dayNum, dayInfo, year, monthIndex, examMap);
-      map.set(dayNum, details);
-    });
-    return map;
-  }, [daysGrid.days, activeCalendar, year, monthIndex, examMap]);
-
-  // Statistics for active calendar month
-  const stats = useMemo(() => {
-    let instructional = 0;
-    let holidays = 0;
-    let exams = 0;
-
-    dayDetailsMap.forEach((details) => {
-      if (details.dayType === 'exam') exams++;
-      else if (details.dayType === 'holiday' || details.dayType === 'weekend') holidays++;
-      else if (details.dayType === 'instructional') instructional++;
-    });
-
     return {
-      total: daysGrid.days.length,
-      instructional,
-      holidays,
-      exams,
+      year: parsedYear,
+      monthIndex: parsedMonthIndex,
     };
-  }, [dayDetailsMap, daysGrid.days.length]);
+  }, [activeCalendar.month]);
 
-  const getDayInfo = (dayNum: number): CalendarDay | undefined => {
-    if (!activeCalendar) return undefined;
-    return activeCalendar.days.find((d) => d.date === dayNum);
-  };
+  if (!safeCalendars.length) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center text-gray-400">
+        <CalendarIcon className="w-12 h-12 mb-3 opacity-60 text-blue-500" />
+        <p className="text-base font-semibold text-gray-200">No Academic Calendar Found</p>
+        <p className="text-xs text-gray-400 mt-1">Please reload or query VTOP academic calendar.</p>
+        <button
+          onClick={() => executeCalendarFetch(currentType)}
+          disabled={loading}
+          className="mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
+        >
+          <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          <span>{loading ? "Fetching..." : "Fetch Calendar"}</span>
+        </button>
+      </div>
+    );
+  }
 
+  let monthStart = new Date(year, monthIndex, 1);
+  let daysInMonth: Date[] = [];
+  try {
+    const monthEnd = endOfMonth(monthStart);
+    daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  } catch {
+    const totalDays = Number(activeCalendar.totalDays) || 31;
+    daysInMonth = Array.from({ length: totalDays }, (_, i) => new Date(year, monthIndex, i + 1));
+  }
+
+  const firstDay = getDay(monthStart);
+  const blanksCount = (firstDay + 6) % 7;
+  const blanks = Array.from({ length: blanksCount }, (_, i) => i);
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthIndex;
 
-  const handleTypeSubmit = () => {
-    if (onCalendarTypeChange) {
-      onCalendarTypeChange(selectedType);
-    }
-    fetchCalendar(selectedType);
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* 1. Header Card with Title and Actions */}
-      <div className="card" style={{ borderLeft: '4px solid var(--accent-blue)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '10px',
-                background: 'rgba(59, 130, 246, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-blue)',
-              }}
-            >
-              <CalendarDays size={24} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 className="card-title" style={{ margin: 0 }}>
-                  Academic Calendar
-                </h3>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    color: 'var(--accent-blue)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                  }}
-                >
-                  {CALENDAR_TYPES[selectedType] || selectedType}
-                </span>
-              </div>
-              <p className="card-description" style={{ margin: 0, marginTop: '2px' }}>
-                Official instructional schedules, examination milestones (CAT I, CAT II, FAT), and sanctioned holidays.
-              </p>
-            </div>
-          </div>
+    <div className="flex flex-col gap-4 w-full">
+      {/* 1. Header with Calendar Type and Refresh Button */}
+      <h1 className="text-lg font-semibold mb-3 text-center text-gray-800 dark:text-gray-100 midnight:text-gray-100 flex items-center justify-center gap-2">
+        <span>Academic Calendar ({CALENDAR_TYPES[currentType] || currentType})</span>
+        <button
+          onClick={() => executeCalendarFetch(currentType)}
+          disabled={loading}
+          title="Refresh calendar from VTOP"
+          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors flex items-center justify-center"
+        >
+          <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
+      </h1>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => fetchCalendar(selectedType)}
-              disabled={loading}
-              className="btn btn-ghost btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border-color)' }}
-              title="Refresh academic calendar ledger"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              <span>{loading ? 'Refreshing...' : 'Refresh Calendar'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 2. Month Selector Pills */}
-        {safeCalendars.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginTop: '16px',
-              paddingTop: '16px',
-              borderTop: '1px solid var(--border-color)',
-              overflowX: 'auto',
-              paddingBottom: '4px',
-            }}
+      {/* 2. Month Selector Tabs */}
+      <div className="flex gap-2 mb-3 justify-center flex-wrap">
+        {safeCalendars.map((calendar: any, idx: number) => (
+          <button
+            key={calendar.id || calendar.month || idx}
+            onClick={() => setActiveIdx(idx)}
+            className={`px-4 py-2 rounded-md text-sm md:text-base font-medium transition-colors duration-150 ${
+              idx === activeIdx
+                ? "bg-blue-600 text-white dark:bg-blue-700 midnight:bg-blue-800"
+                : "bg-gray-200 text-gray-700 hover:bg-blue-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 midnight:bg-black midnight:text-gray-200 midnight:hover:bg-gray-800 midnight:outline midnight:outline-1 midnight:outline-gray-800"
+            }`}
           >
-            {safeCalendars.map((cal, idx) => {
-              const isActive = idx === activeIdx;
-              return (
-                <button
-                  key={cal.month || idx}
-                  onClick={() => {
-                    setActiveIdx(idx);
-                    setSelectedDay(null);
-                  }}
-                  className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    borderRadius: '8px',
-                    whiteSpace: 'nowrap',
-                    border: isActive ? 'none' : '1px solid var(--border-color)',
-                  }}
-                >
-                  {cal.month}
-                </button>
-              );
-            })}
-          </div>
-        )}
+            {calendar.month ?? "Month"} {calendar.year ?? ""}
+          </button>
+        ))}
       </div>
 
-      {/* 3. Main Calendar Container */}
-      <div className="card">
-        {/* Month Title Bar & Quick Stats */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '16px',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              onClick={() => {
-                setActiveIdx((prev) => Math.max(0, prev - 1));
-                setSelectedDay(null);
-              }}
-              disabled={activeIdx === 0}
-              className="btn btn-ghost btn-sm"
-              style={{ padding: '6px 8px' }}
-            >
-              <ChevronLeft size={16} />
-            </button>
+      {/* 3. Calendar Grid for Selected Month */}
+      <div data-scrollable key={activeIdx} className="w-full">
+        <h2 className="text-2xl font-semibold mb-4 text-center text-gray-800 dark:text-gray-100 midnight:text-gray-200">
+          {activeCalendar.month ?? monthStart.toLocaleString(undefined, { month: "long" })}
+        </h2>
 
-            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, minWidth: '170px', textAlign: 'center' }}>
-              {activeCalendar?.month || 'Semester Calendar'}
-            </h3>
-
-            <button
-              onClick={() => {
-                setActiveIdx((prev) => Math.min(safeCalendars.length - 1, prev + 1));
-                setSelectedDay(null);
-              }}
-              disabled={activeIdx >= safeCalendars.length - 1}
-              className="btn btn-ghost btn-sm"
-              style={{ padding: '6px 8px' }}
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {/* Month Stats */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.80rem' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-              <span style={{ color: 'var(--text-muted)' }}>Instructional: <strong>{stats.instructional}</strong></span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.80rem' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
-              <span style={{ color: 'var(--text-muted)' }}>Holidays: <strong>{stats.holidays}</strong></span>
-            </div>
-            {stats.exams > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.80rem' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
-                <span style={{ color: 'var(--text-muted)' }}>Exams: <strong>{stats.exams}</strong></span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 7-column Calendar Grid */}
-        <div style={{ overflowX: 'auto', width: '100%' }}>
-          <div
-            style={{
-              minWidth: '700px',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: '8px',
-              textAlign: 'center',
-            }}
-          >
-            {weekdays.map((w) => (
+        <div className="overflow-x-auto">
+          <div className="w-full min-w-[950px] grid grid-cols-7 text-center border-collapse">
+            {weekdays.map((day) => (
               <div
-                key={w}
-                style={{
-                  padding: '10px 0',
-                  fontSize: '0.80rem',
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  borderBottom: '1px solid var(--border-color)',
-                }}
+                key={day}
+                className="font-semibold py-2 border-b text-gray-700 dark:text-gray-200 midnight:text-gray-100 bg-gray-100 dark:bg-gray-800 midnight:bg-gray-900"
               >
-                {w}
+                {day}
               </div>
             ))}
 
-            {daysGrid.blanks.map((b) => (
-              <div key={`blank-${b}`} style={{ minHeight: '85px', opacity: 0.15 }} />
+            {blanks.map((_, i) => (
+              <div key={`blank-${i}`} className="h-36" />
             ))}
 
-            {daysGrid.days.map((dayNum) => {
-              const dayInfo = getDayInfo(dayNum);
-              const details = dayDetailsMap.get(dayNum) || resolveCalendarDayDetails(dayNum, dayInfo, year, monthIndex, examMap);
-              const isSelected = selectedDay?.date === dayNum;
-              const isToday = isCurrentMonth && dayNum === today.getDate();
+            {daysInMonth.map((dateObj) => {
+              const date = dateObj.getDate();
+              const dayInfo = Array.isArray(activeCalendar.days)
+                ? activeCalendar.days.find((d: any) => Number(d.date) === date)
+                : undefined;
+              const events = dayInfo?.events || [];
 
-              let borderCol = details.borderCol;
-              let bgCol = details.bgCol;
-              let badgeCol = details.badgeCol;
-              let badgeBg = details.badgeBg;
-              let badgeLabel = details.badgeLabel;
+              const hasHoliday = events.some(isHolidayEvent);
+              const hasInstructional = events.some(isInstructionalEvent);
+              const isEmpty = events.length === 0;
+              const isToday = isCurrentMonth && dateObj.getDate() === today.getDate();
 
-              if (isSelected) {
-                borderCol = '#3b82f6';
-                bgCol = 'rgba(59, 130, 246, 0.15)';
-              }
+              const semiHolidayEvents = ["CAT - I", "CAT - II", "TechnoVIT", "Vibrance"];
+              const hasSemiHoliday = events.some((e: any) =>
+                semiHolidayEvents.some((keyword) =>
+                  (e.text || "").toLowerCase().includes(keyword.toLowerCase()) ||
+                  (e.category || "").toLowerCase().includes(keyword.toLowerCase())
+                )
+              );
+
+              let dayType = "other";
+              if (hasSemiHoliday) dayType = "semiholiday";
+              else if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) dayType = "holiday";
+              else if (hasInstructional) dayType = "instructional";
+
+              const bgClass =
+                dayType === "holiday"
+                  ? "bg-red-50 dark:bg-red-900/30 midnight:bg-red-900/30"
+                  : dayType === "instructional"
+                  ? "bg-green-50 dark:bg-green-900/30 midnight:bg-green-900/30"
+                  : dayType === "semiholiday"
+                  ? "bg-yellow-50 dark:bg-yellow-900/30 midnight:bg-yellow-900/30"
+                  : "bg-gray-50 dark:bg-gray-900/30 midnight:bg-gray-900/30";
+
+              // Events to render as badge pills
+              const eventsToRender =
+                events.length > 1
+                  ? events.slice(1)
+                  : events.length === 1 && !events[0].text?.toLowerCase().includes("instructional day")
+                  ? events
+                  : [];
 
               return (
                 <div
-                  key={dayNum}
-                  onClick={() => setSelectedDay(dayInfo || { date: dayNum, events: [] })}
-                  style={{
-                    minHeight: '85px',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    backgroundColor: bgCol,
-                    border: `1px solid ${borderCol}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    justifyContent: 'flex-start',
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isToday ? '0 0 0 2px #3b82f6' : 'none',
-                  }}
+                  key={date}
+                  className={`relative flex flex-col items-start justify-start p-3 h-42 shadow-sm border border-gray-200 dark:border-gray-800 ${bgClass} ${
+                    isToday
+                      ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-900 midnight:ring-offset-black"
+                      : ""
+                  }`}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                    <span
-                      style={{
-                        fontSize: '0.92rem',
-                        fontWeight: 700,
-                        fontFamily: 'var(--font-mono)',
-                        color: isToday ? '#3b82f6' : 'inherit',
-                      }}
+                  <div className="w-full flex items-center justify-between">
+                    <div className="text-lg font-bold text-left text-gray-800 dark:text-gray-100 midnight:text-gray-200">
+                      {date}
+                    </div>
+                    <div
+                      className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                        dayType === "holiday"
+                          ? "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-100 midnight:bg-red-900 midnight:text-red-200"
+                          : dayType === "instructional"
+                          ? "bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-100 midnight:bg-green-900 midnight:text-green-200"
+                          : dayType === "semiholiday"
+                          ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100 midnight:bg-yellow-900 midnight:text-yellow-200"
+                          : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100 midnight:bg-gray-800 midnight:text-gray-200"
+                      }`}
                     >
-                      {dayNum}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.62rem',
-                        fontWeight: 700,
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        backgroundColor: badgeBg,
-                        color: badgeCol,
-                      }}
-                    >
-                      {badgeLabel}
-                    </span>
+                      {dayType === "holiday"
+                        ? "Holiday"
+                        : dayType === "instructional"
+                        ? "Working"
+                        : dayType === "semiholiday"
+                        ? "On Campus"
+                        : "Other"}
+                    </div>
                   </div>
 
-                  {/* Day detail pill: always displays what is on this day! */}
-                  <div style={{ marginTop: '5px', width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-                    <div
-                      style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 600,
-                        lineHeight: '1.15',
-                        padding: '2px 4px',
-                        borderRadius: '3px',
-                        backgroundColor: badgeBg,
-                        color: badgeCol,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={details.primaryDetail}
-                    >
-                      {details.primaryDetail}
-                    </div>
-                    {details.secondaryDetail && (
-                      <div
-                        style={{
-                          fontSize: '0.62rem',
-                          lineHeight: '1.1',
-                          padding: '1px 3px',
-                          color: 'var(--text-muted)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                        title={details.secondaryDetail}
-                      >
-                        {details.secondaryDetail}
-                      </div>
+                  <div className="mt-2 w-full text-left overflow-y-auto max-h-32">
+                    {eventsToRender.length > 0 && (
+                      <ul className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-300 midnight:text-gray-200">
+                        {eventsToRender.map((e: any, i: number) => {
+                          const tagClass = isHolidayEvent(e)
+                            ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-800/40 dark:text-red-200 midnight:bg-red-950/40 midnight:text-red-300"
+                            : isInstructionalEvent(e)
+                            ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-800/40 dark:text-green-200 midnight:bg-green-950/40 midnight:text-green-300"
+                            : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-800/40 dark:text-yellow-200 midnight:bg-yellow-950/40 midnight:text-yellow-300";
+                          const label = e.category && e.category !== "General" ? e.category : e.text;
+                          const parts = String(label)
+                            .split("/")
+                            .map((p: string) => p.trim())
+                            .filter(Boolean);
+                          return parts.map((p: string, j: number) => (
+                            <li
+                              key={`${i}-${j}`}
+                              className={`inline-block px-2 py-1 rounded border ${tagClass} mr-1 mb-1`}
+                              title={e.text}
+                            >
+                              {p.replace(/^\(|\)$/g, "")}
+                            </li>
+                          ));
+                        })}
+                      </ul>
                     )}
                   </div>
                 </div>
@@ -681,166 +443,69 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             })}
           </div>
         </div>
-
-        {/* 4. Selected Day Inspector Drawer / Card */}
-        {selectedDay && (() => {
-          const dayInfo = getDayInfo(selectedDay.date);
-          const details = dayDetailsMap.get(selectedDay.date) || resolveCalendarDayDetails(selectedDay.date, dayInfo, year, monthIndex, examMap);
-          const events = selectedDay.events || dayInfo?.events || [];
-
-          return (
-            <div
-              style={{
-                marginTop: '20px',
-                padding: '16px',
-                borderRadius: '12px',
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Info size={16} color="var(--accent-blue)" />
-                  <span>
-                    Schedule for {activeCalendar?.month} {selectedDay.date}
-                  </span>
-                </h4>
-                <button
-                  onClick={() => setSelectedDay(null)}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '2px 8px', fontSize: '0.78rem' }}
-                >
-                  Close
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {/* Primary resolved classification */}
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    backgroundColor: details.bgCol,
-                    border: `1px solid ${details.borderCol}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '8px',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 700, color: details.badgeCol }}>
-                      {details.primaryDetail} {details.secondaryDetail ? `• ${details.secondaryDetail}` : ''}
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {details.fullDescription}
-                    </div>
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '0.74rem',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: details.badgeBg,
-                      color: details.badgeCol,
-                    }}
-                  >
-                    {details.badgeLabel}
-                  </span>
-                </div>
-
-                {/* Specific university event records if available */}
-                {events.map((ev, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: ev.color || details.badgeCol || '#3b82f6',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{ev.text}</div>
-                      {ev.category && (
-                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          Category: {ev.category} • Type: {ev.type}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
-      {/* 5. Calendar Type Switcher (CampusOS Model) */}
-      <div
-        className="card"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          textAlign: 'center',
-          gap: '12px',
-        }}
-      >
-        <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
-          Select University Academic Calendar Type
-        </h4>
-        <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '500px' }}>
-          Different degree programs follow tailored institutional calendars for regular working days, continuous assessment periods, and lab exams.
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            style={{
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              backgroundColor: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              fontSize: '0.88rem',
-              minWidth: '220px',
-            }}
-          >
-            {Object.entries(CALENDAR_TYPES).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label} ({value})
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleTypeSubmit}
-            disabled={loading}
-            className="btn btn-primary btn-sm"
-            style={{ padding: '8px 18px', fontWeight: 600 }}
-          >
-            {loading ? 'Switching...' : 'Switch Calendar'}
-          </button>
-        </div>
-      </div>
+      {/* 4. UniCC Calendar Type Switcher Wrapper */}
+      <CalendarTabWrapper
+        calendarType={currentType}
+        handleCalendarFetch={executeCalendarFetch}
+        loading={loading}
+      />
     </div>
   );
-};
+}
+
+function CalendarTabWrapper({
+  calendarType,
+  handleCalendarFetch,
+  loading,
+}: {
+  calendarType?: string;
+  handleCalendarFetch: (type: string) => void | Promise<void>;
+  loading?: boolean;
+}) {
+  const [selectedType, setSelectedType] = useState<string>(calendarType || "ALL");
+
+  useEffect(() => {
+    if (calendarType) setSelectedType(calendarType);
+  }, [calendarType]);
+
+  function handleSubmitCalendarType() {
+    handleCalendarFetch(selectedType);
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 p-6 text-center mt-6 border-t border-gray-200 dark:border-gray-800">
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 midnight:text-gray-100">
+        Select Calendar Type
+      </h2>
+
+      <select
+        value={selectedType}
+        onChange={(e) => setSelectedType(e.target.value)}
+        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 
+                   dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100
+                   midnight:bg-[#0f172a] midnight:text-gray-100
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+      >
+        {Object.entries(CALENDAR_TYPES).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label} ({value})
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={handleSubmitCalendarType}
+        disabled={loading}
+        className="px-6 py-2 rounded-md font-medium text-white bg-blue-600 hover:bg-blue-700 
+                   dark:bg-blue-500 dark:hover:bg-blue-600
+                   transition shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+      >
+        {loading ? "Switching..." : "Submit"}
+      </button>
+    </div>
+  );
+}
+
+export default CalendarView;
