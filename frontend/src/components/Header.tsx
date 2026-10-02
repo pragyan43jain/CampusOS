@@ -86,7 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
       case 'fees':
         return 'Fees & Ledger';
       case 'placements':
-        return 'Placements & DSA';
+        return 'LeetCode';
       case 'ai-planner':
         return 'AI Study Planner';
       default:

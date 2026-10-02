@@ -10,7 +10,7 @@ import {
   User,
   ClipboardList,
   CreditCard,
-  Briefcase,
+  Code2,
   Building,
   BrainCircuit,
   ShieldCheck,
@@ -28,7 +28,6 @@ import {
   DSACategory,
 } from '../types';
 import { CampusAPI } from '../services/api';
-import { calculatePlacementEligibility } from '../services/placementService';
 import { NavView } from '../components/Sidebar';
 import { BentoGrid } from '../components/ui/bento-grid';
 import { BentoCard } from '../components/ui/bento-card';
@@ -62,8 +61,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   timetable,
   assignments = [],
   fees = [],
-  placements = [],
-  dsaTopics = [],
+  placements: _placements = [],
+  dsaTopics: _dsaTopics = [],
   aiTasks = [],
   onSync,
   syncing = false,
@@ -332,11 +331,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const displayRoom = getCleanRoom(rawRoom, isHosteller);
   const displayMessAndLeave = getCleanMessAndLeave(rawMess, isHosteller, hostelDetails?.leaveHistory);
 
-  // 2. Institutional Placement & DSA Status
-  const placementEligibility = calculatePlacementEligibility(student);
-  const totalDsaSolved = dsaTopics.reduce((acc, t) => acc + (t.solved || 0), 0);
-
-  // 3. Pending Fee Balance Calculation
+  // 2. Pending Fee Balance Calculation
   const pendingDuesTotal = fees
     .filter((f) => f.status === 'Pending' || ((f.pendingAmount ?? 0) > 0))
     .reduce((sum, f) => sum + (f.pendingAmount ?? f.amount ?? 0), 0);
@@ -575,56 +570,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </BentoCard>
 
-          {/* Card 4: Placements & DSA (1 col) */}
+          {/* Card 4: LeetCode (1 col) */}
           <BentoCard
             colSpan={1}
             tilt={true}
-            title="Placements & DSA"
-            description="Drives, CTC packages & practice"
-            icon={<Briefcase size={20} className="text-purple-400" />}
+            title="LeetCode"
+            description="Problem statistics & topic practice"
+            icon={<Code2 size={20} className="text-amber-400" />}
             badge={
-              <span
-                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                  placementEligibility.isSuperDreamEligible
-                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/25'
-                    : placementEligibility.isDreamEligible
-                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25'
-                    : placementEligibility.tier === 'Core'
-                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/25'
-                    : 'bg-neutral-500/10 text-neutral-400 border-neutral-500/25'
-                }`}
-              >
-                {placements && placements.length > 0
-                  ? `${placements.length} Drives`
-                  : placementEligibility.tier !== 'Unavailable'
-                  ? placementEligibility.tier
-                  : 'Active'}
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-amber-500/10 text-amber-400 border-amber-500/25">
+                {typeof window !== 'undefined' && localStorage.getItem('campusos_leetcode_username')
+                  ? `@${localStorage.getItem('campusos_leetcode_username')}`
+                  : 'Link Account'}
               </span>
             }
             onClick={() => onSelectView?.('placements')}
-            ctaText="Open Placement Hub"
+            ctaText="Open LeetCode Hub"
           >
             <div className="p-3 rounded-xl bg-[#181818] border border-[#262626] my-2">
-              <div className="text-xs text-neutral-400">Eligibility Status</div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-1 truncate">
-                {placementEligibility.tier === 'Unavailable'
-                  ? 'Sync Required'
-                  : placementEligibility.standingArrears > 0
-                  ? 'Arrears Active'
-                  : placementEligibility.tier}
+              <div className="text-xs text-neutral-400">
+                {typeof window !== 'undefined' && localStorage.getItem('campusos_leetcode_username')
+                  ? 'Connected Profile'
+                  : 'LeetCode Account'}
               </div>
-              <div className="text-[11px] text-purple-300/80 mt-1 truncate">
-                {placementEligibility.tier === 'Unavailable'
-                  ? 'Sync VTOP to calculate eligibility'
-                  : placementEligibility.standingArrears > 0
-                  ? `${placementEligibility.standingArrears} Standing Arrear${placementEligibility.standingArrears > 1 ? 's' : ''} restrict drives`
-                  : totalDsaSolved > 0
-                  ? `${totalDsaSolved} DSA solved • ${placementEligibility.isSuperDreamEligible ? 'Super Dream' : placementEligibility.tier} drives`
-                  : placementEligibility.isSuperDreamEligible
-                  ? 'Super Dream & Dream drives'
-                  : placementEligibility.isDreamEligible
-                  ? 'Dream & Regular drives'
-                  : 'Regular & Core drives'}
+              <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-1 truncate">
+                {typeof window !== 'undefined' && localStorage.getItem('campusos_leetcode_username')
+                  ? `@${localStorage.getItem('campusos_leetcode_username')}`
+                  : 'Link Account'}
+              </div>
+              <div className="text-[11px] text-amber-300/80 mt-1 truncate">
+                {typeof window !== 'undefined' && localStorage.getItem('campusos_leetcode_username')
+                  ? 'Live problem statistics & contest matrix'
+                  : 'Connect profile for algorithmic stats'}
               </div>
             </div>
           </BentoCard>

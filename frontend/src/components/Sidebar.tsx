@@ -4,7 +4,7 @@ import {
   GraduationCap,
   ClipboardList,
   CreditCard,
-  Briefcase,
+  Code2,
   BrainCircuit,
   Zap,
   LogOut,
@@ -50,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: pendingAssignmentsCount > 0 ? { count: pendingAssignmentsCount, alert: false } : undefined,
     },
     { id: 'fees' as NavView, label: 'Fees & Ledger', icon: CreditCard },
-    { id: 'placements' as NavView, label: 'Placements & DSA', icon: Briefcase },
+    { id: 'placements' as NavView, label: 'LeetCode', icon: Code2 },
     { id: 'hostel' as NavView, label: 'Hostel & Living', icon: Building },
   ];
 

@@ -290,20 +290,27 @@ def fetch_od(
     fast_mode: bool = False,
 ) -> Dict[str, Any]:
     """
-    Fetch and parse student On-Duty (OD) hours.
-    Extracts credited OD lectures from class attendance and probes primary OD endpoint.
-    Optimized for rapid serverless response times.
+    Fetch and parse student On-Duty (OD) hours directly from VTOP:
+    Academics -> Student OD details (official university OD module).
     """
     best_result: Optional[Dict[str, Any]] = None
     selected_ep: Optional[str] = None
 
-    # 1. Primary candidate endpoint probe (bounded to 1-2 calls max)
-    primary_candidates = [
-        (C.OD, "semester", True),
+    # Probe official VTOP Student OD endpoints under Academics -> Student OD details
+    candidates = [
+        ("processViewStudentODDetails", "semester", True),
         ("processViewStudentOD", "semester", True),
-    ] if not fast_mode else [(C.OD, "semester", True)]
+        (C.OD, "semester", True),
+        ("academics/common/StudentODDetails", "semester", True),
+        ("academics/common/processViewStudentODDetails", "semester", True),
+        ("academics/common/processViewStudentOD", "semester", True),
+        ("academics/StudentODDetails", "semester", True),
+        ("students/viewStudentODDetails", "menu", True),
+        (C.OD, "od", True),
+        (C.OD, "menu", True),
+    ]
 
-    for endpoint, req_type, csrf_first in primary_candidates:
+    for endpoint, req_type, csrf_first in candidates:
         try:
             html: Optional[str] = None
             if req_type == "semester" and semester_id:
@@ -329,118 +336,6 @@ def fetch_od(
                         selected_ep = endpoint
         except Exception as e:
             logger.debug("[VTOP OD] Probe '%s' exception: %s", endpoint, e)
-
-    # 2. Extract OD records from course attendance rows (UniCC method)
-    att_od_records: List[Dict[str, Any]] = []
-    if attendance_rows:
-        for row in attendance_rows:
-            vlink = row.get("viewLink") or []
-            slot = row.get("slotName") or row.get("slot") or ""
-            c_code = (row.get("courseCode") or "").upper()
-            c_title = row.get("courseTitle") or c_code
-            is_lab = slot.upper().startswith("L") or c_code.endswith("P")
-            hours = 2 if is_lab else 1
-
-            has_row_od = False
-            if isinstance(vlink, list):
-                for day in vlink:
-                    st = (day.get("status") or "").strip().lower()
-                    if st in ("on duty", "od", "duty"):
-                        has_row_od = True
-                        d = day.get("date") or "Active Semester"
-                        att_od_records.append({
-                            "id": f"od-{c_code}-{d}",
-                            "date": d,
-                            "fromDate": d,
-                            "toDate": d,
-                            "fromTime": None,
-                            "toTime": None,
-                            "timeRange": None,
-                            "subjectCode": c_code,
-                            "subjectTitle": c_title,
-                            "hours": hours,
-                            "days": 1,
-                            "slot": slot,
-                            "type": "LAB" if is_lab else "TH",
-                            "reason": f"Class Attendance On-Duty ({c_code})",
-                            "status": "Approved",
-                            "isApproved": True,
-                            "approvedBy": row.get("facultyName") or "Course Faculty / VTOP",
-                        })
-
-            if not has_row_od:
-                od_cnt = row.get("odAttended") or row.get("odHours") or 0
-                if od_cnt and int(od_cnt) > 0:
-                    cnt = int(od_cnt)
-                    att_od_records.append({
-                        "id": f"od-{c_code}-summary",
-                        "date": "Active Semester",
-                        "fromDate": "Active Semester",
-                        "toDate": "Active Semester",
-                        "fromTime": None,
-                        "toTime": None,
-                        "timeRange": None,
-                        "subjectCode": c_code,
-                        "subjectTitle": c_title,
-                        "hours": cnt * hours,
-                        "days": cnt,
-                        "slot": slot,
-                        "type": "LAB" if is_lab else "TH",
-                        "reason": f"Sanctioned Class On-Duty ({cnt} class{'es' if cnt > 1 else ''})",
-                        "status": "Approved",
-                        "isApproved": True,
-                        "approvedBy": row.get("facultyName") or "Course Faculty / VTOP",
-                    })
-
-    # 3. Optional deep drill-down if rows didn't have viewLink already
-    if not fast_mode and semester_id and not att_od_records and attendance_html:
-        descriptors = P.extract_course_attendance_descriptors(attendance_html)
-        tried_class_ids = set()
-        for desc in descriptors[:5]:
-            c_id = desc.get("classId")
-            s_name = desc.get("slotName") or ""
-            c_code = desc.get("courseCode") or ""
-            if c_id and c_id not in tried_class_ids:
-                tried_class_ids.add(c_id)
-                _, detail_recs = fetch_course_attendance_detail(
-                    session, semester_id, c_id, slot_name=s_name, course_code=c_code
-                )
-                if detail_recs:
-                    att_od_records.extend(detail_recs)
-
-    if att_od_records:
-        total_att_od = sum(r.get("hours", 1) for r in att_od_records)
-        if best_result is None or not (best_result.get("records") or best_result.get("odRecords")):
-            best_result = {
-                "state": "success_with_records",
-                "hasValidData": True,
-                "usedHours": total_att_od,
-                "odHours": total_att_od,
-                "totalOdHours": total_att_od,
-                "approvedHours": total_att_od,
-                "pendingHours": 0,
-                "rejectedHours": 0,
-                "maxHours": C.OD_MAX_HOURS,
-                "maxOdHours": C.OD_MAX_HOURS,
-                "remainingHours": max(0, C.OD_MAX_HOURS - total_att_od),
-                "percentageUsed": round((total_att_od / C.OD_MAX_HOURS) * 100, 1),
-                "records": att_od_records,
-                "odRecords": att_od_records,
-                "message": f"Found {total_att_od} approved On-Duty hours credited in class attendance.",
-            }
-        else:
-            existing = {(r.get("date"), r.get("subjectCode")) for r in best_result.get("records", [])}
-            for r in att_od_records:
-                key = (r.get("date"), r.get("subjectCode"))
-                if key not in existing:
-                    best_result.setdefault("records", []).append(r)
-                    best_result.setdefault("odRecords", []).append(r)
-                    best_result["usedHours"] = (best_result.get("usedHours") or 0) + r.get("hours", 1)
-                    best_result["odHours"] = best_result["usedHours"]
-                    best_result["totalOdHours"] = best_result["usedHours"]
-                    best_result["approvedHours"] = (best_result.get("approvedHours") or 0) + r.get("hours", 1)
-            best_result["remainingHours"] = max(0, C.OD_MAX_HOURS - (best_result.get("usedHours") or 0))
-            best_result["percentageUsed"] = round(((best_result.get("usedHours") or 0) / C.OD_MAX_HOURS) * 100, 1)
 
     if best_result is None:
         best_result = {

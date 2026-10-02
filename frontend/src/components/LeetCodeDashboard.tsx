@@ -11,7 +11,6 @@ import {
   Flame,
   Search,
   Building2,
-  Sparkles,
   ShieldCheck,
   Code2,
   RefreshCw,
@@ -122,6 +121,8 @@ import { useRef } from 'react';
 
 export const LeetCodeDashboard: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
+  const [linkedUsername, setLinkedUsername] = useState<string>('');
+  const [isEditingLink, setIsEditingLink] = useState<boolean>(false);
   const [profile, setProfile] = useState<LeetCodeProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +131,7 @@ export const LeetCodeDashboard: React.FC = () => {
   const inFlightRef = useRef<AbortController | null>(null);
 
   const fetchProfile = async (targetHandle: string) => {
-    const handle = targetHandle.trim();
+    const handle = targetHandle.trim().replace(/^https?:\/\/(?:www\.)?leetcode\.com\/(?:u\/)?/i, '').replace(/\/$/, '');
     if (!handle) return;
 
     if (inFlightRef.current) {
@@ -141,7 +142,6 @@ export const LeetCodeDashboard: React.FC = () => {
 
     setLoading(true);
     setError(null);
-    setProfile(null);
 
     try {
       const data = await CampusAPI.getLeetCodeProfile(handle, controller.signal);
@@ -149,6 +149,8 @@ export const LeetCodeDashboard: React.FC = () => {
       setProfile(data);
       if (typeof window !== 'undefined' && data.username) {
         localStorage.setItem('campusos_leetcode_username', data.username);
+        setLinkedUsername(data.username);
+        setIsEditingLink(false);
       }
 
       if (data.companySimulations && data.companySimulations.length > 0) {
@@ -162,7 +164,6 @@ export const LeetCodeDashboard: React.FC = () => {
       } else {
         setError(rawMsg || 'Could not connect to LeetCode API service.');
       }
-      setProfile(null);
     } finally {
       if (inFlightRef.current === controller) {
         setLoading(false);
@@ -170,21 +171,36 @@ export const LeetCodeDashboard: React.FC = () => {
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleLinkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     fetchProfile(searchInput);
   };
 
-  // On mount, load previously searched profile if present in localStorage
+  const handleUnlink = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('campusos_leetcode_username');
+    }
+    setLinkedUsername('');
+    setProfile(null);
+    setSearchInput('');
+    setIsEditingLink(true);
+  };
+
+  // On mount, load previously linked profile if present in localStorage
   useEffect(() => {
     const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campusos_leetcode_username') : null;
     if (savedUser && savedUser.trim()) {
-      setSearchInput(savedUser);
-      fetchProfile(savedUser);
+      const cleanUser = savedUser.trim();
+      setLinkedUsername(cleanUser);
+      setSearchInput(cleanUser);
+      setIsEditingLink(false);
+      fetchProfile(cleanUser);
+    } else {
+      setIsEditingLink(true);
     }
   }, []);
 
-  // Export Placement Resume Card as High-Res PNG via HTML5 Canvas
+  // Export LeetCode Profile Card as High-Res PNG via HTML5 Canvas
   const handleExportResumeCard = () => {
     if (!profile) return;
     setExporting(true);
@@ -213,7 +229,7 @@ export const LeetCodeDashboard: React.FC = () => {
       ctx.fillRect(60, 60, 310, 42);
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText('⚡ CAMPUSOS DSA CREDENTIAL', 80, 87);
+      ctx.fillText('⚡ CAMPUSOS LEETCODE CREDENTIAL', 80, 87);
 
       // Name & Handle
       ctx.fillStyle = '#ffffff';
@@ -271,11 +287,11 @@ export const LeetCodeDashboard: React.FC = () => {
       // Footer
       ctx.fillStyle = '#64748b';
       ctx.font = '15px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(`Verified CampusOS Placement Engine • ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`, 60, 560);
+      ctx.fillText(`Verified CampusOS LeetCode Intelligence • ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`, 60, 560);
 
       // Trigger Download
       const link = document.createElement('a');
-      link.download = `Placement-DSA-Card-${profile.username}.png`;
+      link.download = `LeetCode-Profile-${profile.username}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } finally {
@@ -287,7 +303,7 @@ export const LeetCodeDashboard: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* 1. TOP HEADER & SEARCH INPUT */}
+      {/* 1. TOP HEADER & ACCOUNT LINKING */}
       <div
         style={{
           background: 'var(--card-banner-bg)',
@@ -316,69 +332,161 @@ export const LeetCodeDashboard: React.FC = () => {
                 marginBottom: '8px',
               }}
             >
-              <Sparkles size={14} />
-              LeetCode Integration & Placement Engine
+              <Code2 size={14} />
+              LeetCode Profile &amp; Analytics
             </div>
             <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-              DSA & Placement Intelligence Cockpit
+              LeetCode Dashboard
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
-              Live GraphQL Analytics, Weak Spot Auditing, & Target Company Gap Engine
+              Live GraphQL Analytics, Problem Solving Statistics &amp; Topic Mastery
             </p>
           </div>
 
-          {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '440px' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search
-                size={16}
+          {/* Account Linking UI */}
+          {linkedUsername && !isEditingLink ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div
                 style={{
-                  position: 'absolute',
-                  left: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Enter LeetCode username or profile URL..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px 10px 36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: 'var(--radius-md)',
                   background: 'var(--bg-surface)',
                   border: '1px solid var(--border-medium)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.88rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
                 }}
-              />
+              >
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success-emerald)' }} />
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Linked:</span>
+                <a
+                  href={`https://leetcode.com/u/${linkedUsername}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                    color: 'var(--brand-color)',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  @{linkedUsername}
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+
+              <button
+                onClick={() => fetchProfile(linkedUsername)}
+                disabled={loading}
+                className="btn btn-secondary btn-sm"
+                style={{
+                  padding: '8px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.82rem',
+                }}
+                title="Sync latest LeetCode statistics"
+              >
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                <span>{loading ? 'Syncing...' : 'Sync'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSearchInput(linkedUsername);
+                  setIsEditingLink(true);
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                  color: 'var(--text-secondary)',
+                }}
+                title="Change or link a different LeetCode account"
+              >
+                Change Account
+              </button>
+
+              <button
+                onClick={handleUnlink}
+                className="btn btn-ghost btn-sm"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                  color: 'var(--danger-crimson)',
+                }}
+                title="Unlink LeetCode account"
+              >
+                Unlink
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={loading || !searchInput.trim()}
-              className="btn-primary"
-              style={{
-                padding: '10px 18px',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                fontWeight: 800,
-                fontSize: '0.85rem',
-                cursor: loading || !searchInput.trim() ? 'not-allowed' : 'pointer',
-                opacity: !searchInput.trim() ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {loading ? <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> : 'Analyze'}
-            </button>
-          </form>
+          ) : (
+            <form onSubmit={handleLinkSubmit} style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '460px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search
+                  size={16}
+                  style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Enter LeetCode username (e.g. pragyanjain49)..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px 10px 36px',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !searchInput.trim()}
+                className="btn-primary"
+                style={{
+                  padding: '10px 18px',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  cursor: loading || !searchInput.trim() ? 'not-allowed' : 'pointer',
+                  opacity: !searchInput.trim() ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {loading ? <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> : 'Link Account'}
+              </button>
+              {linkedUsername && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingLink(false)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '10px 14px', fontSize: '0.82rem' }}
+                >
+                  Cancel
+                </button>
+              )}
+            </form>
+          )}
         </div>
       </div>
 
@@ -469,10 +577,10 @@ export const LeetCodeDashboard: React.FC = () => {
             <UserCheck size={28} />
           </div>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-            Connect Your LeetCode Profile
+            Link Your LeetCode Account
           </h3>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: '520px', margin: 0, lineHeight: 1.5 }}>
-            Enter your LeetCode username or profile link above to analyze your verified problem statistics, topic mastery matrix, and placement readiness score.
+            Enter your LeetCode username above to link your profile to CampusOS and view live problem-solving statistics, contest ranking, and topic mastery matrix.
           </p>
         </div>
       )}
@@ -610,11 +718,11 @@ export const LeetCodeDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Placement Readiness Pill & Resume Card Exporter */}
+            {/* Algorithmic Score Pill & Profile Card Exporter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Placement Readiness
+                  Algorithmic Score
                 </span>
                 <div style={{ fontSize: '2.4rem', fontWeight: 900, color: profile.readiness.tierColor, lineHeight: 1, marginTop: '2px' }}>
                   {profile.readiness.finalScore}%
@@ -650,10 +758,10 @@ export const LeetCodeDashboard: React.FC = () => {
                   alignItems: 'center',
                   gap: '8px',
                 }}
-                title="Generate Placement DSA Resume Card"
+                title="Generate LeetCode Profile Card"
               >
                 <Download size={16} />
-                <span>Export Resume Card</span>
+                <span>Export Profile Card</span>
               </button>
             </div>
           </div>
@@ -733,7 +841,7 @@ export const LeetCodeDashboard: React.FC = () => {
                   Medium + Hard Ratio: <b style={{ color: 'var(--text-primary)' }}>{profile.solved.All > 0 ? Math.round(((profile.solved.Medium + profile.solved.Hard) / profile.solved.All) * 100) : 0}%</b>
                 </span>
                 <span>
-                  Tier-1 Benchmark: <b style={{ color: 'var(--success-emerald)' }}>≥ 60% Optimal</b>
+                  Advanced Benchmark: <b style={{ color: 'var(--success-emerald)' }}>≥ 60% Optimal</b>
                 </span>
               </div>
             </div>
@@ -966,7 +1074,7 @@ export const LeetCodeDashboard: React.FC = () => {
                       >
                         <span>⚠️</span>
                         <span>
-                          <b style={{ color: 'var(--warning-amber)' }}>{ws.topic}</b>: Solved {ws.solved}/{ws.recommended} recommended ({ws.gap} more needed for Tier-1 coding rounds).
+                          <b style={{ color: 'var(--warning-amber)' }}>{ws.topic}</b>: Solved {ws.solved}/{ws.recommended} recommended ({ws.gap} more recommended for mastery).
                         </span>
                       </div>
                     ))
@@ -985,7 +1093,7 @@ export const LeetCodeDashboard: React.FC = () => {
                       }}
                     >
                       <CheckCircle2 size={16} color="var(--success-emerald)" />
-                      <span>All core placement algorithmic areas exceed standard hiring bars.</span>
+                      <span>Strong problem-solving coverage across all core algorithmic areas.</span>
                     </div>
                   )}
                 </div>
@@ -1052,11 +1160,11 @@ export const LeetCodeDashboard: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Building2 size={18} color="var(--brand-color)" />
                   <h4 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                    Target Company Hiring Bar Simulator
+                    Company Problem Benchmark Simulator
                   </h4>
                 </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', margin: 0 }}>
-                  Benchmarked against successful offers at top tier-1 product organizations
+                  Benchmarked problem requirements across top engineering organizations
                 </p>
               </div>
 
@@ -1116,7 +1224,7 @@ export const LeetCodeDashboard: React.FC = () => {
                     />
                   </div>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '6px' }}>
-                    {selectedCompany.matchScore >= 80 ? '🔥 Prime Candidate for Interviews' : '⚡ Complete gaps below before applying'}
+                    {selectedCompany.matchScore >= 80 ? '🔥 Prime Problem-Solving Coverage' : '⚡ Complete problem goals below'}
                   </span>
                 </div>
 

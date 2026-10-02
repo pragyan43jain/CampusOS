@@ -155,36 +155,14 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   }, []);
 
   const approvedOdHours = useMemo(() => {
-    if (odData && typeof odData.approvedHours === 'number' && odData.approvedHours > 0) {
+    if (odData && typeof odData.approvedHours === 'number') {
       return odData.approvedHours;
     }
-    if (odData && typeof odData.usedHours === 'number' && odData.usedHours > 0) {
+    if (odData && typeof odData.usedHours === 'number') {
       return odData.usedHours;
     }
-    if (attendance && Array.isArray(attendance)) {
-      let count = 0;
-      attendance.forEach((c) => {
-        const vlink = (c as any).viewLink;
-        const slot = c.slot || (c as any).slots || '';
-        const cType = (c.courseType || c.type || '').toUpperCase();
-        const isLab = slot.toUpperCase().startsWith('L') || cType.includes('LAB') || (c.courseCode || '').toUpperCase().endsWith('P');
-        const h = isLab ? 2 : 1;
-        let odClasses = 0;
-        if (Array.isArray(vlink)) {
-          vlink.forEach((day: any) => {
-            const st = (day?.status || '').trim().toLowerCase();
-            if (st === 'on duty' || st === 'od' || st === 'duty') odClasses++;
-          });
-        }
-        if (odClasses === 0 && ((c as any).odAttended > 0 || (c as any).odHours > 0)) {
-          odClasses = (c as any).odAttended || (c as any).odHours || 0;
-        }
-        count += odClasses * h;
-      });
-      return count;
-    }
-    return odData?.approvedHours ?? odData?.usedHours ?? 0;
-  }, [odData, attendance]);
+    return 0;
+  }, [odData]);
 
   const days: Array<'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'> = [
     'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT',

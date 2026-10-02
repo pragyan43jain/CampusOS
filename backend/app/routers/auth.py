@@ -498,93 +498,47 @@ def get_vtop_od(
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """
-    On-duty hours extracted directly from VTOP leave modules.
+    On-duty hours extracted directly from VTOP Academics -> Student OD details module.
     """
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
-    
     has_valid = bool(od.get("hasValidData") or is_auth or store.get("courses") or store.get("attendance"))
-    used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if has_valid else None))
+
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = od.get("records") or od.get("odRecords") or []
 
-    # CampusOS OD extraction mechanism from attendance drill-down logs (viewLink):
-    if not records and has_valid:
-        attendance_list = store.get("attendance") or []
-        derived_records = []
-        for course in attendance_list:
-            vlink = course.get("viewLink") or []
-            slot = course.get("slot") or course.get("slots") or ""
-            c_type = (course.get("courseType") or course.get("type") or "").upper()
-            is_lab = slot.upper().startswith("L") or "LAB" in c_type or "P" in (course.get("courseCode") or "")[-1:]
-            hours = 2 if is_lab else 1
-            has_course_vlink_od = False
-            if isinstance(vlink, list):
-                for day in vlink:
-                    if isinstance(day, dict) and (day.get("status") or "").strip().lower() in ("on duty", "od", "duty"):
-                        has_course_vlink_od = True
-                        d_date = day.get("date") or "Active Semester"
-                        derived_records.append({
-                            "id": f"od-{course.get('courseCode')}-{d_date}",
-                            "date": d_date,
-                            "fromDate": d_date,
-                            "toDate": d_date,
-                            "fromTime": None,
-                            "toTime": None,
-                            "timeRange": None,
-                            "subjectCode": course.get("courseCode") or "COURSE",
-                            "subjectTitle": course.get("courseTitle") or course.get("courseName") or course.get("courseCode") or "Course",
-                            "hours": hours,
-                            "days": 1,
-                            "slot": slot,
-                            "type": "LAB" if is_lab else "TH",
-                            "reason": f"Class Attendance On-Duty ({course.get('courseCode')})",
-                            "status": "Approved",
-                            "isApproved": True,
-                            "approvedBy": course.get("facultyName") or "Course Faculty / VTOP",
-                        })
-            if not has_course_vlink_od:
-                od_count = course.get("odAttended") or course.get("odHours") or 0
-                if od_count and int(od_count) > 0:
-                    cnt = int(od_count)
-                    derived_records.append({
-                        "id": f"od-{course.get('courseCode')}-summary",
-                        "date": "Active Semester",
-                        "fromDate": "Active Semester",
-                        "toDate": "Active Semester",
-                        "fromTime": None,
-                        "toTime": None,
-                        "timeRange": None,
-                        "subjectCode": course.get("courseCode") or "COURSE",
-                        "subjectTitle": course.get("courseTitle") or course.get("courseName") or course.get("courseCode") or "Course",
-                        "hours": cnt * hours,
-                        "days": cnt,
-                        "slot": slot,
-                        "type": "LAB" if is_lab else "TH",
-                        "reason": f"Sanctioned Class On-Duty ({cnt} class{'es' if cnt > 1 else ''})",
-                        "status": "Approved",
-                        "isApproved": True,
-                        "approvedBy": course.get("facultyName") or "Course Faculty / VTOP",
-                    })
-        if derived_records:
-            records = derived_records
-            used = sum(r["hours"] for r in records)
-            store["od"] = {
-                **od,
-                "state": "success_with_records",
-                "hasValidData": True,
-                "usedHours": used,
-                "odHours": used,
-                "totalOdHours": used,
-                "approvedHours": used,
-                "remainingHours": max(0, max_h - used),
-                "percentageUsed": round((used / float(max_h)) * 100.0, 1),
-                "records": records,
-                "odRecords": records,
-            }
-            save_store(store, reg)
+    # Filter out any obsolete attendance-derived records that may have been previously persisted
+    clean_records = [
+        r for r in records
+        if isinstance(r, dict) and not (
+            str(r.get("reason", "")).startswith("Class Attendance On-Duty")
+            or str(r.get("reason", "")).startswith("Sanctioned Class On-Duty")
+        )
+    ]
+
+    dirty = len(clean_records) != len(records)
+    if dirty:
+        records = clean_records
+        used = sum(r.get("hours", 0) for r in clean_records)
+        od["records"] = clean_records
+        od["odRecords"] = clean_records
+        od["usedHours"] = used
+        od["odHours"] = used
+        od["totalOdHours"] = used
+        od["approvedHours"] = used
+        od["remainingHours"] = max(0, max_h - used)
+        od["percentageUsed"] = round((used / float(max_h)) * 100.0, 1) if max_h else 0.0
+        if not clean_records:
+            od["state"] = "success_with_no_records"
+            od["message"] = "No sanctioned On-Duty leave records found on VTOP for this semester."
+        store["od"] = od
+        save_store(store, reg)
+
+    used = od.get("usedHours")
+    if used is None:
+        used = sum(r.get("hours", 0) for r in records) if records else (0 if has_valid else None)
 
     approved = used if used is not None else (0 if has_valid else None)
     remaining = max(0, max_h - approved) if approved is not None else None
@@ -613,6 +567,7 @@ def get_vtop_od(
             else ("No sanctioned On-Duty leave records found on VTOP for this semester." if has_valid else "Sign in to VTOP to view On-Duty hours.")
         ),
     }
+
 
 
 @router.get("/exams")

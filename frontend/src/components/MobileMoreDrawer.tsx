@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CreditCard,
-  Briefcase,
+  Code2,
   Zap,
   LogOut,
   X,
@@ -172,10 +172,10 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
               color: 'var(--text-primary)',
             }}
           >
-            <Briefcase size={18} color="var(--accent-purple)" />
+            <Code2 size={18} color="var(--accent-purple)" />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Placements & DSA Mastery</span>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>LeetCode tracker & career drives</span>
+              <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>LeetCode</span>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Problem statistics & topic practice</span>
             </div>
           </button>
 

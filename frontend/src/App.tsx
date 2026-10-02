@@ -82,7 +82,7 @@ const getRouteFromPath = (path: string): RouteInfo => {
   if (clean === '/fees' || clean === '/receipts' || clean === '/dues') {
     return { isLanding: false, isLogin: false, isAdmin: false, view: 'fees' };
   }
-  if (clean === '/placements' || clean === '/dsa') {
+  if (clean === '/placements' || clean === '/dsa' || clean === '/leetcode') {
     return { isLanding: false, isLogin: false, isAdmin: false, view: 'placements' };
   }
   if (clean === '/ai-planner' || clean === '/planner') {

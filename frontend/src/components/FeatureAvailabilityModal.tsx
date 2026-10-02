@@ -35,7 +35,7 @@ const FEATURE_NAMES: Record<string, { label: string; view: string; subTab?: stri
   calendar: { label: 'Semester Academic Calendar', view: 'academics', subTab: 'timetable', desc: 'Instructional working days, university holidays, and examination milestones.' },
   assignments: { label: 'Digital Assignments (DA)', view: 'assignments', desc: 'DA continuous assessment tasks integrated with LMS & Teams verification.' },
   fees: { label: 'Fee Invoices & Receipts', view: 'fees', desc: 'Tuition and hostel fee receipts with official transaction serial numbers and balances.' },
-  placements: { label: 'Placement Eligibility & Drives', view: 'placements', desc: 'University placement drive listings, eligibility criteria, and CTC tiers.' },
+  placements: { label: 'LeetCode Analytics & Cockpit', view: 'placements', desc: 'Personal LeetCode account link, problem solving statistics, and topic mastery.' },
   aiTasks: { label: 'AI Adaptive Study Tasks', view: 'ai-planner', desc: 'Intelligent personalized study sprints generated based on attendance and test performance.' },
   dsa: { label: 'LeetCode & DSA Tracker', view: 'placements', desc: 'Algorithmic problem-solving metrics, contest ratings, and company readiness simulations.' },
 };

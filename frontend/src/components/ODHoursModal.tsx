@@ -9,7 +9,7 @@ interface ODHoursModalProps {
   attendance?: Attendance[];
 }
 
-export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, attendance }) => {
+export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) => {
   const [odData, setOdData] = useState<ODResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -45,80 +45,10 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
     };
   }, [isOpen, onClose]);
 
-  // CampusOS OD extraction mechanism: extract sanctioned on-duty classes from attendance drill-down logs
-  const derivedRecords = React.useMemo(() => {
-    if (!attendance || !Array.isArray(attendance)) return [];
-    const list: Array<{
-      id: string;
-      date: string;
-      subjectCode: string;
-      subjectTitle: string;
-      hours: number;
-      slot: string;
-      type: string;
-      reason: string;
-      status: string;
-      isApproved: boolean;
-      approvedBy: string;
-    }> = [];
-
-    attendance.forEach((course) => {
-      const vlink = (course as any).viewLink;
-      const slot = course.slot || (course as any).slots || '';
-      const cType = (course.courseType || course.type || '').toUpperCase();
-      const isLab = slot.toUpperCase().startsWith('L') || cType.includes('LAB') || (course.courseCode || '').toUpperCase().endsWith('P');
-      const hours = isLab ? 2 : 1;
-      let hasVlinkOd = false;
-
-      if (vlink && Array.isArray(vlink)) {
-        vlink.forEach((day: any) => {
-          const status = (day?.status || '').trim();
-          if (status.toLowerCase() === 'on duty' || status.toLowerCase() === 'od' || status.toLowerCase() === 'duty') {
-            hasVlinkOd = true;
-            list.push({
-              id: `od-${course.courseCode}-${day.date}`,
-              date: day.date,
-              subjectCode: course.courseCode,
-              subjectTitle: course.courseTitle || course.courseName || course.courseCode,
-              hours,
-              slot,
-              type: isLab ? 'LAB' : 'TH',
-              reason: `Class Attendance On-Duty (${course.courseCode})`,
-              status: 'Approved',
-              isApproved: true,
-              approvedBy: course.facultyName || course.faculty || 'Course Faculty / VTOP',
-            });
-          }
-        });
-      }
-
-      const odCount = (course as any).odAttended || (course as any).odHours || 0;
-      if (!hasVlinkOd && odCount > 0) {
-        list.push({
-          id: `od-${course.courseCode}-summary`,
-          date: 'Active Semester',
-          subjectCode: course.courseCode,
-          subjectTitle: course.courseTitle || course.courseName || course.courseCode,
-          hours: odCount * hours,
-          slot,
-          type: isLab ? 'LAB' : 'TH',
-          reason: `Sanctioned Class On-Duty (${odCount} class${odCount > 1 ? 'es' : ''})`,
-          status: 'Approved',
-          isApproved: true,
-          approvedBy: course.facultyName || course.faculty || 'Course Faculty / VTOP',
-        });
-      }
-    });
-
-    return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [attendance]);
-
   if (!isOpen) return null;
 
-  const records = (odData?.records && odData.records.length > 0)
-    ? odData.records
-    : derivedRecords;
-  const approvedHours = odData?.approvedHours ?? (records.reduce((sum, r) => sum + (r.hours || 0), 0));
+  const records = odData?.records || [];
+  const approvedHours = odData?.approvedHours ?? odData?.usedHours ?? (records.reduce((sum, r) => sum + (r.hours || 0), 0));
   const maxHours = odData?.maxHours || 40;
 
   return (
