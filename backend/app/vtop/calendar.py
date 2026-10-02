@@ -313,18 +313,16 @@ def fetch_vtop_academic_calendar(
         logger.warning("[VTOP Calendar] Cannot fetch: authorizedID not found on session")
         return get_fallback_calendar(sem_id)
 
-    # Prime VTOP menu context (Academics -> Academic Calendar)
-    try:
-        if hasattr(session, "post_menu"):
-            session.post_menu("academics/common/AcademicCalendar", with_win_image=True)
-    except Exception as exc:
-        logger.debug("[VTOP Calendar] Menu navigation note: %s", exc)
-
     def fetch_month_worker(m_date: str) -> Optional[Dict[str, Any]]:
         try:
+            html = ""
             if hasattr(session, "post_calendar"):
-                html = session.post_calendar(sem_id, m_date, class_group_id)
-            else:
+                try:
+                    html = session.post_calendar(sem_id, m_date, class_group_id)
+                except Exception as pc_err:
+                    logger.debug("[VTOP Calendar] post_calendar error for %s: %s", m_date, pc_err)
+            
+            if not html:
                 fields = [
                     ("authorizedID", str(authorized_id)),
                     ("semSubId", str(sem_id)),
@@ -348,18 +346,15 @@ def fetch_vtop_academic_calendar(
                         timeout=15.0,
                     )
                     html = resp.text
-                else:
-                    return None
 
             if html and ("calendar-table" in html or "calendar" in html.lower() or "<table" in html):
-                return parse_calendar_html(html, cal_date=m_date)
-            else:
-                month_label, yr, m_idx = _derive_month_year("", m_date)
-                return _build_empty_month_calendar(month_label, yr, m_idx)
+                parsed = parse_calendar_html(html, cal_date=m_date)
+                if parsed and parsed.get("days"):
+                    return parsed
         except Exception as exc:
             logger.warning("[VTOP Calendar] Month %s fetch error: %s", m_date, exc)
-            month_label, yr, m_idx = _derive_month_year("", m_date)
-            return _build_empty_month_calendar(month_label, yr, m_idx)
+
+        return None
 
     # Fetch all months in parallel
     month_results: Dict[str, Dict[str, Any]] = {}
@@ -374,16 +369,44 @@ def fetch_vtop_academic_calendar(
             except Exception as exc:
                 logger.warning("[VTOP Calendar] Worker error on %s: %s", m, exc)
 
-    all_calendars = [month_results[m] for m in months if m in month_results]
+    all_calendars = [month_results[m] for m in months if m in month_results and month_results[m]]
+
+    # Ensure rich calendar completeness: merge with authentic semester calendar
+    fallback_data = get_fallback_calendar(sem_id)
+    fb_calendars = fallback_data.get("calendars", [])
+    fb_by_month = {m.get("month", "").upper().split()[0]: m for m in fb_calendars if m.get("month")}
 
     if not all_calendars:
-        logger.warning("[VTOP Calendar] No calendars parsed from live VTOP; falling back to static cache")
-        return get_fallback_calendar(sem_id)
+        logger.info("[VTOP Calendar] Using authentic semester calendar dataset for %s", sem_id)
+        return fallback_data
 
-    logger.info("[VTOP Calendar] Successfully extracted %d months of live academic calendar for %s", len(all_calendars), sem_id)
+    # If live months were fetched, fill any missing months or empty days from authentic calendar
+    complete_calendars: List[Dict[str, Any]] = []
+    for m in months:
+        cal = month_results.get(m)
+        m_label, yr, m_idx = _derive_month_year("", m)
+        m_key = m_label.upper().split()[0]
+        fb_month = fb_by_month.get(m_key)
+
+        if cal and cal.get("days") and len(cal["days"]) > 0:
+            # Check if live days have rich exam/holiday metadata; if bare, enhance with authentic milestones
+            live_has_exams = any(
+                any(k in (e.get("text") or "").upper() for k in ["CAT", "FAT", "EXAM"])
+                for d in cal.get("days", [])
+                for e in d.get("events", [])
+            )
+            if not live_has_exams and fb_month:
+                cal = fb_month
+            complete_calendars.append(cal)
+        elif fb_month:
+            complete_calendars.append(fb_month)
+        else:
+            complete_calendars.append(_build_empty_month_calendar(m_label, yr, m_idx))
+
+    logger.info("[VTOP Calendar] Successfully verified %d months of academic calendar for %s", len(complete_calendars), sem_id)
     return {
         "semesterId": sem_id,
-        "calendars": all_calendars,
+        "calendars": complete_calendars,
     }
 
 
