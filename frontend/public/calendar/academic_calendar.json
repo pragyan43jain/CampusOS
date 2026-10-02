@@ -9,7 +9,7 @@
           "date": 1,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -20,7 +20,7 @@
           "date": 2,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -31,7 +31,7 @@
           "date": 3,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -42,10 +42,10 @@
           "date": 4,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Saturday (Weekend)",
               "type": "Other",
               "color": "#94a3b8",
-              "category": "Registration"
+              "category": "Weekend"
             }
           ]
         },
@@ -53,10 +53,10 @@
           "date": 5,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
-              "type": "Other",
-              "color": "#94a3b8",
-              "category": "Registration"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -64,7 +64,7 @@
           "date": 6,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -75,7 +75,7 @@
           "date": 7,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -86,7 +86,7 @@
           "date": 8,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -97,7 +97,7 @@
           "date": 9,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -108,7 +108,7 @@
           "date": 10,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -119,10 +119,10 @@
           "date": 11,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Saturday (Weekend)",
               "type": "Other",
               "color": "#94a3b8",
-              "category": "Registration"
+              "category": "Weekend"
             }
           ]
         },
@@ -130,10 +130,10 @@
           "date": 12,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
-              "type": "Other",
-              "color": "#94a3b8",
-              "category": "Registration"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -141,7 +141,7 @@
           "date": 13,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -152,7 +152,7 @@
           "date": 14,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -163,7 +163,7 @@
           "date": 15,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -174,7 +174,7 @@
           "date": 16,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -185,7 +185,7 @@
           "date": 17,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
               "color": "#94a3b8",
               "category": "Registration"
@@ -196,10 +196,10 @@
           "date": 18,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
+              "text": "Saturday (Weekend)",
               "type": "Other",
               "color": "#94a3b8",
-              "category": "Registration"
+              "category": "Weekend"
             }
           ]
         },
@@ -207,10 +207,10 @@
           "date": 19,
           "events": [
             {
-              "text": "Academic Registration / Pre-Semester",
-              "type": "Other",
-              "color": "#94a3b8",
-              "category": "Registration"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -218,16 +218,10 @@
           "date": 20,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Commencement of Classes / First Instructional Day)",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "color": "#94a3b8",
+              "category": "Registration"
             }
           ]
         },
@@ -235,16 +229,10 @@
           "date": 21,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
+              "text": "Course Registration / Pre-Semester",
               "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "color": "#94a3b8",
+              "category": "Registration"
             }
           ]
         },
@@ -254,14 +242,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Working Day)",
+              "text": "(Commencement of Classes / Add & Drop)",
               "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "color": "#38bdf8",
+              "category": "Commencement of Classes"
             }
           ]
         },
@@ -271,14 +259,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Working Day)",
+              "text": "(Working Day / Add & Drop)",
               "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "color": "#38bdf8",
+              "category": "Add & Drop"
             }
           ]
         },
@@ -288,14 +276,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Working Day)",
+              "text": "(Working Day / Add & Drop)",
               "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "color": "#38bdf8",
+              "category": "Add & Drop"
             }
           ]
         },
@@ -303,10 +291,10 @@
           "date": 25,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -314,10 +302,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -327,14 +315,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Working Day)",
+              "text": "(Working Day / Last Day for Add & Drop)",
               "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "color": "#38bdf8",
+              "category": "Add & Drop"
             }
           ]
         },
@@ -342,16 +330,16 @@
           "date": 28,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Moharram)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Moharram"
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -361,13 +349,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -378,13 +366,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -395,13 +383,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -416,10 +404,10 @@
           "date": 1,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -427,10 +415,10 @@
           "date": 2,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -440,13 +428,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -457,13 +445,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -474,13 +462,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -491,13 +479,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -508,13 +496,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -523,16 +511,10 @@
           "date": 8,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "text": "Saturday (Weekend)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -540,16 +522,10 @@
           "date": 9,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
-              "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -559,14 +535,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -576,14 +552,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -593,14 +569,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -610,14 +586,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -627,14 +603,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 1 / CAT I)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT I"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -642,15 +618,9 @@
           "date": 15,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Independence Day)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Independence Day)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "color": "#ef4444",
               "category": "Independence Day"
             }
           ]
@@ -659,10 +629,10 @@
           "date": 16,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -672,13 +642,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -689,13 +659,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -706,13 +676,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -723,13 +693,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -740,13 +710,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -755,10 +725,16 @@
           "date": 22,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Instructional Day / Monday Day Order)",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "Monday Day Order"
             }
           ]
         },
@@ -766,10 +742,10 @@
           "date": 23,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -779,13 +755,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -796,13 +772,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -813,13 +789,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -828,16 +804,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Krishna Janmashtami)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Krishna Janmashtami)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Janmashtami"
+              "color": "#ef4444",
+              "category": "Krishna Janmashtami"
             }
           ]
         },
@@ -847,13 +817,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -862,10 +832,10 @@
           "date": 29,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -873,10 +843,10 @@
           "date": 30,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -886,13 +856,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -909,13 +879,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -926,13 +896,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -943,13 +913,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -960,13 +930,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -975,10 +945,10 @@
           "date": 5,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -986,10 +956,10 @@
           "date": 6,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -997,16 +967,10 @@
           "date": 7,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Vinayagar Chaturthi)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Ganesh Chaturthi)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Ganesh Chaturthi"
+              "color": "#ef4444",
+              "category": "Vinayagar Chaturthi"
             }
           ]
         },
@@ -1016,13 +980,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1033,13 +997,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1050,13 +1014,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1067,13 +1031,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1082,10 +1046,10 @@
           "date": 12,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -1093,10 +1057,10 @@
           "date": 13,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1106,13 +1070,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1123,13 +1087,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1138,15 +1102,9 @@
           "date": 16,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Milad-un-Nabi)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Milad-un-Nabi)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "color": "#ef4444",
               "category": "Milad-un-Nabi"
             }
           ]
@@ -1157,13 +1115,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1172,16 +1130,10 @@
           "date": 18,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 1)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1189,10 +1141,10 @@
           "date": 19,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1200,10 +1152,10 @@
           "date": 20,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1211,16 +1163,10 @@
           "date": 21,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 3)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1228,16 +1174,10 @@
           "date": 22,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 4)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1245,16 +1185,10 @@
           "date": 23,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 5)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1262,16 +1196,10 @@
           "date": 24,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
-              "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 6)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1279,16 +1207,10 @@
           "date": 25,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
-              "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 7)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1296,16 +1218,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "text": "Saturday (Weekend)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -1313,16 +1229,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
-              "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1332,14 +1242,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1349,14 +1259,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1366,14 +1276,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(Continuous Assessment Test 2 / CAT II)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#3b82f6",
-              "category": "CAT II"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         }
@@ -1389,13 +1299,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1404,15 +1314,9 @@
           "date": 2,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Gandhi Jayanti)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Gandhi Jayanti)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "color": "#ef4444",
               "category": "Gandhi Jayanti"
             }
           ]
@@ -1421,10 +1325,10 @@
           "date": 3,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -1432,10 +1336,10 @@
           "date": 4,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1445,13 +1349,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1462,13 +1366,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1479,13 +1383,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1496,13 +1400,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1513,13 +1417,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1528,10 +1432,10 @@
           "date": 10,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -1539,10 +1443,10 @@
           "date": 11,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Ayudha Pooja)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Ayudha Pooja"
             }
           ]
         },
@@ -1550,16 +1454,10 @@
           "date": 12,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "Holiday (Vijaya Dasami / Dussehra)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Vijaya Dasami"
             }
           ]
         },
@@ -1569,13 +1467,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1586,13 +1484,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1603,13 +1501,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1620,13 +1518,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1635,10 +1533,10 @@
           "date": 17,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -1646,16 +1544,10 @@
           "date": 18,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Dussehra / Puja Vacation)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Dussehra Vacation"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1663,16 +1555,16 @@
           "date": 19,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Dussehra / Puja Vacation)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Dussehra Vacation"
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1680,16 +1572,16 @@
           "date": 20,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Dussehra / Puja Vacation)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Dussehra Vacation"
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1697,16 +1589,10 @@
           "date": 21,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Dussehra / Puja Vacation)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Dussehra Vacation"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 1)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1714,16 +1600,10 @@
           "date": 22,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Dussehra / Puja Vacation)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Dussehra Vacation"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1731,16 +1611,10 @@
           "date": 23,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 3)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1748,10 +1622,10 @@
           "date": 24,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 4)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1759,10 +1633,10 @@
           "date": 25,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1770,16 +1644,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 5)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1787,16 +1655,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 6)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1804,16 +1666,10 @@
           "date": 28,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 7)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1823,13 +1679,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1840,13 +1696,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1855,10 +1711,10 @@
           "date": 31,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Deepavali / Diwali)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Deepavali"
             }
           ]
         }
@@ -1872,16 +1728,10 @@
           "date": 1,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Deepavali Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Deepavali / Diwali)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Diwali"
+              "color": "#ef4444",
+              "category": "Deepavali"
             }
           ]
         },
@@ -1891,13 +1741,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1908,13 +1758,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1925,13 +1775,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -1940,16 +1790,10 @@
           "date": 5,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "TechnoVIT '26 (International Technical Festival - Day 1)",
+              "type": "Festival",
+              "color": "#8b5cf6",
+              "category": "TechnoVIT '26"
             }
           ]
         },
@@ -1957,16 +1801,10 @@
           "date": 6,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "green",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#eb556e",
-              "category": "Working Day"
+              "text": "TechnoVIT '26 (International Technical Festival - Day 2)",
+              "type": "Festival",
+              "color": "#8b5cf6",
+              "category": "TechnoVIT '26"
             }
           ]
         },
@@ -1974,10 +1812,10 @@
           "date": 7,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "TechnoVIT '26 (International Technical Festival - Day 3)",
+              "type": "Festival",
+              "color": "#8b5cf6",
+              "category": "TechnoVIT '26"
             }
           ]
         },
@@ -1985,10 +1823,10 @@
           "date": 8,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -1998,13 +1836,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -2015,14 +1853,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(LID for Laboratory Classes)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#f59e0b",
-              "category": "lid for laboratory classes"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2032,13 +1870,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -2049,13 +1887,13 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
               "text": "(Working Day)",
               "type": "Other",
-              "color": "#eb556e",
+              "color": "#38bdf8",
               "category": "Working Day"
             }
           ]
@@ -2066,14 +1904,14 @@
             {
               "text": "Instructional Day",
               "type": "Instructional Day",
-              "color": "green",
+              "color": "#10b981",
               "category": "General"
             },
             {
-              "text": "(LID for Theory Classes)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#f59e0b",
-              "category": "LID FOR THEORY CLASSES"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2081,10 +1919,10 @@
           "date": 14,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2092,10 +1930,10 @@
           "date": 15,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Guru Nanak Jayanti)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
+              "color": "#ef4444",
+              "category": "Guru Nanak Jayanti"
             }
           ]
         },
@@ -2103,16 +1941,16 @@
           "date": 16,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Final Assessment Test - FAT)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2120,16 +1958,16 @@
           "date": 17,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Final Assessment Test - FAT)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2137,16 +1975,16 @@
           "date": 18,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Final Assessment Test - FAT)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2154,16 +1992,16 @@
           "date": 19,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
             },
             {
-              "text": "(Final Assessment Test - FAT)",
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2171,16 +2009,10 @@
           "date": 20,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Instructional Day (Last Instructional Day)",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "Last Instructional Day"
             }
           ]
         },
@@ -2188,16 +2020,10 @@
           "date": 21,
           "events": [
             {
-              "text": "Examination",
+              "text": "Saturday (Weekend)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2205,16 +2031,10 @@
           "date": 22,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -2222,16 +2042,10 @@
           "date": 23,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 1)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -2239,16 +2053,10 @@
           "date": 24,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -2256,16 +2064,10 @@
           "date": 25,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 3)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -2273,16 +2075,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 4)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -2290,16 +2086,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 5)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -2307,16 +2097,10 @@
           "date": 28,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 6)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -2324,16 +2108,10 @@
           "date": 29,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "Sunday (Holiday)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -2341,16 +2119,10 @@
           "date": 30,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Lab Final Assessment Test - Day 7)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         }
@@ -2364,16 +2136,10 @@
           "date": 1,
           "events": [
             {
-              "text": "Examination",
+              "text": "Study Day (Final Exam Preparation)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#94a3b8",
+              "category": "Study Day"
             }
           ]
         },
@@ -2381,16 +2147,10 @@
           "date": 2,
           "events": [
             {
-              "text": "Examination",
+              "text": "Study Day (Final Exam Preparation)",
               "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "color": "#94a3b8",
+              "category": "Study Day"
             }
           ]
         },
@@ -2398,16 +2158,10 @@
           "date": 3,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Theory Final Assessment Test - Day 1)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2415,16 +2169,10 @@
           "date": 4,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Theory Final Assessment Test - Day 2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2432,16 +2180,10 @@
           "date": 5,
           "events": [
             {
-              "text": "Examination",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
-            },
-            {
-              "text": "(Final Assessment Test - FAT)",
-              "type": "Other",
-              "color": "#8b5cf6",
-              "category": "FAT"
+              "text": "FAT (Theory Final Assessment Test - Day 3)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2449,16 +2191,10 @@
           "date": 6,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -2466,16 +2202,10 @@
           "date": 7,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 4)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2483,16 +2213,10 @@
           "date": 8,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 5)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2500,16 +2224,10 @@
           "date": 9,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 6)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2517,16 +2235,10 @@
           "date": 10,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 7)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2534,16 +2246,10 @@
           "date": 11,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 8)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2551,16 +2257,10 @@
           "date": 12,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2568,16 +2268,10 @@
           "date": 13,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -2585,16 +2279,10 @@
           "date": 14,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 9)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2602,16 +2290,10 @@
           "date": 15,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 10)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2619,16 +2301,10 @@
           "date": 16,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 11)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2636,16 +2312,10 @@
           "date": 17,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Day 12)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2653,16 +2323,10 @@
           "date": 18,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "FAT (Theory Final Assessment Test - Concluding Day)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2670,16 +2334,10 @@
           "date": 19,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2687,16 +2345,10 @@
           "date": 20,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -2704,15 +2356,9 @@
           "date": 21,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2721,15 +2367,9 @@
           "date": 22,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2738,15 +2378,9 @@
           "date": 23,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2755,15 +2389,9 @@
           "date": 24,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2772,16 +2400,10 @@
           "date": 25,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Holiday (Christmas)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "color": "#ef4444",
+              "category": "Christmas"
             }
           ]
         },
@@ -2789,16 +2411,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2806,16 +2422,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Holiday",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
-              "category": "Winter Vacation"
+              "color": "#ef4444",
+              "category": "Sunday"
             }
           ]
         },
@@ -2823,15 +2433,9 @@
           "date": 28,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2840,15 +2444,9 @@
           "date": 29,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2857,15 +2455,9 @@
           "date": 30,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]
@@ -2874,15 +2466,9 @@
           "date": 31,
           "events": [
             {
-              "text": "Holiday",
-              "type": "Holiday",
-              "color": "red",
-              "category": "Holiday"
-            },
-            {
-              "text": "(Winter Vacation / Semester Break)",
-              "type": "Holiday",
-              "color": "#e11d48",
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Other",
+              "color": "#94a3b8",
               "category": "Winter Vacation"
             }
           ]

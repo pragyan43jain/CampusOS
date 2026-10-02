@@ -505,7 +505,7 @@ def get_vtop_od(
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
     
-    has_valid = bool(od.get("hasValidData") or (is_auth and (store.get("courses") or store.get("attendance"))))
+    has_valid = bool(od.get("hasValidData") or is_auth or store.get("courses") or store.get("attendance"))
     used = od.get("usedHours") if od.get("usedHours") is not None else (od.get("odHours") if od.get("odHours") is not None else (0 if has_valid else None))
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = od.get("records") or od.get("odRecords") or []
@@ -571,6 +571,20 @@ def get_vtop_od(
         if derived_records:
             records = derived_records
             used = sum(r["hours"] for r in records)
+            store["od"] = {
+                **od,
+                "state": "success_with_records",
+                "hasValidData": True,
+                "usedHours": used,
+                "odHours": used,
+                "totalOdHours": used,
+                "approvedHours": used,
+                "remainingHours": max(0, max_h - used),
+                "percentageUsed": round((used / float(max_h)) * 100.0, 1),
+                "records": records,
+                "odRecords": records,
+            }
+            save_store(store, reg)
 
     approved = used if used is not None else (0 if has_valid else None)
     remaining = max(0, max_h - approved) if approved is not None else None

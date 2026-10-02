@@ -614,13 +614,15 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
             continue
 
         raw_slot = to_text(row.get("slot"))
+        c_code = (to_text(row.get("course_code")) or "").upper() or None
         records.append(
             {
                 "slot": first_slot(raw_slot),
                 "slots": raw_slot,
+                "slotName": raw_slot,
                 "courseType": to_text(row.get("course_type")),
                 "type": course_type_of(to_text(row.get("course_type"))),
-                "courseCode": (to_text(row.get("course_code")) or "").upper() or None,
+                "courseCode": c_code,
                 "courseTitle": to_text(row.get("course_title")),
                 "facultyName": to_text(row.get("faculty")),
                 "attended": attended,
@@ -630,6 +632,29 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
                 "reportedPercentage": to_float(row.get("percentage")),
             }
         )
+
+    # Attach classId and slotName from onclick handlers if available in HTML
+    for tr in table.find_all("tr"):
+        tr_text = tr.get_text(separator=" ")
+        c_m = re.search(r"\b([A-Z]{3,4}\d{3,4}[A-Z]?)\b", tr_text)
+        if not c_m:
+            continue
+        code_found = c_m.group(1).upper()
+        for el in tr.find_all(["a", "button", "input"]):
+            onclick = el.get("onclick") or el.get("href") or ""
+            detail_m = re.search(
+                r"processViewAttendanceDetail\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)",
+                onclick,
+            )
+            if detail_m:
+                cid = detail_m.group(1).strip()
+                sname = detail_m.group(2).strip()
+                for rec in records:
+                    if rec.get("courseCode") == code_found:
+                        rec["classId"] = cid
+                        rec["slotName"] = sname
+                        rec["viewLinkOnclick"] = onclick
+                break
 
     return records
 
@@ -807,6 +832,35 @@ def parse_subject_attendance_details(
     return records
 
 
+def parse_attendance_detail_logs(html: str) -> List[Dict[str, str]]:
+    """
+    Parse day-by-day attendance punch log from /vtop/processViewAttendanceDetail.
+    Returns list of dicts: [{"date": "12-Aug-2024", "status": "Present"}, ...]
+    Matches UniCC parser specification.
+    """
+    if not html:
+        return []
+    soup = soup_of(html)
+    tables = soup.select("table.table") or soup.find_all("table")
+    logs: List[Dict[str, str]] = []
+    for table in tables:
+        rows = table.find_all("tr")
+        for i, row in enumerate(rows):
+            if i == 0:
+                continue
+            cols = row.find_all("td")
+            if len(cols) < 5:
+                continue
+            date_text = cols[1].get_text().strip()
+            status_text = cols[4].get_text().strip()
+            if date_text and status_text:
+                logs.append({
+                    "date": date_text,
+                    "status": status_text,
+                })
+    return logs
+
+
 def extract_course_attendance_descriptors(html: str) -> List[Dict[str, Any]]:
     """
     Extract course descriptors and class IDs from the main attendance table.
@@ -831,10 +885,19 @@ def extract_course_attendance_descriptors(html: str) -> List[Dict[str, Any]]:
             code = c_match.group(1).upper()
             
             class_id = None
+            slot_name = ""
             inputs = tr.find_all(["input", "button", "a"])
             for inp in inputs:
                 val = inp.get("value") or ""
                 onclick = inp.get("onclick") or inp.get("href") or ""
+                m_detail = re.search(
+                    r"processViewAttendanceDetail\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)",
+                    onclick,
+                )
+                if m_detail:
+                    class_id = m_detail.group(1).strip()
+                    slot_name = m_detail.group(2).strip()
+                    break
                 m = re.search(r"['\"]([A-Za-z0-9_]{4,})['\"]", onclick)
                 if m:
                     class_id = m.group(1)
@@ -844,12 +907,13 @@ def extract_course_attendance_descriptors(html: str) -> List[Dict[str, Any]]:
                     break
 
             s_match = re.search(r"\b([A-G][12]\+?T?[A-G]?[12]?|L\d{1,2}(?:\+L\d{1,2})*)\b", row_text)
-            slot = s_match.group(1) if s_match else ""
+            slot = slot_name or (s_match.group(1) if s_match else "")
 
             descriptors.append({
                 "classId": class_id,
                 "courseCode": code,
                 "slot": slot,
+                "slotName": slot_name or slot,
                 "rowText": row_text,
             })
 

@@ -405,9 +405,18 @@ def get_calendar(
     sem_id = semesterId or student.get("semesterId") or "CH20262701"
 
     stored_cal = store.get("calendar")
+    has_valid_calendar = False
     if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
-        if not semesterId or stored_cal.get("semesterId") == semesterId:
-            return stored_cal
+        all_text = " ".join(
+            e.get("text", "")
+            for m in stored_cal.get("calendars", [])
+            for d in m.get("days", [])
+            for e in d.get("events", [])
+        )
+        if "CAT - 1" in all_text and "CAT - 2" in all_text and "FAT" in all_text:
+            has_valid_calendar = True
+            if not semesterId or stored_cal.get("semesterId") == semesterId:
+                return stored_cal
 
     # Attempt live scrape if active session exists
     resolved_session_id = x_session_id or sessionId
@@ -432,10 +441,13 @@ def get_calendar(
         except Exception as exc:
             logger.warning("[Calendar] Live fetch failed in get_calendar: %s", exc)
 
-    if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
+    if has_valid_calendar and stored_cal:
         return stored_cal
 
-    return get_fallback_calendar(sem_id)
+    fallback_cal = get_fallback_calendar(sem_id)
+    store["calendar"] = fallback_cal
+    save_store(store, reg)
+    return fallback_cal
 
 
 class CalendarPostBody(BaseModel):

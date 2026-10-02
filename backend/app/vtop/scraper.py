@@ -215,37 +215,71 @@ def fetch_course_attendance_detail(
     session: VTOPSession,
     semester_id: str,
     class_id: str,
+    slot_name: str = "",
     course_code: str = "",
     course_title: str = "",
     faculty_name: str = "",
-) -> List[Dict[str, Any]]:
+) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
     """
     Query the subject attendance drill-down modal from VTOP CC to extract
-    every single class with 'On Duty' / 'OD' status.
+    day-by-day attendance punch logs and credited 'On Duty' / 'OD' records.
+    Matches UniCC specification.
     """
-    detail_endpoints = [
-        "processViewAttendanceDetail",
-        "getAttendanceDetail",
-        "processViewStudentAttendanceDetail",
-        "academics/common/processViewAttendanceDetail",
-        "students/processViewAttendanceDetail",
+    import time
+    csrf = session.csrf or ""
+    auth_id = session.authorized_id or ""
+    fields = [
+        ("_csrf", str(csrf)),
+        ("authorizedID", str(auth_id)),
+        ("x", str(int(time.time() * 1000))),
+        ("classId", str(class_id)),
+        ("slotName", str(slot_name)),
     ]
-    for ep in detail_endpoints:
+    if semester_id:
+        fields.append(("semesterSubId", str(semester_id)))
+
+    headers = {
+        "Referer": f"{session.base_url}/open/page",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    for ep in ["processViewAttendanceDetail", "academics/common/processViewAttendanceDetail"]:
         try:
-            fields = [
-                ("semesterSubId", semester_id),
-                ("classId", class_id),
-                ("courseId", class_id),
-                ("crscd", course_code),
-            ]
-            html = session.post_custom(ep, fields)
-            if html and ("table" in html.lower() or "present" in html.lower() or "absent" in html.lower() or "duty" in html.lower() or "od" in html.lower()):
-                records = P.parse_subject_attendance_details(html, course_code, course_title, faculty_name)
-                if records:
-                    return records
+            resp = session._post(ep, fields, headers=headers)
+            html = resp.text
+            if html and ("<table" in html.lower() or "present" in html.lower() or "absent" in html.lower() or "duty" in html.lower() or "od" in html.lower()):
+                logs = P.parse_attendance_detail_logs(html)
+                od_records = P.parse_subject_attendance_details(html, course_code, course_title, faculty_name)
+                is_lab = slot_name.upper().startswith("L") or course_code.upper().endswith("P")
+                hours = 2 if is_lab else 1
+                for log in logs:
+                    st = (log.get("status") or "").strip().lower()
+                    if st in ("on duty", "od", "duty"):
+                        d = log.get("date") or "Active Semester"
+                        if not any(r.get("date") == d and r.get("subjectCode") == course_code for r in od_records):
+                            od_records.append({
+                                "id": f"od-class-{course_code}-{d}",
+                                "date": d,
+                                "fromDate": d,
+                                "toDate": d,
+                                "fromTime": None,
+                                "toTime": None,
+                                "timeRange": None,
+                                "subjectCode": course_code,
+                                "subjectTitle": course_title or course_code,
+                                "hours": hours,
+                                "days": 1,
+                                "slot": slot_name,
+                                "type": "LAB" if is_lab else "TH",
+                                "reason": f"Class Attendance On-Duty ({course_code})",
+                                "status": "Approved",
+                                "isApproved": True,
+                                "approvedBy": faculty_name or "Course Faculty / VTOP",
+                            })
+                return logs, od_records
         except Exception as e:
             logger.debug("[VTOP OD] Could not query detail endpoint %s for class %s: %s", ep, class_id, e)
-    return []
+    return [], []
 
 
 def fetch_od(
@@ -296,24 +330,81 @@ def fetch_od(
         except Exception as e:
             logger.debug("[VTOP OD] Probe '%s' exception: %s", endpoint, e)
 
-    # 2. Search attendance page for credited OD classes (0 extra network requests)
+    # 2. Extract OD records from course attendance rows (UniCC method)
     att_od_records: List[Dict[str, Any]] = []
-    if attendance_html or attendance_rows:
-        extracted = P.extract_attendance_od_records(attendance_html or "", attendance_rows or [])
-        if extracted:
-            att_od_records.extend(extracted)
-            logger.info("[VTOP OD] Extracted %d OD record(s) from class attendance page.", len(extracted))
+    if attendance_rows:
+        for row in attendance_rows:
+            vlink = row.get("viewLink") or []
+            slot = row.get("slotName") or row.get("slot") or ""
+            c_code = (row.get("courseCode") or "").upper()
+            c_title = row.get("courseTitle") or c_code
+            is_lab = slot.upper().startswith("L") or c_code.endswith("P")
+            hours = 2 if is_lab else 1
 
-    # 3. Optional deep drill-down only when not in fast_mode and attendance_html is present
-    if not fast_mode and semester_id and attendance_html:
+            has_row_od = False
+            if isinstance(vlink, list):
+                for day in vlink:
+                    st = (day.get("status") or "").strip().lower()
+                    if st in ("on duty", "od", "duty"):
+                        has_row_od = True
+                        d = day.get("date") or "Active Semester"
+                        att_od_records.append({
+                            "id": f"od-{c_code}-{d}",
+                            "date": d,
+                            "fromDate": d,
+                            "toDate": d,
+                            "fromTime": None,
+                            "toTime": None,
+                            "timeRange": None,
+                            "subjectCode": c_code,
+                            "subjectTitle": c_title,
+                            "hours": hours,
+                            "days": 1,
+                            "slot": slot,
+                            "type": "LAB" if is_lab else "TH",
+                            "reason": f"Class Attendance On-Duty ({c_code})",
+                            "status": "Approved",
+                            "isApproved": True,
+                            "approvedBy": row.get("facultyName") or "Course Faculty / VTOP",
+                        })
+
+            if not has_row_od:
+                od_cnt = row.get("odAttended") or row.get("odHours") or 0
+                if od_cnt and int(od_cnt) > 0:
+                    cnt = int(od_cnt)
+                    att_od_records.append({
+                        "id": f"od-{c_code}-summary",
+                        "date": "Active Semester",
+                        "fromDate": "Active Semester",
+                        "toDate": "Active Semester",
+                        "fromTime": None,
+                        "toTime": None,
+                        "timeRange": None,
+                        "subjectCode": c_code,
+                        "subjectTitle": c_title,
+                        "hours": cnt * hours,
+                        "days": cnt,
+                        "slot": slot,
+                        "type": "LAB" if is_lab else "TH",
+                        "reason": f"Sanctioned Class On-Duty ({cnt} class{'es' if cnt > 1 else ''})",
+                        "status": "Approved",
+                        "isApproved": True,
+                        "approvedBy": row.get("facultyName") or "Course Faculty / VTOP",
+                    })
+
+    # 3. Optional deep drill-down if rows didn't have viewLink already
+    if not fast_mode and semester_id and not att_od_records and attendance_html:
         descriptors = P.extract_course_attendance_descriptors(attendance_html)
         tried_class_ids = set()
-        for desc in descriptors[:3]:  # Bound to at most 3 classes
+        for desc in descriptors[:5]:
             c_id = desc.get("classId")
+            s_name = desc.get("slotName") or ""
             c_code = desc.get("courseCode") or ""
             if c_id and c_id not in tried_class_ids:
                 tried_class_ids.add(c_id)
-                detail_recs = fetch_course_attendance_detail(session, semester_id, c_id, course_code=c_code)
+                _, detail_recs = fetch_course_attendance_detail(
+                    session, semester_id, c_id, slot_name=s_name, course_code=c_code
+                )
                 if detail_recs:
                     att_od_records.extend(detail_recs)
 
@@ -368,22 +459,8 @@ def fetch_od(
             "records": [],
             "odRecords": [],
             "message": "No sanctioned On-Duty leave records found on VTOP for this semester.",
+            "diagnostics": {"selectedEndpoint": selected_ep},
         }
-    else:
-        used = best_result.get("usedHours") or 0
-        records = best_result.get("records") or best_result.get("odRecords") or []
-        max_h = best_result.get("maxHours") or best_result.get("maxOdHours") or C.OD_MAX_HOURS
-        best_result["usedHours"] = used
-        best_result["odHours"] = used
-        best_result["totalOdHours"] = used
-        best_result["maxHours"] = max_h
-        best_result["maxOdHours"] = max_h
-        best_result["records"] = records
-        best_result["odRecords"] = records
-
-    best_result["diagnostics"] = {
-        "selectedEndpoint": selected_ep,
-    }
 
     return best_result
 
@@ -479,6 +556,10 @@ def build_attendance(
                 "reportedPercentage": reported,
                 "odAttended": row.get("odAttended") or 0,
                 "odHours": row.get("odAttended") or 0,
+                "classId": row.get("classId"),
+                "slotName": row.get("slotName") or row.get("slot"),
+                "viewLink": row.get("viewLink") or [],
+                "viewLinkOnclick": row.get("viewLinkOnclick"),
                 **metrics,
             }
         )
@@ -757,6 +838,9 @@ def build_courses(
                 "credits": course.get("credits"),
                 "grade": grades_by_code.get(code) if code else None,
                 "attendance": attendance,
+                "classId": attendance.get("classId") if attendance else None,
+                "slotName": attendance.get("slotName") if attendance else ("+".join(course.get("slots") or []) or None),
+                "viewLink": attendance.get("viewLink") if attendance else [],
                 "odHours": attendance.get("odAttended") if attendance else 0,
                 "marks": marks["components"] if marks else None,
             }
@@ -1180,6 +1264,21 @@ def sync(
             return P.parse_exam_schedule(html)
 
         attendance_rows = _step(report, "attendance", _get_attendance) or []
+        if not fast_mode and sem_id and getattr(session, "is_authenticated", False) and attendance_rows:
+            def _fetch_row_detail(row):
+                cid = row.get("classId")
+                sname = row.get("slotName") or row.get("slot") or ""
+                if cid and sname:
+                    logs, _ = fetch_course_attendance_detail(
+                        session, sem_id, cid, slot_name=sname,
+                        course_code=row.get("courseCode", ""),
+                        course_title=row.get("courseTitle", ""),
+                        faculty_name=row.get("facultyName", ""),
+                    )
+                    if logs:
+                        row["viewLink"] = logs
+            with ThreadPoolExecutor(max_workers=min(len(attendance_rows), 5)) as pool:
+                list(pool.map(_fetch_row_detail, attendance_rows))
         marks_rows = _step(report, "marks", _get_marks) or []
         if not fast_mode and sem_id:
             exams = _step(

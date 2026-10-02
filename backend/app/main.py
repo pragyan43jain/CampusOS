@@ -60,7 +60,11 @@ async def normalize_api_route_middleware(request: Request, call_next):
     path = request.scope.get("path", "")
     # If path lacks /api prefix but targets our routers, normalize it
     if path and not path.startswith("/api"):
-        prefixes = ("/vtop", "/academics", "/leetcode", "/lms", "/teams", "/assignments", "/health", "/analytics")
+        prefixes = (
+            "/vtop", "/academics", "/leetcode", "/lms", "/teams", "/assignments",
+            "/health", "/analytics", "/od", "/calendar", "/student", "/courses",
+            "/timetable", "/attendance", "/marks", "/faculty", "/exams",
+        )
         if any(path.startswith(p) for p in prefixes):
             request.scope["path"] = f"/api{path}"
     return await call_next(request)

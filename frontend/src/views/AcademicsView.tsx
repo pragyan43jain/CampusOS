@@ -748,7 +748,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       style={{ fontSize: '0.78rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                       <Calendar size={14} />
-                      <span>📅 Calendar Predictor (Till CAT/FAT)</span>
+                      <span>📅 Attendance Forecaster (Till CAT/FAT)</span>
                     </button>
 
                     <button
