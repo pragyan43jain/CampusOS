@@ -7,6 +7,9 @@ interface CalendarModalProps {
   onClose: () => void;
   exams?: any;
   attendance?: any[];
+  calendars?: any;
+  calendarType?: string;
+  handleCalendarFetch?: (type: string) => void | Promise<void>;
 }
 
 export const CalendarModal: React.FC<CalendarModalProps> = ({
@@ -14,6 +17,9 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
   onClose,
   exams,
   attendance,
+  calendars,
+  calendarType = "ALL",
+  handleCalendarFetch,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -79,7 +85,9 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
 
         <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
           <CalendarView
-            calendarType="ALL"
+            calendars={calendars}
+            calendarType={calendarType}
+            handleCalendarFetch={handleCalendarFetch}
             exams={exams}
             attendance={attendance}
           />

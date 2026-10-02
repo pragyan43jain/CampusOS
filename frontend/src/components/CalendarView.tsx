@@ -1,85 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
-import { RefreshCcw, Calendar as CalendarIcon, Info, Sparkles } from "lucide-react";
-import { MonthCalendar, CalendarDay, CalendarResponse } from "../types";
+import { RefreshCcw, Calendar as CalendarIcon, Info } from "lucide-react";
+import { MonthCalendar, CalendarResponse } from "../types";
 import { CampusAPI } from "../services/api";
 
-export const CALENDAR_TYPES: Record<string, string> = {
-  ALL: "General Semester",
-  ALL02: "General Flexible",
-  ALL03: "General Freshers",
-  ALL05: "General LAW",
-  ALL06: "Flexible Freshers",
-  ALL08: "Cohort LAW",
-  ALL11: "Flexible Research",
-  WEI: "Weekend Intra Semester",
-};
-
-const EXAM_KEYWORDS = [
-  "exam", "cat - 1", "cat - 2", "cat 1", "cat 2", "cat-1", "cat-2", "cat i", "cat ii", "cat-i", "cat-ii",
-  "fat", "lab fat", "theory fat", "assessment", "term end test", "final test", "final assessment",
-  "mid term", "continuous assessment", "examination"
-];
-
-const FEST_KEYWORDS = [
-  "technovit", "vibrance", "riviera", "gravitas", "fest", "festival", "cultural fest", "technical fest"
-];
-
-const HOLIDAY_KEYWORDS = [
-  "holiday", "pooja", "puja", "ayudha", "diwali", "deepavali", "pongal", "eid", "christmas", "good friday",
-  "independence", "republic", "onam", "holi", "ramadan", "ganesh", "maha shivaratri", "vesak",
-  "vacation", "term end", "no instructional", "noinstructional", "vinayakar chathurthi", "gandhi jayanthi",
-  "gandhi jayanti", "thaipoosam", "telugu", "tamil", "ambedkar", "sunday", "winter break"
-];
-
-function normalize(str = ""): string {
-  return String(str).toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
-}
-
-export function isExamEvent(e: any): boolean {
-  if (!e) return false;
-  const type = String(e.type || "").toLowerCase();
-  const text = normalize(e.text || "");
-  const cat = normalize(e.category || "");
-  if (type === "exam") return true;
-  for (const kw of EXAM_KEYWORDS) {
-    if (text.includes(kw) || cat.includes(kw)) return true;
-  }
-  return false;
-}
-
-export function isFestEvent(e: any): boolean {
-  if (!e) return false;
-  const type = String(e.type || "").toLowerCase();
-  const text = normalize(e.text || "");
-  const cat = normalize(e.category || "");
-  if (type === "festival" || type === "fest") return true;
-  for (const kw of FEST_KEYWORDS) {
-    if (text.includes(kw) || cat.includes(kw)) return true;
-  }
-  return false;
-}
-
-export function isHolidayEvent(e: any): boolean {
-  if (!e) return false;
-  const type = String(e.type || "").toLowerCase();
-  const text = normalize(e.text || "");
-  const cat = normalize(e.category || "");
-  if (type === "holiday" || type.includes("holiday") || type.includes("no instructional") || cat.includes("no instructional")) return true;
-  for (const kw of HOLIDAY_KEYWORDS) {
-    if (text.includes(kw) || cat.includes(kw)) return true;
-  }
-  return false;
-}
-
-export function isInstructionalEvent(e: any): boolean {
-  if (!e) return false;
-  const type = String(e.type || "").toLowerCase();
-  const cat = normalize(e.category || "");
-  if (type === "instructional day" || cat.includes("working") || cat.includes("order")) return true;
-  return false;
-}
-
-// Date helpers
 function endOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
@@ -98,90 +21,64 @@ function getDay(date: Date): number {
   return date.getDay();
 }
 
-export interface CalendarDayDetails {
-  dayType: "instructional" | "holiday" | "exam" | "fest" | "weekend";
-  badgeLabel: string;
-  badgeCol: string;
-  badgeBg: string;
-  bgCol: string;
-  borderCol: string;
-  primaryDetail: string;
-  secondaryDetail?: string;
-  fullDescription: string;
+export const CALENDAR_TYPES: Record<string, string> = {
+  ALL: "General Semester",
+  ALL02: "General Flexible",
+  ALL03: "General Freshers",
+  ALL05: "General LAW",
+  ALL06: "Flexible Freshers",
+  ALL08: "Cohort LAW",
+  ALL11: "Flexible Research",
+  WEI: "Weekend Intra Semester",
+};
+
+export const HOLIDAY_KEYWORDS = [
+  "holiday", "pooja", "puja", "ayudha", "diwali", "deepavali", "pongal", "eid", "christmas", "good friday",
+  "independence", "republic", "onam", "holi", "ramadan", "ganesh", "maha shivaratri", "vesak",
+  "vacation", "term end", "no instructional", "noinstructional", "vinayakar chathurthi", "gandhi jayanthi",
+  "gandhi jayanti", "thaipoosam", "telugu", "tamil", "ambedkar", "sunday", "winter break"
+];
+
+const semiHolidayEvents = [
+  "CAT - I", "CAT - II", "CAT 1", "CAT 2", "CAT-I", "CAT-II", "CAT I", "CAT II",
+  "FAT", "Lab FAT", "Theory FAT", "Final Assessment", "Assessment", "Mid Term",
+  "TechnoVIT", "Vibrance", "Riviera", "Gravitas"
+];
+
+function normalize(str = ""): string {
+  return String(str).toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
 }
 
-export function resolveCalendarDayDetails(
-  _dayNum: number,
-  dayInfo: CalendarDay | undefined,
-  _year: number,
-  _monthIndex: number,
-  _examMap?: any
-): CalendarDayDetails {
-  const events = dayInfo?.events || [];
-  const hasExam = events.some(isExamEvent);
-  const hasFest = events.some(isFestEvent);
-  const hasHoliday = events.some(isHolidayEvent);
-  const hasInstructional = events.some(isInstructionalEvent);
-  const isEmpty = events.length === 0;
-
-  if (hasExam) {
-    const ev = events.find(isExamEvent);
-    const label = ev?.category && ev.category !== "General" ? ev.category : ev?.text || "Exam";
-    return {
-      dayType: "exam",
-      badgeLabel: "Exam",
-      badgeCol: "#a855f7",
-      badgeBg: "rgba(168, 85, 247, 0.25)",
-      bgCol: "rgba(168, 85, 247, 0.08)",
-      borderCol: "rgba(168, 85, 247, 0.4)",
-      primaryDetail: label,
-      fullDescription: `${label} - University Examination Milestone. Attendance mandatory.`,
-    };
+export function isHolidayEvent(e: any): boolean {
+  if (!e) return false;
+  const type = String(e.type || "").toLowerCase();
+  const text = normalize(e.text || "");
+  const cat = normalize(e.category || "");
+  if (type.includes("holiday")) return true;
+  if (type.includes("no instructional")) return true;
+  if (cat.includes("no instructional")) return true;
+  for (const kw of HOLIDAY_KEYWORDS) {
+    if (text.includes(kw) || cat.includes(kw)) return true;
   }
+  return false;
+}
 
-  if (hasFest) {
-    const ev = events.find(isFestEvent);
-    const label = ev?.category && ev.category !== "General" ? ev.category : ev?.text || "Festival";
-    return {
-      dayType: "fest",
-      badgeLabel: "Fest",
-      badgeCol: "#f59e0b",
-      badgeBg: "rgba(245, 158, 11, 0.25)",
-      bgCol: "rgba(245, 158, 11, 0.08)",
-      borderCol: "rgba(245, 158, 11, 0.35)",
-      primaryDetail: label,
-      fullDescription: `${label} - Campus Festival / University Event. Non-instructional.`,
-    };
-  }
+export function isInstructionalEvent(e: any): boolean {
+  if (!e) return false;
+  const type = String(e.type || "").toLowerCase();
+  const cat = normalize(e.category || "");
+  if (type === "instructional day") return true;
+  if (cat.includes("working") || cat.includes("order")) return true;
+  return false;
+}
 
-  if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) {
-    const ev = events.find(isHolidayEvent) || events[0];
-    const label = ev?.category && ev.category !== "General" ? ev.category : ev?.text || "Holiday";
-    return {
-      dayType: "holiday",
-      badgeLabel: "Holiday",
-      badgeCol: "#ef4444",
-      badgeBg: "rgba(239, 68, 68, 0.22)",
-      bgCol: "rgba(239, 68, 68, 0.08)",
-      borderCol: "rgba(239, 68, 68, 0.35)",
-      primaryDetail: label,
-      fullDescription: `${label} - Sanctioned University Holiday / Weekend. No classes.`,
-    };
-  }
-
-  const orderEv = events.find((e) => (e.text || "").toLowerCase().includes("order") || (e.category || "").toLowerCase().includes("order"));
-  const primaryLabel = orderEv?.category || orderEv?.text || "Instructional Day";
-
-  return {
-    dayType: "instructional",
-    badgeLabel: "Working",
-    badgeCol: "#10b981",
-    badgeBg: "rgba(16, 185, 129, 0.22)",
-    bgCol: "rgba(16, 185, 129, 0.08)",
-    borderCol: "rgba(16, 185, 129, 0.3)",
-    primaryDetail: primaryLabel,
-    fullDescription: "Regular instructional working day. Attendance recorded.",
-  };
+export function isSemiHolidayEvent(e: any): boolean {
+  if (!e) return false;
+  const text = (e.text || "").toLowerCase();
+  const cat = (e.category || "").toLowerCase();
+  return semiHolidayEvents.some(
+    (kw) => text.includes(kw.toLowerCase()) || cat.includes(kw.toLowerCase())
+  );
 }
 
 export interface CalendarViewProps {
@@ -210,24 +107,27 @@ export function CalendarView({
 
   // Sync props if parent updates them
   useEffect(() => {
-    if (calendars && Array.isArray(calendars) && calendars.length > 0) setInternalCalendars(calendars);
-    else if (initialCalendars && Array.isArray(initialCalendars) && initialCalendars.length > 0) setInternalCalendars(initialCalendars);
+    if (calendars && Array.isArray(calendars) && calendars.length > 0) {
+      setInternalCalendars(calendars);
+    } else if (initialCalendars && Array.isArray(initialCalendars) && initialCalendars.length > 0) {
+      setInternalCalendars(initialCalendars);
+    }
   }, [calendars, initialCalendars]);
 
-  // Built-in calendar fetcher if parent did not provide handleCalendarFetch
-  const executeCalendarFetch = async (typeToFetch: string) => {
-    if (handleCalendarFetch) {
-      handleCalendarFetch(typeToFetch);
-      return;
-    }
+  // Built-in calendar fetcher supporting UniCC VTOP flow
+  const onFetchCalendar = async (typeToFetch: string) => {
     setLoading(true);
     try {
-      const data: CalendarResponse = await CampusAPI.getCalendar(undefined, typeToFetch);
-      if (data && data.calendars && data.calendars.length > 0) {
-        setInternalCalendars(data.calendars);
-        setCurrentType(typeToFetch);
-        if (onCalendarTypeChange) {
-          onCalendarTypeChange(typeToFetch);
+      if (handleCalendarFetch) {
+        await handleCalendarFetch(typeToFetch);
+      } else {
+        const data: CalendarResponse = await CampusAPI.getCalendar(undefined, typeToFetch);
+        if (data && data.calendars && data.calendars.length > 0) {
+          setInternalCalendars(data.calendars);
+          setCurrentType(typeToFetch);
+          if (onCalendarTypeChange) {
+            onCalendarTypeChange(typeToFetch);
+          }
         }
       }
     } catch (err) {
@@ -240,7 +140,7 @@ export function CalendarView({
   // If no calendar data exists on mount, fetch automatically
   useEffect(() => {
     if (!internalCalendars || (Array.isArray(internalCalendars) && internalCalendars.length === 0)) {
-      executeCalendarFetch(currentType);
+      onFetchCalendar(currentType);
     }
   }, []);
 
@@ -264,6 +164,12 @@ export function CalendarView({
     localStorage.setItem("calendar-active-index", String(activeIdx));
   }, [activeIdx]);
 
+  useEffect(() => {
+    if (activeIdx >= safeCalendars.length && safeCalendars.length > 0) {
+      setActiveIdx(0);
+    }
+  }, [safeCalendars.length, activeIdx]);
+
   const activeCalendar = safeCalendars[activeIdx] || {};
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -276,7 +182,6 @@ export function CalendarView({
     };
 
     const rawMonth = String(activeCalendar.month || "").trim();
-    // Resilient matching for "JULY 2026", "JULY - 2026", "JULY-2026", "JULY"
     const match = rawMonth.match(/([a-zA-Z]+)(?:[^\d]+(\d{4}))?/);
 
     let parsedMonthIndex = now.getMonth();
@@ -349,7 +254,7 @@ export function CalendarView({
     return map;
   }, [exams]);
 
-  // Compute Days
+  // Compute Days using date-fns matching UniCC
   let monthStart = new Date(year, monthIndex, 1);
   let daysInMonth: Date[] = [];
   try {
@@ -366,39 +271,14 @@ export function CalendarView({
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthIndex;
 
-  // Month Statistics
-  const monthStats = useMemo(() => {
-    let working = 0;
-    let holidays = 0;
-    let examCount = 0;
-    let fests = 0;
-
-    daysInMonth.forEach((dateObj) => {
-      const date = dateObj.getDate();
-      const dayInfo = Array.isArray(activeCalendar.days)
-        ? activeCalendar.days.find((d: any) => Number(d.date) === date)
-        : undefined;
-      const examKey = `${dateObj.getFullYear()}-${dateObj.getMonth()}-${dateObj.getDate()}`;
-      const studentExams = examDaysMap.get(examKey) || [];
-      const events = [...(dayInfo?.events || [])];
-
-      if (studentExams.length > 0 || events.some(isExamEvent)) examCount++;
-      else if (events.some(isFestEvent)) fests++;
-      else if (events.some(isHolidayEvent) || events.length === 0 || !events.some(isInstructionalEvent)) holidays++;
-      else if (events.some(isInstructionalEvent)) working++;
-    });
-
-    return { total: daysInMonth.length, working, holidays, exams: examCount, fests };
-  }, [daysInMonth, activeCalendar, examDaysMap]);
-
   if (!safeCalendars.length) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center text-gray-400">
         <CalendarIcon className="w-12 h-12 mb-3 opacity-60 text-blue-500" />
         <p className="text-base font-semibold text-gray-200">No Academic Calendar Data</p>
-        <p className="text-xs text-gray-400 mt-1">Please query VTOP academic calendar to synchronize.</p>
+        <p className="text-xs text-gray-400 mt-1">Please fetch academic calendar from VTOP to synchronize.</p>
         <button
-          onClick={() => executeCalendarFetch(currentType)}
+          onClick={() => onFetchCalendar(currentType)}
           disabled={loading}
           className="mt-4 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
         >
@@ -411,38 +291,21 @@ export function CalendarView({
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      {/* 1. Header with Calendar Type and Refresh Button */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/15 flex items-center justify-center text-blue-500">
-            <CalendarIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <span>VTOP Academic Calendar</span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-500 border border-blue-500/30">
-                {CALENDAR_TYPES[currentType] || currentType}
-              </span>
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Instructional days, continuous assessment tests (CAT I & II), lab & theory FAT, and declared holidays.
-            </p>
-          </div>
-        </div>
-
+      {/* 1. Header with Calendar Type and Refresh Button (UniCC format) */}
+      <h1 className="text-lg font-semibold mb-1 text-center text-gray-800 dark:text-gray-100 flex items-center justify-center gap-3 flex-wrap">
+        <span>Academic Calendar ({CALENDAR_TYPES[currentType] || currentType})</span>
         <button
-          onClick={() => executeCalendarFetch(currentType)}
+          onClick={() => onFetchCalendar(currentType)}
           disabled={loading}
           title="Refresh calendar directly from VTOP"
-          className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors flex items-center gap-2 shadow-sm"
+          className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors shadow-sm disabled:opacity-50"
         >
           <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          <span>{loading ? "Refreshing..." : "Refresh Calendar"}</span>
         </button>
-      </div>
+      </h1>
 
-      {/* 2. Month Selector Tabs */}
-      <div className="flex gap-2 justify-center flex-wrap">
+      {/* 2. Month Selector Tabs (UniCC design) */}
+      <div className="flex gap-2 mb-2 justify-center flex-wrap">
         {safeCalendars.map((calendar: any, idx: number) => (
           <button
             key={calendar.id || calendar.month || idx}
@@ -450,62 +313,36 @@ export function CalendarView({
               setActiveIdx(idx);
               setSelectedDay(null);
             }}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${
+            className={`px-4 py-2 rounded-md text-sm md:text-base font-medium transition-colors duration-150 ${
               idx === activeIdx
-                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700/60"
+                ? "bg-blue-600 text-white dark:bg-blue-700 shadow-sm"
+                : "bg-gray-200 text-gray-700 hover:bg-blue-300 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            {calendar.month ?? "Month"}
+            {calendar.month ?? "Month"} {calendar.year ? `(${calendar.year})` : ""}
           </button>
         ))}
       </div>
 
-      {/* 3. Month Summary Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-3 px-4 py-2.5 rounded-lg bg-gray-50/80 dark:bg-gray-900/60 border border-gray-200/80 dark:border-gray-800 text-xs">
-        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">
+      {/* 3. Calendar Grid for Active Month (UniCC layout & styling) */}
+      <div data-scrollable key={activeIdx} className="w-full">
+        <h2 className="text-2xl font-semibold mb-4 text-center text-gray-800 dark:text-gray-100">
           {activeCalendar.month ?? monthStart.toLocaleString(undefined, { month: "long" })}
         </h2>
 
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span>Working: {monthStats.working}</span>
-          </div>
-          <div className="flex items-center gap-1.5 font-medium text-red-600 dark:text-red-400">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-            <span>Holidays: {monthStats.holidays}</span>
-          </div>
-          {monthStats.exams > 0 && (
-            <div className="flex items-center gap-1.5 font-medium text-purple-600 dark:text-purple-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-              <span>Exams: {monthStats.exams}</span>
-            </div>
-          )}
-          {monthStats.fests > 0 && (
-            <div className="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <span>Fests: {monthStats.fests}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. Calendar Grid for Selected Month */}
-      <div data-scrollable key={activeIdx} className="w-full">
-        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
-          <div className="w-full min-w-[850px] grid grid-cols-7 text-center border-collapse">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
+          <div className="w-full min-w-[950px] grid grid-cols-7 text-center border-collapse">
             {weekdays.map((day) => (
               <div
                 key={day}
-                className="font-bold py-2.5 border-b text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50/70 dark:bg-gray-900/60 border-gray-200 dark:border-gray-800"
+                className="font-semibold py-2.5 border-b text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-sm"
               >
                 {day}
               </div>
             ))}
 
             {blanks.map((_, i) => (
-              <div key={`blank-${i}`} className="min-h-[110px] bg-gray-50/30 dark:bg-gray-900/10 border-b border-r border-gray-100 dark:border-gray-900" />
+              <div key={`blank-${i}`} className="h-36 bg-gray-50/40 dark:bg-gray-900/10 border-b border-r border-gray-100 dark:border-gray-800" />
             ))}
 
             {daysInMonth.map((dateObj) => {
@@ -522,10 +359,18 @@ export function CalendarView({
               if (studentExams.length > 0) {
                 // Remove generic instructional day pills on exam dates
                 events = events.filter(
-                  (e: any) => (e.type || "").toLowerCase() !== "instructional day" && (e.text || "").toLowerCase() !== "instructional day"
+                  (e: any) =>
+                    (e.type || "").toLowerCase() !== "instructional day" &&
+                    (e.text || "").toLowerCase() !== "instructional day"
                 );
                 studentExams.forEach((ex: any) => {
-                  const exType = ex.examType || (ex.title && ex.title.includes("CAT 1") ? "CAT 1" : (ex.title && ex.title.includes("CAT 2") ? "CAT 2" : "FAT"));
+                  const exType =
+                    ex.examType ||
+                    (ex.title && ex.title.includes("CAT 1")
+                      ? "CAT 1"
+                      : ex.title && ex.title.includes("CAT 2")
+                      ? "CAT 2"
+                      : "FAT");
                   const title = ex.title || ex.courseCode || "";
                   const slot = ex.slot ? `Slot ${ex.slot}` : "";
                   const venue = ex.venue && ex.venue !== "TBA" ? ex.venue : "";
@@ -546,69 +391,62 @@ export function CalendarView({
                 });
               }
 
-              const hasExam = studentExams.length > 0 || events.some(isExamEvent);
-              const hasFest = events.some(isFestEvent);
               const hasHoliday = events.some(isHolidayEvent);
               const hasInstructional = events.some(isInstructionalEvent);
               const isEmpty = events.length === 0;
               const isToday = isCurrentMonth && dateObj.getDate() === today.getDate();
-              const isSelected = selectedDay?.date === date;
+              const hasSemiHoliday = events.some(isSemiHolidayEvent);
 
-              let dayType: "exam" | "fest" | "holiday" | "instructional" | "other" = "other";
+              let dayType = "other";
+              if (hasSemiHoliday) dayType = "semiholiday";
+              else if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) dayType = "holiday";
+              else if (hasInstructional) dayType = "instructional";
+
+              // Determine specific badge label
               let badgeLabel = "Other";
-
-              if (hasExam) {
-                dayType = "exam";
-                const examEv = events.find(isExamEvent);
-                const exText = (examEv?.text || "").toUpperCase();
-                badgeLabel = exText.includes("CAT - 1") || exText.includes("CAT-1") || exText.includes("CAT 1") ? "CAT-1"
-                  : exText.includes("CAT - 2") || exText.includes("CAT-2") || exText.includes("CAT 2") ? "CAT-2"
-                  : exText.includes("FAT") ? "FAT" : "Exam";
-              } else if (hasFest) {
-                dayType = "fest";
-                const festEv = events.find(isFestEvent);
-                const fText = (festEv?.text || "").toUpperCase();
-                badgeLabel = fText.includes("TECHNO") ? "TechnoVIT" : fText.includes("VIBRANCE") ? "Vibrance" : "Fest";
-              } else if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) {
-                dayType = "holiday";
-                badgeLabel = "Holiday";
-              } else if (hasInstructional) {
-                dayType = "instructional";
-                badgeLabel = "Working";
+              if (dayType === "holiday") badgeLabel = "Holiday";
+              else if (dayType === "instructional") badgeLabel = "Working";
+              else if (dayType === "semiholiday") {
+                const isCat = events.some((e) => /cat/i.test(e.text || "") || /cat/i.test(e.category || ""));
+                const isFat = events.some((e) => /fat/i.test(e.text || "") || /fat/i.test(e.category || ""));
+                const isFest = events.some(
+                  (e) =>
+                    /techno|vibrance|riviera|gravitas|fest/i.test(e.text || "") ||
+                    /techno|vibrance|riviera|gravitas|fest/i.test(e.category || "")
+                );
+                if (isCat) badgeLabel = "CAT";
+                else if (isFat) badgeLabel = "FAT";
+                else if (isFest) badgeLabel = "Fest";
+                else badgeLabel = "On Campus";
               }
 
               const bgClass =
-                dayType === "exam"
-                  ? "bg-purple-50/80 dark:bg-purple-950/25 border-purple-200/80 dark:border-purple-900/40"
-                  : dayType === "fest"
-                  ? "bg-amber-50/80 dark:bg-amber-950/25 border-amber-200/80 dark:border-amber-900/40"
-                  : dayType === "holiday"
-                  ? "bg-red-50/70 dark:bg-red-950/20 border-red-200/80 dark:border-red-900/40"
+                dayType === "holiday"
+                  ? "bg-red-50 dark:bg-red-900/30"
                   : dayType === "instructional"
-                  ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40"
-                  : "bg-gray-50/50 dark:bg-gray-900/20 border-gray-200/80 dark:border-gray-800";
+                  ? "bg-green-50 dark:bg-green-900/30"
+                  : dayType === "semiholiday"
+                  ? (badgeLabel === "CAT" || badgeLabel === "FAT"
+                      ? "bg-purple-50 dark:bg-purple-900/30"
+                      : "bg-yellow-50 dark:bg-yellow-900/30")
+                  : "bg-gray-50 dark:bg-gray-900/30";
 
               const badgeColorClass =
-                dayType === "exam"
-                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-200 border-purple-300 dark:border-purple-700"
-                  : dayType === "fest"
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 border-amber-300 dark:border-amber-700"
-                  : dayType === "holiday"
-                  ? "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200 border-red-300 dark:border-red-700"
+                dayType === "holiday"
+                  ? "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-100"
                   : dayType === "instructional"
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700"
-                  : "bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700";
+                  ? "bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-100"
+                  : dayType === "semiholiday"
+                  ? (badgeLabel === "CAT" || badgeLabel === "FAT"
+                      ? "bg-purple-200 text-purple-800 dark:bg-purple-700 dark:text-purple-100"
+                      : "bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100")
+                  : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
 
-              // Filter display pills to highlight meaningful events
-              const displayPills = events.filter((e: any) => {
-                const t = (e.text || "").toLowerCase().trim();
-                const c = (e.category || "").toLowerCase().trim();
-                if (isExamEvent(e) || isFestEvent(e) || isHolidayEvent(e)) return true;
-                if (t.includes("order") || c.includes("order")) return true;
-                if (t.includes("commencement") || c.includes("commencement") || t.includes("add & drop")) return true;
-                if (t.includes("vacation") || c.includes("vacation") || t.includes("study day")) return true;
-                // Exclude pure generic "Instructional Day" or "(Working Day)" pills to keep card neat
-                if (t === "instructional day" || t === "(working day)") return false;
+              // Events to display in day cell: preserve UniCC events.slice(1) logic, but don't hide sole milestone
+              const displayEvents = events.filter((e: any, idx: number) => {
+                if (events.length > 1 && idx === 0 && (e.text || "").toLowerCase() === "instructional day") {
+                  return false;
+                }
                 return true;
               });
 
@@ -616,50 +454,57 @@ export function CalendarView({
                 <div
                   key={date}
                   onClick={() => setSelectedDay({ date, events })}
-                  className={`relative flex flex-col items-start justify-start p-2.5 min-h-[110px] text-left border-b border-r transition-all cursor-pointer select-none ${bgClass} ${
-                    isToday ? "ring-2 ring-blue-500 ring-inset" : ""
-                  } ${isSelected ? "ring-2 ring-indigo-600 ring-inset shadow-md" : ""}`}
+                  className={`relative flex flex-col items-start justify-start p-3 h-40 shadow-sm border-b border-r border-gray-200 dark:border-gray-800 cursor-pointer transition-all ${bgClass} ${
+                    isToday ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-900" : ""
+                  }`}
                 >
-                  {/* Card Header: Date & Status Badge */}
                   <div className="w-full flex items-center justify-between">
-                    <span className={`text-sm font-bold font-mono ${isToday ? "text-blue-600 dark:text-blue-400" : "text-gray-800 dark:text-gray-200"}`}>
+                    <div className="text-lg font-bold text-left text-gray-800 dark:text-gray-100">
                       {date}
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeColorClass}`}>
+                    </div>
+                    <div className={`text-xs font-semibold px-2 py-0.5 rounded ${badgeColorClass}`}>
                       {badgeLabel}
-                    </span>
+                    </div>
                   </div>
 
-                  {/* Card Events List */}
-                  <div className="mt-1.5 w-full flex flex-col gap-1 overflow-y-auto max-h-24">
-                    {displayPills.map((e: any, i: number) => {
-                      let pillClass = "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200";
-                      if (isExamEvent(e)) {
-                        pillClass = "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-900/50 dark:text-purple-200 font-semibold";
-                      } else if (isFestEvent(e)) {
-                        pillClass = "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/50 dark:text-amber-200 font-semibold";
-                      } else if (isHolidayEvent(e)) {
-                        pillClass = "bg-red-100 text-red-900 border-red-300 dark:bg-red-900/50 dark:text-red-200 font-semibold";
-                      } else if (isInstructionalEvent(e)) {
-                        pillClass = "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-900/50 dark:text-sky-200 font-semibold";
-                      }
+                  <div className="mt-2 w-full text-left overflow-y-auto max-h-28">
+                    {displayEvents.length > 0 && (
+                      <ul className="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                        {displayEvents.map((e: any, i: number) => {
+                          const isExam =
+                            /cat|fat|exam|assessment/i.test(e.text || "") ||
+                            /cat|fat|exam|assessment/i.test(e.category || "");
+                          const isFest =
+                            /techno|vibrance|riviera|gravitas|fest/i.test(e.text || "") ||
+                            /techno|vibrance|riviera|gravitas|fest/i.test(e.category || "");
+                          const isHol = isHolidayEvent(e);
+                          const isInst = isInstructionalEvent(e);
 
-                      // Label cleaning
-                      const cleanLabel = (e.category && e.category !== "General" && e.category !== "Instructional Day" ? e.category : e.text)
-                        .replace(/^\((.*)\)$/, "$1")
-                        .replace(/^(Holiday\s*\((.*)\)|Holiday\s*-\s*)/i, "$2")
-                        .trim();
+                          const tagClass = isExam
+                            ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-800/40 dark:text-purple-200"
+                            : isFest
+                            ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-800/40 dark:text-amber-200"
+                            : isHol
+                            ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-800/40 dark:text-red-200"
+                            : isInst
+                            ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-800/40 dark:text-green-200"
+                            : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-800/40 dark:text-yellow-200";
 
-                      return (
-                        <div
-                          key={i}
-                          className={`text-[11px] leading-tight px-1.5 py-0.5 rounded border truncate ${pillClass}`}
-                          title={e.text}
-                        >
-                          {cleanLabel || e.text}
-                        </div>
-                      );
-                    })}
+                          const label = e.category && e.category !== "General" ? e.category : e.text;
+                          const parts = String(label).split("/").map((p: string) => p.trim()).filter(Boolean);
+
+                          return parts.map((p: string, j: number) => (
+                            <li
+                              key={`${i}-${j}`}
+                              className={`inline-block px-2 py-0.5 rounded border ${tagClass} mr-1 mb-1 font-medium text-[11px]`}
+                              title={e.text}
+                            >
+                              {p.replace(/^\(|\)$/g, "")}
+                            </li>
+                          ));
+                        })}
+                      </ul>
+                    )}
                   </div>
                 </div>
               );
@@ -667,9 +512,9 @@ export function CalendarView({
           </div>
         </div>
 
-        {/* 5. Selected Day Detail Inspector Drawer */}
+        {/* 4. Selected Day Schedule Inspector */}
         {selectedDay && (
-          <div className="mt-4 p-4 rounded-xl bg-gray-50/90 dark:bg-gray-900/80 border border-gray-200 dark:border-gray-800 flex flex-col gap-2.5 animate-fadeIn">
+          <div className="mt-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex flex-col gap-2.5 animate-fadeIn">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-blue-500" />
@@ -690,17 +535,20 @@ export function CalendarView({
                 selectedDay.events.map((ev: any, idx: number) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-gray-950 border border-gray-200/80 dark:border-gray-800 text-xs"
+                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 text-xs"
                   >
                     <div className="flex items-center gap-2">
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                         style={{
                           backgroundColor:
-                            isExamEvent(ev) ? "#a855f7"
-                            : isFestEvent(ev) ? "#f59e0b"
-                            : isHolidayEvent(ev) ? "#ef4444"
-                            : "#10b981",
+                            isHolidayEvent(ev)
+                              ? "#ef4444"
+                              : isSemiHolidayEvent(ev)
+                              ? "#f59e0b"
+                              : isInstructionalEvent(ev)
+                              ? "#10b981"
+                              : "#3b82f6",
                         }}
                       />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">{ev.text}</span>
@@ -722,10 +570,10 @@ export function CalendarView({
         )}
       </div>
 
-      {/* 6. Calendar Type Switcher Wrapper */}
+      {/* 5. Calendar Program Selector (UniCC CalendarTabWrapper) */}
       <CalendarTabWrapper
         calendarType={currentType}
-        handleCalendarFetch={executeCalendarFetch}
+        handleCalendarFetch={onFetchCalendar}
         loading={loading}
       />
     </div>
@@ -752,39 +600,34 @@ function CalendarTabWrapper({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 p-5 text-center mt-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/40 dark:bg-gray-900/30">
-      <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-blue-500" />
-        <span>University Calendar Program Selector</span>
-      </h3>
-      <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-        Switch between General Semester, Flexible, Freshers, LAW, or Weekend intra-semester programs to inspect distinct university schedules.
-      </p>
+    <div className="flex flex-col items-center justify-center gap-4 p-6 text-center mt-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/40">
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+        Select Calendar Type
+      </h2>
 
-      <div className="flex items-center gap-3 flex-wrap justify-center">
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="px-3.5 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-900 text-xs 
-                     dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 transition min-w-[200px]"
-        >
-          {Object.entries(CALENDAR_TYPES).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label} ({value})
-            </option>
-          ))}
-        </select>
+      <select
+        value={selectedType}
+        onChange={(e) => setSelectedType(e.target.value)}
+        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 text-sm
+                   dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 transition min-w-[220px]"
+      >
+        {Object.entries(CALENDAR_TYPES).map(([code, name]) => (
+          <option key={code} value={code}>
+            {name} ({code})
+          </option>
+        ))}
+      </select>
 
-        <button
-          onClick={handleSubmitCalendarType}
-          disabled={loading}
-          className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 
-                     transition shadow-sm disabled:opacity-50"
-        >
-          {loading ? "Switching..." : "Switch Calendar"}
-        </button>
-      </div>
+      <button
+        onClick={handleSubmitCalendarType}
+        disabled={loading}
+        className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 
+                   transition shadow-sm disabled:opacity-50 flex items-center gap-2"
+      >
+        <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        <span>{loading ? "Switching..." : "Switch Calendar"}</span>
+      </button>
     </div>
   );
 }

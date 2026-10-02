@@ -396,29 +396,17 @@ def get_calendar(
 ) -> Dict[str, Any]:
     """
     Return semester academic calendar (instructional days, holidays, exams).
+    Authentically queries VTOP when session is available.
     """
     from app.vtop.calendar import get_fallback_calendar, fetch_vtop_academic_calendar, merge_student_exams_into_calendar
     from app.vtop.client import client_manager
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
     student = store.get("student") or {}
-    sem_id = semesterId or student.get("semesterId") or "CH20262701"
+    sem_id = semesterId or student.get("semesterId") or "CH20242501"
     student_exams = store.get("examsList") or store.get("exams")
 
-    stored_cal = store.get("calendar")
-    has_valid_calendar = False
-    if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
-        # Verify stored calendar has authentic August CAT-1 milestones
-        aug_cat = any(
-            "AUG" in m.get("month", "").upper() and any("CAT" in e.get("text", "") for d in m.get("days", []) for e in d.get("events", []))
-            for m in (stored_cal.get("calendars") or [])
-        )
-        if aug_cat and (not semesterId or stored_cal.get("semesterId") == sem_id):
-            has_valid_calendar = True
-            enriched_stored = merge_student_exams_into_calendar(stored_cal, student_exams)
-            return enriched_stored
-
-    # Attempt live scrape if active session exists
+    # 1. Attempt live scrape if active session exists
     resolved_session_id = x_session_id or sessionId
     handle = client_manager._get(resolved_session_id) if resolved_session_id else None
     if not handle:
@@ -442,9 +430,13 @@ def get_calendar(
         except Exception as exc:
             logger.warning("[Calendar] Live fetch failed in get_calendar: %s", exc)
 
-    if has_valid_calendar and stored_cal:
-        return merge_student_exams_into_calendar(stored_cal, student_exams)
+    # 2. Check persisted calendar in store
+    stored_cal = store.get("calendar")
+    if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
+        if not semesterId or stored_cal.get("semesterId") == sem_id:
+            return merge_student_exams_into_calendar(stored_cal, student_exams)
 
+    # 3. Fallback to authentic academic calendar
     fallback_cal = get_fallback_calendar(sem_id, student_exams=student_exams)
     store["calendar"] = fallback_cal
     save_store(store, reg)
@@ -460,14 +452,28 @@ class CalendarPostBody(BaseModel):
 
 
 @router.post("/calendar")
-def post_calendar_route(body: CalendarPostBody) -> Dict[str, Any]:
+def post_calendar_route(
+    body: CalendarPostBody,
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+) -> Dict[str, Any]:
     """
-    Direct academic calendar endpoint compatible with CampusOS request body.
+    Direct academic calendar endpoint compatible with UniCC request body.
+    Supports cookies, authorizedID, csrf, semesterId, and class group type.
     """
-    from app.vtop.calendar import fetch_vtop_academic_calendar, get_fallback_calendar
+    from app.vtop.calendar import fetch_vtop_academic_calendar, get_fallback_calendar, merge_student_exams_into_calendar
     from app.vtop.session import VTOPSession
+    from app.vtop.client import client_manager
 
-    sem_id = body.semesterId or "CH20262701"
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo or body.authorizedID)
+    store = load_store(reg)
+    student = store.get("student") or {}
+    sem_id = body.semesterId or student.get("semesterId") or "CH20242501"
+    student_exams = store.get("examsList") or store.get("exams")
+
+    # 1. If explicit credentials provided (UniCC schema)
     if body.authorizedID and body.csrf:
         try:
             session = VTOPSession()
@@ -488,11 +494,47 @@ def post_calendar_route(body: CalendarPostBody) -> Dict[str, Any]:
                 class_group_id=body.type or "ALL",
             )
             if live_cal and live_cal.get("calendars"):
+                live_cal = merge_student_exams_into_calendar(live_cal, student_exams)
+                store["calendar"] = live_cal
+                save_store(store, reg)
                 return live_cal
         except Exception as exc:
-            logger.warning("[Calendar] Error in post_calendar_route: %s", exc)
+            logger.warning("[Calendar] Error in post_calendar_route with credentials: %s", exc)
 
-    return get_fallback_calendar(sem_id)
+    # 2. Check active authenticated session in client_manager
+    resolved_session_id = x_session_id or sessionId
+    handle = client_manager._get(resolved_session_id) if resolved_session_id else None
+    if not handle:
+        auth_sid = client_manager._authenticated_handle()
+        if auth_sid:
+            handle = client_manager._get(auth_sid)
+
+    if handle and handle.session and handle.session.is_authenticated:
+        try:
+            live_cal = fetch_vtop_academic_calendar(
+                handle.session,
+                semester_id=sem_id,
+                reg_no=reg or handle.reg_no,
+                class_group_id=body.type or "ALL",
+            )
+            if live_cal and live_cal.get("calendars"):
+                live_cal = merge_student_exams_into_calendar(live_cal, student_exams)
+                store["calendar"] = live_cal
+                save_store(store, reg)
+                return live_cal
+        except Exception as exc:
+            logger.warning("[Calendar] Error in post_calendar_route with active session: %s", exc)
+
+    # 3. Check stored or fallback
+    stored_cal = store.get("calendar")
+    if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
+        if not body.semesterId or stored_cal.get("semesterId") == sem_id:
+            return merge_student_exams_into_calendar(stored_cal, student_exams)
+
+    fallback_cal = get_fallback_calendar(sem_id, student_exams=student_exams)
+    store["calendar"] = fallback_cal
+    save_store(store, reg)
+    return fallback_cal
 
 
 # ---------------------------------------------------------------------------

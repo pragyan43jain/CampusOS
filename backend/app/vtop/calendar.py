@@ -248,7 +248,7 @@ def _build_empty_month_calendar(month_label: str, year: int, month_idx: int) -> 
 def get_semester_calendar_months(semester_id: Optional[str]) -> List[str]:
     """
     Generate target months for querying VTOP /processViewCalendar.
-    Follows CampusOS & VIT semester calendar conventions.
+    Follows UniCC & VIT semester calendar conventions.
     """
     sem_str = str(semester_id or "")
     sem_code = sem_str[-2:] if len(sem_str) >= 2 else "01"
@@ -258,7 +258,7 @@ def get_semester_calendar_months(semester_id: Optional[str]) -> List[str]:
     start_year = int(f"20{match_yr.group(1)}") if match_yr else now.year
     next_year = start_year + 1
 
-    if sem_code == "01":  # Fall Semester
+    if sem_code == "01":  # Fall Semester (Jul - Dec)
         return [
             f"01-JUL-{start_year}",
             f"01-AUG-{start_year}",
@@ -267,7 +267,7 @@ def get_semester_calendar_months(semester_id: Optional[str]) -> List[str]:
             f"01-NOV-{start_year}",
             f"01-DEC-{start_year}",
         ]
-    elif sem_code == "05":  # Winter Semester
+    elif sem_code == "05":  # Winter Semester (Dec - May)
         return [
             f"01-DEC-{start_year}",
             f"01-JAN-{next_year}",
@@ -301,8 +301,17 @@ def fetch_vtop_academic_calendar(
     """
     Scrapes the full semester academic calendar live from VTOP /processViewCalendar.
     Queries all months in parallel and parses instructional days, holidays, order-of-day, and exams.
+    Preserves authentic live VTOP calendar data.
     """
-    sem_id = semester_id or "CH20262701"
+    sem_id = semester_id or "CH20242501"
+
+    # Enforce UniCC calendar group type constraints
+    if sem_id.endswith("05"):
+        if class_group_id not in ("ALL", "ALL02", "ALL05"):
+            class_group_id = "ALL"
+    elif sem_id.endswith("07"):
+        class_group_id = "ALL"
+
     months = get_semester_calendar_months(sem_id)
 
     # Determine credentials and auth state from session
@@ -371,7 +380,6 @@ def fetch_vtop_academic_calendar(
 
     all_calendars = [month_results[m] for m in months if m in month_results and month_results[m]]
 
-    # Ensure rich calendar completeness: merge with authentic semester calendar
     fallback_data = get_fallback_calendar(sem_id)
     fb_calendars = fallback_data.get("calendars", [])
     fb_by_month = {m.get("month", "").upper().split()[0]: m for m in fb_calendars if m.get("month")}
@@ -380,7 +388,7 @@ def fetch_vtop_academic_calendar(
         logger.info("[VTOP Calendar] Using authentic semester calendar dataset for %s", sem_id)
         return fallback_data
 
-    # If live months were fetched, fill any missing months or empty days from authentic calendar
+    # Use authentic live data directly without overwriting with synthetic fallback
     complete_calendars: List[Dict[str, Any]] = []
     for m in months:
         cal = month_results.get(m)
@@ -389,14 +397,6 @@ def fetch_vtop_academic_calendar(
         fb_month = fb_by_month.get(m_key)
 
         if cal and cal.get("days") and len(cal["days"]) > 0:
-            # Check if live days have rich exam/holiday metadata; if bare, enhance with authentic milestones
-            live_has_exams = any(
-                any(k in (e.get("text") or "").upper() for k in ["CAT", "FAT", "EXAM"])
-                for d in cal.get("days", [])
-                for e in d.get("events", [])
-            )
-            if not live_has_exams and fb_month:
-                cal = fb_month
             complete_calendars.append(cal)
         elif fb_month:
             complete_calendars.append(fb_month)
@@ -755,7 +755,7 @@ def get_fallback_calendar(semester_id: Optional[str] = None, student_exams: Any 
     Falls back to authentic VIT calendar generator if dataset is missing or invalid.
     Optionally overlays student's personal exam schedule if provided.
     """
-    sem_id = semester_id or "CH20262701"
+    sem_id = semester_id or "CH20242501"
     raw_calendars = []
 
     if os.path.exists(CALENDAR_JSON_PATH):
@@ -764,12 +764,7 @@ def get_fallback_calendar(semester_id: Optional[str] = None, student_exams: Any 
                 data = json.load(f)
                 if isinstance(data, dict):
                     raw_cals = data.get("calendars") or []
-                    # Verify calendar has authentic August CAT-1 milestones
-                    aug_cat = any(
-                        "AUG" in m.get("month", "").upper() and any("CAT" in e.get("text", "") for d in m.get("days", []) for e in d.get("events", []))
-                        for m in raw_cals
-                    )
-                    if aug_cat:
+                    if raw_cals and len(raw_cals) > 0:
                         raw_calendars = raw_cals
                         sem_id = data.get("semesterId") or sem_id
         except Exception as exc:

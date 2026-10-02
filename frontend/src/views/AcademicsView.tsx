@@ -127,7 +127,21 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   // OD Hours & Academic Calendar modal states
   const [isODModalOpen, setIsODModalOpen] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [calendarType, setCalendarType] = useState<string>('ALL');
   const [odData, setOdData] = useState<ODResponse | null>(null);
+
+  const handleCalendarFetch = async (fnCalendarType?: string) => {
+    const typeToUse = fnCalendarType || calendarType || 'ALL';
+    try {
+      const data = await CampusAPI.getCalendar(undefined, typeToUse);
+      if (data && data.calendars && data.calendars.length > 0) {
+        setCalendarData(data);
+        setCalendarType(typeToUse);
+      }
+    } catch (err) {
+      console.error('[AcademicsView] Failed to fetch calendar:', err);
+    }
+  };
 
   useEffect(() => {
     const loadCalendar = async () => {
@@ -2389,8 +2403,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       {/* === 3.10 SEMESTER ACADEMIC CALENDAR (CAMPUSOS IN-PAGE COMPONENT) === */}
       {activeTab === 'calendar' && (
         <CalendarView
-          initialCalendars={calendarData?.calendars}
-          calendarType="ALL"
+          calendars={calendarData?.calendars}
+          calendarType={calendarType}
+          handleCalendarFetch={handleCalendarFetch}
           exams={exams}
           attendance={attendance}
         />
@@ -2409,6 +2424,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         onClose={() => setIsCalendarModalOpen(false)}
         exams={exams}
         attendance={attendance}
+        calendars={calendarData?.calendars}
+        calendarType={calendarType}
+        handleCalendarFetch={handleCalendarFetch}
       />
 
       {/* Overall Attendance Predictor Modal (CampusOS calendar days simulator) */}
