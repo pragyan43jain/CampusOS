@@ -55,9 +55,30 @@ app.add_middleware(
 @app.middleware("http")
 async def normalize_api_route_middleware(request: Request, call_next):
     """
-    Ensures routes work whether Vercel serverless proxy preserves or strips the /api prefix.
+    Ensures routes work whether Vercel serverless proxy preserves or strips the /api prefix,
+    or rewrites path to /api/index.py.
     """
     path = request.scope.get("path", "")
+    # Check if a custom path query param was passed: e.g. ?__path=/api/vtop/captcha
+    q_path = request.query_params.get("__path")
+    if q_path:
+        path = q_path
+        request.scope["path"] = path
+
+    # If path points to index or root due to rewrite, look for original path in edge proxy headers
+    if path in ("/api/index.py", "/index.py", "/api/index", "/index", "/api", "/api/"):
+        orig_path = (
+            request.headers.get("x-invoke-path")
+            or request.headers.get("x-matched-path")
+            or request.headers.get("x-forwarded-uri")
+            or request.headers.get("x-original-url")
+            or request.headers.get("x-rewrite-url")
+            or request.headers.get("x-real-path")
+        )
+        if orig_path and orig_path.split("?")[0] not in ("/api", "/api/", "/api/index.py", "/index.py"):
+            path = orig_path.split("?")[0]
+            request.scope["path"] = path
+
     # If path lacks /api prefix but targets our routers, normalize it
     if path and not path.startswith("/api"):
         prefixes = (
@@ -126,6 +147,7 @@ from app.storage import load_store
 
 
 @app.get("/")
+@app.get("/api")
 @app.get("/health")
 @app.get("/api/health")
 def root():
