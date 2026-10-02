@@ -55,7 +55,6 @@ export type AcademicsSubTab =
   | 'profile'
   | 'attendance'
   | 'calendar'
-  | 'predictor'
   | 'timetable'
   | 'marks'
   | 'exams'
@@ -94,7 +93,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     if (path.includes('/academics/profile')) return 'profile';
     if (path.includes('/academics/attendance')) return 'attendance';
     if (path.includes('/academics/calendar') || path.includes('/calendar')) return 'calendar';
-    if (path.includes('/academics/predictor')) return 'predictor';
+    if (path.includes('/academics/predictor')) return 'attendance';
     if (path.includes('/academics/timetable')) return 'timetable';
     if (path.includes('/academics/marks')) return 'marks';
     if (path.includes('/academics/exams')) return 'exams';
@@ -114,9 +113,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const [predictedGrades, setPredictedGrades] = useState<Record<string, string>>({});
   const [extraSemesters, setExtraSemesters] = useState<Array<{ id: number; name: string; credits: number; gpa: number }>>([]);
 
-  // Attendance Simulator states
+  // Attendance Safety Engine states
   const [targetAttendance, setTargetAttendance] = useState<number>(75);
-  const [whatIfChanges, setWhatIfChanges] = useState<Record<string, { attendedDelta: number; missedDelta: number }>>({});
   const [simAttendedGlobalDelta, setSimAttendedGlobalDelta] = useState<number>(0);
   const [simMissedGlobalDelta, setSimMissedGlobalDelta] = useState<number>(0);
 
@@ -444,7 +442,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     { id: 'profile', label: 'Profile', icon: User, count: student.regNo || undefined },
     { id: 'attendance', label: 'Attendance', icon: Percent, count: attendance.length ? `${attendance.length}` : undefined },
     { id: 'calendar', label: 'Academic Calendar', icon: CalendarDays, count: 'Semester' },
-    { id: 'predictor', label: 'Attendance Simulator', icon: Calculator, count: 'Predictor' },
     { id: 'timetable', label: 'Timetable', icon: Calendar, count: timetable.length ? `${timetable.length} Slots` : undefined },
     { id: 'marks', label: 'Marks', icon: Award, count: marks.length ? `${marks.length}` : undefined },
     { id: 'exams', label: 'Exams', icon: FileText, count: exams.length ? `${exams.length}` : undefined },
@@ -1539,304 +1536,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               </table>
             </div>
           )}
-        </div>
-      )}
-
-      {/* === ATTENDANCE SIMULATOR & SAFE-MISS PREDICTOR SUB-TAB === */}
-      {activeTab === 'predictor' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="card">
-            <div className="card-header-bar" style={{ flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <h3 className="card-title">
-                  <Calculator size={19} color="var(--accent-blue, #3b82f6)" />
-                  <span>Attendance Safe-Margin &amp; Absence Simulator</span>
-                </h3>
-                <p className="card-description">
-                  Simulate class absences and attendance recovery margins based on VTOP attendance records. Test hypothetical attended or missed lectures in real time.
-                </p>
-              </div>
-
-              {/* Threshold Target Selector & Launcher */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setIsPredictorModalOpen(true)}
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Calendar size={14} />
-                  <span>📅 Calendar Working Days Simulator</span>
-                </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontWeight: 600 }}>Target:</span>
-                  <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                    {[75, 80, 85, 90].map((t) => (
-                      <button
-                        key={t}
-                        className={`btn btn-sm ${targetAttendance === t ? 'btn-primary' : 'btn-ghost'}`}
-                        onClick={() => setTargetAttendance(t)}
-                        style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: 0 }}
-                      >
-                        {t}% {t === 75 ? '(VTOP)' : ''}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Overall Attendance Summary Strip */}
-            {(() => {
-              const activeAttendanceList: Attendance[] = attendance;
-              if (activeAttendanceList.length === 0) {
-                return (
-                  <div
-                    style={{
-                      padding: '24px',
-                      textAlign: 'center',
-                      color: 'var(--text-muted)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border-color)',
-                      marginBottom: '20px',
-                    }}
-                  >
-                    No enrolled course attendance records loaded. Refresh or sync VTOP attendance.
-                  </div>
-                );
-              }
-
-              const totalConducted = activeAttendanceList.reduce((sum, a) => sum + (a.conducted ?? a.total ?? a.classesConducted ?? 0), 0);
-              const totalAttended = activeAttendanceList.reduce((sum, a) => sum + (a.attended ?? a.classesAttended ?? 0), 0);
-              const overallPct = totalConducted > 0 ? Math.round((totalAttended / totalConducted) * 100) : 0;
-              const targetFrac = targetAttendance / 100;
-              const overallSafe = overallPct >= targetAttendance
-                ? Math.floor((totalAttended - targetFrac * totalConducted) / targetFrac)
-                : 0;
-              const overallNeed = overallPct < targetAttendance
-                ? Math.ceil((targetFrac * totalConducted - totalAttended) / (1 - targetFrac))
-                : 0;
-
-              return (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: '14px',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid var(--border-color)',
-                    marginBottom: '20px',
-                  }}
-                >
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Aggregate Attended</span>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '2px' }}>
-                      {totalAttended} <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>/ {totalConducted} classes</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current Aggregate Pct</span>
-                    <div
-                      style={{
-                        fontSize: '1.25rem',
-                        fontWeight: 800,
-                        marginTop: '2px',
-                        color: overallPct >= targetAttendance ? '#10b981' : '#ef4444',
-                      }}
-                    >
-                      {overallPct}%
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Safe Absence Margin</span>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '2px', color: '#10b981' }}>
-                      {overallSafe > 0 ? `${overallSafe} classes` : '0 (At Limit)'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Recovery Target</span>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '2px', color: overallNeed > 0 ? '#ef4444' : '#10b981' }}>
-                      {overallNeed > 0 ? `Must attend ${overallNeed} classes` : 'Safe'}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Course-by-Course Simulation List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {attendance.length === 0 ? (
-                <div
-                  style={{
-                    padding: '32px 16px',
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border-color)',
-                  }}
-                >
-                  No enrolled course attendance records available to simulate.
-                </div>
-              ) : (
-                attendance.map((att, idx) => {
-                const code = att.courseCode || `Course-${idx}`;
-                const baseConducted = att.conducted ?? att.total ?? att.classesConducted ?? 0;
-                const baseAttended = att.attended ?? att.classesAttended ?? 0;
-
-                const change = whatIfChanges[code] || { attendedDelta: 0, missedDelta: 0 };
-                const simAttended = Math.max(0, baseAttended + change.attendedDelta);
-                const simConducted = Math.max(0, baseConducted + change.attendedDelta + change.missedDelta);
-                const simPct = simConducted > 0 ? Math.round((simAttended / simConducted) * 100) : 0;
-
-                const targetFrac = targetAttendance / 100;
-                const safeToMiss = simPct >= targetAttendance
-                  ? Math.floor((simAttended - targetFrac * simConducted) / targetFrac)
-                  : 0;
-                const needToAttend = simPct < targetAttendance
-                  ? Math.ceil((targetFrac * simConducted - simAttended) / (1 - targetFrac))
-                  : 0;
-
-                const isModified = change.attendedDelta !== 0 || change.missedDelta !== 0;
-
-                return (
-                  <div
-                    key={code}
-                    style={{
-                      padding: '16px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border-color)',
-                      backgroundColor: isModified ? 'rgba(59, 130, 246, 0.04)' : 'rgba(255, 255, 255, 0.01)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#3b82f6', fontSize: '0.95rem' }}>
-                            {att.courseCode}
-                          </span>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>&bull; {att.slot || 'Regular Slot'}</span>
-                        </div>
-                        <h4 style={{ margin: '4px 0 0', fontSize: '1rem', fontWeight: 600 }}>
-                          {att.courseName || att.courseTitle}
-                        </h4>
-                      </div>
-
-                      {/* Percentage & Margin status */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ textAlign: 'right' }}>
-                          <div
-                            style={{
-                              fontSize: '1.25rem',
-                              fontWeight: 800,
-                              color: simPct >= targetAttendance ? '#10b981' : '#ef4444',
-                            }}
-                          >
-                            {simPct}%
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {simAttended} / {simConducted} classes
-                          </div>
-                        </div>
-
-                        <span
-                          style={{
-                            padding: '4px 10px',
-                            borderRadius: '8px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            backgroundColor: simPct >= targetAttendance ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                            color: simPct >= targetAttendance ? '#10b981' : '#ef4444',
-                          }}
-                        >
-                          {simPct >= targetAttendance ? `Can miss ${safeToMiss}` : `Attend ${needToAttend}`}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', backgroundColor: 'rgba(255, 255, 255, 0.1)', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${Math.min(100, simPct)}%`,
-                          height: '100%',
-                          backgroundColor: simPct >= targetAttendance ? '#10b981' : '#ef4444',
-                          borderRadius: '4px',
-                          transition: 'width 0.3s ease',
-                        }}
-                      />
-                    </div>
-
-                    {/* What-If Interactive Controls */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', paddingTop: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>What-If Simulation:</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => {
-                              setWhatIfChanges((prev) => ({
-                                ...prev,
-                                [code]: {
-                                  attendedDelta: (prev[code]?.attendedDelta || 0) + 1,
-                                  missedDelta: prev[code]?.missedDelta || 0,
-                                },
-                              }));
-                            }}
-                            title="Simulate attending next class"
-                            style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-                          >
-                            + Attend Class
-                          </button>
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => {
-                              setWhatIfChanges((prev) => ({
-                                ...prev,
-                                [code]: {
-                                  attendedDelta: prev[code]?.attendedDelta || 0,
-                                  missedDelta: (prev[code]?.missedDelta || 0) + 1,
-                                },
-                              }));
-                            }}
-                            title="Simulate missing next class"
-                            style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-                          >
-                            + Miss Class
-                          </button>
-                        </div>
-                      </div>
-
-                      {isModified && (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            setWhatIfChanges((prev) => {
-                              const copy = { ...prev };
-                              delete copy[code];
-                              return copy;
-                            });
-                          }}
-                          style={{ fontSize: '0.75rem', color: '#f59e0b' }}
-                        >
-                          Reset Course
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              }))}
-            </div>
-          </div>
         </div>
       )}
 
