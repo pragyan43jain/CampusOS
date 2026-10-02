@@ -16,7 +16,19 @@ import {
   ShieldCheck,
   RotateCcw,
 } from 'lucide-react';
-import { StudentProfile, TimetableSlot, DayOfWeek, Assignment, FeeItem, PlacementDrive, AIStudyTask } from '../types';
+import {
+  StudentProfile,
+  TimetableSlot,
+  DayOfWeek,
+  Assignment,
+  FeeItem,
+  PlacementDrive,
+  AIStudyTask,
+  HostelDetails,
+  DSACategory,
+} from '../types';
+import { CampusAPI } from '../services/api';
+import { calculatePlacementEligibility } from '../services/placementService';
 import { NavView } from '../components/Sidebar';
 import { BentoGrid } from '../components/ui/bento-grid';
 import { BentoCard } from '../components/ui/bento-card';
@@ -30,6 +42,7 @@ interface DashboardViewProps {
   assignments?: Assignment[];
   fees?: FeeItem[];
   placements?: PlacementDrive[];
+  dsaTopics?: DSACategory[];
   aiTasks?: AIStudyTask[];
   onSync?: () => void;
   syncing?: boolean;
@@ -50,6 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   assignments = [],
   fees = [],
   placements = [],
+  dsaTopics = [],
   aiTasks = [],
   onSync,
   syncing = false,
@@ -238,6 +252,98 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
     return !isDone;
   });
+
+  // --- Live Dynamic Data for Bento Grid Hub ---
+  // 1. Live Hostel Details
+  const [hostelDetails, setHostelDetails] = useState<HostelDetails | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    CampusAPI.getHostelDetails()
+      .then((data) => {
+        if (isMounted && data) {
+          setHostelDetails(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('[DashboardView] Could not load hostel details:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeHostelInfo = hostelDetails?.hostelInfo || {
+    isHosteller: student?.isHosteller,
+    blockName: student?.blockName,
+    roomNo: student?.roomNo,
+    messInfo: student?.messInfo,
+    gender: student?.gender,
+  };
+
+  const isHosteller = activeHostelInfo.isHosteller ?? student?.isHosteller ?? true;
+  const rawBlock = activeHostelInfo.blockName || student?.blockName || '';
+  const rawRoom = activeHostelInfo.roomNo || student?.roomNo || '';
+  const rawMess = activeHostelInfo.messInfo || student?.messInfo || '';
+
+  const getCleanBlockName = (block?: string | null, hosteller?: boolean | null): string => {
+    if (hosteller === false) return 'Day Scholar';
+    if (!block || !block.trim()) return 'Hostel';
+    const clean = block.trim();
+    const parenMatch = clean.match(/\(\s*([A-Za-z0-9]+)\s*-\s*Block\s*\)/i);
+    if (parenMatch) return `Block ${parenMatch[1].toUpperCase()}`;
+    const blockLetterMatch = clean.match(/\b([A-Za-z0-9]+)\s+Block\b/i);
+    if (blockLetterMatch) return `Block ${blockLetterMatch[1].toUpperCase()}`;
+    const letterBlockMatch = clean.match(/\bBlock\s+([A-Za-z0-9]+)\b/i);
+    if (letterBlockMatch) return `Block ${letterBlockMatch[1].toUpperCase()}`;
+    if (clean.length <= 16) return clean;
+    const firstWord = clean.split(' ')[0];
+    return firstWord ? `Block ${firstWord.toUpperCase()}` : 'Hostel';
+  };
+
+  const getCleanRoom = (room?: string | null, hosteller?: boolean | null): string => {
+    if (hosteller === false) return 'Day Scholar';
+    if (!room || !room.trim()) return 'Room Allotted';
+    const clean = room.trim();
+    return clean.toLowerCase().startsWith('room') ? clean : `Room ${clean}`;
+  };
+
+  const getCleanMessAndLeave = (
+    mess?: string | null,
+    hosteller?: boolean | null,
+    leaveHistory?: any[]
+  ): string => {
+    if (hosteller === false) return 'Off-Campus • Transit Access';
+    let messLabel = 'Mess Allotted';
+    if (mess && mess.trim()) {
+      const upper = mess.toUpperCase();
+      if (upper.includes('NON')) messLabel = 'Non-Veg Mess';
+      else if (upper.includes('SPECIAL')) messLabel = 'Special Mess';
+      else if (upper.includes('VEG')) messLabel = 'Veg Mess';
+      else messLabel = mess.split('-')[0].trim();
+    }
+    const hasApprovedLeave = leaveHistory?.some(
+      (l) => l.status === 'REQUEST APPROVED' || l.status === 'APPROVED'
+    );
+    return `${messLabel} • ${hasApprovedLeave ? 'Pass Approved' : 'Pass Ready'}`;
+  };
+
+  const displayBlockName = getCleanBlockName(rawBlock, isHosteller);
+  const displayRoom = getCleanRoom(rawRoom, isHosteller);
+  const displayMessAndLeave = getCleanMessAndLeave(rawMess, isHosteller, hostelDetails?.leaveHistory);
+
+  // 2. Institutional Placement & DSA Status
+  const placementEligibility = calculatePlacementEligibility(student);
+  const totalDsaSolved = dsaTopics.reduce((acc, t) => acc + (t.solved || 0), 0);
+
+  // 3. Pending Fee Balance Calculation
+  const pendingDuesTotal = fees
+    .filter((f) => f.status === 'Pending' || ((f.pendingAmount ?? 0) > 0))
+    .reduce((sum, f) => sum + (f.pendingAmount ?? f.amount ?? 0), 0);
+
+  // 4. AI Planner Tasks
+  const highUrgencyTasks = aiTasks.filter((t) => t.urgency === 'HIGH');
+  const examTasks = aiTasks.filter((t) => t.type === 'Exam Preparation');
 
   return (
     <div className="page-container">
@@ -433,8 +539,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             description="Tuition, hostel & mess balance"
             icon={<CreditCard size={20} className="text-amber-400" />}
             badge={
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                {fees.length > 0 ? `${fees.length} Receipts` : 'Cleared'}
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                  pendingDuesTotal > 0
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
+                }`}
+              >
+                {pendingDuesTotal > 0
+                  ? `₹${pendingDuesTotal.toLocaleString('en-IN')} Due`
+                  : fees.length > 0
+                  ? `${fees.length} Receipts`
+                  : 'Cleared'}
               </span>
             }
             onClick={() => onSelectView?.('fees')}
@@ -442,9 +558,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="p-3 rounded-xl bg-[#181818] border border-[#262626] my-2">
               <div className="text-xs text-neutral-400">Pending Dues</div>
-              <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">₹0.00</div>
+              <div
+                className={`text-2xl font-bold font-mono mt-1 ${
+                  pendingDuesTotal > 0 ? 'text-amber-400' : 'text-emerald-400'
+                }`}
+              >
+                ₹{pendingDuesTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
               <div className="text-[11px] text-neutral-400 mt-1 truncate">
-                {fees.length > 0 ? `${fees.length} receipts verified` : 'All semester receipts settled'}
+                {pendingDuesTotal > 0
+                  ? `${fees.length} receipts • Outstanding dues`
+                  : fees.length > 0
+                  ? `${fees.length} receipts verified`
+                  : 'All semester receipts settled'}
               </div>
             </div>
           </BentoCard>
@@ -457,8 +583,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             description="Drives, CTC packages & practice"
             icon={<Briefcase size={20} className="text-purple-400" />}
             badge={
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/25">
-                {placements && placements.length > 0 ? `${placements.length} Drives` : 'Active'}
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                  placementEligibility.isSuperDreamEligible
+                    ? 'bg-purple-500/10 text-purple-400 border-purple-500/25'
+                    : placementEligibility.isDreamEligible
+                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25'
+                    : placementEligibility.tier === 'Core'
+                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/25'
+                    : 'bg-neutral-500/10 text-neutral-400 border-neutral-500/25'
+                }`}
+              >
+                {placements && placements.length > 0
+                  ? `${placements.length} Drives`
+                  : placementEligibility.tier !== 'Unavailable'
+                  ? placementEligibility.tier
+                  : 'Active'}
               </span>
             }
             onClick={() => onSelectView?.('placements')}
@@ -466,9 +606,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <div className="p-3 rounded-xl bg-[#181818] border border-[#262626] my-2">
               <div className="text-xs text-neutral-400">Eligibility Status</div>
-              <div className="text-2xl font-bold font-mono text-white mt-1">100%</div>
+              <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-1 truncate">
+                {placementEligibility.tier === 'Unavailable'
+                  ? 'Sync Required'
+                  : placementEligibility.standingArrears > 0
+                  ? 'Arrears Active'
+                  : placementEligibility.tier}
+              </div>
               <div className="text-[11px] text-purple-300/80 mt-1 truncate">
-                Super Dream & Dream drives
+                {placementEligibility.tier === 'Unavailable'
+                  ? 'Sync VTOP to calculate eligibility'
+                  : placementEligibility.standingArrears > 0
+                  ? `${placementEligibility.standingArrears} Standing Arrear${placementEligibility.standingArrears > 1 ? 's' : ''} restrict drives`
+                  : totalDsaSolved > 0
+                  ? `${totalDsaSolved} DSA solved • ${placementEligibility.isSuperDreamEligible ? 'Super Dream' : placementEligibility.tier} drives`
+                  : placementEligibility.isSuperDreamEligible
+                  ? 'Super Dream & Dream drives'
+                  : placementEligibility.isDreamEligible
+                  ? 'Dream & Regular drives'
+                  : 'Regular & Core drives'}
               </div>
             </div>
           </BentoCard>
@@ -481,18 +637,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             description="Room allotment, mess & leave pass"
             icon={<Building size={20} className="text-cyan-400" />}
             badge={
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/25">
-                Block D
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                  !isHosteller
+                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/25'
+                    : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25'
+                }`}
+              >
+                {displayBlockName}
               </span>
             }
             onClick={() => onSelectView?.('hostel')}
             ctaText="View Hostel Details"
           >
             <div className="p-3 rounded-xl bg-[#181818] border border-[#262626] my-2">
-              <div className="text-xs text-neutral-400">Room & Mess</div>
-              <div className="text-base sm:text-lg font-bold text-white mt-1 truncate">Room 412 (AC)</div>
+              <div className="text-xs text-neutral-400">
+                {!isHosteller ? 'Campus Living' : 'Room & Mess'}
+              </div>
+              <div className="text-base sm:text-lg font-bold text-white mt-1 truncate">
+                {displayRoom}
+              </div>
               <div className="text-[11px] text-cyan-300/80 mt-1 truncate">
-                Special Mess • Pass Ready
+                {displayMessAndLeave}
               </div>
             </div>
           </BentoCard>
@@ -506,7 +672,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             icon={<BrainCircuit size={20} className="text-pink-400" />}
             badge={
               <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-pink-500/15 text-pink-400 border border-pink-500/30">
-                AI Active
+                {aiTasks && aiTasks.length > 0 ? `${aiTasks.length} Targets` : 'AI Active'}
               </span>
             }
             onClick={() => onSelectView?.('ai-planner')}
@@ -518,7 +684,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {aiTasks && aiTasks.length > 0 ? `${aiTasks.length} Tasks Ready` : 'Schedule Synced'}
               </div>
               <div className="text-[11px] text-pink-300/80 mt-1 truncate">
-                Optimal exam buffer on
+                {aiTasks && aiTasks.length > 0
+                  ? highUrgencyTasks.length > 0
+                    ? `${highUrgencyTasks.length} priority sprint${highUrgencyTasks.length > 1 ? 's' : ''} • Optimal buffer`
+                    : examTasks.length > 0
+                    ? `${examTasks.length} exam revision target${examTasks.length > 1 ? 's' : ''} • Buffer active`
+                    : `${aiTasks.length} revision targets • Exam buffer on`
+                  : 'All study targets on track'}
               </div>
             </div>
           </BentoCard>

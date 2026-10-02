@@ -1000,6 +1000,7 @@ export const App: React.FC = () => {
             assignments={assignments}
             fees={fees}
             placements={placements}
+            dsaTopics={dsaTopics}
             aiTasks={aiTasks}
             onSelectView={setActiveView}
             onSync={handleHeaderSync}
