@@ -510,123 +510,71 @@ def build_authentic_semester_calendar(semester_id: Optional[str] = None) -> Dict
                 {"text": "Instructional Day", "type": "Instructional Day", "color": "#10b981", "category": "General"},
                 {"text": "(Working Day / Last Day for Add & Drop)", "type": "Other", "color": "#38bdf8", "category": "Add & Drop"},
             ],
-            # August
-            f"{start_year}-08-15": [
-                {"text": "Holiday (Independence Day)", "type": "Holiday", "color": "#ef4444", "category": "Independence Day"},
-            ],
+            # August: CAT-1 (August 8 - 14) & Independence Day (August 15) & Janmashtami (August 27)
+            f"{start_year}-08-08": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot A2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-09": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot B2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-10": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot C2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-11": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot D2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-12": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot E2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-13": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot F2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-14": [{"text": "CAT - 1 (Continuous Assessment Test 1 - Slot G2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"}],
+            f"{start_year}-08-15": [{"text": "Holiday (Independence Day)", "type": "Holiday", "color": "#ef4444", "category": "Independence Day"}],
             f"{start_year}-08-22": [
                 {"text": "Instructional Day", "type": "Instructional Day", "color": "#10b981", "category": "General"},
                 {"text": "(Instructional Day / Monday Day Order)", "type": "Instructional Day", "color": "#10b981", "category": "Monday Day Order"},
             ],
-            f"{start_year}-08-27": [
-                {"text": "Holiday (Krishna Janmashtami)", "type": "Holiday", "color": "#ef4444", "category": "Krishna Janmashtami"},
-            ],
-            # September
-            f"{start_year}-09-07": [
-                {"text": "Holiday (Vinayagar Chaturthi)", "type": "Holiday", "color": "#ef4444", "category": "Vinayagar Chaturthi"},
-            ],
-            f"{start_year}-09-16": [
-                {"text": "Holiday (Milad-un-Nabi)", "type": "Holiday", "color": "#ef4444", "category": "Milad-un-Nabi"},
-            ],
-            f"{start_year}-09-18": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 1)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            f"{start_year}-09-19": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            f"{start_year}-09-21": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 3)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            f"{start_year}-09-22": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 4)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            f"{start_year}-09-23": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 5)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            f"{start_year}-09-24": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 6)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            f"{start_year}-09-25": [
-                {"text": "CAT - 1 (Continuous Assessment Test 1 - Day 7)", "type": "Exam", "color": "#c084fc", "category": "CAT - 1"},
-            ],
-            # October
-            f"{start_year}-10-02": [
-                {"text": "Holiday (Gandhi Jayanti)", "type": "Holiday", "color": "#ef4444", "category": "Gandhi Jayanti"},
-            ],
-            f"{start_year}-10-11": [
-                {"text": "Holiday (Ayudha Pooja)", "type": "Holiday", "color": "#ef4444", "category": "Ayudha Pooja"},
-            ],
-            f"{start_year}-10-12": [
-                {"text": "Holiday (Vijaya Dasami / Dussehra)", "type": "Holiday", "color": "#ef4444", "category": "Vijaya Dasami"},
-            ],
-            f"{start_year}-10-21": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 1)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-22": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-23": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 3)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-24": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 4)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-26": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 5)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-27": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 6)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-28": [
-                {"text": "CAT - 2 (Continuous Assessment Test 2 - Day 7)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"},
-            ],
-            f"{start_year}-10-31": [
-                {"text": "Holiday (Deepavali / Diwali)", "type": "Holiday", "color": "#ef4444", "category": "Deepavali"},
-            ],
-            # November
-            f"{start_year}-11-01": [
-                {"text": "Holiday (Deepavali Holiday)", "type": "Holiday", "color": "#ef4444", "category": "Deepavali"},
-            ],
-            f"{start_year}-11-05": [
-                {"text": "TechnoVIT '26 (International Technical Festival - Day 1)", "type": "Festival", "color": "#8b5cf6", "category": "TechnoVIT '26"},
-            ],
-            f"{start_year}-11-06": [
-                {"text": "TechnoVIT '26 (International Technical Festival - Day 2)", "type": "Festival", "color": "#8b5cf6", "category": "TechnoVIT '26"},
-            ],
-            f"{start_year}-11-07": [
-                {"text": "TechnoVIT '26 (International Technical Festival - Day 3)", "type": "Festival", "color": "#8b5cf6", "category": "TechnoVIT '26"},
-            ],
-            f"{start_year}-11-15": [
-                {"text": "Holiday (Guru Nanak Jayanti)", "type": "Holiday", "color": "#ef4444", "category": "Guru Nanak Jayanti"},
-            ],
-            f"{start_year}-11-20": [
-                {"text": "Instructional Day (Last Instructional Day)", "type": "Instructional Day", "color": "#10b981", "category": "Last Instructional Day"},
-            ],
-            # November 23-30 Lab FAT
-            f"{start_year}-11-23": [{"text": "FAT (Lab Final Assessment Test - Day 1)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            f"{start_year}-11-24": [{"text": "FAT (Lab Final Assessment Test - Day 2)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            f"{start_year}-11-25": [{"text": "FAT (Lab Final Assessment Test - Day 3)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            f"{start_year}-11-26": [{"text": "FAT (Lab Final Assessment Test - Day 4)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            f"{start_year}-11-27": [{"text": "FAT (Lab Final Assessment Test - Day 5)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            f"{start_year}-11-28": [{"text": "FAT (Lab Final Assessment Test - Day 6)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            f"{start_year}-11-30": [{"text": "FAT (Lab Final Assessment Test - Day 7)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
-            # December
-            f"{start_year}-12-01": [{"text": "Study Day (Final Exam Preparation)", "type": "Other", "color": "#94a3b8", "category": "Study Day"}],
-            f"{start_year}-12-02": [{"text": "Study Day (Final Exam Preparation)", "type": "Other", "color": "#94a3b8", "category": "Study Day"}],
-            f"{start_year}-12-03": [{"text": "FAT (Theory Final Assessment Test - Day 1)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-04": [{"text": "FAT (Theory Final Assessment Test - Day 2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-05": [{"text": "FAT (Theory Final Assessment Test - Day 3)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-07": [{"text": "FAT (Theory Final Assessment Test - Day 4)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-08": [{"text": "FAT (Theory Final Assessment Test - Day 5)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-09": [{"text": "FAT (Theory Final Assessment Test - Day 6)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-10": [{"text": "FAT (Theory Final Assessment Test - Day 7)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-11": [{"text": "FAT (Theory Final Assessment Test - Day 8)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-14": [{"text": "FAT (Theory Final Assessment Test - Day 9)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-15": [{"text": "FAT (Theory Final Assessment Test - Day 10)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-16": [{"text": "FAT (Theory Final Assessment Test - Day 11)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-17": [{"text": "FAT (Theory Final Assessment Test - Day 12)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
-            f"{start_year}-12-18": [{"text": "FAT (Theory Final Assessment Test - Concluding Day)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+            f"{start_year}-08-27": [{"text": "Holiday (Krishna Janmashtami)", "type": "Holiday", "color": "#ef4444", "category": "Krishna Janmashtami"}],
+
+            # September: Vinayagar Chaturthi (Sept 7), Milad-un-Nabi (Sept 16), CAT-2 (Sept 25 - Oct 1)
+            f"{start_year}-09-07": [{"text": "Holiday (Vinayagar Chaturthi)", "type": "Holiday", "color": "#ef4444", "category": "Vinayagar Chaturthi"}],
+            f"{start_year}-09-16": [{"text": "Holiday (Milad-un-Nabi)", "type": "Holiday", "color": "#ef4444", "category": "Milad-un-Nabi"}],
+            f"{start_year}-09-25": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot A2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+            f"{start_year}-09-26": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot B2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+            f"{start_year}-09-27": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot C2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+            f"{start_year}-09-28": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot D2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+            f"{start_year}-09-29": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot E2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+            f"{start_year}-09-30": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot F2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+
+            # October: CAT-2 Concluding Day (Oct 1), Gandhi Jayanti (Oct 2), Ayudha Pooja (Oct 11), Dussehra (Oct 12), TechnoVIT (Oct 22-24), Deepavali (Oct 31)
+            f"{start_year}-10-01": [{"text": "CAT - 2 (Continuous Assessment Test 2 - Slot G2)", "type": "Exam", "color": "#c084fc", "category": "CAT - 2"}],
+            f"{start_year}-10-02": [{"text": "Holiday (Gandhi Jayanti)", "type": "Holiday", "color": "#ef4444", "category": "Gandhi Jayanti"}],
+            f"{start_year}-10-11": [{"text": "Holiday (Ayudha Pooja)", "type": "Holiday", "color": "#ef4444", "category": "Ayudha Pooja"}],
+            f"{start_year}-10-12": [{"text": "Holiday (Vijaya Dasami / Dussehra)", "type": "Holiday", "color": "#ef4444", "category": "Vijaya Dasami"}],
+            f"{start_year}-10-22": [{"text": "TechnoVIT '26 (International Technical Festival - Day 1)", "type": "Festival", "color": "#8b5cf6", "category": "TechnoVIT '26"}],
+            f"{start_year}-10-23": [{"text": "TechnoVIT '26 (International Technical Festival - Day 2)", "type": "Festival", "color": "#8b5cf6", "category": "TechnoVIT '26"}],
+            f"{start_year}-10-24": [{"text": "TechnoVIT '26 (International Technical Festival - Day 3)", "type": "Festival", "color": "#8b5cf6", "category": "TechnoVIT '26"}],
+            f"{start_year}-10-31": [{"text": "Holiday (Deepavali / Diwali)", "type": "Holiday", "color": "#ef4444", "category": "Deepavali"}],
+
+            # November: Deepavali Holiday (Nov 1), Lab FAT (Nov 2 - 7), Last Instructional Day (Nov 13), Theory FAT (Nov 16 - 30)
+            f"{start_year}-11-01": [{"text": "Holiday (Deepavali Holiday)", "type": "Holiday", "color": "#ef4444", "category": "Deepavali"}],
+            f"{start_year}-11-02": [{"text": "FAT (Lab Final Assessment Test - Day 1)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
+            f"{start_year}-11-03": [{"text": "FAT (Lab Final Assessment Test - Day 2)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
+            f"{start_year}-11-04": [{"text": "FAT (Lab Final Assessment Test - Day 3)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
+            f"{start_year}-11-05": [{"text": "FAT (Lab Final Assessment Test - Day 4)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
+            f"{start_year}-11-06": [{"text": "FAT (Lab Final Assessment Test - Day 5)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
+            f"{start_year}-11-07": [{"text": "FAT (Lab Final Assessment Test - Day 6)", "type": "Exam", "color": "#c084fc", "category": "Lab FAT"}],
+            f"{start_year}-11-13": [{"text": "Instructional Day (Last Instructional Day)", "type": "Instructional Day", "color": "#10b981", "category": "Last Instructional Day"}],
+            f"{start_year}-11-16": [{"text": "FAT (Theory Final Assessment Test - Slot A2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+            f"{start_year}-11-17": [{"text": "Study Day (Final Exam Preparation)", "type": "Other", "color": "#94a3b8", "category": "Study Day"}],
+            f"{start_year}-11-18": [{"text": "FAT (Theory Final Assessment Test - Slot B2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+            f"{start_year}-11-19": [{"text": "Study Day (Final Exam Preparation)", "type": "Other", "color": "#94a3b8", "category": "Study Day"}],
+            f"{start_year}-11-20": [{"text": "FAT (Theory Final Assessment Test - Slot C2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+            f"{start_year}-11-25": [{"text": "FAT (Theory Final Assessment Test - Slot E2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+            f"{start_year}-11-27": [{"text": "FAT (Theory Final Assessment Test - Slot F2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+            f"{start_year}-11-30": [{"text": "FAT (Theory Final Assessment Test - Slot G2)", "type": "Exam", "color": "#c084fc", "category": "Theory FAT"}],
+
+            # December: Winter Break / Vacation (Dec 21 - 31), Christmas (Dec 25)
+            f"{start_year}-12-21": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-22": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-23": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-24": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
             f"{start_year}-12-25": [{"text": "Holiday (Christmas)", "type": "Holiday", "color": "#ef4444", "category": "Christmas"}],
+            f"{start_year}-12-26": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-27": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-28": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-29": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-30": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
+            f"{start_year}-12-31": [{"text": "Semester Vacation (Winter Break)", "type": "Holiday", "color": "#ef4444", "category": "Winter Vacation"}],
         }
 
     all_months = []
@@ -696,10 +644,116 @@ def build_authentic_semester_calendar(semester_id: Optional[str] = None) -> Dict
     }
 
 
-def get_fallback_calendar(semester_id: Optional[str] = None) -> Dict[str, Any]:
+def merge_student_exams_into_calendar(calendar_dict: Dict[str, Any], student_exams: Any) -> Dict[str, Any]:
+    """
+    Overlays a student's personal exam schedule (scraped from VTOP examinations/examSchedule)
+    directly onto the corresponding calendar days so each student sees their exact exam schedule.
+    """
+    if not calendar_dict or not student_exams:
+        return calendar_dict
+
+    # Extract all exam items
+    exam_items: List[Dict[str, Any]] = []
+    if isinstance(student_exams, list):
+        exam_items = [e for e in student_exams if isinstance(e, dict)]
+    elif isinstance(student_exams, dict):
+        for ex_type, items in student_exams.items():
+            if isinstance(items, list):
+                for it in items:
+                    if isinstance(it, dict):
+                        exam_items.append({**it, "examType": it.get("examType") or ex_type})
+
+    if not exam_items:
+        return calendar_dict
+
+    months_list = calendar_dict.get("calendars", [])
+    if not months_list:
+        return calendar_dict
+
+    # Map (year, month_idx) to calendar in calendar_dict
+    month_cal_map: Dict[Tuple[int, int], Dict[str, Any]] = {}
+    for m in months_list:
+        m_label = m.get("month", "")
+        _, yr, m_idx = _derive_month_year(m_label)
+        month_cal_map[(yr, m_idx)] = m
+
+    for item in exam_items:
+        raw_date = item.get("date")
+        if not raw_date or str(raw_date).upper() == "TBA":
+            continue
+
+        d_num, m_num, y_num = 0, 0, 0
+        vtop_m = re.match(r"^(\d{1,2})[-/]([A-Za-z]{3})[-/](\d{4})$", str(raw_date).strip())
+        iso_m = re.match(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$", str(raw_date).strip())
+
+        if vtop_m:
+            d_num = int(vtop_m.group(1))
+            m_str = vtop_m.group(2).upper()
+            m_num = MONTH_MAP.get(m_str, 0)
+            y_num = int(vtop_m.group(3))
+        elif iso_m:
+            y_num = int(iso_m.group(1))
+            m_num = int(iso_m.group(2))
+            d_num = int(iso_m.group(3))
+
+        if not (y_num and m_num and d_num):
+            continue
+
+        target_month_cal = month_cal_map.get((y_num, m_num))
+        if not target_month_cal:
+            continue
+
+        days = target_month_cal.setdefault("days", [])
+        day_entry = next((d for d in days if d.get("date") == d_num), None)
+        if not day_entry:
+            day_entry = {"date": d_num, "events": []}
+            days.append(day_entry)
+
+        events = day_entry.setdefault("events", [])
+        # Filter out generic instructional day or duplicate exam entry for the same slot
+        day_entry["events"] = [
+            e for e in events
+            if e.get("type") != "Instructional Day"
+            and not (e.get("type") == "Exam" and item.get("slot") and f"Slot {item['slot']}" in e.get("text", ""))
+        ]
+
+        ex_type = item.get("examType") or ("CAT 1" if "CAT 1" in str(item.get("title")) else ("CAT 2" if "CAT 2" in str(item.get("title")) else "FAT"))
+        title = item.get("title") or item.get("courseCode") or ""
+        slot = item.get("slot") or ""
+        venue = item.get("venue")
+        time_str = item.get("time") or (f"{item.get('start_time', '')} - {item.get('end_time', '')}".strip(" -"))
+
+        desc_parts = [ex_type]
+        if title:
+            desc_parts.append(title)
+        meta_parts = []
+        if slot:
+            meta_parts.append(f"Slot {slot}")
+        if time_str:
+            meta_parts.append(time_str)
+        if venue and venue != "TBA":
+            meta_parts.append(venue)
+
+        event_text = f"{': '.join(desc_parts)} ({', '.join(meta_parts)})" if meta_parts else ': '.join(desc_parts)
+
+        day_entry["events"].insert(0, {
+            "text": event_text,
+            "type": "Exam",
+            "color": "#c084fc",
+            "category": ex_type,
+            "slot": slot,
+            "venue": venue,
+            "time": time_str,
+        })
+
+    return calendar_dict
+
+
+def get_fallback_calendar(semester_id: Optional[str] = None, student_exams: Any = None) -> Dict[str, Any]:
     """
     Load cached academic calendar dataset and ensure all days have explicit entries.
     Falls back to authentic VIT calendar generator if dataset is missing or invalid.
+    Optionally overlays student's personal exam schedule if provided.
     """
     sem_id = semester_id or "CH20262701"
     raw_calendars = []
@@ -710,14 +764,12 @@ def get_fallback_calendar(semester_id: Optional[str] = None) -> Dict[str, Any]:
                 data = json.load(f)
                 if isinstance(data, dict):
                     raw_cals = data.get("calendars") or []
-                    # Check if the file has real events with CAT/FAT or holidays
-                    all_text = " ".join(
-                        e.get("text", "")
+                    # Verify calendar has authentic August CAT-1 milestones
+                    aug_cat = any(
+                        "AUG" in m.get("month", "").upper() and any("CAT" in e.get("text", "") for d in m.get("days", []) for e in d.get("events", []))
                         for m in raw_cals
-                        for d in m.get("days", [])
-                        for e in d.get("events", [])
                     )
-                    if "CAT - 1" in all_text and "CAT - 2" in all_text and "FAT" in all_text:
+                    if aug_cat:
                         raw_calendars = raw_cals
                         sem_id = data.get("semesterId") or sem_id
         except Exception as exc:
@@ -732,9 +784,14 @@ def get_fallback_calendar(semester_id: Optional[str] = None) -> Dict[str, Any]:
                 json.dump(generated, f, indent=2)
         except Exception as exc:
             logger.warning("[Calendar] Could not write authentic calendar to static cache: %s", exc)
-        return generated
+        cal_res = generated
+    else:
+        cal_res = {
+            "semesterId": sem_id,
+            "calendars": raw_calendars,
+        }
 
-    return {
-        "semesterId": sem_id,
-        "calendars": raw_calendars,
-    }
+    if student_exams:
+        cal_res = merge_student_exams_into_calendar(cal_res, student_exams)
+
+    return cal_res

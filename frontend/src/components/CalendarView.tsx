@@ -200,6 +200,8 @@ export function CalendarView({
   calendarType = "ALL",
   handleCalendarFetch,
   onCalendarTypeChange,
+  exams,
+  attendance: _attendance,
 }: CalendarViewProps) {
   const [internalCalendars, setInternalCalendars] = useState<any>(calendars || initialCalendars || null);
   const [currentType, setCurrentType] = useState<string>(calendarType || "ALL");
@@ -274,22 +276,78 @@ export function CalendarView({
     };
 
     const rawMonth = String(activeCalendar.month || "").trim();
-    const match = rawMonth.match(/([a-zA-Z]+)\s+(\d{4})/);
+    // Resilient matching for "JULY 2026", "JULY - 2026", "JULY-2026", "JULY"
+    const match = rawMonth.match(/([a-zA-Z]+)(?:[^\d]+(\d{4}))?/);
 
     let parsedMonthIndex = now.getMonth();
-    let parsedYear = now.getFullYear();
+    let parsedYear = activeCalendar.year ? Number(activeCalendar.year) : now.getFullYear();
 
     if (match) {
-      const monthName = match[1].toLowerCase().slice(0, 3);
-      parsedMonthIndex = MONTH_NAME_MAP[monthName] ?? parsedMonthIndex;
-      parsedYear = parseInt(match[2], 10);
+      const monthPrefix = match[1].toLowerCase().slice(0, 3);
+      if (MONTH_NAME_MAP[monthPrefix] !== undefined) {
+        parsedMonthIndex = MONTH_NAME_MAP[monthPrefix];
+      }
+      if (match[2]) {
+        parsedYear = parseInt(match[2], 10);
+      }
     }
 
     return {
       year: parsedYear,
       monthIndex: parsedMonthIndex,
     };
-  }, [activeCalendar.month]);
+  }, [activeCalendar.month, activeCalendar.year]);
+
+  // Index student's authentic exams by date ("YYYY-M-D")
+  const examDaysMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    if (!exams) return map;
+
+    let examItems: any[] = [];
+    if (Array.isArray(exams)) {
+      examItems = exams;
+    } else if (typeof exams === "object") {
+      Object.entries(exams).forEach(([examType, list]: [string, any]) => {
+        if (Array.isArray(list)) {
+          list.forEach((item: any) => {
+            examItems.push({ ...item, examType: item.examType || examType });
+          });
+        }
+      });
+    }
+
+    const MONTH_NAME_LOOKUP: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    };
+
+    examItems.forEach((item) => {
+      const rawDate = item.date;
+      if (!rawDate || String(rawDate).toUpperCase() === "TBA") return;
+
+      let d = 0, m = -1, y = 0;
+      const vtopMatch = String(rawDate).match(/(\d{1,2})[-/]([a-zA-Z]{3})[-/](\d{4})/);
+      const isoMatch = String(rawDate).match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+
+      if (vtopMatch) {
+        d = parseInt(vtopMatch[1], 10);
+        m = MONTH_NAME_LOOKUP[vtopMatch[2].toLowerCase()] ?? -1;
+        y = parseInt(vtopMatch[3], 10);
+      } else if (isoMatch) {
+        y = parseInt(isoMatch[1], 10);
+        m = parseInt(isoMatch[2], 10) - 1;
+        d = parseInt(isoMatch[3], 10);
+      }
+
+      if (d > 0 && m >= 0 && y > 0) {
+        const key = `${y}-${m}-${d}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(item);
+      }
+    });
+
+    return map;
+  }, [exams]);
 
   // Compute Days
   let monthStart = new Date(year, monthIndex, 1);
@@ -312,7 +370,7 @@ export function CalendarView({
   const monthStats = useMemo(() => {
     let working = 0;
     let holidays = 0;
-    let exams = 0;
+    let examCount = 0;
     let fests = 0;
 
     daysInMonth.forEach((dateObj) => {
@@ -320,16 +378,18 @@ export function CalendarView({
       const dayInfo = Array.isArray(activeCalendar.days)
         ? activeCalendar.days.find((d: any) => Number(d.date) === date)
         : undefined;
-      const events = dayInfo?.events || [];
+      const examKey = `${dateObj.getFullYear()}-${dateObj.getMonth()}-${dateObj.getDate()}`;
+      const studentExams = examDaysMap.get(examKey) || [];
+      const events = [...(dayInfo?.events || [])];
 
-      if (events.some(isExamEvent)) exams++;
+      if (studentExams.length > 0 || events.some(isExamEvent)) examCount++;
       else if (events.some(isFestEvent)) fests++;
       else if (events.some(isHolidayEvent) || events.length === 0 || !events.some(isInstructionalEvent)) holidays++;
       else if (events.some(isInstructionalEvent)) working++;
     });
 
-    return { total: daysInMonth.length, working, holidays, exams, fests };
-  }, [daysInMonth, activeCalendar]);
+    return { total: daysInMonth.length, working, holidays, exams: examCount, fests };
+  }, [daysInMonth, activeCalendar, examDaysMap]);
 
   if (!safeCalendars.length) {
     return (
@@ -453,9 +513,40 @@ export function CalendarView({
               const dayInfo = Array.isArray(activeCalendar.days)
                 ? activeCalendar.days.find((d: any) => Number(d.date) === date)
                 : undefined;
-              const events = dayInfo?.events || [];
+              let events = [...(dayInfo?.events || [])];
 
-              const hasExam = events.some(isExamEvent);
+              // Check student's personal exam schedule for this exact date
+              const examKey = `${dateObj.getFullYear()}-${dateObj.getMonth()}-${dateObj.getDate()}`;
+              const studentExams = examDaysMap.get(examKey) || [];
+
+              if (studentExams.length > 0) {
+                // Remove generic instructional day pills on exam dates
+                events = events.filter(
+                  (e: any) => (e.type || "").toLowerCase() !== "instructional day" && (e.text || "").toLowerCase() !== "instructional day"
+                );
+                studentExams.forEach((ex: any) => {
+                  const exType = ex.examType || (ex.title && ex.title.includes("CAT 1") ? "CAT 1" : (ex.title && ex.title.includes("CAT 2") ? "CAT 2" : "FAT"));
+                  const title = ex.title || ex.courseCode || "";
+                  const slot = ex.slot ? `Slot ${ex.slot}` : "";
+                  const venue = ex.venue && ex.venue !== "TBA" ? ex.venue : "";
+                  const time = ex.time || (ex.start_time ? `${ex.start_time} - ${ex.end_time}` : "");
+                  const meta = [slot, time, venue].filter(Boolean).join(", ");
+                  const desc = `${exType}: ${title}${meta ? ` (${meta})` : ""}`;
+                  if (!events.some((e: any) => e.text === desc)) {
+                    events.unshift({
+                      text: desc,
+                      type: "Exam",
+                      category: exType,
+                      color: "#c084fc",
+                      slot: ex.slot,
+                      venue: ex.venue,
+                      time: time,
+                    });
+                  }
+                });
+              }
+
+              const hasExam = studentExams.length > 0 || events.some(isExamEvent);
               const hasFest = events.some(isFestEvent);
               const hasHoliday = events.some(isHolidayEvent);
               const hasInstructional = events.some(isInstructionalEvent);
@@ -470,8 +561,8 @@ export function CalendarView({
                 dayType = "exam";
                 const examEv = events.find(isExamEvent);
                 const exText = (examEv?.text || "").toUpperCase();
-                badgeLabel = exText.includes("CAT - 1") || exText.includes("CAT-1") ? "CAT-1"
-                  : exText.includes("CAT - 2") || exText.includes("CAT-2") ? "CAT-2"
+                badgeLabel = exText.includes("CAT - 1") || exText.includes("CAT-1") || exText.includes("CAT 1") ? "CAT-1"
+                  : exText.includes("CAT - 2") || exText.includes("CAT-2") || exText.includes("CAT 2") ? "CAT-2"
                   : exText.includes("FAT") ? "FAT" : "Exam";
               } else if (hasFest) {
                 dayType = "fest";
@@ -524,7 +615,7 @@ export function CalendarView({
               return (
                 <div
                   key={date}
-                  onClick={() => setSelectedDay(dayInfo || { date, events: [] })}
+                  onClick={() => setSelectedDay({ date, events })}
                   className={`relative flex flex-col items-start justify-start p-2.5 min-h-[110px] text-left border-b border-r transition-all cursor-pointer select-none ${bgClass} ${
                     isToday ? "ring-2 ring-blue-500 ring-inset" : ""
                   } ${isSelected ? "ring-2 ring-indigo-600 ring-inset shadow-md" : ""}`}

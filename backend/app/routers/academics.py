@@ -397,26 +397,26 @@ def get_calendar(
     """
     Return semester academic calendar (instructional days, holidays, exams).
     """
-    from app.vtop.calendar import get_fallback_calendar, fetch_vtop_academic_calendar
+    from app.vtop.calendar import get_fallback_calendar, fetch_vtop_academic_calendar, merge_student_exams_into_calendar
     from app.vtop.client import client_manager
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
     student = store.get("student") or {}
     sem_id = semesterId or student.get("semesterId") or "CH20262701"
+    student_exams = store.get("examsList") or store.get("exams")
 
     stored_cal = store.get("calendar")
     has_valid_calendar = False
     if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
-        all_text = " ".join(
-            e.get("text", "")
-            for m in stored_cal.get("calendars", [])
-            for d in m.get("days", [])
-            for e in d.get("events", [])
+        # Verify stored calendar has authentic August CAT-1 milestones
+        aug_cat = any(
+            "AUG" in m.get("month", "").upper() and any("CAT" in e.get("text", "") for d in m.get("days", []) for e in d.get("events", []))
+            for m in (stored_cal.get("calendars") or [])
         )
-        if "CAT - 1" in all_text and "CAT - 2" in all_text and "FAT" in all_text:
+        if aug_cat and (not semesterId or stored_cal.get("semesterId") == sem_id):
             has_valid_calendar = True
-            if not semesterId or stored_cal.get("semesterId") == semesterId:
-                return stored_cal
+            enriched_stored = merge_student_exams_into_calendar(stored_cal, student_exams)
+            return enriched_stored
 
     # Attempt live scrape if active session exists
     resolved_session_id = x_session_id or sessionId
@@ -435,6 +435,7 @@ def get_calendar(
                 class_group_id=type or "ALL",
             )
             if live_cal and live_cal.get("calendars"):
+                live_cal = merge_student_exams_into_calendar(live_cal, student_exams)
                 store["calendar"] = live_cal
                 save_store(store, reg)
                 return live_cal
@@ -442,9 +443,9 @@ def get_calendar(
             logger.warning("[Calendar] Live fetch failed in get_calendar: %s", exc)
 
     if has_valid_calendar and stored_cal:
-        return stored_cal
+        return merge_student_exams_into_calendar(stored_cal, student_exams)
 
-    fallback_cal = get_fallback_calendar(sem_id)
+    fallback_cal = get_fallback_calendar(sem_id, student_exams=student_exams)
     store["calendar"] = fallback_cal
     save_store(store, reg)
     return fallback_cal

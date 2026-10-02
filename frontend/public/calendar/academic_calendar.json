@@ -511,10 +511,10 @@
           "date": 8,
           "events": [
             {
-              "text": "Saturday (Weekend)",
-              "type": "Other",
-              "color": "#94a3b8",
-              "category": "Weekend"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot A2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -522,10 +522,10 @@
           "date": 9,
           "events": [
             {
-              "text": "Sunday (Holiday)",
-              "type": "Holiday",
-              "color": "#ef4444",
-              "category": "Sunday"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot B2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -533,16 +533,10 @@
           "date": 10,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot C2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -550,16 +544,10 @@
           "date": 11,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot D2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -567,16 +555,10 @@
           "date": 12,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot E2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -584,16 +566,10 @@
           "date": 13,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot F2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -601,16 +577,10 @@
           "date": 14,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 1 (Continuous Assessment Test 1 - Slot G2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 1"
             }
           ]
         },
@@ -1130,10 +1100,16 @@
           "date": 18,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 1)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 1"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1141,10 +1117,10 @@
           "date": 19,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 2)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 1"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -1163,10 +1139,16 @@
           "date": 21,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 3)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 1"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1174,10 +1156,16 @@
           "date": 22,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 4)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 1"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1185,10 +1173,16 @@
           "date": 23,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 5)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 1"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1196,10 +1190,16 @@
           "date": 24,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 6)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 1"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1207,10 +1207,10 @@
           "date": 25,
           "events": [
             {
-              "text": "CAT - 1 (Continuous Assessment Test 1 - Day 7)",
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot A2)",
               "type": "Exam",
               "color": "#c084fc",
-              "category": "CAT - 1"
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1218,10 +1218,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Saturday (Weekend)",
-              "type": "Other",
-              "color": "#94a3b8",
-              "category": "Weekend"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot B2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1229,10 +1229,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Sunday (Holiday)",
-              "type": "Holiday",
-              "color": "#ef4444",
-              "category": "Sunday"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot C2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1240,16 +1240,10 @@
           "date": 28,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot D2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1257,16 +1251,10 @@
           "date": 29,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot E2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1274,16 +1262,10 @@
           "date": 30,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot F2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         }
@@ -1297,16 +1279,10 @@
           "date": 1,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "CAT - 2 (Continuous Assessment Test 2 - Slot G2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "CAT - 2"
             }
           ]
         },
@@ -1589,10 +1565,16 @@
           "date": 21,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 1)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1600,10 +1582,10 @@
           "date": 22,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 2)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "TechnoVIT '26 (International Technical Festival - Day 1)",
+              "type": "Festival",
+              "color": "#8b5cf6",
+              "category": "TechnoVIT '26"
             }
           ]
         },
@@ -1611,10 +1593,10 @@
           "date": 23,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 3)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "TechnoVIT '26 (International Technical Festival - Day 2)",
+              "type": "Festival",
+              "color": "#8b5cf6",
+              "category": "TechnoVIT '26"
             }
           ]
         },
@@ -1622,10 +1604,10 @@
           "date": 24,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 4)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "TechnoVIT '26 (International Technical Festival - Day 3)",
+              "type": "Festival",
+              "color": "#8b5cf6",
+              "category": "TechnoVIT '26"
             }
           ]
         },
@@ -1644,10 +1626,16 @@
           "date": 26,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 5)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1655,10 +1643,16 @@
           "date": 27,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 6)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1666,10 +1660,16 @@
           "date": 28,
           "events": [
             {
-              "text": "CAT - 2 (Continuous Assessment Test 2 - Day 7)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "CAT - 2"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -1739,16 +1739,10 @@
           "date": 2,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "FAT (Lab Final Assessment Test - Day 1)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -1756,16 +1750,10 @@
           "date": 3,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "FAT (Lab Final Assessment Test - Day 2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -1773,16 +1761,10 @@
           "date": 4,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "FAT (Lab Final Assessment Test - Day 3)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -1790,10 +1772,10 @@
           "date": 5,
           "events": [
             {
-              "text": "TechnoVIT '26 (International Technical Festival - Day 1)",
-              "type": "Festival",
-              "color": "#8b5cf6",
-              "category": "TechnoVIT '26"
+              "text": "FAT (Lab Final Assessment Test - Day 4)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -1801,10 +1783,10 @@
           "date": 6,
           "events": [
             {
-              "text": "TechnoVIT '26 (International Technical Festival - Day 2)",
-              "type": "Festival",
-              "color": "#8b5cf6",
-              "category": "TechnoVIT '26"
+              "text": "FAT (Lab Final Assessment Test - Day 5)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -1812,10 +1794,10 @@
           "date": 7,
           "events": [
             {
-              "text": "TechnoVIT '26 (International Technical Festival - Day 3)",
-              "type": "Festival",
-              "color": "#8b5cf6",
-              "category": "TechnoVIT '26"
+              "text": "FAT (Lab Final Assessment Test - Day 6)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Lab FAT"
             }
           ]
         },
@@ -1902,16 +1884,10 @@
           "date": 13,
           "events": [
             {
-              "text": "Instructional Day",
+              "text": "Instructional Day (Last Instructional Day)",
               "type": "Instructional Day",
               "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "category": "Last Instructional Day"
             }
           ]
         },
@@ -1930,10 +1906,10 @@
           "date": 15,
           "events": [
             {
-              "text": "Holiday (Guru Nanak Jayanti)",
+              "text": "Sunday (Holiday)",
               "type": "Holiday",
               "color": "#ef4444",
-              "category": "Guru Nanak Jayanti"
+              "category": "Sunday"
             }
           ]
         },
@@ -1941,16 +1917,10 @@
           "date": 16,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "FAT (Theory Final Assessment Test - Slot A2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -1958,16 +1928,10 @@
           "date": 17,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
+              "text": "Study Day (Final Exam Preparation)",
               "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "color": "#94a3b8",
+              "category": "Study Day"
             }
           ]
         },
@@ -1975,16 +1939,10 @@
           "date": 18,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
-              "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "text": "FAT (Theory Final Assessment Test - Slot B2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -1992,16 +1950,10 @@
           "date": 19,
           "events": [
             {
-              "text": "Instructional Day",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "General"
-            },
-            {
-              "text": "(Working Day)",
+              "text": "Study Day (Final Exam Preparation)",
               "type": "Other",
-              "color": "#38bdf8",
-              "category": "Working Day"
+              "color": "#94a3b8",
+              "category": "Study Day"
             }
           ]
         },
@@ -2009,10 +1961,10 @@
           "date": 20,
           "events": [
             {
-              "text": "Instructional Day (Last Instructional Day)",
-              "type": "Instructional Day",
-              "color": "#10b981",
-              "category": "Last Instructional Day"
+              "text": "FAT (Theory Final Assessment Test - Slot C2)",
+              "type": "Exam",
+              "color": "#c084fc",
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2042,10 +1994,16 @@
           "date": 23,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 1)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Lab FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2053,10 +2011,16 @@
           "date": 24,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 2)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Lab FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2064,10 +2028,10 @@
           "date": 25,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 3)",
+              "text": "FAT (Theory Final Assessment Test - Slot E2)",
               "type": "Exam",
               "color": "#c084fc",
-              "category": "Lab FAT"
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2075,10 +2039,16 @@
           "date": 26,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 4)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Lab FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2086,10 +2056,10 @@
           "date": 27,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 5)",
+              "text": "FAT (Theory Final Assessment Test - Slot F2)",
               "type": "Exam",
               "color": "#c084fc",
-              "category": "Lab FAT"
+              "category": "Theory FAT"
             }
           ]
         },
@@ -2097,10 +2067,10 @@
           "date": 28,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 6)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Lab FAT"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2119,10 +2089,10 @@
           "date": 30,
           "events": [
             {
-              "text": "FAT (Lab Final Assessment Test - Day 7)",
+              "text": "FAT (Theory Final Assessment Test - Slot G2)",
               "type": "Exam",
               "color": "#c084fc",
-              "category": "Lab FAT"
+              "category": "Theory FAT"
             }
           ]
         }
@@ -2136,10 +2106,16 @@
           "date": 1,
           "events": [
             {
-              "text": "Study Day (Final Exam Preparation)",
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#94a3b8",
-              "category": "Study Day"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2147,10 +2123,16 @@
           "date": 2,
           "events": [
             {
-              "text": "Study Day (Final Exam Preparation)",
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
               "type": "Other",
-              "color": "#94a3b8",
-              "category": "Study Day"
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2158,10 +2140,16 @@
           "date": 3,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 1)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2169,10 +2157,16 @@
           "date": 4,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 2)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2180,10 +2174,10 @@
           "date": 5,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 3)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Saturday (Weekend)",
+              "type": "Other",
+              "color": "#94a3b8",
+              "category": "Weekend"
             }
           ]
         },
@@ -2202,10 +2196,16 @@
           "date": 7,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 4)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2213,10 +2213,16 @@
           "date": 8,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 5)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2224,10 +2230,16 @@
           "date": 9,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 6)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2235,10 +2247,16 @@
           "date": 10,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 7)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2246,10 +2264,16 @@
           "date": 11,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 8)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2279,10 +2303,16 @@
           "date": 14,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 9)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2290,10 +2320,16 @@
           "date": 15,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 10)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2301,10 +2337,16 @@
           "date": 16,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 11)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2312,10 +2354,16 @@
           "date": 17,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Day 12)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2323,10 +2371,16 @@
           "date": 18,
           "events": [
             {
-              "text": "FAT (Theory Final Assessment Test - Concluding Day)",
-              "type": "Exam",
-              "color": "#c084fc",
-              "category": "Theory FAT"
+              "text": "Instructional Day",
+              "type": "Instructional Day",
+              "color": "#10b981",
+              "category": "General"
+            },
+            {
+              "text": "(Working Day)",
+              "type": "Other",
+              "color": "#38bdf8",
+              "category": "Working Day"
             }
           ]
         },
@@ -2357,8 +2411,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2368,8 +2422,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2379,8 +2433,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2390,8 +2444,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2411,10 +2465,10 @@
           "date": 26,
           "events": [
             {
-              "text": "Saturday (Weekend)",
-              "type": "Other",
-              "color": "#94a3b8",
-              "category": "Weekend"
+              "text": "Semester Vacation (Winter Break)",
+              "type": "Holiday",
+              "color": "#ef4444",
+              "category": "Winter Vacation"
             }
           ]
         },
@@ -2422,10 +2476,10 @@
           "date": 27,
           "events": [
             {
-              "text": "Sunday (Holiday)",
+              "text": "Semester Vacation (Winter Break)",
               "type": "Holiday",
               "color": "#ef4444",
-              "category": "Sunday"
+              "category": "Winter Vacation"
             }
           ]
         },
@@ -2434,8 +2488,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2445,8 +2499,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2456,8 +2510,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
@@ -2467,8 +2521,8 @@
           "events": [
             {
               "text": "Semester Vacation (Winter Break)",
-              "type": "Other",
-              "color": "#94a3b8",
+              "type": "Holiday",
+              "color": "#ef4444",
               "category": "Winter Vacation"
             }
           ]
