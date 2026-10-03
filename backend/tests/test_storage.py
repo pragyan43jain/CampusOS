@@ -215,3 +215,10 @@ class TestCorruptFile:
     def test_a_json_list_is_rejected(self):
         _write_raw([1, 2, 3])
         assert storage.load_store()["authenticated"] is False
+
+
+def test_b3_storage_module_type_hints_evaluable():
+    """Verifies Bug B3: typing.get_type_hints(storage) evaluates without NameError for Tuple."""
+    import typing
+    hints = typing.get_type_hints(storage)
+    assert "_MEM_CACHE" in hints

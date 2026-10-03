@@ -1016,4 +1016,33 @@ class TestTeacherExtractionAndSectionParsing:
         assert sections_map.get("20145") == "Dr.Jayavignesh"
         assert sections_map.get("20200") == "Dr. Saranya Nair"
 
+    def test_b2_fetch_assignments_when_vtop_faculty_unassigned_and_teachers_empty(self):
+        """Verifies Bug B2: fetch_assignments_for_lms_course does not raise NameError for c_teachers."""
+        from app.routers.lms import fetch_assignments_for_lms_course
+
+        session = MagicMock()
+        r = MagicMock()
+        r.status_code = 200
+        r.text = """
+        <table class="mod_index">
+          <tr><td>Topic</td><td><a href="/mod/assign/view.php?id=901">Lab Task 1</a></td><td>Friday, 28 August 2026, 11:59 PM</td><td>Submitted</td></tr>
+        </table>
+        """
+        session.get.return_value = r
+        course = {"code": "BCSE308P", "title": "CN Lab", "faculty": "Faculty unassigned"}
+
+        # 1. When lms_teachers is empty, should not crash with NameError and should not return empty list
+        assignments = fetch_assignments_for_lms_course(session, "2057", "CN Lab", course, lms_teachers=[])
+        assert len(assignments) == 1
+        assert assignments[0]["title"] == "Lab Task 1"
+        assert assignments[0]["faculty"] == "Faculty unassigned"
+
+        # 2. When lms_teachers has fallback teachers, it should resolve to the teacher
+        assignments_with_teacher = fetch_assignments_for_lms_course(
+            session, "2057", "CN Lab", course, lms_teachers=["Dr. Fallback Teacher"]
+        )
+        assert len(assignments_with_teacher) == 1
+        assert assignments_with_teacher[0]["faculty"] == "Dr. Fallback Teacher"
+
+
 

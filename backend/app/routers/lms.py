@@ -769,6 +769,7 @@ def fetch_assignments_for_lms_course(
     Never falls back to the VTOP course-offered faculty name.
     """
     assignments: List[Dict[str, Any]] = []
+    c_teachers = list(lms_teachers or [])
     url = f"{LMS_BASE_URL}/mod/assign/index.php?id={course_id}"
 
     course_code = canonicalize_course_code(vtop_course.get("code") or vtop_course.get("courseCode")) or "LMS"

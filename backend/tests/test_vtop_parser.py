@@ -652,3 +652,12 @@ class TestOnDuty:
         assert descs[0]["classId"] == "CH2026270100123"
         assert descs[1]["courseCode"] == "BCSE308L"
         assert descs[1]["classId"] == "CH2026270100456"
+
+
+def test_b3_parser_module_type_hints_evaluable():
+    """Verifies Bug B3: typing.get_type_hints(parser) evaluates without NameError for Sequence and ColumnRule."""
+    import typing
+    from app.vtop import parser
+    hints = typing.get_type_hints(parser)
+    assert "_RECEIPT_RULES" in hints
+    assert "_OD_RULES" in hints

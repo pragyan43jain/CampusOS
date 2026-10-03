@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import tempfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from app.vtop.math_engine import calculate_attendance_metrics, calculate_od_metrics
 

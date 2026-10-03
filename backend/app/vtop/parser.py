@@ -22,12 +22,13 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from bs4.element import Tag
 
 from app.vtop import constants as C
 from app.vtop.tables import (
+    ColumnRule,
     body_says,
     contains,
     discover_columns,
