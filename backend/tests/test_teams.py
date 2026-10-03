@@ -745,3 +745,43 @@ class TestTeamsSubmissionStatus:
                     assert data["regNo"] == "24BLC9999"
                     assert data["sessionId"] is not None
 
+    def test_teams_fetch_coursework_with_empty_vtop_courses_synthesizes_cleanly(self):
+        """Verifies that fetch_microsoft_teams_coursework synthesizes courses when vtop_courses is empty without NameError."""
+        from app.routers.teams import fetch_microsoft_teams_coursework
+        from unittest.mock import MagicMock
+
+        fake_session = MagicMock()
+        r_me = MagicMock(status_code=200)
+        r_me.json.return_value = {"displayName": "Garva Kumar Gupta", "mail": "garva.kumargupta2024@vitstudent.ac.in", "id": "user-123"}
+        r_teams = MagicMock(status_code=200)
+        r_teams.json.return_value = {
+            "value": [
+                {"id": "team-1", "displayName": "BCSE302L - Database Systems (Fall 2026-27)"},
+                {"id": "team-2", "displayName": "BECE303L - VLSI Design"},
+            ]
+        }
+        r_edu = MagicMock(status_code=200)
+        r_edu.json.return_value = {"value": []}
+        r_assign = MagicMock(status_code=200)
+        r_assign.json.return_value = {"value": []}
+
+        fake_session.get.side_effect = lambda url, **kwargs: (
+            r_me if "/me" in url and "joinedTeams" not in url and "assignments" not in url
+            else r_teams if "joinedTeams" in url
+            else r_edu if "classes" in url and "assignments" not in url
+            else r_assign
+        )
+
+        user_info, assignments, matched_subjs, course_matches = fetch_microsoft_teams_coursework(
+            access_token="test_token",
+            email="garva.kumargupta2024@vitstudent.ac.in",
+            vtop_courses=[],
+            session=fake_session,
+        )
+
+        assert user_info["displayName"] == "Garva Kumar Gupta"
+        assert "courses" in user_info
+        assert len(user_info["courses"]) == 2
+        assert user_info["courses"][0]["code"] == "BCSE302L"
+        assert user_info["courses"][1]["code"] == "BECE303L"
+

@@ -23,13 +23,15 @@ from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import _is_test_environment, empty_store, load_store, save_store
+from app.storage import _is_test_environment, empty_store, empty_student, load_store, save_store
 from app.routers.auth import resolve_student_reg
+from app.auth_crypto import generate_signed_session_token
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
     canonicalize_course_code,
     canonicalize_faculty_name,
+    extract_course_code_candidates,
     build_verified_semester_course_records,
     verify_external_course,
 )
@@ -1177,6 +1179,8 @@ def fetch_microsoft_teams_coursework(
         if synthesized_courses:
             vtop_courses = synthesized_courses
 
+    user_info["courses"] = vtop_courses
+
     logger.info("Found %d Teams for student %s. Matching with %d VTOP courses...", len(teams_list), email, len(vtop_courses))
 
     verified_enrolled = build_verified_semester_course_records({"courses": vtop_courses})
@@ -1472,11 +1476,13 @@ def login_and_sync_teams(
             "courseMatches": course_matches,
         }
 
+        if not store.get("courses") and user_info.get("courses"):
+            store["courses"] = user_info["courses"]
+
         if reg:
             if not (store.get("student") or {}).get("name"):
                 disp_name = user_info.get("displayName") or email.split("@")[0].replace(".", " ").title()
                 if not store.get("student"):
-                    from app.storage import empty_student
                     store["student"] = empty_student()
                 store["student"]["name"] = disp_name
                 store["student"]["email"] = email
@@ -1501,7 +1507,6 @@ def login_and_sync_teams(
         if mfa_required:
             msg = f"Credentials verified with Microsoft Online ({email}). Multi-Factor Authentication active."
 
-        from app.auth_crypto import generate_signed_session_token
         session_token = generate_signed_session_token(reg) if reg else None
 
         return {
@@ -1536,6 +1541,12 @@ def login_and_sync_teams(
         raise HTTPException(
             status_code=502,
             detail="Unable to connect to Microsoft Teams. Please check your network connection or try again shortly.",
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error in Microsoft Teams login: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Microsoft Teams sync encountered an error: {str(exc)}",
         )
 
 
