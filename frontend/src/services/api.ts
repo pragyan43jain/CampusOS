@@ -139,6 +139,7 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
   };
   if (activeSessionId) {
     headers['X-Session-ID'] = activeSessionId;
+    headers['Authorization'] = `Bearer ${activeSessionId}`;
   }
   const currentReg = (activeStudent?.regNo && activeStudent.regNo !== 'Not available')
     ? activeStudent.regNo

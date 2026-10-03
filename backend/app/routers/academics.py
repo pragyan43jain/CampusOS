@@ -302,6 +302,17 @@ def get_hostel_details(
     Return student hostel details (gender, room, block, mess) and leave records.
     """
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "hostelInfo": {
+                "gender": None,
+                "isHosteller": False,
+                "blockName": None,
+                "roomNo": None,
+                "messInfo": None,
+            },
+            "leaveHistory": [],
+        }
     store = load_store(reg)
     student = store.get("student") or {}
     hostel_data = store.get("hostel") or {}
@@ -344,6 +355,12 @@ def get_all_grades(
     Return semester-wise grades breakdown and cumulative CGPA.
     """
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if not reg:
+        return {
+            "grades": {},
+            "cgpa": None,
+            "creditsEarned": None,
+        }
     store = load_store(reg)
     student = store.get("student") or {}
     stored_all_grades = store.get("allGrades")

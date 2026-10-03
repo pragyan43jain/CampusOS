@@ -169,6 +169,22 @@ class TestAnonymousZeroLeakage:
         assert data["authenticated"] is False
         assert data["lastSynced"] is None
 
+    def test_anonymous_all_grades_does_not_leak(self, populated_student_stores):
+        res = client.get("/api/all-grades")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["grades"] == {}
+        assert data["cgpa"] is None
+        assert data["creditsEarned"] is None
+
+    def test_anonymous_hostel_details_does_not_leak(self, populated_student_stores):
+        res = client.get("/api/hostel/details")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["leaveHistory"] == []
+        assert data["hostelInfo"]["gender"] is None
+        assert data["hostelInfo"]["roomNo"] is None
+
 
 class TestIDORPrevention:
     """Verifies that an authenticated student cannot access another student's record."""
@@ -271,3 +287,33 @@ class TestLegitimateStudentAccess:
         receipts = res.json()
         assert len(receipts) == 1
         assert receipts[0]["receiptNumber"] == "RCPT-100"
+
+
+class TestAdminAuthorization:
+    """Verifies that admin endpoints cannot be bypassed via forged headers."""
+
+    def test_forged_admin_reg_no_header_rejected(self, monkeypatch):
+        import app.routers.analytics as analytics_mod
+        monkeypatch.setattr(analytics_mod, "CAMPUSOS_ADMIN_REG_NOS", ["21BCE9999"])
+        res = client.get(
+            "/api/analytics/admin/summary",
+            headers={"X-Reg-No": "21BCE9999"},
+        )
+        assert res.status_code == 401
+
+    def test_authenticated_admin_reg_no_accepted(self, monkeypatch):
+        import app.routers.analytics as analytics_mod
+        monkeypatch.setattr(analytics_mod, "CAMPUSOS_ADMIN_REG_NOS", ["21BCE9999"])
+        admin_token = generate_signed_session_token("21BCE9999")
+        # Mock get_analytics_summary to avoid external dependencies
+        monkeypatch.setattr(analytics_mod, "get_analytics_summary", lambda: {"totalUsers": 42})
+        res = client.get(
+            "/api/analytics/admin/summary",
+            headers={
+                "X-Session-ID": admin_token,
+                "X-Reg-No": "21BCE9999",
+            },
+        )
+        assert res.status_code == 200
+        assert res.json()["data"]["totalUsers"] == 42
+

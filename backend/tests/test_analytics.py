@@ -132,11 +132,13 @@ class TestAdminAuthorizationAndMetrics:
     def test_admin_authorization_accepted_with_admin_reg(self, monkeypatch):
         monkeypatch.setenv("CAMPUSOS_ADMIN_REG_NOS", "21BCE1234,22BCE5678")
         import app.routers.analytics as analytics_module
+        from app.auth_crypto import generate_signed_session_token
         analytics_module.CAMPUSOS_ADMIN_REG_NOS = ["21BCE1234", "22BCE5678"]
+        admin_token = generate_signed_session_token("21BCE1234")
 
         res = client.get(
             "/api/analytics/admin/summary",
-            headers={"X-Reg-No": "21BCE1234"},
+            headers={"X-Reg-No": "21BCE1234", "X-Session-ID": admin_token},
         )
         assert res.status_code == 200
         assert res.json()["success"] is True
