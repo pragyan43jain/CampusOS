@@ -314,6 +314,7 @@ class TeamsLoginRequest(BaseModel):
     email: str
     password: str
     tenant: Optional[str] = "vitstudent.ac.in"
+    regNo: Optional[str] = None
 
 
 def verify_microsoft_realm(email: str) -> Dict[str, Any]:
@@ -1257,9 +1258,10 @@ def get_teams_status(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """Returns the verified connection status of Microsoft Teams for the active student."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     is_connected = bool(store.get("teamsConnected"))
     account = store.get("teamsAccount") or {}
@@ -1290,6 +1292,7 @@ def login_and_sync_teams(
     payload: TeamsLoginRequest,
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Authenticates with student's institutional Microsoft 365 credentials against Microsoft Online.
@@ -1324,21 +1327,42 @@ def login_and_sync_teams(
         refresh_token = token_dict.get("refresh_token")
 
         # 3. Determine student regNo
-        reg = resolve_student_reg(x_session_id, x_reg_no)
+        reg = resolve_student_reg(
+            x_session_id=x_session_id,
+            x_reg_no=x_reg_no or payload.regNo,
+            authorization=authorization,
+        )
         if not reg and email:
-            local_part = email.strip().split("@")[0].upper()
+            from app.storage import find_reg_by_email
+            reg = find_reg_by_email(email)
+
+        if not reg and payload.regNo:
+            cand = "".join(c for c in payload.regNo.strip().upper() if c.isalnum() or c in ("-", "_"))
+            if len(cand) >= 5:
+                reg = cand
+
+        if not reg and x_reg_no:
+            cand = "".join(c for c in x_reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
+            if len(cand) >= 5:
+                reg = cand
+
+        if not reg and email:
+            clean_email = email.strip()
+            local_part = clean_email.split("@")[0].upper()
             m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", local_part)
             if m:
                 reg = m.group(1).upper()
-            elif re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", local_part):
-                reg = local_part
-            elif _is_test_environment():
-                reg = "TEST_STUDENT"
+            else:
+                clean_slug = re.sub(r"[^A-Z0-9]", "", local_part)[:20]
+                if len(clean_slug) >= 5:
+                    reg = clean_slug
+                elif _is_test_environment():
+                    reg = "TEST_STUDENT"
 
         if not reg and not _is_test_environment():
             raise HTTPException(
                 status_code=401,
-                detail="Authenticated student session is required to connect Microsoft Teams.",
+                detail="Unable to determine student identity for this Microsoft account. Please sign in to VTOP first or specify your registration number.",
             )
 
         store = load_store(reg)
@@ -1404,6 +1428,14 @@ def login_and_sync_teams(
         }
 
         if reg:
+            if not (store.get("student") or {}).get("name"):
+                disp_name = user_info.get("displayName") or email.split("@")[0].replace(".", " ").title()
+                if not store.get("student"):
+                    from app.storage import empty_student
+                    store["student"] = empty_student()
+                store["student"]["name"] = disp_name
+                store["student"]["email"] = email
+                store["student"]["regNo"] = reg
             save_store(store, reg)
 
         logger.info(
@@ -1424,9 +1456,15 @@ def login_and_sync_teams(
         if mfa_required:
             msg = f"Credentials verified with Microsoft Online ({email}). Multi-Factor Authentication active."
 
+        from app.auth_crypto import generate_signed_session_token
+        session_token = generate_signed_session_token(reg) if reg else None
+
         return {
             "success": True,
             "message": msg,
+            "sessionId": session_token,
+            "regNo": reg,
+            "student": store.get("student"),
             "email": email,
             "displayName": store["teamsAccount"]["displayName"],
             "assignments": all_assignments,
@@ -1462,9 +1500,10 @@ def sync_teams(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """Re-synchronizes authentic coursework from Microsoft Teams for the connected student account."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     if not store.get("teamsConnected"):
         raise HTTPException(

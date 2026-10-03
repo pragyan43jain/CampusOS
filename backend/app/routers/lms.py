@@ -23,6 +23,7 @@ from urllib3.util.retry import Retry
 
 from app.storage import _is_test_environment, empty_store, load_store, save_store
 from app.routers.auth import resolve_student_reg
+from app.auth_crypto import generate_signed_session_token
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
@@ -1282,6 +1283,10 @@ def login_and_sync_lms(
             resolve_student_reg(x_session_id=x_session_id, x_reg_no=x_reg_no, x_auth_user=x_auth_user)
             or cand_user
         )
+        if not reg and payload.username:
+            from app.storage import find_reg_by_email
+            reg = find_reg_by_email(payload.username)
+
         if not reg and not _is_test_environment():
             raise HTTPException(
                 status_code=401,
@@ -1349,6 +1354,9 @@ def login_and_sync_lms(
         return {
             "success": True,
             "message": f"Successfully connected to VIT LMS. Matched {len(matched_subjects)} subjects. {len(assignments)} authentic assignments loaded.",
+            "sessionId": generate_signed_session_token(reg) if reg else None,
+            "regNo": reg,
+            "student": store.get("student"),
             "username": auth_info.get("username"),
             "displayName": auth_info.get("displayName"),
             "assignments": all_assignments,

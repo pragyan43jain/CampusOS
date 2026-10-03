@@ -844,9 +844,12 @@ export const CampusAPI = {
     }
   },
 
-  loginTeams: async (email: string, password: string): Promise<{
+  loginTeams: async (email: string, password: string, regNo?: string): Promise<{
     success: boolean;
     message: string;
+    sessionId?: string;
+    regNo?: string;
+    student?: StudentProfile;
     email?: string;
     displayName?: string;
     assignments?: Assignment[];
@@ -870,13 +873,23 @@ export const CampusAPI = {
     try {
       const extraHeaders: Record<string, string> = {};
       const regMatch = cleanEmail.match(/([0-9]{2}[a-zA-Z]{3}[0-9]{4,5})/i);
-      if (regMatch) {
-        extraHeaders['X-Reg-No'] = regMatch[1].toUpperCase();
+      const cachedReg = typeof window !== 'undefined'
+        ? (window.localStorage.getItem('campus_current_reg_no') || window.localStorage.getItem('campus_vtop_username'))
+        : null;
+      const targetReg = regNo || (regMatch ? regMatch[1] : cachedReg);
+      if (targetReg && targetReg !== 'Not available' && targetReg !== 'Sync Required') {
+        extraHeaders['X-Reg-No'] = targetReg.trim().toUpperCase();
       }
       const res = await fetchWithTimeout(`${getApiBase()}/teams/login`, {
         method: 'POST',
         headers: getAuthHeaders(extraHeaders),
-        body: JSON.stringify({ email: cleanEmail, password }),
+        body: JSON.stringify({
+          email: cleanEmail,
+          password,
+          regNo: targetReg && targetReg !== 'Not available' && targetReg !== 'Sync Required'
+            ? targetReg.trim().toUpperCase()
+            : undefined,
+        }),
       }, 60000);
 
       const data = await parseSafeJson(res);
@@ -885,6 +898,15 @@ export const CampusAPI = {
           success: false,
           message: data.detail || data.message || `Authentication failed with status ${res.status}`,
         };
+      }
+      if (data && data.sessionId) {
+        persistSessionId(data.sessionId);
+      }
+      if (data && data.student) {
+        activeStudent = data.student;
+        if (typeof window !== 'undefined' && data.student.regNo) {
+          window.localStorage.setItem('campus_current_reg_no', data.student.regNo);
+        }
       }
       return data;
     } catch (err: any) {

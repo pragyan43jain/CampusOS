@@ -28,37 +28,51 @@ def get_auth_secret() -> str:
     Prioritizes:
     1. Environment variable CAMPUSOS_SESSION_SECRET
     2. Environment variable CAMPUSOS_ADMIN_KEY
-    3. Persistent secret file on disk (.session_secret)
+    3. Persistent secret file on disk (.session_secret or /tmp/.campusos_session_secret)
     """
     global _CACHED_SECRET
     if _CACHED_SECRET:
         return _CACHED_SECRET
 
-    env_secret = os.environ.get("CAMPUSOS_SESSION_SECRET") or os.environ.get("CAMPUSOS_ADMIN_KEY")
+    env_secret = (
+        os.environ.get("CAMPUSOS_SESSION_SECRET")
+        or os.environ.get("CAMPUSOS_ADMIN_KEY")
+        or os.environ.get("SECRET_KEY")
+    )
     if env_secret and env_secret.strip():
         _CACHED_SECRET = env_secret.strip()
         return _CACHED_SECRET
 
     from app.storage import DATA_DIR
-    secret_file = os.path.join(DATA_DIR, ".session_secret")
-    try:
-        if os.path.exists(secret_file):
-            with open(secret_file, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:
-                    _CACHED_SECRET = content
-                    return _CACHED_SECRET
+    candidate_paths = [
+        os.path.join(DATA_DIR, ".session_secret"),
+        os.path.join("/tmp", ".campusos_session_secret"),
+    ]
+    for secret_file in candidate_paths:
+        try:
+            if os.path.exists(secret_file):
+                with open(secret_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content:
+                        _CACHED_SECRET = content
+                        return _CACHED_SECRET
 
-        os.makedirs(DATA_DIR, exist_ok=True)
-        new_secret = secrets.token_hex(32)
-        with open(secret_file, "w", encoding="utf-8") as f:
-            f.write(new_secret)
-        _CACHED_SECRET = new_secret
-        return _CACHED_SECRET
-    except Exception as exc:
-        logger.warning("[AuthCrypto] Could not read/write .session_secret file (%s), using volatile secret", exc)
-        _CACHED_SECRET = secrets.token_hex(32)
-        return _CACHED_SECRET
+            parent = os.path.dirname(secret_file)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            new_secret = secrets.token_hex(32)
+            with open(secret_file, "w", encoding="utf-8") as f:
+                f.write(new_secret)
+            _CACHED_SECRET = new_secret
+            return _CACHED_SECRET
+        except Exception as exc:
+            logger.debug("[AuthCrypto] Could not use %s: %s", secret_file, exc)
+            continue
+
+    # Deterministic fallback when filesystem is completely read-only and no env var set
+    fallback = hashlib.sha256(b"CampusOS_Persistent_Serverless_Secret_Key_2026").hexdigest()
+    _CACHED_SECRET = fallback
+    return _CACHED_SECRET
 
 
 def generate_signed_session_token(

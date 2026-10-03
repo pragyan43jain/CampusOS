@@ -14,6 +14,7 @@ Tests:
 10. Sync and disconnect lifecycle.
 """
 
+import json
 import os
 import tempfile
 from unittest.mock import MagicMock, patch
@@ -694,4 +695,53 @@ class TestTeamsSubmissionStatus:
         assert merged["submittedAt"] == "2026-08-18T20:01:43Z"
         assert merged["teamsSubmissionUrl"] == "https://teams.microsoft.com/l/entity/1"
         assert merged["lmsSubmissionUrl"] == "https://lms.vit.ac.in/mod/assign/view.php?id=202"
+
+    def test_teams_login_with_institutional_name_email(self, tmp_path, monkeypatch):
+        """Verifies that an institutional email like name.surnameYEAR@vitstudent.ac.in connects cleanly without 401."""
+        test_file = tmp_path / "store_24BLC1100.json"
+        test_file.write_text(json.dumps({
+            "storeVersion": 1,
+            "student": {"regNo": "24BLC1100", "name": "PRAGYAN JAIN", "email": "pragyan43jain@gmail.com"},
+            "courses": [],
+            "assignments": [],
+        }))
+        monkeypatch.setattr("app.storage.DATA_DIR", str(tmp_path))
+
+        with patch("app.routers.teams.verify_microsoft_realm", return_value={"NameSpaceType": "Managed"}):
+            with patch("app.routers.teams.authenticate_microsoft_online", return_value={"success": True, "token": {"access_token": "valid_token"}}):
+                with patch("app.routers.teams.fetch_microsoft_teams_coursework", return_value=({"displayName": "Pragyan Jain", "email": "pragyan.jain2024@vitstudent.ac.in", "teamsCount": 1}, [], [], [])):
+                    res = client.post(
+                        "/api/teams/login",
+                        json={"email": "pragyan.jain2024@vitstudent.ac.in", "password": "ValidPassword123!"},
+                    )
+                    assert res.status_code == 200, res.text
+                    data = res.json()
+                    assert data["success"] is True
+                    assert data["regNo"] == "24BLC1100"
+                    assert data["sessionId"] is not None
+                    assert data["sessionId"].startswith("cos_")
+
+    def test_teams_login_with_reg_no_in_payload(self, tmp_path, monkeypatch):
+        """Verifies that passing regNo in login payload correctly targets the student store."""
+        test_file = tmp_path / "store_24BLC9999.json"
+        test_file.write_text(json.dumps({
+            "storeVersion": 1,
+            "student": {"regNo": "24BLC9999", "name": "NEW STUDENT"},
+            "courses": [],
+            "assignments": [],
+        }))
+        monkeypatch.setattr("app.storage.DATA_DIR", str(tmp_path))
+
+        with patch("app.routers.teams.verify_microsoft_realm", return_value={"NameSpaceType": "Managed"}):
+            with patch("app.routers.teams.authenticate_microsoft_online", return_value={"success": True, "token": {"access_token": "valid_token"}}):
+                with patch("app.routers.teams.fetch_microsoft_teams_coursework", return_value=({"displayName": "New Student", "email": "new.student2024@vitstudent.ac.in", "teamsCount": 0}, [], [], [])):
+                    res = client.post(
+                        "/api/teams/login",
+                        json={"email": "new.student2024@vitstudent.ac.in", "password": "ValidPassword123!", "regNo": "24BLC9999"},
+                    )
+                    assert res.status_code == 200, res.text
+                    data = res.json()
+                    assert data["success"] is True
+                    assert data["regNo"] == "24BLC9999"
+                    assert data["sessionId"] is not None
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import uuid
@@ -125,6 +126,69 @@ def get_default_local_reg() -> Optional[str]:
     Deprecated security-risk function.
     Always returns None to prevent anonymous callers from reading other students' data.
     """
+    return None
+
+
+def find_reg_by_email(email: Optional[str]) -> Optional[str]:
+    """
+    Find existing student registration number associated with a verified institutional email
+    (e.g., student.email or teamsAccount.email across stored profiles and data stores).
+    """
+    if not email or "@" not in email:
+        return None
+    clean_email = email.strip().lower()
+    local_part = clean_email.split("@")[0].upper()
+
+    # 1. Direct regNo encoding in email (e.g. 21BCE1234@vitstudent.ac.in)
+    m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", local_part)
+    if m:
+        return m.group(1).upper()
+    if re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", local_part):
+        return local_part
+
+    # 2. Local profiles cache lookup
+    try:
+        from app.supabase_client import get_local_profiles_cache
+        profiles = get_local_profiles_cache()
+        for p_reg, p_data in profiles.items():
+            if isinstance(p_data, dict):
+                p_email = (p_data.get("email") or "").strip().lower()
+                if p_email == clean_email and p_reg:
+                    return str(p_reg).strip().upper()
+    except Exception as exc:
+        logger.debug("[Storage] profiles_cache email lookup: %s", exc)
+
+    # 3. Search existing store_*.json files in DATA_DIR
+    try:
+        import glob
+        pattern = os.path.join(DATA_DIR, "store_*.json")
+        for store_path in glob.glob(pattern):
+            try:
+                base = os.path.basename(store_path)
+                s_reg = base[6:-5].upper() if base.startswith("store_") and base.endswith(".json") else ""
+                with open(store_path, "r", encoding="utf-8") as f:
+                    store_data = json.load(f)
+                if not isinstance(store_data, dict):
+                    continue
+
+                reg_candidate = ((store_data.get("student") or {}).get("regNo") or s_reg).strip().upper()
+                s_email = ((store_data.get("student") or {}).get("email") or "").strip().lower()
+                t_email = ((store_data.get("teamsAccount") or {}).get("email") or "").strip().lower()
+                l_email = ((store_data.get("lmsAccount") or {}).get("email") or "").strip().lower()
+
+                if clean_email in (s_email, t_email, l_email) and reg_candidate:
+                    return reg_candidate
+
+                s_name = ((store_data.get("student") or {}).get("name") or "").strip().lower()
+                if s_name and reg_candidate:
+                    name_parts = [p for p in re.findall(r"[a-z0-9]+", s_name) if len(p) >= 3]
+                    if name_parts and all(p in clean_email for p in name_parts):
+                        return reg_candidate
+            except Exception:
+                continue
+    except Exception as exc:
+        logger.debug("[Storage] Store email scan error: %s", exc)
+
     return None
 
 

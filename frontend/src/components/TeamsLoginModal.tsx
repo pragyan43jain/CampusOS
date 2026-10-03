@@ -87,6 +87,13 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
       setSuccessMsg('✓ Microsoft Teams Connected');
 
+      if (res.sessionId) {
+        CampusAPI.setActiveSessionId(res.sessionId);
+      }
+      if (res.student) {
+        CampusAPI.setActiveStudent(res.student);
+      }
+
       if (typeof window !== 'undefined') {
         localStorage.removeItem('campus_teams_saved_password');
         if (rememberMe) {
