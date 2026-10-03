@@ -93,33 +93,86 @@ class VTOPClientManager:
             except Exception:  # pragma: no cover - best effort cleanup
                 pass
 
-    def _put(self, session: VTOPSession) -> str:
-        try:
-            state = session.serialize_state()
-            state_json = json.dumps(state)
-            b64_token = base64.urlsafe_b64encode(state_json.encode("utf-8")).decode("utf-8")
-            session_id = f"vtop_{b64_token}"
-        except Exception:
-            session_id = secrets.token_urlsafe(24)
+    def _put(self, session: VTOPSession, reg_no: Optional[str] = None) -> str:
+        reg = reg_no or session.username
+        if session.is_authenticated and reg:
+            try:
+                from app.auth_crypto import generate_signed_session_token
+                state = session.serialize_state()
+                session_id = generate_signed_session_token(reg, extra={"state": state})
+            except Exception as exc:
+                logger.warning("[VTOP] Fallback to random session id token: %s", exc)
+                session_id = f"vtop_{secrets.token_urlsafe(24)}"
+        else:
+            try:
+                state = session.serialize_state()
+                state_json = json.dumps(state)
+                b64_token = base64.urlsafe_b64encode(state_json.encode("utf-8")).decode("utf-8")
+                session_id = f"vtop_{b64_token}"
+            except Exception:
+                session_id = f"vtop_{secrets.token_urlsafe(24)}"
 
         with self._lock:
             self._prune()
-            self._sessions[session_id] = _Handle(session)
+            handle = _Handle(session)
+            if reg:
+                handle.reg_no = reg.strip().upper()
+            self._sessions[session_id] = handle
         return session_id
 
     def _get(self, session_id: Optional[str]) -> Optional[_Handle]:
+        if not session_id or not isinstance(session_id, str):
+            return None
+
+        clean_sid = session_id.strip()
+        if clean_sid.lower().startswith("bearer "):
+            clean_sid = clean_sid[7:].strip()
+
         with self._lock:
             self._prune()
-            if session_id and session_id in self._sessions:
-                handle = self._sessions[session_id]
+            if clean_sid in self._sessions:
+                handle = self._sessions[clean_sid]
                 handle.touch()
                 return handle
 
-            # If not in local memory, attempt stateless reconstruction from encoded token
-            if session_id and session_id.startswith("vtop_"):
+            # If signed token cos_<payload>.<sig>, verify signature and restore handle
+            if clean_sid.startswith("cos_"):
                 try:
-                    raw_b64 = session_id[5:]
-                    # Fix padding if needed
+                    from app.auth_crypto import verify_session_token
+                    verified_reg = verify_session_token(clean_sid)
+                    if not verified_reg:
+                        return None
+
+                    parts = clean_sid[4:].split(".")
+                    payload_b64 = parts[0]
+                    padding = 4 - (len(payload_b64) % 4)
+                    if padding and padding < 4:
+                        payload_b64 += "=" * padding
+                    payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8"))
+                    state = payload.get("ext", {}).get("state")
+                    if state:
+                        session = VTOPSession()
+                        session.restore_state(state)
+                        handle = _Handle(session)
+                        handle.reg_no = verified_reg
+                        self._sessions[clean_sid] = handle
+                        return handle
+                    else:
+                        session = VTOPSession()
+                        session.is_authenticated = True
+                        session.username = verified_reg
+                        handle = _Handle(session)
+                        handle.reg_no = verified_reg
+                        self._sessions[clean_sid] = handle
+                        return handle
+                except Exception as exc:
+                    logger.warning("[VTOP] Failed restoring cos_ session: %s", exc)
+                    return None
+
+            # Legacy token vtop_...
+            if clean_sid.startswith("vtop_"):
+                try:
+                    raw_b64 = clean_sid[5:]
                     padding = 4 - (len(raw_b64) % 4)
                     if padding and padding < 4:
                         raw_b64 += "=" * padding
@@ -128,20 +181,17 @@ class VTOPClientManager:
                     session = VTOPSession()
                     session.restore_state(state)
                     handle = _Handle(session)
-                    self._sessions[session_id] = handle
+                    if session.username:
+                        handle.reg_no = session.username.strip().upper()
+                    self._sessions[clean_sid] = handle
                     return handle
                 except Exception as exc:
-                    logger.warning("[VTOP] Failed to restore stateless session %s: %s", session_id[:12], exc)
+                    logger.warning("[VTOP] Failed to restore stateless session %s: %s", clean_sid[:12], exc)
 
             return None
 
     def _authenticated_handle(self) -> Optional[str]:
-        """The id of any live authenticated session, for callers that omit one."""
-        with self._lock:
-            self._prune()
-            for session_id, handle in self._sessions.items():
-                if handle.session.is_authenticated:
-                    return session_id
+        """Security: Never return arbitrary live session to unauthenticated callers."""
         return None
 
     # -- captcha -----------------------------------------------------------
@@ -294,10 +344,11 @@ class VTOPClientManager:
             return self._error(err_msg, err_code, retryable=True)
 
         # Ensure session is registered and handle has registration number
-        auth_session_id = session_id or self._put(session)
+        clean_user = session.username or (username.strip().upper() if username else None)
+        auth_session_id = self._put(session, reg_no=clean_user)
         auth_handle = self._get(auth_session_id)
         if auth_handle:
-            auth_handle.reg_no = session.username or (username.strip().upper() if username else None)
+            auth_handle.reg_no = clean_user
             auth_handle.touch()
         return self._run_sync(auth_session_id, auth_handle or handle, semester_id)
 
@@ -308,11 +359,15 @@ class VTOPClientManager:
     ) -> Dict[str, Any]:
         """
         Re-scrape using an existing signed-in session.
-
-        Falls back to any live authenticated session when the caller does not
-        supply an id, which is what the single-user desktop case does.
+        Requires an authenticated session ID.
         """
-        resolved = session_id or self._authenticated_handle()
+        if not session_id:
+            return self._error(
+                "Your VTOP session has expired. Sign in again to sync.",
+                CODE_SESSION_EXPIRED,
+                retryable=True,
+            )
+        resolved = session_id
         handle = self._get(resolved)
         if handle is None:
             return self._error(
@@ -441,7 +496,7 @@ class VTOPClientManager:
         )
 
         # Refresh the session token with the latest cookies and CSRF
-        fresh_session_id = self._put(handle.session) if handle and handle.session.is_authenticated else session_id
+        fresh_session_id = self._put(handle.session, reg_no=handle.reg_no) if handle and handle.session.is_authenticated else session_id
         if fresh_session_id and fresh_session_id != session_id:
             fresh_handle = self._sessions.get(fresh_session_id)
             if fresh_handle:

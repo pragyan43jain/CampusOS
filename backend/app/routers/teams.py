@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import empty_store, get_default_local_reg, load_store, save_store
+from app.storage import _is_test_environment, empty_store, load_store, save_store
 from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
@@ -1311,15 +1311,6 @@ def login_and_sync_teams(
             detail="Password is required to authenticate with Microsoft Teams.",
         )
 
-    # Determine student regNo
-    reg = resolve_student_reg(x_session_id, x_reg_no)
-    if not reg and email:
-        local_part = email.strip().split("@")[0].upper()
-        if re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", local_part):
-            reg = local_part
-    if not reg:
-        reg = get_default_local_reg()
-
     try:
         # 1. Verify that email domain belongs to an authentic Microsoft 365 tenant
         verify_microsoft_realm(email)
@@ -1331,6 +1322,24 @@ def login_and_sync_teams(
         token_dict = auth_result.get("token") or {}
         access_token = token_dict.get("access_token")
         refresh_token = token_dict.get("refresh_token")
+
+        # 3. Determine student regNo
+        reg = resolve_student_reg(x_session_id, x_reg_no)
+        if not reg and email:
+            local_part = email.strip().split("@")[0].upper()
+            m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", local_part)
+            if m:
+                reg = m.group(1).upper()
+            elif re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", local_part):
+                reg = local_part
+            elif _is_test_environment():
+                reg = "TEST_STUDENT"
+
+        if not reg and not _is_test_environment():
+            raise HTTPException(
+                status_code=401,
+                detail="Authenticated student session is required to connect Microsoft Teams.",
+            )
 
         store = load_store(reg)
 

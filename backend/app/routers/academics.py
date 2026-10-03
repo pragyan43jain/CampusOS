@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 
-from app.storage import empty_store, get_default_local_reg, load_store, save_store
+from app.storage import empty_store, load_store, save_store
 from app.vtop.hostel import fetch_laundry_schedule, fetch_mess_menu
 from app.routers.auth import normalize_marks_item, normalize_faculty_item, resolve_student_reg, get_vtop_od
 
@@ -85,12 +85,7 @@ def get_attendance(
 ) -> List[Dict[str, Any]]:
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     store = load_store(reg)
-    att = store.get("attendance") or []
-    if not att:
-        def_reg = get_default_local_reg()
-        if def_reg and def_reg != reg:
-            att = load_store(def_reg).get("attendance") or []
-    return att
+    return store.get("attendance") or []
 
 
 @router.get("/marks")
@@ -790,7 +785,7 @@ def update_assignment_status(
 
     store["assignments"] = assignments
     store["manualAssignmentStatus"] = manual_status
-    save_store(store, reg or get_default_local_reg())
+    save_store(store, reg)
     return updated_assignment
 
 

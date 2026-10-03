@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 
-from app.storage import empty_store, get_default_local_reg, load_store, save_store
+from app.storage import empty_store, load_store, save_store
 from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
@@ -1105,7 +1105,7 @@ def update_assignment_status_endpoint(
 
     store["assignments"] = new_assignments
     store["manualAssignmentStatus"] = manual_status
-    save_store(store, reg or get_default_local_reg())
+    save_store(store, reg)
     return {
         "success": True,
         "isDone": is_done,

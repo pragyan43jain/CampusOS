@@ -88,6 +88,17 @@ async def normalize_api_route_middleware(request: Request, call_next):
         )
         if any(path.startswith(p) for p in prefixes):
             request.scope["path"] = f"/api{path}"
+
+    # Normalize Authorization header (Bearer token) to X-Session-ID if not present
+    headers_list = list(request.scope.get("headers", []))
+    header_dict = {k.lower(): v for k, v in headers_list}
+    if b"authorization" in header_dict and b"x-session-id" not in header_dict:
+        auth_val = header_dict[b"authorization"].decode("latin1", errors="ignore").strip()
+        if auth_val.lower().startswith("bearer "):
+            token = auth_val[7:].strip().encode("latin1")
+            headers_list.append((b"x-session-id", token))
+            request.scope["headers"] = headers_list
+
     return await call_next(request)
 
 

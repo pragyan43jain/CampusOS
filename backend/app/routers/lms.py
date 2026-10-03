@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from app.storage import empty_store, get_default_local_reg, load_store, save_store
+from app.storage import _is_test_environment, empty_store, load_store, save_store
 from app.routers.auth import resolve_student_reg
 from app.course_verification import (
     VerifiedCourseRecord,
@@ -1260,6 +1260,10 @@ def login_and_sync_lms(
     and extracts authentic assignments without touching other students' data.
     """
     try:
+        session, auth_info = authenticate_lms_session(
+            payload.username, payload.password, payload.sessionCookie, payload.campus
+        )
+
         # Determine the student regNo for this LMS session
         cand_user = None
         if payload.username:
@@ -1270,18 +1274,16 @@ def login_and_sync_lms(
             elif re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", clean_u):
                 cand_user = clean_u
 
-        # Prioritize active student registration number from headers or LMS username
+        # Derive active student registration number from verified session or valid LMS credentials
         reg = (
-            (x_reg_no.strip().upper() if x_reg_no and x_reg_no.strip() not in ("Not available", "Sync Required") else None)
+            resolve_student_reg(x_session_id=x_session_id, x_reg_no=x_reg_no, x_auth_user=x_auth_user)
             or cand_user
-            or (x_auth_user.strip().upper() if x_auth_user and x_auth_user.strip() not in ("Not available", "Sync Required") else None)
-            or resolve_student_reg(x_session_id=x_session_id, x_reg_no=x_reg_no, x_auth_user=x_auth_user)
-            or get_default_local_reg()
         )
-
-        session, auth_info = authenticate_lms_session(
-            payload.username, payload.password, payload.sessionCookie, payload.campus
-        )
+        if not reg and not _is_test_environment():
+            raise HTTPException(
+                status_code=401,
+                detail="Authenticated student session is required to connect VIT LMS.",
+            )
 
         store = load_store(reg)
         vtop_courses = list(store.get("courses") or [])
