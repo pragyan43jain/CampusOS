@@ -309,6 +309,20 @@ export const App: React.FC = () => {
   const loadAllData = async () => {
     try {
       setSyncing(true);
+      const vtopStatus = await CampusAPI.getVtopStatus();
+      if (!vtopStatus || !vtopStatus.authenticated) {
+        setIsAuthenticated(false);
+        setStudent(null);
+        setCourses([]);
+        setTimetable([]);
+        setAttendance([]);
+        setMarks([]);
+        setExams([]);
+        setFaculty([]);
+        setAssignments([]);
+        return;
+      }
+
       const [
         studentData,
         coursesData,
@@ -359,12 +373,8 @@ export const App: React.FC = () => {
         if (aiData && aiData.length > 0) setAiTasks(aiData);
         setIsAuthenticated(true);
       } else {
-        // Offline / preview mode fallback so UI displays authentic academic data immediately
-        if (attendanceData && attendanceData.length > 0) setAttendance(attendanceData);
-        if (coursesData && coursesData.length > 0) setCourses(coursesData);
-        if (timetableData && timetableData.length > 0) setTimetable(timetableData);
-        if (marksData && marksData.length > 0) setMarks(marksData);
-        if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
+        setIsAuthenticated(false);
+        setStudent(null);
       }
 
       await loadAcademicAccountsStatus();
@@ -513,13 +523,22 @@ export const App: React.FC = () => {
         let authed = false;
         let studentProfile: any = null;
 
-        if (cachedUserData && (cachedUserData.student?.regNo || cachedUserData.regNo)) {
-          authed = true;
-          studentProfile = cachedUserData.student || (cachedUserData.regNo ? cachedUserData : null);
-          CampusAPI.setActiveStudent(studentProfile);
-          if (cachedUserData.sessionId) CampusAPI.setActiveSessionId(cachedUserData.sessionId);
+        const status = await CampusAPI.getVtopStatus();
+        authed = Boolean(
+          status &&
+          status.authenticated &&
+          status.student?.regNo &&
+          status.student.regNo !== 'Not available' &&
+          status.student.regNo !== 'Sync Required'
+        );
 
-          if (isMounted) {
+        if (authed && status.student) {
+          studentProfile = status.student;
+          CampusAPI.setActiveStudent(studentProfile);
+          if (typeof window !== 'undefined' && studentProfile.regNo) {
+            window.localStorage.setItem('campus_current_reg_no', studentProfile.regNo);
+          }
+          if (cachedUserData && isMounted) {
             setStudent(studentProfile);
             if (cachedUserData.courses?.length > 0) setCourses(cachedUserData.courses);
             if (cachedUserData.timetable?.length > 0) setTimetable(cachedUserData.timetable);
@@ -529,23 +548,12 @@ export const App: React.FC = () => {
             if (cachedUserData.faculty?.length > 0) setFaculty(cachedUserData.faculty);
           }
         } else {
-          if (savedRegNo) {
-            CampusAPI.setActiveStudent({ regNo: savedRegNo } as any);
-          }
-          const status = await CampusAPI.getVtopStatus();
-          authed = Boolean(
-            status &&
-            status.authenticated &&
-            status.student?.regNo &&
-            status.student.regNo !== 'Not available' &&
-            status.student.regNo !== 'Sync Required'
-          );
-          if (authed && status.student) {
-            studentProfile = status.student;
-            CampusAPI.setActiveStudent(studentProfile);
-            if (typeof window !== 'undefined' && studentProfile.regNo) {
-              window.localStorage.setItem('campus_current_reg_no', studentProfile.regNo);
-            }
+          authed = false;
+          studentProfile = null;
+          CampusAPI.setActiveStudent(null);
+          CampusAPI.setActiveSessionId(null);
+          if (typeof window !== 'undefined') {
+            window.localStorage.removeItem('campus_current_reg_no');
           }
         }
 

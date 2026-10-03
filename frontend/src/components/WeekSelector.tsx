@@ -19,6 +19,7 @@ export const WeekSelector: React.FC<WeekSelectorProps> = ({
     { day: 'THU', shortName: 'Thu', fullName: 'Thursday' },
     { day: 'FRI', shortName: 'Fri', fullName: 'Friday' },
     { day: 'SAT', shortName: 'Sat', fullName: 'Saturday' },
+    { day: 'SUN', shortName: 'Sun', fullName: 'Sunday' },
   ];
 
   return (

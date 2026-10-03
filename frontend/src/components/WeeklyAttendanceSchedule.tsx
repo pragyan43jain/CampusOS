@@ -5,7 +5,7 @@ import {
   Radio,
   Calendar as CalendarIcon,
 } from 'lucide-react';
-import { Attendance } from '../types';
+import { Attendance, DayOfWeek } from '../types';
 
 interface WeeklyAttendanceScheduleProps {
   dayCardsMap: Record<string, any[]>;
@@ -13,13 +13,14 @@ interface WeeklyAttendanceScheduleProps {
   targetAttendance?: number;
 }
 
-const DAYS: Array<'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'> = [
+const DAYS: DayOfWeek[] = [
   'MON',
   'TUE',
   'WED',
   'THU',
   'FRI',
   'SAT',
+  'SUN',
 ];
 
 export const WeeklyAttendanceSchedule: React.FC<WeeklyAttendanceScheduleProps> = ({
@@ -28,9 +29,10 @@ export const WeeklyAttendanceSchedule: React.FC<WeeklyAttendanceScheduleProps> =
   targetAttendance = 75,
 }) => {
   // Determine today's day abbreviation
-  const getTodayDay = (): 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' => {
+  const getTodayDay = (): DayOfWeek => {
     const dayIndex = new Date().getDay();
-    const map: Record<number, 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'> = {
+    const map: Record<number, DayOfWeek> = {
+      0: 'SUN',
       1: 'MON',
       2: 'TUE',
       3: 'WED',
@@ -41,7 +43,7 @@ export const WeeklyAttendanceSchedule: React.FC<WeeklyAttendanceScheduleProps> =
     return map[dayIndex] || 'MON';
   };
 
-  const [activeDay, setActiveDay] = useState<'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'>(
+  const [activeDay, setActiveDay] = useState<DayOfWeek>(
     getTodayDay()
   );
 

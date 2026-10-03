@@ -17,11 +17,15 @@ import json
 import logging
 import os
 import tempfile
+import threading
+import uuid
 from typing import Any, Dict, Optional, Tuple
 
 from app.vtop.math_engine import calculate_attendance_metrics, calculate_od_metrics
 
 logger = logging.getLogger("vtop.storage")
+
+_STORAGE_LOCK = threading.RLock()
 
 # Determine writable directory safely across local and serverless runtimes
 if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
@@ -156,14 +160,15 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
 
     try:
         mtime = os.path.getmtime(target_path)
-        cached = _MEM_CACHE.get(target_path)
-        if cached and cached[0] == mtime:
-            data = cached[1]
-        else:
-            with open(target_path, "r", encoding="utf-8") as handle:
-                data = json.load(handle)
-            if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
-                _MEM_CACHE[target_path] = (mtime, data)
+        with _STORAGE_LOCK:
+            cached = _MEM_CACHE.get(target_path)
+            if cached and cached[0] == mtime:
+                data = cached[1]
+            else:
+                with open(target_path, "r", encoding="utf-8") as handle:
+                    data = json.load(handle)
+                if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
+                    _MEM_CACHE[target_path] = (mtime, data)
 
         if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
             if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
@@ -208,7 +213,7 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                 os.makedirs(data_dir, exist_ok=True)
 
             merged_data = dict(data)
-            # If target already exists, preserve non-empty sections from disk if incoming is empty/missing
+            # If target already exists, preserve non-empty sections from disk if key is absent from incoming data (M4)
             if os.path.exists(tgt):
                 try:
                     with open(tgt, "r", encoding="utf-8") as handle:
@@ -219,8 +224,8 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                             "aiTasks", "od", "overallAttendance", "semesters", "selectedSemester"
                         )
                         for key in preserve_keys:
-                            if key not in merged_data or (isinstance(merged_data.get(key), (list, dict)) and not merged_data[key]):
-                                if existing.get(key):
+                            if key not in merged_data:
+                                if existing.get(key) is not None:
                                     merged_data[key] = existing[key]
                         for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
                             if key not in merged_data and key in existing:
@@ -231,11 +236,13 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                     logger.debug("[Storage] Notice reading existing store for merge: %s", ex_read)
 
             payload_to_save = {**merged_data, "storeVersion": STORE_VERSION}
-            temp_path = f"{tgt}.tmp"
+            unique_suffix = f"{os.getpid()}.{threading.get_ident()}.{uuid.uuid4().hex}"
+            temp_path = f"{tgt}.tmp.{unique_suffix}"
             with open(temp_path, "w", encoding="utf-8") as handle:
                 json.dump(payload_to_save, handle, indent=2)
-            os.replace(temp_path, tgt)
-            _MEM_CACHE[tgt] = (os.path.getmtime(tgt), payload_to_save)
+            with _STORAGE_LOCK:
+                os.replace(temp_path, tgt)
+                _MEM_CACHE[tgt] = (os.path.getmtime(tgt), payload_to_save)
             logger.info("[Storage] Saved store to %s", tgt)
         except Exception as exc:
             logger.error("[Storage] Could not write store %s: %s", tgt, exc)
@@ -255,16 +262,17 @@ def clear_store(reg_no: Optional[str] = None) -> None:
     if _is_test_environment() and DATA_FILE and os.path.exists(DATA_FILE):
         targets.append(DATA_FILE)
 
-    for tgt in targets:
-        _MEM_CACHE.pop(tgt, None)
-        if os.path.exists(tgt):
-            try:
-                os.remove(tgt)
-                logger.info("[Storage] Cleared store %s", tgt)
-            except Exception as exc:
-                logger.warning("[Storage] Could not remove store %s, overwriting with empty store: %s", tgt, exc)
+    with _STORAGE_LOCK:
+        for tgt in targets:
+            _MEM_CACHE.pop(tgt, None)
+            if os.path.exists(tgt):
                 try:
-                    with open(tgt, "w", encoding="utf-8") as handle:
-                        json.dump(empty_store(), handle)
-                except Exception as write_exc:
-                    logger.error("[Storage] Could not overwrite store %s: %s", tgt, write_exc)
+                    os.remove(tgt)
+                    logger.info("[Storage] Cleared store %s", tgt)
+                except Exception as exc:
+                    logger.warning("[Storage] Could not remove store %s, overwriting with empty store: %s", tgt, exc)
+                    try:
+                        with open(tgt, "w", encoding="utf-8") as handle:
+                            json.dump(empty_store(), handle)
+                    except Exception as write_exc:
+                        logger.error("[Storage] Could not overwrite store %s: %s", tgt, write_exc)

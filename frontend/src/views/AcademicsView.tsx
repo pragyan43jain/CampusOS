@@ -361,6 +361,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const getTodayDayOfWeek = (): DayOfWeek => {
     const dayIndex = new Date().getDay();
     const map: Record<number, DayOfWeek> = {
+      0: 'SUN',
       1: 'MON',
       2: 'TUE',
       3: 'WED',
@@ -381,6 +382,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     THU: timetable.filter((s) => s.day === 'THU').length,
     FRI: timetable.filter((s) => s.day === 'FRI').length,
     SAT: timetable.filter((s) => s.day === 'SAT').length,
+    SUN: timetable.filter((s) => s.day === 'SUN').length,
   };
 
   const dayTitles: Record<DayOfWeek, string> = {
@@ -390,6 +392,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     THU: 'Thursday',
     FRI: 'Friday',
     SAT: 'Saturday',
+    SUN: 'Sunday',
   };
 
   const [examFilter, setExamFilter] = useState<'ALL' | 'CAT 1' | 'CAT 2' | 'FAT' | 'LAB FAT'>('ALL');
@@ -1428,11 +1431,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   {filteredExams.map((ex, idx) => {
                     const extractRowCol = (seatLoc?: string | null): { row?: string; column?: string } => {
                       if (!seatLoc) return {};
-                      const text = String(seatLoc).trim();
-                      const m = text.match(/R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)\s*[,/-]?\s*C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
-                      if (m) return { row: m[1], column: m[2] };
-                      const mRow = text.match(/R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
-                      const mCol = text.match(/C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
+                      const text = String(seatLoc).slice(0, 100).trim();
+                      const mRow = text.match(/\b(?:Row|R)\s*[:#-]?\s*([A-Za-z0-9]{1,10})\b/i);
+                      const mCol = text.match(/\b(?:Column|Col|C)\s*[:#-]?\s*([A-Za-z0-9]{1,10})\b/i);
                       return {
                         row: mRow ? mRow[1] : undefined,
                         column: mCol ? mCol[1] : undefined,

@@ -52,16 +52,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (isOpen && typeof window !== 'undefined') {
       const reg = student?.regNo || localStorage.getItem('campus_vtop_username') || '';
       setVtopUser(reg);
-      setVtopPass(localStorage.getItem('campus_vtop_password') || '');
+      setVtopPass('');
 
       setTeamsEmail(
         localStorage.getItem('campus_teams_saved_email') ||
         (student?.email ? student.email : (reg ? `${reg.toLowerCase()}@vitstudent.ac.in` : ''))
       );
-      setTeamsPass(localStorage.getItem('campus_teams_saved_password') || '');
+      setTeamsPass('');
 
       setLmsUser(localStorage.getItem('campus_lms_saved_username') || reg);
-      setLmsPass(localStorage.getItem('campus_lms_saved_password') || '');
+      setLmsPass('');
 
       setIsEditing(false);
       setSuccessMsg(null);
@@ -94,14 +94,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setSuccessMsg(null);
     try {
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('campus_vtop_password');
+        localStorage.removeItem('campus_teams_saved_password');
+        localStorage.removeItem('campus_lms_saved_password');
+
         if (vtopUser.trim()) localStorage.setItem('campus_vtop_username', vtopUser.trim().toUpperCase());
-        if (vtopPass.trim()) localStorage.setItem('campus_vtop_password', vtopPass.trim());
-
         if (teamsEmail.trim()) localStorage.setItem('campus_teams_saved_email', teamsEmail.trim());
-        if (teamsPass.trim()) localStorage.setItem('campus_teams_saved_password', teamsPass.trim());
-
         if (lmsUser.trim()) localStorage.setItem('campus_lms_saved_username', lmsUser.trim());
-        if (lmsPass.trim()) localStorage.setItem('campus_lms_saved_password', lmsPass.trim());
       }
 
       setSuccessMsg('Credentials updated successfully!');
@@ -124,15 +123,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     }
   };
 
-  const regNo = student?.regNo || vtopUser || '24BLC1100';
-  const displayName = student?.name || 'Pragyan Jain';
+  const regNo = student?.regNo || vtopUser || '21BCE0001';
+  const displayName = student?.name || 'Student Profile';
   const initials = displayName
     .split(' ')
     .filter(Boolean)
     .map((w) => w[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase() || 'PJ';
+    .toUpperCase() || 'ST';
 
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=VIT-STUDENT-${encodeURIComponent(regNo)}`;
 
@@ -430,7 +429,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     type="text"
                     value={lmsUser}
                     onChange={(e) => setLmsUser(e.target.value)}
-                    placeholder="24BLC1100"
+                    placeholder="21BCE0001"
                     className="w-full bg-neutral-950 border border-neutral-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                   />
                 ) : (

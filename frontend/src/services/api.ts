@@ -20,16 +20,8 @@ import {
   CalendarResponse,
   ODResponse,
 } from '../types';
-import {
-  DEFAULT_STUDENT_PROFILE,
-  DEFAULT_COURSES,
-  DEFAULT_TIMETABLE,
-  DEFAULT_ATTENDANCE,
-  DEFAULT_MARKS,
-  DEFAULT_EXAMS,
-  DEFAULT_FACULTY,
-  DEFAULT_ASSIGNMENTS,
-} from './defaultData';
+// Empty defaults used for unauthenticated state; mock demo data must not bypass auth
+
 
 export const getApiBase = (): string => {
   if (typeof window !== 'undefined') {
@@ -150,21 +142,18 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
     headers['X-Reg-No'] = currentReg.trim().toUpperCase();
   }
   if (typeof window !== 'undefined') {
+    // Proactively clean up any legacy stored plaintext passwords (H2)
+    window.localStorage.removeItem('campus_vtop_password');
+    window.localStorage.removeItem('campus_lms_saved_password');
+    window.localStorage.removeItem('campus_teams_saved_password');
+
     const savedUser = window.localStorage.getItem('campus_vtop_username');
-    const savedPass = window.localStorage.getItem('campus_vtop_password');
     if (savedUser && savedUser.trim()) {
       headers['X-Auth-User'] = savedUser.trim().toUpperCase();
     }
-    if (savedPass && savedPass.trim()) {
-      headers['X-Auth-Pass'] = savedPass;
-    }
     const lmsUser = window.localStorage.getItem('campus_lms_saved_username');
-    const lmsPass = window.localStorage.getItem('campus_lms_saved_password');
     if (lmsUser && lmsUser.trim()) {
       headers['X-LMS-User'] = lmsUser.trim();
-    }
-    if (lmsPass && lmsPass.trim()) {
-      headers['X-LMS-Pass'] = lmsPass;
     }
   }
   if (extra) {
@@ -217,13 +206,17 @@ export const CampusAPI = {
   },
 
   // 1. Student Profile & CGPA
-  getStudentProfile: async (): Promise<StudentProfile> => {
-    const fallback = activeStudent || DEFAULT_STUDENT_PROFILE;
-    const prof = await fetchJson<StudentProfile>('/vtop/profile', undefined, fallback as any);
-    if (prof && prof.regNo && prof.regNo !== 'Not available') {
-      activeStudent = prof;
+  getStudentProfile: async (): Promise<StudentProfile | null> => {
+    try {
+      const prof = await fetchJson<StudentProfile>('/vtop/profile');
+      if (prof && prof.regNo && prof.regNo !== 'Not available' && prof.regNo !== 'Sync Required') {
+        activeStudent = prof;
+        return prof;
+      }
+      return activeStudent || null;
+    } catch {
+      return activeStudent || null;
     }
-    return prof || fallback;
   },
 
   getCgpaDetails: async (): Promise<{ currentCgpa?: number | null; creditsEarned?: number | null; totalCreditsRequired: number; rank?: number; semesterGpa: any[] }> => {
@@ -251,7 +244,7 @@ export const CampusAPI = {
       }
     }
     if (!list || !Array.isArray(list) || list.length === 0) {
-      list = DEFAULT_ATTENDANCE as any[];
+      list = [];
     }
     return (list || []).map((item: any) => {
       const conducted = item.conducted ?? item.classesConducted ?? item.total ?? 0;
@@ -289,16 +282,16 @@ export const CampusAPI = {
   },
 
   getCourses: async (): Promise<Course[]> => {
-    return fetchJson<Course[]>('/courses', undefined, DEFAULT_COURSES as any[]);
+    return fetchJson<Course[]>('/courses', undefined, []);
   },
 
   // 3. Marks
   getMarks: async (): Promise<Marks[]> => {
-    return fetchJson<Marks[]>('/vtop/marks', undefined, DEFAULT_MARKS as any[]);
+    return fetchJson<Marks[]>('/vtop/marks', undefined, []);
   },
 
   getMarksSummary: async (): Promise<Marks[]> => {
-    return fetchJson<Marks[]>('/vtop/marks/summary', undefined, DEFAULT_MARKS as any[]);
+    return fetchJson<Marks[]>('/vtop/marks/summary', undefined, []);
   },
 
   getSubjectDetails: async (courseCode: string): Promise<any> => {
@@ -307,7 +300,7 @@ export const CampusAPI = {
 
   // 5. Timetable
   getTimetable: async (): Promise<TimetableSlot[]> => {
-    const list = await fetchJson<any[]>('/vtop/timetable', undefined, DEFAULT_TIMETABLE as any[]);
+    const list = await fetchJson<any[]>('/vtop/timetable', undefined, []);
     const dayFullNames: Record<string, string> = {
       MON: 'Monday',
       TUE: 'Tuesday',
@@ -350,20 +343,16 @@ export const CampusAPI = {
   getExams: async (): Promise<Exam[]> => {
     const extractExamRowCol = (seatLocation?: string | null): { row?: string; column?: string } => {
       if (!seatLocation) return {};
-      const text = String(seatLocation).trim();
-      const m = text.match(/R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)\s*[,/-]?\s*C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
-      if (m) {
-        return { row: m[1], column: m[2] };
-      }
-      const mRow = text.match(/R(?:ow)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
-      const mCol = text.match(/C(?:ol(?:umn)?)?\s*[:#-]?\s*(\d+|[A-Za-z]+)/i);
+      const text = String(seatLocation).slice(0, 100).trim();
+      const mRow = text.match(/\b(?:Row|R)\s*[:#-]?\s*([A-Za-z0-9]{1,10})\b/i);
+      const mCol = text.match(/\b(?:Column|Col|C)\s*[:#-]?\s*([A-Za-z0-9]{1,10})\b/i);
       return {
         row: mRow ? mRow[1] : undefined,
         column: mCol ? mCol[1] : undefined,
       };
     };
 
-    const data = await fetchJson<any>('/vtop/exams', undefined, DEFAULT_EXAMS as any);
+    const data = await fetchJson<any>('/vtop/exams', undefined, []);
     if (Array.isArray(data)) {
       return data.map((it: any) => {
         const seatLoc = it.seat_location || it.seatLocation;
@@ -433,12 +422,12 @@ export const CampusAPI = {
 
   // 7. Faculty Mapping
   getFaculty: async (): Promise<Faculty[]> => {
-    return fetchJson<Faculty[]>('/vtop/faculty', undefined, DEFAULT_FACULTY as any[]);
+    return fetchJson<Faculty[]>('/vtop/faculty', undefined, []);
   },
 
   // 8. Assignments & Fees & DSA & AI Tasks
   getAssignments: async (): Promise<Assignment[]> => {
-    return fetchJson<Assignment[]>('/assignments', undefined, DEFAULT_ASSIGNMENTS as any[]);
+    return fetchJson<Assignment[]>('/assignments', undefined, []);
   },
 
   updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {

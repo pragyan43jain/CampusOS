@@ -40,12 +40,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
     }
     return initialEmail;
   });
-  const [password, setPassword] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('campus_teams_saved_password') || '';
-    }
-    return '';
-  });
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('campus_teams_remember') !== 'false';
@@ -93,13 +88,12 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
       setSuccessMsg('✓ Microsoft Teams Connected');
 
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('campus_teams_saved_password');
         if (rememberMe) {
           localStorage.setItem('campus_teams_saved_email', email.trim());
-          localStorage.setItem('campus_teams_saved_password', password.trim());
           localStorage.setItem('campus_teams_remember', 'true');
         } else {
           localStorage.removeItem('campus_teams_saved_email');
-          localStorage.removeItem('campus_teams_saved_password');
           localStorage.setItem('campus_teams_remember', 'false');
         }
       }

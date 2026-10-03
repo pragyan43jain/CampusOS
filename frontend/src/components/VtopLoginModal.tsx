@@ -29,12 +29,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
     }
     return '';
   });
-  const [password, setPassword] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('campus_vtop_password') || '';
-    }
-    return '';
-  });
+  const [password, setPassword] = useState<string>('');
   const [rememberMe, setRememberMe] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('campus_remember_vtop') !== 'false';
@@ -93,10 +88,9 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       setStatusStep('');
       loadCaptcha(false, false);
 
-      // Auto-focus CAPTCHA field directly when username & password are prefilled
+      // Auto-focus CAPTCHA field directly when username & password are filled
       const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_username') : '';
-      const savedPass = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_password') : '';
-      if ((username || savedUser) && (password || savedPass)) {
+      if ((username || savedUser) && password) {
         setTimeout(() => {
           captchaInputRef.current?.focus();
         }, 180);
@@ -149,13 +143,13 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         setStatusStep('Sync Complete!');
 
         if (typeof window !== 'undefined') {
+          // Never store plaintext passwords in browser storage (H2)
+          localStorage.removeItem('campus_vtop_password');
           if (rememberMe) {
             localStorage.setItem('campus_vtop_username', cleanUsername);
-            localStorage.setItem('campus_vtop_password', cleanPassword);
             localStorage.setItem('campus_remember_vtop', 'true');
           } else {
             localStorage.removeItem('campus_vtop_username');
-            localStorage.removeItem('campus_vtop_password');
             localStorage.setItem('campus_remember_vtop', 'false');
           }
         }

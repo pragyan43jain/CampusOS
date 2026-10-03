@@ -79,6 +79,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const getTodayDayOfWeek = (): DayOfWeek => {
     const dayIndex = new Date().getDay();
     const map: Record<number, DayOfWeek> = {
+      0: 'SUN',
       1: 'MON',
       2: 'TUE',
       3: 'WED',
@@ -100,6 +101,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     THU: timetable.filter((s) => s.day === 'THU').length,
     FRI: timetable.filter((s) => s.day === 'FRI').length,
     SAT: timetable.filter((s) => s.day === 'SAT').length,
+    SUN: timetable.filter((s) => s.day === 'SUN').length,
   };
 
   const dayTitles: Record<DayOfWeek, string> = {
@@ -109,6 +111,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     THU: 'Thursday',
     FRI: 'Friday',
     SAT: 'Saturday',
+    SUN: 'Sunday',
   };
 
   const attendance = student.overallAttendance;

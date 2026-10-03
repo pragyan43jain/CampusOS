@@ -135,8 +135,11 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
     if not title:
         return None
 
+    # Length guard to prevent ReDoS on absurdly long untrusted inputs
+    title = str(title)[:500].strip()
+
     # 1. Look for Dr / Dr. / Prof / Prof. / Professor / Mr / Mr. / Ms / Ms. / Mrs / Mrs. anywhere in text
-    m_title = re.search(r"\b(?:Dr\.?|Prof\.?|Professor|Mr\.?|Ms\.?|Mrs\.?)\s*([A-Za-z\.\s]{3,50})", title, re.IGNORECASE)
+    m_title = re.search(r"\b(?:Dr\.?|Prof\.?|Professor|Mr\.?|Ms\.?|Mrs\.?)\s+([A-Za-z][A-Za-z\.\s]{1,49})", title, re.IGNORECASE)
     if m_title:
         cand = m_title.group(0).strip(" -–—_()[]|:,")
         cand = re.split(r"[-–—\(\)\[\]\|_]", cand)[0].strip()
@@ -147,7 +150,7 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
             return cand
 
     # 2. Look for explicit parenthesized or bracketed teacher name e.g. (Dr. K. Ramesh) or (Ramesh Kumar) or (Jaya Vignesh T)
-    for m_par in re.finditer(r"[\(\[]\s*([A-Za-z\.\s]{3,50})\s*[\)\]]", title):
+    for m_par in re.finditer(r"[\(\[]\s*([A-Za-z][A-Za-z\.\s]{1,48}[A-Za-z\.])\s*[\)\]]", title):
         cand_par = m_par.group(1).strip()
         words = set(re.findall(r"\b[a-zA-Z]+\b", cand_par.lower()))
         clean_words = words - {"dr", "prof", "professor", "mr", "ms", "mrs"}
@@ -157,7 +160,7 @@ def extract_teacher_from_lms_title(title: str) -> Optional[str]:
 
     # 3. Clean away semester IDs, academic years, semester phrases, and slot codes from title
     t_clean = re.sub(r"\b[A-Z]{2}\d{6,10}\b", "", title)
-    t_clean = re.sub(r"[\(\[]?\s*(?:Fall|Winter|Spring|Summer|Sem|Semester)?\s*(?:Semester|Sem)?\s*20\d{2}[-\s/]*\d{2,4}\s*[\)\]]?", "", t_clean, flags=re.IGNORECASE)
+    t_clean = re.sub(r"[\(\[]?\b(?:(?:Fall|Winter|Spring|Summer|Sem|Semester)\s+)*20\d{2}[-\s/]*\d{2,4}\s*[\)\]]?", "", t_clean, flags=re.IGNORECASE)
     t_clean = re.sub(r"\bSlot\s+[A-Za-z0-9\+\s]+", "", t_clean, flags=re.IGNORECASE)
 
     # 4. Split by typical VIT LMS delimiters: - – — | : / _

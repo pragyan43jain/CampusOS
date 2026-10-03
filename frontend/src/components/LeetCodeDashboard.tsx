@@ -439,7 +439,7 @@ export const LeetCodeDashboard: React.FC = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Enter LeetCode username (e.g. pragyanjain49)..."
+                  placeholder="Enter LeetCode username (e.g. leetcode_user)..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   style={{

@@ -2,57 +2,57 @@
 // Populated from verified student sync with live VTOP schema
 
 export const DEFAULT_STUDENT_PROFILE = {
-  "name": "PRAGYAN JAIN",
-  "regNo": "24BLC1100",
-  "email": "pragyan43jain@gmail.com",
-  "program": "UG",
-  "branch": "SARDAR PATEL PUBLIC SCHOOL",
-  "school": "SARDAR PATEL PUBLIC SCHOOL",
+  "name": "DEMO STUDENT",
+  "regNo": "21BCE0001",
+  "email": "student@vitstudent.ac.in",
+  "program": "B.Tech",
+  "branch": "Computer Science and Engineering",
+  "school": "SCOPE",
   "semester": "Fall Semester 2026-27",
   "semesterId": "CH20262701",
-  "batch": null,
-  "cgpa": 8.81,
-  "creditsEarned": 105.0,
+  "batch": "2021-2025",
+  "cgpa": null,
+  "creditsEarned": null,
   "totalCreditsRequired": null,
-  "registeredCredits": 25.5,
+  "registeredCredits": 20.0,
   "rank": null,
   "overallAttendance": {
-    "attended": 273,
-    "total": 285,
-    "rawPercentage": 95.78947368421052,
-    "percentage": 95.8,
-    "displayPercentage": "95.8%",
-    "safeToMiss": 79,
+    "attended": 0,
+    "total": 0,
+    "rawPercentage": 0,
+    "percentage": 0,
+    "displayPercentage": "0%",
+    "safeToMiss": 0,
     "needToAttend": 0,
     "isCritical": false,
     "status": "Safe",
-    "hasValidData": true
+    "hasValidData": false
   },
   "semesterGpa": [],
   "proctor": {
-    "name": "TANMOY MAJUMDER",
-    "email": "tanmoy.majumder@vit.ac.in",
-    "phone": "9774305438",
-    "cabin": "AB3--2F--AB3 Second Floor Annexure Cabin No 3",
-    "designation": "Associate Professor Grade 2",
-    "school": "Centre for Nanoelectronics and VLSI Design",
+    "name": "FACULTY PROCTOR",
+    "email": "proctor@vit.ac.in",
+    "phone": "0000000000",
+    "cabin": "AB-1 101",
+    "designation": "Associate Professor",
+    "school": "SCOPE",
     "rawFields": {
-      "faculty id": "53394",
-      "faculty name": "TANMOY MAJUMDER",
-      "faculty designation": "Associate Professor Grade 2",
-      "school": "Centre for Nanoelectronics and VLSI Design",
-      "cabin": "AB3--2F--AB3 Second Floor Annexure Cabin No 3",
-      "faculty department": "Centre for Nanoelectronics and VLSI Design",
-      "faculty email": "tanmoy.majumder@vit.ac.in",
-      "faculty mobile number": "9774305438"
+      "faculty id": "10001",
+      "faculty name": "FACULTY PROCTOR",
+      "faculty designation": "Associate Professor",
+      "school": "SCOPE",
+      "cabin": "AB-1 101",
+      "faculty department": "Computer Science",
+      "faculty email": "proctor@vit.ac.in",
+      "faculty mobile number": "0000000000"
     }
   },
-  "gender": "MALE",
-  "isHosteller": true,
-  "blockName": "D Block Mens Hostel(MH) (D - Block )",
-  "roomNo": "531",
-  "messInfo": "VEG - FUSION FOODS AND CATERING PRIVATE LIMITED",
-  "lastSynced": "2026-09-29T18:53:07.429539+00:00"
+  "gender": null,
+  "isHosteller": false,
+  "blockName": null,
+  "roomNo": null,
+  "messInfo": null,
+  "lastSynced": null
 };
 
 export const DEFAULT_COURSES: any[] = [
@@ -4478,15 +4478,15 @@ export const DEFAULT_FACULTY: any[] = [
     "isProctor": false
   },
   {
-    "name": "TANMOY MAJUMDER",
+    "name": "FACULTY PROCTOR",
     "courses": [
       "Student Proctor"
     ],
-    "venue": "AB3--2F--AB3 Second Floor Annexure Cabin No 3",
-    "cabin": "AB3--2F--AB3 Second Floor Annexure Cabin No 3",
-    "email": "tanmoy.majumder@vit.ac.in",
-    "phone": "9774305438",
-    "designation": "Associate Professor Grade 2",
+    "venue": "AB-1 101",
+    "cabin": "AB-1 101",
+    "email": "proctor@vit.ac.in",
+    "phone": "0000000000",
+    "designation": "Associate Professor",
     "isProctor": true
   },
   {

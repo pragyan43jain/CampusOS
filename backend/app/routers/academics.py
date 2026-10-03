@@ -353,6 +353,7 @@ def get_all_grades(
 ) -> Dict[str, Any]:
     """
     Return semester-wise grades breakdown and cumulative CGPA.
+    Never fabricates mock grades or serves another student's transcript (H10).
     """
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
     if not reg:
@@ -367,33 +368,18 @@ def get_all_grades(
     if stored_all_grades and isinstance(stored_all_grades, dict) and stored_all_grades.get("grades"):
         return stored_all_grades
 
-    fallback_grades_file = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-        "frontend", "public", "data", "allgrades.json"
-    )
-    if os.path.exists(fallback_grades_file):
-        try:
-            with open(fallback_grades_file, "r", encoding="utf-8") as f:
-                fb = json.load(f)
-                if fb and isinstance(fb, dict) and fb.get("grades"):
-                    return {
-                        **fb,
-                        "cgpa": student.get("cgpa") or fb.get("cgpa") or 8.81,
-                        "creditsEarned": student.get("creditsEarned") or fb.get("creditsEarned") or 105.0,
-                    }
-        except Exception:
-            pass
+    sem_id = student.get("semesterId")
+    grades_dict = {}
+    if sem_id and student.get("cgpa") is not None:
+        grades_dict[sem_id] = {
+            "gpa": str(student.get("cgpa")),
+            "grades": store.get("grades") or [],
+        }
 
-    key = student.get("semesterId") or "FALLSEM202425"
     return {
-        "grades": {
-            key: {
-                "gpa": str(student.get("cgpa") or "8.81"),
-                "grades": [],
-            }
-        },
-        "cgpa": student.get("cgpa") or 8.81,
-        "creditsEarned": student.get("creditsEarned") or 105.0,
+        "grades": grades_dict,
+        "cgpa": student.get("cgpa"),
+        "creditsEarned": student.get("creditsEarned"),
     }
 
 
@@ -421,10 +407,6 @@ def get_calendar(
     # 1. Attempt live scrape if active session exists
     resolved_session_id = x_session_id or sessionId
     handle = client_manager._get(resolved_session_id) if resolved_session_id else None
-    if not handle:
-        auth_sid = client_manager._authenticated_handle()
-        if auth_sid:
-            handle = client_manager._get(auth_sid)
 
     if handle and handle.session and handle.session.is_authenticated:
         try:
@@ -479,22 +461,24 @@ def post_calendar_route(
     from app.vtop.session import VTOPSession
     from app.vtop.client import client_manager
 
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo or body.authorizedID)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    if body.authorizedID and body.authorizedID.strip().upper() != reg:
+        raise HTTPException(status_code=403, detail="Forbidden: authorizedID does not match authenticated student")
+
     store = load_store(reg)
     student = store.get("student") or {}
     sem_id = body.semesterId or student.get("semesterId") or "CH20242501"
     student_exams = store.get("examsList") or store.get("exams")
 
     # 1. If explicit credentials provided (UniCC schema)
-    if body.authorizedID and body.csrf:
+    if body.authorizedID and body.csrf and body.cookies:
         try:
             session = VTOPSession()
-            if body.cookies:
-                cookie_header = "; ".join(body.cookies) if isinstance(body.cookies, list) else str(body.cookies)
-                for item in cookie_header.split(";"):
-                    if "=" in item:
-                        k, v = item.strip().split("=", 1)
-                        session.http.cookies.set(k.strip(), v.strip())
+            cookie_header = "; ".join(body.cookies) if isinstance(body.cookies, list) else str(body.cookies)
+            for item in cookie_header.split(";"):
+                if "=" in item:
+                    k, v = item.strip().split("=", 1)
+                    session.http.cookies.set(k.strip(), v.strip())
             session.authorized_id = body.authorizedID
             session.csrf = body.csrf
             session.is_authenticated = True
@@ -516,10 +500,6 @@ def post_calendar_route(
     # 2. Check active authenticated session in client_manager
     resolved_session_id = x_session_id or sessionId
     handle = client_manager._get(resolved_session_id) if resolved_session_id else None
-    if not handle:
-        auth_sid = client_manager._authenticated_handle()
-        if auth_sid:
-            handle = client_manager._get(auth_sid)
 
     if handle and handle.session and handle.session.is_authenticated:
         try:
@@ -588,7 +568,24 @@ def get_feature_availability(
 
     od_data = store.get("od") or {}
     od_has_valid = bool(od_data.get("hasValidData"))
-    od_count = len(od_data.get("records") or od_data.get("odRecords") or [])
+    od_records = od_data.get("records") or od_data.get("odRecords") or []
+    od_count = len(od_records)
+
+    cal = store.get("calendar") or {}
+    cal_events = cal.get("events") or cal.get("calendars") or []
+    cal_count = len(cal_events) if isinstance(cal_events, list) else 0
+
+    student_data = store.get("student") or {}
+    sem_gpa = student_data.get("semesterGpa") or []
+    has_grades = bool(student_data.get("cgpa") is not None or sem_gpa)
+
+    hostel_data = store.get("hostelInfo") or {}
+    leave_hist = store.get("leaveHistory") or []
+    has_hostel = bool(hostel_data or leave_hist or student_data.get("roomNo"))
+    hostel_count = (1 if hostel_data else 0) + len(leave_hist)
+
+    placements = store.get("placements") or []
+    dsa_list = store.get("dsaTopics") or store.get("dsa") or []
 
     features: Dict[str, Dict[str, Any]] = {
         "attendance": vtop_section("attendance", "attendance"),
@@ -598,65 +595,65 @@ def get_feature_availability(
         "exams": vtop_section("exams", "exams"),
         "faculty": {
             "source": "vtop",
-            "available": True,
+            "available": len(store.get("faculty") or []) > 0,
             "count": len(store.get("faculty") or []),
-            "status": "ok",
+            "status": "ok" if store.get("faculty") else "empty",
             "message": "Faculty directory and course proctor records verified.",
         },
         "grades": {
             "source": "vtop",
-            "available": True,
-            "count": len((store.get("student") or {}).get("semesterGpa") or [1]),
-            "status": "ok",
+            "available": has_grades,
+            "count": len(sem_gpa),
+            "status": "ok" if has_grades else "empty",
             "message": "Cumulative CGPA, semester grade cards, and credit stands.",
         },
         "cgpaPredictor": {
             "source": "campus-engine",
-            "available": True,
+            "available": len(store.get("courses") or []) > 0,
             "count": len(store.get("courses") or []),
-            "status": "ok",
+            "status": "ok" if store.get("courses") else "empty",
             "message": "Dynamic CGPA simulator with course target modeling and future semester planner.",
         },
         "attendancePredictor": {
             "source": "campus-engine",
-            "available": True,
+            "available": len(store.get("attendance") or []) > 0,
             "count": len(store.get("attendance") or []),
-            "status": "ok",
+            "status": "ok" if store.get("attendance") else "empty",
             "message": "Predictive attendance safe-margin & recovery simulator.",
         },
         "hostel": {
             "source": "vtop & unmessify",
             "available": True,
-            "count": 6,
+            "count": hostel_count if hostel_count > 0 else 6,
             "status": "ok",
             "message": "Mess menu schedules, laundry time tables, and room leave tracking available.",
         },
         "od": {
             "source": "vtop",
-            "available": True,
+            "available": bool(od_has_valid or od_count > 0),
             "count": od_count,
-            "status": "ok",
+            "status": "ok" if (od_has_valid or od_count > 0) else "empty",
             "message": "Official VTOP On-Duty hours and subject attendance sanction logs.",
         },
         "calendar": {
             "source": "vtop",
-            "available": True,
-            "count": 5,
-            "status": "ok",
+            "available": bool(cal_count > 0),
+            "count": cal_count,
+            "status": "ok" if cal_count > 0 else "empty",
             "message": "Semester academic calendar with working days, holidays, and exam milestones.",
         },
         "placements": {
             "source": "campus-engine",
-            "available": True,
-            "count": 12,
-            "status": "ok",
+            "available": len(placements) > 0,
+            "count": len(placements),
+            "status": "ok" if placements else "empty",
             "message": "Placement drive listings, eligibility criteria, and CTC tiers.",
         },
         "dsa": {
             "source": "campus-engine",
-            "available": True,
-            "count": 75,
-            "status": "ok",
+            "available": len(dsa_list) > 0,
+            "count": len(dsa_list),
+            "status": "ok" if dsa_list else "empty",
             "message": "LeetCode & algorithmic data structure tracker.",
         },
     }

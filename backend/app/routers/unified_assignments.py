@@ -10,8 +10,10 @@ Performs duplicate detection, authentic deadline relative calculation, and statu
 import difflib
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
@@ -161,7 +163,11 @@ def compute_relative_deadline(
     If an assignment is submitted/completed/returned, it MUST show DONE and never OVERDUE or PENDING.
     """
     if not now:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(IST)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=IST)
+    else:
+        now = now.astimezone(IST)
 
     st_upper = (current_status or "").upper().strip()
     is_already_done = is_done or st_upper in ("DONE", "SUBMITTED", "COMPLETED")
@@ -180,7 +186,7 @@ def compute_relative_deadline(
 
     time_part = due_time_str if due_time_str else "23:59"
     try:
-        dt = datetime.strptime(f"{due_date_str} {time_part}", "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        dt = datetime.strptime(f"{due_date_str} {time_part}", "%Y-%m-%d %H:%M").replace(tzinfo=IST)
     except Exception:
         final_st = "DONE" if is_already_done else ("STATUS_UNAVAILABLE" if is_unavailable else current_status)
         return {
@@ -602,9 +608,11 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
         l_id = l_item.get("id")
         if l_id not in used_ids:
             used_ids.add(l_id)
-            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("facultyName") or l_item.get("faculty") or (matched_rec.facultyName if matched_rec else None) or "Faculty unassigned"
-            if prof in ("LMS Instructor", "Instructor", "LMS Teacher") and matched_rec and matched_rec.facultyName:
-                prof = matched_rec.facultyName
+            l_code = canonicalize_course_code(l_item.get("courseCode") or "")
+            item_rec = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == l_code), None) if l_code else None
+            prof = l_item.get("postedBy") or l_item.get("lmsProfessor") or l_item.get("facultyName") or l_item.get("faculty") or (item_rec.facultyName if item_rec else None) or "Faculty unassigned"
+            if prof in ("LMS Instructor", "Instructor", "LMS Teacher") and item_rec and item_rec.facultyName:
+                prof = item_rec.facultyName
             deduped_assignments.append({
                 **l_item,
                 "sourceList": ["LMS"],

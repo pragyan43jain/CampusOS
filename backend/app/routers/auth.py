@@ -554,33 +554,6 @@ def get_vtop_od(
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = od.get("records") or od.get("odRecords") or []
 
-    # Filter out any obsolete attendance-derived records that may have been previously persisted
-    clean_records = [
-        r for r in records
-        if isinstance(r, dict) and not (
-            str(r.get("reason", "")).startswith("Class Attendance On-Duty")
-            or str(r.get("reason", "")).startswith("Sanctioned Class On-Duty")
-        )
-    ]
-
-    dirty = len(clean_records) != len(records)
-    if dirty:
-        records = clean_records
-        used = sum(r.get("hours", 0) for r in clean_records)
-        od["records"] = clean_records
-        od["odRecords"] = clean_records
-        od["usedHours"] = used
-        od["odHours"] = used
-        od["totalOdHours"] = used
-        od["approvedHours"] = used
-        od["remainingHours"] = max(0, max_h - used)
-        od["percentageUsed"] = round((used / float(max_h)) * 100.0, 1) if max_h else 0.0
-        if not clean_records:
-            od["state"] = "success_with_no_records"
-            od["message"] = "No sanctioned On-Duty leave records found on VTOP for this semester."
-        store["od"] = od
-        save_store(store, reg)
-
     used = od.get("usedHours")
     if used is None:
         used = sum(r.get("hours", 0) for r in records) if records else (0 if has_valid else None)
@@ -798,9 +771,25 @@ def get_status(
         }
     student = store.get("student") or {}
     report = store.get("syncReport") or {}
+
+    # Check if there is an active session strictly for this student (M21)
+    req_sid = x_session_id or sessionId
+    live_sessions = client_manager.status()["liveSessions"]
+    session_live = False
+    if req_sid:
+        session_live = any(
+            s.get("sessionId") == req_sid and s.get("authenticated")
+            for s in live_sessions
+        )
+    elif reg:
+        session_live = any(
+            s.get("regNo") == reg and s.get("authenticated")
+            for s in live_sessions
+        )
+
     return {
         "authenticated": bool(store.get("authenticated")),
-        "sessionLive": bool(client_manager.status()["liveSessions"]),
+        "sessionLive": session_live,
         "student": student,
         "selectedSemester": store.get("selectedSemester"),
         "lastSynced": store.get("lastSynced") or student.get("lastSynced"),

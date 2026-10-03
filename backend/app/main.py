@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routers import academics, analytics, auth, leetcode, lms, teams, unified_assignments
+from app.storage import load_store
 from app.vtop import constants as C
 
 logging.basicConfig(
@@ -92,6 +93,9 @@ async def normalize_api_route_middleware(request: Request, call_next):
             "/vtop", "/academics", "/leetcode", "/lms", "/teams", "/assignments",
             "/health", "/analytics", "/od", "/calendar", "/student", "/courses",
             "/timetable", "/attendance", "/marks", "/faculty", "/exams",
+            "/cgpa", "/features", "/hostel", "/all-grades", "/academic-accounts",
+            "/ai-tasks", "/dsa", "/placements", "/fees", "/spotlight", "/proctor",
+            "/dues", "/receipts", "/study-materials",
         )
         if any(path.startswith(p) for p in prefixes):
             request.scope["path"] = f"/api{path}"
@@ -118,8 +122,8 @@ async def global_unhandled_exception_handler(request: Request, exc: Exception):
         content={
             "success": False,
             "status": "error",
-            "message": f"An unexpected server error occurred: {str(exc)}",
-            "errorType": type(exc).__name__,
+            "message": "An unexpected server error occurred. Please try again later.",
+            "errorType": "InternalServerError",
             "path": request.url.path,
         },
     )
@@ -163,15 +167,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(auth.router)
-app.include_router(unified_assignments.router)
 app.include_router(academics.router)
+app.include_router(unified_assignments.router)
 app.include_router(leetcode.router)
 app.include_router(teams.router)
 app.include_router(lms.router)
 app.include_router(analytics.router)
-
-
-from app.storage import load_store
 
 
 @app.get("/")
@@ -180,19 +181,16 @@ from app.storage import load_store
 @app.get("/api/health")
 def root():
     """
-    Health check endpoint.
+    Lightweight, non-destructive health check endpoint (M2).
     """
     store = load_store()
-    report = store.get("syncReport") or {}
     return {
         "status": "ok",
         "system": "CampusOS Backend Engine",
         "version": "2.0.0",
         "campus": C.CAMPUS,
-        "portal": C.BASE_URL,
+        "healthy": True,
         "vtopConnected": bool(store.get("authenticated")),
-        "lastSynced": store.get("lastSynced"),
-        "failedModules": report.get("failed") or [],
         "docs": "/docs",
     }
 

@@ -45,12 +45,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
     }
     return initialVal;
   });
-  const [password, setPassword] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('campus_lms_saved_password') || '';
-    }
-    return '';
-  });
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('campus_lms_remember') !== 'false';
@@ -105,13 +100,12 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       setSuccessMsg('✓ Moodle LMS Connected');
 
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('campus_lms_saved_password');
         if (rememberMe && loginMode === 'credentials') {
           localStorage.setItem('campus_lms_saved_username', resolvedUsername);
-          localStorage.setItem('campus_lms_saved_password', password);
           localStorage.setItem('campus_lms_remember', 'true');
         } else {
           localStorage.removeItem('campus_lms_saved_username');
-          localStorage.removeItem('campus_lms_saved_password');
           localStorage.setItem('campus_lms_remember', 'false');
         }
       }

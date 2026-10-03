@@ -1,4 +1,4 @@
-export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
+export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
 
 // 1. Student Profile & CGPA History
 export interface SemesterGpaRecord {

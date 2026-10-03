@@ -46,39 +46,57 @@ PROFILES_FILE = os.path.join(LOCAL_DATA_DIR, "profiles_cache.json")
 _supabase_client = None
 _client_lock = threading.Lock()
 
-# Sensitive keys that must NEVER be persisted in analytics or profiles
-SENSITIVE_KEYS = {
-    "password",
-    "pass",
-    "token",
-    "accesstoken",
-    "access_token",
-    "refreshtoken",
-    "refresh_token",
-    "cookie",
-    "cookies",
-    "sessionid",
-    "session_id",
-    "auth",
-    "authorization",
-    "secret",
-    "apikey",
-    "api_key",
+# Sensitive keys and patterns that must NEVER be persisted in analytics or profiles
+SENSITIVE_EXACT_KEYS = {
+    "password", "pass", "passwd", "pwd", "token", "accesstoken", "access_token",
+    "refreshtoken", "refresh_token", "refresh", "cookie", "cookies", "sessionid",
+    "session_id", "sessiontoken", "session_token", "auth", "authorization",
+    "authtoken", "auth_token", "secret", "apikey", "api_key", "jwt", "bearer",
+    "otp", "pin", "credential", "credentials"
 }
+
+SENSITIVE_SUBSTRINGS = (
+    "password", "passwd", "token", "secret", "apikey", "api_key", "cookie", "sessionid"
+)
+
+
+def is_sensitive_key(key: str) -> bool:
+    clean = str(key).strip().lower()
+    norm = re.sub(r"[_\-\s]", "", clean)
+    if norm in SENSITIVE_EXACT_KEYS or clean in SENSITIVE_EXACT_KEYS:
+        return True
+    if any(sub in norm for sub in SENSITIVE_SUBSTRINGS):
+        return True
+    tokens = set(re.findall(r"[a-z0-9]+", clean))
+    if any(t in SENSITIVE_EXACT_KEYS for t in tokens):
+        return True
+    return False
+
+
+def is_sensitive_value(val: Any) -> bool:
+    if not isinstance(val, str):
+        return False
+    s = val.strip()
+    if s.lower().startswith("bearer "):
+        return True
+    if re.match(r"^ey[A-Za-z0-9_-]{10,}\.ey[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$", s):
+        return True
+    return False
 
 
 def sanitize_metadata(data: Any) -> Any:
-    """Recursively strip any sensitive authentication tokens or credentials."""
+    """Recursively strip any sensitive authentication tokens or credentials (H6, M24)."""
     if isinstance(data, dict):
         clean = {}
         for k, v in data.items():
-            norm_key = re.sub(r"[_\-\s]", "", str(k).lower())
-            if any(s in norm_key for s in SENSITIVE_KEYS):
+            if is_sensitive_key(str(k)):
+                continue
+            if is_sensitive_value(v):
                 continue
             clean[k] = sanitize_metadata(v)
         return clean
     elif isinstance(data, list):
-        return [sanitize_metadata(item) for item in data]
+        return [sanitize_metadata(item) for item in data if not is_sensitive_value(item)]
     return data
 
 

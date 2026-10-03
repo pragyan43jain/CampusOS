@@ -71,7 +71,7 @@ class EventTrackRequest(BaseModel):
 
 
 class BatchEventTrackRequest(BaseModel):
-    events: List[EventTrackRequest]
+    events: List[EventTrackRequest] = Field(..., description="List of events to record (max 100)")
 
 
 class ProfileSyncRequest(BaseModel):
@@ -119,11 +119,12 @@ def record_events_batch(
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
 ) -> Dict[str, Any]:
     """
-    Record multiple analytics events in a single HTTP request.
+    Record multiple analytics events in a single HTTP request (capped at 100 events).
     """
     try:
         count = 0
-        for ev in req.events:
+        events = req.events[:100]
+        for ev in events:
             reg = ev.regNo or x_reg_no or x_auth_user
             if track_event(reg_no=reg, event_name=ev.event, page=ev.page, metadata=ev.metadata):
                 count += 1
