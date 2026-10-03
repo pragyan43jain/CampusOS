@@ -169,7 +169,8 @@ class VTOPClientManager:
                     logger.warning("[VTOP] Failed restoring cos_ session: %s", exc)
                     return None
 
-            # Legacy token vtop_...
+            # Unsigned pre-login captcha token vtop_...
+            # Security (C6): NEVER restore authenticated status or trusted identity from unsigned tokens.
             if clean_sid.startswith("vtop_"):
                 try:
                     raw_b64 = clean_sid[5:]
@@ -180,13 +181,17 @@ class VTOPClientManager:
                     state = json.loads(state_json)
                     session = VTOPSession()
                     session.restore_state(state)
+                    # Strictly enforce unauthenticated state for unsigned tokens
+                    session.is_authenticated = False
+                    session.username = None
+                    session.csrf = None
+                    session.authorized_id = None
                     handle = _Handle(session)
-                    if session.username:
-                        handle.reg_no = session.username.strip().upper()
+                    handle.reg_no = None
                     self._sessions[clean_sid] = handle
                     return handle
                 except Exception as exc:
-                    logger.warning("[VTOP] Failed to restore stateless session %s: %s", clean_sid[:12], exc)
+                    logger.warning("[VTOP] Failed to restore stateless captcha session %s: %s", clean_sid[:12], exc)
 
             return None
 
@@ -545,18 +550,12 @@ class VTOPClientManager:
                 pass
 
     def logout(self, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """End one session, or all of them when no id is given."""
+        """
+        End one session.
+        Security (C3): Never drop all sessions when session_id is omitted.
+        """
         if session_id:
             self._drop(session_id)
-        else:
-            with self._lock:
-                handles = list(self._sessions.values())
-                self._sessions.clear()
-            for handle in handles:
-                try:
-                    handle.session.logout()
-                except Exception:  # pragma: no cover
-                    pass
         return {"success": True, "message": "Signed out of VTOP."}
 
     def keep_alive(self, session_id: Optional[str] = None) -> Dict[str, Any]:

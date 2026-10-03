@@ -2,7 +2,22 @@
 // Implements 100% Complete Academic Suite & Synchronisation Routing
 // Handlers for VTOP (Chennai & Vellore), Microsoft Teams, Moodle LMS, LeetCode, and Unified Coursework
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+const ALLOWED_ORIGINS = [
+  'https://campus-os-pi-three.vercel.app',
+  'https://campus-o.netlify.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'http://localhost:3000',
+];
+
+function getAllowedOrigin(incomingOrigin) {
+  if (!incomingOrigin) return ALLOWED_ORIGINS[0];
+  if (ALLOWED_ORIGINS.includes(incomingOrigin)) return incomingOrigin;
+  if (/^https:\/\/campus-os(-[a-z0-9-]+)?\.vercel\.app$/.test(incomingOrigin)) return incomingOrigin;
+  return ALLOWED_ORIGINS[0];
+}
 
 function getNormalizedPath(path) {
   let p = path || '';
@@ -12,14 +27,16 @@ function getNormalizedPath(path) {
   return p;
 }
 
-function jsonResponse(statusCode, data) {
+function jsonResponse(statusCode, data, origin = '') {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': getAllowedOrigin(origin),
+      'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Session-ID, X-Reg-No',
+      'Vary': 'Origin',
     },
     body: JSON.stringify(data),
   };
@@ -450,13 +467,16 @@ function parseMarks(html, courses) {
 // Serverless Handler Entrypoint
 // ---------------------------------------------------------------------------
 exports.handler = async (event) => {
+  const incomingOrigin = event.headers && (event.headers.origin || event.headers.Origin || '');
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
       headers: {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': getAllowedOrigin(incomingOrigin),
+        'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Session-ID, X-Reg-No',
+        'Vary': 'Origin',
       },
       body: '',
     };

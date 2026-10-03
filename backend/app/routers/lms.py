@@ -38,8 +38,7 @@ from app.course_verification import (
     verify_course_title_match,
 )
 
-# Suppress insecure request warnings for VIT internal SSL certificates
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from app.vtop.session import get_vtop_ca_bundle
 
 logger = logging.getLogger("vtop.routes.lms")
 
@@ -188,7 +187,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
     # 1. Main Course View Page
     url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
     try:
-        r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
+        r = session.get(url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r.status_code == 200 and "/login" not in r.url:
             soup = BeautifulSoup(r.text, "html.parser")
             for el in soup.find_all(
@@ -247,7 +246,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
     # 2. Participants Page (/user/index.php?id=...)
     try:
         url_users = f"{LMS_BASE_URL}/user/index.php?id={course_id}"
-        r_u = session.get(url_users, verify=False, timeout=REQUEST_TIMEOUT)
+        r_u = session.get(url_users, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r_u.status_code == 200 and "/login" not in r_u.url:
             soup_u = BeautifulSoup(r_u.text, "html.parser")
             for tr in soup_u.find_all("tr"):
@@ -311,7 +310,7 @@ def extract_assignment_poster(
     # 4. Fetch and scrape the assignment view page (/mod/assign/view.php)
     if assign_url and assign_url.startswith("http"):
         try:
-            r = session.get(assign_url, verify=False, timeout=REQUEST_TIMEOUT)
+            r = session.get(assign_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
 
@@ -479,7 +478,7 @@ def authenticate_lms_session(
             s.cookies.set("MoodleSession", extracted_moodle, domain=f".{domain_host}", path="/")
 
         try:
-            r = s.get(urls["my"], verify=False, allow_redirects=False, timeout=REQUEST_TIMEOUT)
+            r = s.get(urls["my"], verify=get_vtop_ca_bundle(), allow_redirects=False, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
                 user_elem = soup.find(class_=lambda x: x and ("usertext" in x or "userbutton" in x or "username" in x))
@@ -522,7 +521,7 @@ def authenticate_lms_session(
 
     try:
         # Step 1: GET login page to retrieve logintoken & initial cookies
-        r_get = s.get(urls["login"], verify=False, timeout=REQUEST_TIMEOUT)
+        r_get = s.get(urls["login"], verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r_get.status_code != 200:
             raise HTTPException(
                 status_code=503,
@@ -543,7 +542,7 @@ def authenticate_lms_session(
         r_post = s.post(
             urls["login"],
             data=post_data,
-            verify=False,
+            verify=get_vtop_ca_bundle(),
             allow_redirects=True,
             timeout=REQUEST_TIMEOUT,
         )
@@ -646,7 +645,7 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
     # Step 1: Query /my/ to extract user session key (sesskey)
     sesskey = None
     try:
-        r_my = session.get(LMS_MY_URL, verify=False, timeout=REQUEST_TIMEOUT)
+        r_my = session.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r_my.status_code == 200:
             m_key = re.search(r'\"sesskey\":\"([^\"]+)\"', r_my.text) or re.search(r'sesskey=([a-zA-Z0-9]+)', r_my.text)
             if m_key:
@@ -670,7 +669,7 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
                     },
                 }
             ]
-            r_ajax = session.post(ajax_url, json=payload, verify=False, timeout=REQUEST_TIMEOUT)
+            r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r_ajax.status_code == 200:
                 data = r_ajax.json()
                 if isinstance(data, list) and len(data) > 0:
@@ -699,7 +698,7 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
 
     # Step 3: Check Moodle Calendar Upcoming view for enrolled course links
     try:
-        r_cal = session.get(LMS_CALENDAR_URL, verify=False, timeout=REQUEST_TIMEOUT)
+        r_cal = session.get(LMS_CALENDAR_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r_cal.status_code == 200:
             soup_cal = BeautifulSoup(r_cal.text, "html.parser")
             for a in soup_cal.find_all("a", href=re.compile(r"/course/view\.php\?id=\d+")):
@@ -726,7 +725,7 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
     # Step 4: Fallback to HTML pages
     for url in [LMS_MY_URL, LMS_COURSES_URL]:
         try:
-            r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
+            r = session.get(url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
                 for a in soup.find_all("a", href=re.compile(r"/course/view\.php\?id=\d+")):
@@ -780,7 +779,7 @@ def fetch_assignments_for_lms_course(
     semester_name = vtop_course.get("semester") or "Fall Semester 2026-27"
 
     try:
-        r = session.get(url, verify=False, timeout=REQUEST_TIMEOUT)
+        r = session.get(url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r.status_code != 200 or "/login" in r.url:
             return assignments
 
@@ -1475,7 +1474,7 @@ def sync_lms(
         session_expired = False
         if total_courses == 0 and not reauth_performed:
             # Verify if Moodle session is still alive
-            r_check = s.get(LMS_MY_URL, verify=False, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+            r_check = s.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT, allow_redirects=False)
             if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
                 session_expired = True
 
@@ -1583,9 +1582,23 @@ def disconnect_lms(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """Disconnects VIT LMS and removes synced LMS coursework for the active student."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    from app.auth_crypto import extract_token_from_request, verify_session_token
+    token = extract_token_from_request(authorization=authorization, x_session_id=x_session_id, session_id=sessionId)
+    verified_reg = verify_session_token(token) if token else None
+    if (x_reg_no or regNo) and not verified_reg:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to disconnect VIT LMS.",
+        )
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    if not reg:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to disconnect VIT LMS.",
+        )
     store = load_store(reg)
     existing_assignments = store.get("assignments") or []
     store["assignments"] = [a for a in existing_assignments if a.get("source") != "LMS"]

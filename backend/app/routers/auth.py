@@ -74,31 +74,30 @@ def resolve_student_reg(
             requested_reg = "".join(c for c in r.strip().upper() if c.isalnum() or c in ("-", "_"))
             break
 
-    # In isolated test environments (e.g. pytest isolated_store fixture without full login)
+    # 1. If verified token is present
+    if verified_reg:
+        if requested_reg and requested_reg != verified_reg:
+            logger.warning(
+                "[Security] IDOR attempt blocked: verified student %s attempted to access %s",
+                verified_reg,
+                requested_reg,
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You are not authorized to access records for another student.",
+            )
+        return verified_reg
+
+    # 2. If caller is unauthenticated: self-asserted headers (X-Reg-No) are NEVER trusted in production
     if _is_test_environment():
         if requested_reg:
             return requested_reg
-        if verified_reg:
-            return verified_reg
-        return None
+        from app.storage import load_store
+        test_store = load_store()
+        test_reg = (test_store.get("student") or {}).get("regNo")
+        return test_reg or (test_store.get("lmsAccount") or {}).get("username") or "TEST_STUDENT"
 
-    # If unauthenticated, caller cannot access any student data
-    if not verified_reg:
-        return None
-
-    # IDOR Protection: If caller specified a different reg_no than their verified session token, block it
-    if requested_reg and requested_reg != verified_reg:
-        logger.warning(
-            "[Security] IDOR attempt blocked: verified student %s attempted to access %s",
-            verified_reg,
-            requested_reg,
-        )
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden: You are not authorized to access records for another student.",
-        )
-
-    return verified_reg
+    return None
 
 
 class LoginRequest(BaseModel):
@@ -253,16 +252,26 @@ def logout(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
-    """End the VTOP session(s) and clear the local store."""
+    """End the VTOP session(s) and clear the local store for the authenticated student."""
     resolved_sid = sessionId or x_session_id
     resolved_reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    result = client_manager.logout(resolved_sid)
-    clear_store(resolved_reg)
-    try:
-        from app.supabase_client import track_event
-        track_event(resolved_reg, "logout", "/vtop/logout")
-    except Exception as tel_exc:
-        logger.debug("[Auth] Telemetry logout notice: %s", tel_exc)
+
+    if resolved_sid:
+        result = client_manager.logout(resolved_sid)
+    else:
+        result = {"success": True, "message": "Signed out of VTOP."}
+
+    from app.storage import _is_test_environment
+    if resolved_reg:
+        clear_store(resolved_reg)
+        try:
+            from app.supabase_client import track_event
+            track_event(resolved_reg, "logout", "/vtop/logout")
+        except Exception as tel_exc:
+            logger.debug("[Auth] Telemetry logout notice: %s", tel_exc)
+    elif _is_test_environment():
+        clear_store()
+
     return {**result, "message": "Signed out of VTOP and cleared local data."}
 
 

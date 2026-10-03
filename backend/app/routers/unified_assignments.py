@@ -1035,11 +1035,25 @@ def update_assignment_status_endpoint(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """
     Updates the completion status of an assignment in the store.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    from app.auth_crypto import extract_token_from_request, verify_session_token
+    token = extract_token_from_request(authorization=authorization, x_session_id=x_session_id, session_id=sessionId)
+    verified_reg = verify_session_token(token) if token else None
+    if (x_reg_no or regNo) and not verified_reg:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to update assignment status.",
+        )
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    if not reg:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to update assignment status.",
+        )
     store = load_store(reg)
     assignments = list(store.get("assignments") or [])
     manual_status = dict(store.get("manualAssignmentStatus") or {})

@@ -8,6 +8,7 @@ Production hardened for both local execution and Vercel serverless functions.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict
 
 from fastapi import FastAPI, Request
@@ -34,20 +35,26 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Robust CORS middleware supporting local preview, Vercel deployments, and custom domains
+# Strict CORS allowlist for authorized CampusOS client deployments
+ALLOWED_ORIGINS = [
+    "https://campus-os-pi-three.vercel.app",
+    "https://campus-o.netlify.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:3000",
+]
+custom_origins = os.environ.get("CAMPUSOS_ALLOWED_ORIGINS", "")
+if custom_origins:
+    ALLOWED_ORIGINS.extend([o.strip() for o in custom_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://campus-o.netlify.app",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-        "http://localhost:3000",
-    ],
-    allow_origin_regex=r"^https?://.*$",
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https:\/\/campus-os(-[a-z0-9-]+)?\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -134,13 +141,23 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Security (C10): Strip raw input and context to prevent credential/password echo
+    sanitized_errors = []
+    for err in exc.errors():
+        sanitized_errors.append(
+            {
+                "type": err.get("type"),
+                "loc": err.get("loc"),
+                "msg": err.get("msg"),
+            }
+        )
     return JSONResponse(
         status_code=422,
         content={
             "success": False,
             "status": "validation_error",
             "message": "Invalid request payload or parameters.",
-            "errors": exc.errors(),
+            "errors": sanitized_errors,
         },
     )
 

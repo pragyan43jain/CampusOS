@@ -35,7 +35,7 @@ DATA_FILE = os.path.join(DATA_DIR, "store.json")
 def _data_file_for(reg_no: Optional[str] = None) -> Optional[str]:
     if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
         safe_reg = "".join(c for c in reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
-        if safe_reg:
+        if safe_reg and len(safe_reg) >= 5:
             # Derive directory from current DATA_FILE so monkeypatching in tests works correctly
             current_dir = os.path.dirname(DATA_FILE) if DATA_FILE else DATA_DIR
             return os.path.join(current_dir, f"store_{safe_reg}.json")
@@ -244,13 +244,15 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
 def clear_store(reg_no: Optional[str] = None) -> None:
     """
     Remove the synced data on logout for the user.
+    Security (C3): ONLY remove the store file for the specified authenticated reg_no.
+    Never remove DATA_FILE in production (only in test environment when DATA_FILE was specifically isolated).
     """
     targets = []
     if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
         target = _data_file_for(reg_no)
         if target:
             targets.append(target)
-    if DATA_FILE and DATA_FILE not in targets and os.path.exists(DATA_FILE):
+    if _is_test_environment() and DATA_FILE and os.path.exists(DATA_FILE):
         targets.append(DATA_FILE)
 
     for tgt in targets:

@@ -18,20 +18,31 @@ from __future__ import annotations
 import base64
 import datetime
 import logging
+import os
 import re
 import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-import urllib3
 from bs4 import BeautifulSoup
 
 from app.vtop import constants as C
 from app.vtop.ocr import solve_captcha_bytes
 
-urllib3.disable_warnings()
-
 logger = logging.getLogger("vtop.session")
+
+CA_BUNDLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vit_ca_bundle.pem")
+
+
+def get_vtop_ca_bundle() -> str:
+    """Return the certificate bundle path including Sectigo intermediate CA for VIT servers."""
+    if os.path.exists(CA_BUNDLE_PATH):
+        return CA_BUNDLE_PATH
+    try:
+        import certifi
+        return certifi.where()
+    except Exception:
+        return True
 
 _CSRF_RE = re.compile(
     r'name=["\']_csrf["\'][^>]*value=["\']([^"\']+)["\']', re.IGNORECASE
@@ -86,10 +97,8 @@ class VTOPSession:
     def __init__(self, user_agent: Optional[str] = None):
         self.base_url = C.BASE_URL
         self.http = requests.Session()
-        # VTOP's certificate chain is frequently misconfigured; StudentCC runs in
-        # a WebView that tolerates it. We keep verification off but confine this
-        # client to the single known VIT host.
-        self.http.verify = False
+        # Authenticate VTOP with authentic Sectigo certificate chain of trust
+        self.http.verify = get_vtop_ca_bundle()
         self.http.headers.update(
             {
                 "User-Agent": user_agent or C.DEFAULT_USER_AGENT,

@@ -1588,9 +1588,23 @@ def disconnect_teams(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
     """Disconnects Microsoft Teams and removes synced Teams coursework for the active student."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    from app.auth_crypto import extract_token_from_request, verify_session_token
+    token = extract_token_from_request(authorization=authorization, x_session_id=x_session_id, session_id=sessionId)
+    verified_reg = verify_session_token(token) if token else None
+    if (x_reg_no or regNo) and not verified_reg:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to disconnect Microsoft Teams.",
+        )
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    if not reg:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to disconnect Microsoft Teams.",
+        )
     store = load_store(reg)
     existing_assignments = store.get("assignments") or []
     store["assignments"] = [a for a in existing_assignments if a.get("source") != "Teams"]

@@ -317,3 +317,174 @@ class TestAdminAuthorization:
         assert res.status_code == 200
         assert res.json()["data"]["totalUsers"] == 42
 
+
+class TestC2ExactRegNoMatching:
+    """Verifies that substring or 1-character regNo guesses do not resolve student records."""
+
+    def test_substring_reg_no_returns_empty(self, populated_student_stores):
+        from app.storage import load_store
+        assert load_store("2")["student"]["name"] is None
+        assert load_store("21BCE")["student"]["name"] is None
+        assert load_store("x21BCE1234x")["student"]["name"] is None
+        assert load_store(VICTIM_REG)["student"]["name"] == "VICTIM STUDENT"
+
+    def test_api_substring_query_returns_empty(self, populated_student_stores):
+        res = client.get("/api/vtop/profile?regNo=21BCE")
+        assert res.status_code == 200
+        assert res.json()["name"] is None
+
+
+class TestC3UnauthenticatedLogout:
+    """Verifies that unauthenticated logout requests cannot delete victim stores or drop all sessions."""
+
+    def test_unauthenticated_logout_does_not_delete_victim_store(self, populated_student_stores):
+        from app.storage import load_store, _data_file_for
+        victim_file = _data_file_for(VICTIM_REG)
+        assert os.path.exists(victim_file)
+
+        res = client.post(f"/api/vtop/logout?regNo={VICTIM_REG}")
+        assert res.status_code == 200
+        # Victim store file must still exist
+        assert os.path.exists(victim_file)
+        assert load_store(VICTIM_REG)["student"]["name"] == "VICTIM STUDENT"
+
+    def test_anonymous_logout_does_not_drop_other_sessions(self):
+        from app.vtop.client import client_manager
+        from app.vtop.session import VTOPSession
+
+        sess = VTOPSession()
+        sid = client_manager._put(sess, reg_no="21BCE9999")
+        assert sid in client_manager._sessions
+
+        # Anonymous logout with no session ID
+        client.post("/api/vtop/logout")
+        assert sid in client_manager._sessions
+        client_manager._drop(sid)
+
+
+class TestC4UnauthenticatedMutations:
+    """Verifies that unauthenticated requests cannot mutate assignments or disconnect integrations."""
+
+    def test_unauthenticated_assignment_mutation_rejected(self):
+        res = client.put(
+            "/api/assignments/lms-101/status",
+            headers={"X-Reg-No": VICTIM_REG},
+            json={"status": "SUBMITTED"},
+        )
+        assert res.status_code == 401
+
+    def test_unauthenticated_teams_disconnect_rejected(self):
+        res = client.post(
+            "/api/teams/disconnect",
+            headers={"X-Reg-No": VICTIM_REG},
+        )
+        assert res.status_code == 401
+
+    def test_unauthenticated_lms_disconnect_rejected(self):
+        res = client.post(
+            "/api/lms/disconnect",
+            headers={"X-Reg-No": VICTIM_REG},
+        )
+        assert res.status_code == 401
+
+
+class TestC5CorsAllowlist:
+    """Verifies that malicious cross-origin preflight requests are rejected."""
+
+    def test_evil_origin_rejected_in_cors(self):
+        res = client.options(
+            "/api/vtop/profile",
+            headers={
+                "Origin": "https://evil.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert res.headers.get("access-control-allow-origin") != "https://evil.example"
+
+
+class TestC6SessionTokenForging:
+    """Verifies that forged unsigned vtop_ tokens cannot grant authenticated access."""
+
+    def test_forged_unsigned_token_is_not_authenticated(self):
+        import base64
+        fake_state = {
+            "cookies": {"JSESSIONID": "FAKE"},
+            "csrf": "FAKE_CSRF",
+            "authorized_id": "FAKE_AUTH",
+            "is_authenticated": True,
+            "username": VICTIM_REG,
+        }
+        forged_sid = "vtop_" + base64.urlsafe_b64encode(json.dumps(fake_state).encode()).decode()
+
+        from app.vtop.client import client_manager
+        handle = client_manager._get(forged_sid)
+        assert handle is not None
+        assert handle.session.is_authenticated is False
+        assert handle.reg_no is None
+
+
+class TestC7AdminKeyProtection:
+    """Verifies that hardcoded admin keys and URL query parameters are rejected."""
+
+    def test_default_key_rejected(self):
+        res = client.get(
+            "/api/analytics/admin/summary",
+            headers={"X-Admin-Key": "campusos_admin_secret"},
+        )
+        assert res.status_code == 401
+
+    def test_query_param_admin_key_not_accepted(self, monkeypatch):
+        import app.routers.analytics as analytics_mod
+        monkeypatch.setattr(analytics_mod, "CAMPUSOS_ADMIN_KEY", "valid_secret_key_12345")
+        res = client.get("/api/analytics/admin/summary?admin_key=valid_secret_key_12345")
+        assert res.status_code == 401
+
+    def test_header_admin_key_accepted(self, monkeypatch):
+        import app.routers.analytics as analytics_mod
+        monkeypatch.setattr(analytics_mod, "CAMPUSOS_ADMIN_KEY", "valid_secret_key_12345")
+        monkeypatch.setattr(analytics_mod, "get_analytics_summary", lambda: {"totalUsers": 10})
+        res = client.get(
+            "/api/analytics/admin/summary",
+            headers={"X-Admin-Key": "valid_secret_key_12345"},
+        )
+        assert res.status_code == 200
+
+
+class TestC8TLSVerification:
+    """Verifies that TLS verification is enabled with a valid CA bundle."""
+
+    def test_tls_verification_is_enabled(self):
+        from app.vtop.session import VTOPSession, get_vtop_ca_bundle
+        bundle = get_vtop_ca_bundle()
+        assert bundle is not False
+        assert os.path.exists(bundle)
+
+        session = VTOPSession()
+        assert session.http.verify is not False
+        assert session.http.verify == bundle
+
+
+class TestC10ValidationCredentialSanitization:
+    """Verifies that validation errors do not echo submitted passwords or credentials."""
+
+    def test_validation_error_strips_input(self):
+        res = client.post("/api/vtop/login", json={"password": "SECRET_PASSWORD_CANARY"})
+        assert res.status_code == 422
+        body_text = res.text
+        assert "SECRET_PASSWORD_CANARY" not in body_text
+        for err in res.json().get("errors", []):
+            assert "input" not in err
+            assert "ctx" not in err
+
+
+class TestB1ODRecordDaysCalculation:
+    """Verifies that OD record day calculation correctly computes date differences."""
+
+    def test_date_difference_calculation(self):
+        from app.vtop.parser import calculate_days_from_dates
+        assert calculate_days_from_dates("01-Jan-2026", "10-Jan-2026") == 10
+        assert calculate_days_from_dates("2026-01-01", "2026-01-31") == 31
+        assert calculate_days_from_dates("01-Jan-2026", "03-Jan-2026") == 3
+        assert calculate_days_from_dates("01-Jan-2026", "01-Jan-2026") == 1
+
+

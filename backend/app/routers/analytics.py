@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
@@ -24,8 +25,8 @@ logger = logging.getLogger("campusos.analytics")
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
-# Admin Configuration
-CAMPUSOS_ADMIN_KEY = os.environ.get("CAMPUSOS_ADMIN_KEY", "campusos_admin_secret")
+# Admin Configuration (No hardcoded default secrets)
+CAMPUSOS_ADMIN_KEY = os.environ.get("CAMPUSOS_ADMIN_KEY", "").strip()
 CAMPUSOS_ADMIN_REG_NOS = [
     r.strip().upper()
     for r in os.environ.get("CAMPUSOS_ADMIN_REG_NOS", "").split(",")
@@ -35,26 +36,26 @@ CAMPUSOS_ADMIN_REG_NOS = [
 
 def verify_admin_authorization(
     x_admin_key: Optional[str] = None,
-    admin_key: Optional[str] = None,
     x_reg_no: Optional[str] = None,
     x_session_id: Optional[str] = None,
 ) -> bool:
     """
     Verify whether the request is authorized to view admin analytics.
-    Authorization methods:
-    1. Valid X-Admin-Key header or query parameter matching CAMPUSOS_ADMIN_KEY
-    2. Request from a verified student registration number listed in CAMPUSOS_ADMIN_REG_NOS
-       backed by a valid cryptographic session token.
+    Security (C7):
+    1. Secret key accepted strictly via X-Admin-Key header (never via URL query parameter).
+    2. Constant-time comparison to prevent timing side-channel attacks.
+    3. No default hardcoded admin secrets.
+    4. Student admin access strictly requires verified session token.
     """
-    supplied_key = x_admin_key or admin_key
-    if supplied_key and CAMPUSOS_ADMIN_KEY and supplied_key.strip() == CAMPUSOS_ADMIN_KEY.strip():
-        return True
+    if x_admin_key and CAMPUSOS_ADMIN_KEY:
+        if secrets.compare_digest(x_admin_key.strip(), CAMPUSOS_ADMIN_KEY):
+            return True
 
     if x_session_id and CAMPUSOS_ADMIN_REG_NOS:
         try:
             from app.routers.auth import resolve_student_reg
             verified_reg = resolve_student_reg(x_session_id=x_session_id, x_reg_no=x_reg_no)
-            if verified_reg and verified_reg in CAMPUSOS_ADMIN_REG_NOS:
+            if verified_reg and any(secrets.compare_digest(verified_reg, r) for r in CAMPUSOS_ADMIN_REG_NOS):
                 return True
         except Exception:
             return False
@@ -159,7 +160,6 @@ def record_profile_activity(
 @router.get("/admin/summary")
 def get_admin_summary(
     x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
-    admin_key: Optional[str] = Query(None),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
 ) -> Dict[str, Any]:
@@ -173,7 +173,7 @@ def get_admin_summary(
     - Recent Activity Feed
     - Recent Active Users List
     """
-    if not verify_admin_authorization(x_admin_key, admin_key, x_reg_no, x_session_id):
+    if not verify_admin_authorization(x_admin_key=x_admin_key, x_reg_no=x_reg_no, x_session_id=x_session_id):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized. Valid admin credentials (X-Admin-Key) required to view CampusOS analytics.",

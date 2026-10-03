@@ -106,26 +106,26 @@ CREATE POLICY "profiles_service_role_all" ON public.profiles
     USING (true)
     WITH CHECK (true);
 
--- 2. Allow reading profiles for verified students/backend
-DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
+-- 2. Restrict reading profiles: Anon has NO select access. Authenticated users can only read their own profile.
 DROP POLICY IF EXISTS "profiles_select_public" ON public.profiles;
-CREATE POLICY "profiles_select_public" ON public.profiles
-    FOR SELECT TO anon, authenticated
-    USING (true);
+DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
+CREATE POLICY "profiles_select_authenticated_own" ON public.profiles
+    FOR SELECT TO authenticated
+    USING (auth.uid() = id);
 
--- 3. Allow upserting profiles
-DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
+-- 3. Restrict mutations: Anon has NO insert/update access. Only service_role or authenticated own profile.
 DROP POLICY IF EXISTS "profiles_insert_public" ON public.profiles;
-CREATE POLICY "profiles_insert_public" ON public.profiles
-    FOR INSERT TO anon, authenticated
-    WITH CHECK (true);
+DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
+CREATE POLICY "profiles_insert_authenticated_own" ON public.profiles
+    FOR INSERT TO authenticated
+    WITH CHECK (auth.uid() = id);
 
-DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_public" ON public.profiles;
-CREATE POLICY "profiles_update_public" ON public.profiles
-    FOR UPDATE TO anon, authenticated
-    USING (true)
-    WITH CHECK (true);
+DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
+CREATE POLICY "profiles_update_authenticated_own" ON public.profiles
+    FOR UPDATE TO authenticated
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
 
 -- Analytics Events RLS Policies:
 -- 1. Full access for service_role
@@ -303,6 +303,7 @@ CREATE OR REPLACE FUNCTION public.get_admin_analytics_summary()
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_total_users BIGINT;
@@ -417,3 +418,10 @@ BEGIN
     );
 END;
 $$;
+
+-- Security Hardening (C9): Restrict admin analytics function to service_role
+REVOKE ALL ON FUNCTION public.get_admin_analytics_summary() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_summary() FROM anon;
+REVOKE ALL ON FUNCTION public.get_admin_analytics_summary() FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.get_admin_analytics_summary() TO service_role;
+
