@@ -133,15 +133,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const attAttended = attendance?.attended ?? 0;
   const attTotal = attendance?.total ?? 0;
 
+  const latestSemGpa = student?.semesterGpa && student.semesterGpa.length > 0
+    ? student.semesterGpa[student.semesterGpa.length - 1].cgpa || student.semesterGpa[student.semesterGpa.length - 1].gpa
+    : null;
+  const resolvedCgpa = (student.cgpa !== null && student.cgpa !== undefined) ? student.cgpa : latestSemGpa;
   const cgpaDisplay =
-    student.cgpa !== null && student.cgpa !== undefined ? Number(student.cgpa).toFixed(2) : 'Unavailable';
+    resolvedCgpa !== null && resolvedCgpa !== undefined && !isNaN(Number(resolvedCgpa))
+      ? Number(resolvedCgpa).toFixed(2)
+      : 'Unavailable';
 
   const earnedCredits = student.creditsEarned ?? null;
   const registeredCreds = student.registeredCredits ?? null;
-  const creditsDisplay = earnedCredits !== null ? `${earnedCredits} Credits` : 'Unavailable';
+  const creditsDisplay = earnedCredits !== null ? `${earnedCredits} Credits` : (registeredCreds ? `${registeredCreds} Credits` : 'Unavailable');
   const creditsSubtext = earnedCredits !== null
     ? (registeredCreds ? `${registeredCreds} credits registered this semester` : 'Cumulative earned credits')
-    : 'Sync VTOP profile';
+    : (registeredCreds ? 'Current semester registered' : 'Sync VTOP profile');
 
   const isAuth = Boolean(student?.regNo && student.regNo !== 'Not available');
 
@@ -275,39 +281,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     };
   }, []);
 
-  const activeHostelInfo = hostelDetails?.hostelInfo || {
-    isHosteller: student?.isHosteller,
-    blockName: student?.blockName,
-    roomNo: student?.roomNo,
-    messInfo: student?.messInfo,
-    gender: student?.gender,
+  const activeHostelInfo = {
+    gender: hostelDetails?.hostelInfo?.gender || student?.gender || 'Male',
+    blockName: hostelDetails?.hostelInfo?.blockName || student?.blockName || '',
+    roomNo: hostelDetails?.hostelInfo?.roomNo || student?.roomNo || '',
+    messInfo: hostelDetails?.hostelInfo?.messInfo || student?.messInfo || '',
+    isHosteller: hostelDetails?.hostelInfo?.isHosteller ?? student?.isHosteller,
   };
 
-  const isHosteller = activeHostelInfo.isHosteller ?? student?.isHosteller ?? true;
-  const rawBlock = activeHostelInfo.blockName || student?.blockName || '';
-  const rawRoom = activeHostelInfo.roomNo || student?.roomNo || '';
-  const rawMess = activeHostelInfo.messInfo || student?.messInfo || '';
+  const rawBlock = activeHostelInfo.blockName || '';
+  const rawRoom = activeHostelInfo.roomNo || '';
+  const rawMess = activeHostelInfo.messInfo || '';
+
+  // Presence of an allotted block or room means the student is a hosteller
+  const hasHostelAllotment = Boolean(
+    (rawBlock && rawBlock.trim() && !rawBlock.toLowerCase().includes('day scholar')) ||
+    (rawRoom && rawRoom.trim() && !rawRoom.toLowerCase().includes('day scholar'))
+  );
+
+  const isHosteller = hasHostelAllotment || Boolean(activeHostelInfo.isHosteller ?? false);
 
   const getCleanBlockName = (block?: string | null, hosteller?: boolean | null): string => {
+    if (block && block.trim() && !block.toLowerCase().includes('day scholar')) {
+      const clean = block.trim();
+      const parenMatch = clean.match(/\(\s*([A-Za-z0-9]+)\s*-\s*Block\s*\)/i);
+      if (parenMatch) return `Block ${parenMatch[1].toUpperCase()}`;
+      const blockLetterMatch = clean.match(/\b([A-Za-z0-9]+)\s+Block\b/i);
+      if (blockLetterMatch) return `Block ${blockLetterMatch[1].toUpperCase()}`;
+      const letterBlockMatch = clean.match(/\bBlock\s+([A-Za-z0-9]+)\b/i);
+      if (letterBlockMatch) return `Block ${letterBlockMatch[1].toUpperCase()}`;
+      if (clean.length <= 16) return clean;
+      const firstWord = clean.split(' ')[0];
+      return firstWord ? `Block ${firstWord.toUpperCase()}` : 'Hostel';
+    }
     if (hosteller === false) return 'Day Scholar';
-    if (!block || !block.trim()) return 'Hostel';
-    const clean = block.trim();
-    const parenMatch = clean.match(/\(\s*([A-Za-z0-9]+)\s*-\s*Block\s*\)/i);
-    if (parenMatch) return `Block ${parenMatch[1].toUpperCase()}`;
-    const blockLetterMatch = clean.match(/\b([A-Za-z0-9]+)\s+Block\b/i);
-    if (blockLetterMatch) return `Block ${blockLetterMatch[1].toUpperCase()}`;
-    const letterBlockMatch = clean.match(/\bBlock\s+([A-Za-z0-9]+)\b/i);
-    if (letterBlockMatch) return `Block ${letterBlockMatch[1].toUpperCase()}`;
-    if (clean.length <= 16) return clean;
-    const firstWord = clean.split(' ')[0];
-    return firstWord ? `Block ${firstWord.toUpperCase()}` : 'Hostel';
+    return 'Hostel';
   };
 
   const getCleanRoom = (room?: string | null, hosteller?: boolean | null): string => {
+    if (room && room.trim() && !room.toLowerCase().includes('day scholar')) {
+      const clean = room.trim();
+      return clean.toLowerCase().startsWith('room') ? clean : `Room ${clean}`;
+    }
     if (hosteller === false) return 'Day Scholar';
-    if (!room || !room.trim()) return 'Room Allotted';
-    const clean = room.trim();
-    return clean.toLowerCase().startsWith('room') ? clean : `Room ${clean}`;
+    return 'Room Allotted';
   };
 
   const getCleanMessAndLeave = (
@@ -315,19 +332,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     hosteller?: boolean | null,
     leaveHistory?: any[]
   ): string => {
-    if (hosteller === false) return 'Off-Campus • Transit Access';
-    let messLabel = 'Mess Allotted';
-    if (mess && mess.trim()) {
+    if (mess && mess.trim() && !mess.toLowerCase().includes('transit')) {
       const upper = mess.toUpperCase();
+      let messLabel = 'Mess Allotted';
       if (upper.includes('NON')) messLabel = 'Non-Veg Mess';
-      else if (upper.includes('SPECIAL')) messLabel = 'Special Mess';
+      else if (upper.includes('SPECIAL') || upper.includes('FOOD')) messLabel = 'Special Mess';
       else if (upper.includes('VEG')) messLabel = 'Veg Mess';
       else messLabel = mess.split('-')[0].trim();
+      const hasApprovedLeave = leaveHistory?.some(
+        (l) => l.status === 'REQUEST APPROVED' || l.status === 'APPROVED'
+      );
+      return `${messLabel} • ${hasApprovedLeave ? 'Pass Approved' : 'Pass Ready'}`;
     }
-    const hasApprovedLeave = leaveHistory?.some(
-      (l) => l.status === 'REQUEST APPROVED' || l.status === 'APPROVED'
-    );
-    return `${messLabel} • ${hasApprovedLeave ? 'Pass Approved' : 'Pass Ready'}`;
+    if (hosteller === false) return 'Off-Campus • Transit Access';
+    return 'Mess Allotted • Pass Ready';
   };
 
   const displayBlockName = getCleanBlockName(rawBlock, isHosteller);
@@ -415,8 +433,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             description="Real-time 75% attendance defense buffer, class routines & verified CGPA"
             icon={<GraduationCap size={20} className="text-emerald-400" />}
             badge={
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
-                <ShieldCheck size={12} /> {cgpaDisplay} CGPA
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${
+                cgpaDisplay !== 'Unavailable'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/25'
+              }`}>
+                <ShieldCheck size={12} /> {cgpaDisplay !== 'Unavailable' ? `${cgpaDisplay} CGPA` : 'Sync CGPA'}
               </span>
             }
             onClick={() => onSelectView?.('academics')}

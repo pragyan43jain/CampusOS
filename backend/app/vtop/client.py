@@ -457,7 +457,7 @@ class VTOPClientManager:
         # Merge and preserve existing connected integrations (Teams, LMS) and assignments
         from app.storage import load_store
         existing_store = load_store(reg)
-        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount", "manualAssignmentStatus"):
+        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount", "manualAssignmentStatus", "hostel", "hostelInfo"):
             if key in existing_store and key not in payload:
                 payload[key] = existing_store[key]
 

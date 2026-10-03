@@ -117,7 +117,7 @@ def fetch_laundry_schedule(block: str = "A") -> List[Dict[str, Any]]:
 
 def parse_hostel_info(html: str) -> Dict[str, Any]:
     """
-    Extract hostel details from VTOP StudentProfileAllView table.
+    Extract hostel details from VTOP StudentProfileAllView or hostel module tables.
     """
     if not html:
         return {}
@@ -135,28 +135,44 @@ def parse_hostel_info(html: str) -> Dict[str, Any]:
         cols = row.find_all(["td", "th"])
         if len(cols) < 2:
             continue
-        label = cols[0].get_text(strip=True).upper()
-        val = cols[1].get_text(strip=True)
+        for i in range(len(cols) - 1):
+            label = cols[i].get_text(strip=True).upper()
+            val = cols[i + 1].get_text(strip=True)
+            if not label or not val:
+                continue
 
-        if "GENDER" in label:
-            info["gender"] = val
-        elif "HOSTELLER" in label:
-            info["isHosteller"] = "HOSTELLER" in val.upper()
-        elif "BLOCK NAME" in label:
-            parts = val.split()
-            info["blockName"] = parts[0] if parts else val
-        elif "ROOM NO" in label:
-            info["roomNo"] = val
-        elif "MESS" in label:
-            mess_val = val.upper()
-            if "NON" in mess_val:
-                info["messInfo"] = "NON VEG"
-            elif "SPECIAL" in mess_val or "FOOD" in mess_val:
-                info["messInfo"] = "SPECIAL"
-            elif "VEG" in mess_val:
-                info["messInfo"] = "VEG"
-            else:
-                info["messInfo"] = val or "NOT ALLOTTED"
+            if "GENDER" in label or "SEX" in label:
+                if not info["gender"]:
+                    info["gender"] = val
+            elif "HOSTELLER" in label or "DAY SCHOLAR" in label or "RESIDENTIAL" in label:
+                val_u = val.upper()
+                if "HOSTELLER" in val_u or "HOSTEL" in val_u:
+                    info["isHosteller"] = True
+                elif "DAY SCHOLAR" in val_u or "DAYSCHOLAR" in val_u:
+                    info["isHosteller"] = False
+            elif "BLOCK" in label:
+                if not info["blockName"]:
+                    info["blockName"] = val
+                    info["isHosteller"] = True
+            elif "ROOM" in label:
+                if not info["roomNo"]:
+                    info["roomNo"] = val
+                    info["isHosteller"] = True
+            elif "MESS" in label or "CATERER" in label:
+                if not info["messInfo"]:
+                    mess_val = val.upper()
+                    if "NON" in mess_val:
+                        info["messInfo"] = "NON VEG"
+                    elif "SPECIAL" in mess_val or "FOOD" in mess_val:
+                        info["messInfo"] = "SPECIAL"
+                    elif "VEG" in mess_val:
+                        info["messInfo"] = "VEG"
+                    else:
+                        info["messInfo"] = val or "NOT ALLOTTED"
+
+    # Presence of an allotted block or room guarantees hosteller status
+    if info.get("blockName") or info.get("roomNo"):
+        info["isHosteller"] = True
 
     return info
 

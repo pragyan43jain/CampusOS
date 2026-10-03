@@ -531,4 +531,21 @@ class TestFullVTOPModulesSync:
         assert len(res["assignments"]) > 0
         # AI Tasks
         assert len(res["aiTasks"]) > 0
+        # Hostel
+        assert "hostel" in res
+        assert "hostelInfo" in res
+
+    def test_fast_mode_preserves_cgpa_and_credits(self):
+        responses = {
+            C.SEMESTER_LIST: pages.SEMESTERS,
+            C.PROFILE: pages.PROFILE,
+            C.TIMETABLE: pages.TIMETABLE_PAGE,
+            C.ATTENDANCE: pages.ATTENDANCE,
+            C.MARKS: pages.MARKS,
+            C.GRADE_HISTORY: pages.GRADE_HISTORY,
+            C.SEMESTER_GRADES: pages.SEMESTER_GRADES,
+        }
+        res = sync(FakeSession(responses=responses), fast_mode=True)
+        assert res["student"]["cgpa"] == 8.85
+        assert res["student"]["creditsEarned"] == 84.0
 

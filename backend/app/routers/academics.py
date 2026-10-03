@@ -295,13 +295,22 @@ def get_hostel_laundry(block: str = "A") -> List[Dict[str, Any]]:
 def get_hostel_details(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """
     Return student hostel details (gender, room, block, mess) and leave records.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
     if not reg:
         return {
             "hostelInfo": {
@@ -316,16 +325,36 @@ def get_hostel_details(
     store = load_store(reg)
     student = store.get("student") or {}
     hostel_data = store.get("hostel") or {}
+    stored_info = hostel_data.get("hostelInfo") or {}
 
-    hostel_info = hostel_data.get("hostelInfo") or {
-        "gender": student.get("gender") or "Male",
-        "isHosteller": bool(student.get("isHosteller", True)),
-        "blockName": student.get("blockName") or "A",
-        "roomNo": student.get("roomNo") or "",
-        "messInfo": student.get("messInfo") or "NON VEG",
+    gender = stored_info.get("gender") or student.get("gender") or "Male"
+    block_name = stored_info.get("blockName") or student.get("blockName")
+    room_no = stored_info.get("roomNo") or student.get("roomNo")
+    mess_info = stored_info.get("messInfo") or student.get("messInfo")
+
+    # If student has block or room allotted, they are an allotted hosteller
+    has_allotment = bool(
+        (block_name and block_name.strip() and "day scholar" not in block_name.lower()) or
+        (room_no and room_no.strip() and "day scholar" not in room_no.lower())
+    )
+    is_hosteller = stored_info.get("isHosteller")
+    if is_hosteller is None:
+        is_hosteller = student.get("isHosteller")
+    if has_allotment:
+        is_hosteller = True
+    elif is_hosteller is None:
+        is_hosteller = False
+
+    hostel_info = {
+        "gender": gender,
+        "isHosteller": bool(is_hosteller),
+        "blockName": block_name if is_hosteller else None,
+        "roomNo": room_no if is_hosteller else None,
+        "messInfo": mess_info if is_hosteller else None,
     }
+
     leave_history = hostel_data.get("leaveHistory") or []
-    if not leave_history:
+    if not leave_history and is_hosteller:
         fallback_hostel_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
             "frontend", "public", "data", "hostel.json"

@@ -229,11 +229,27 @@ _PROFILE_LABELS: List[Tuple[str, Tuple[str, ...]]] = [
     ("batch", ("admission", "year")),
     ("applicationNumber", ("application", "number")),
     ("gender", ("gender",)),
+    ("gender", ("sex",)),
     ("hostellerStatus", ("hosteller",)),
+    ("hostellerStatus", ("day", "scholar")),
+    ("hostellerStatus", ("dayscholar",)),
+    ("hostellerStatus", ("residential", "status")),
+    ("hostellerStatus", ("stay", "type")),
+    ("hostellerStatus", ("accommodation",)),
     ("blockName", ("block", "name")),
+    ("blockName", ("hostel", "block")),
+    ("blockName", ("allotted", "block")),
+    ("blockName", ("block",)),
     ("roomNo", ("room", "no")),
+    ("roomNo", ("room", "number")),
+    ("roomNo", ("allotted", "room")),
+    ("roomNo", ("room",)),
     ("messInfo", ("mess", "info")),
     ("messInfo", ("mess", "information")),
+    ("messInfo", ("mess", "type")),
+    ("messInfo", ("mess", "name")),
+    ("messInfo", ("caterer",)),
+    ("messInfo", ("mess",)),
 ]
 
 
@@ -251,9 +267,29 @@ def parse_profile(html: str) -> Dict[str, Any]:
         return {}
 
     soup = soup_of(html)
-    cells = soup.find_all("td")
     profile: Dict[str, Any] = {}
 
+    # 1. Primary: Pair cells within each row (supports both <td> and <th> label cells)
+    for row in soup.find_all("tr"):
+        cols = row.find_all(["td", "th"])
+        for i in range(len(cols) - 1):
+            label = norm(raw_text(cols[i]))
+            if not label:
+                continue
+            for field, needles in _PROFILE_LABELS:
+                if field in profile:
+                    continue
+                if all(needle in label for needle in needles):
+                    value = to_text(cols[i + 1])
+                    if value:
+                        clean_val = value.lower().replace(" ", "")
+                        if field == "branch" and (clean_val in _EXAM_STREAM_VALUES or clean_val.startswith("science(") or clean_val in ("pcm", "pcb")):
+                            continue
+                        profile[field] = value
+                    break
+
+    # 2. Secondary: Sequential cell traversal across all td/th if any core fields still missing
+    cells = soup.find_all(["td", "th"])
     index = 0
     while index < len(cells) - 1:
         label = norm(raw_text(cells[index]))
@@ -267,13 +303,34 @@ def parse_profile(html: str) -> Dict[str, Any]:
             if all(needle in label for needle in needles):
                 value = to_text(cells[index + 1])
                 if value:
-                    # Ignore high-school 12th qualifying examination stream values for university branch
                     clean_val = value.lower().replace(" ", "")
                     if field == "branch" and (clean_val in _EXAM_STREAM_VALUES or clean_val.startswith("science(") or clean_val in ("pcm", "pcb")):
                         continue
                     profile[field] = value
                 break
         index += 1
+
+    # 3. Targeted regex fallback for hostel allotment in non-standard profile templates
+    if "blockName" not in profile:
+        m_blk = re.search(r"(?:Block(?:\s*Name)?|Hostel\s*Block)\s*[:\-]\s*([A-Za-z0-9\s\-\(\)]+?)(?:<|$|\n)", html, re.I)
+        if m_blk:
+            val = m_blk.group(1).strip()
+            if val and len(val) < 80 and not any(kw in val.lower() for kw in ("null", "none", "table", "div")):
+                profile["blockName"] = val
+
+    if "roomNo" not in profile:
+        m_rm = re.search(r"(?:Room(?:\s*No|\s*Number)?)\s*[:\-]\s*([A-Za-z0-9\-]+)", html, re.I)
+        if m_rm:
+            val = m_rm.group(1).strip()
+            if val and len(val) < 20 and not any(kw in val.lower() for kw in ("null", "none")):
+                profile["roomNo"] = val
+
+    if "messInfo" not in profile:
+        m_mess = re.search(r"(?:Mess(?:\s*Info|\s*Type|\s*Name)?)\s*[:\-]\s*([A-Za-z0-9\s\-]+?)(?:<|$|\n)", html, re.I)
+        if m_mess:
+            val = m_mess.group(1).strip()
+            if val and len(val) < 80 and not any(kw in val.lower() for kw in ("null", "none", "table", "div")):
+                profile["messInfo"] = val
 
     # If program contains " - " and branch is not set, cleanly split them
     if "program" in profile and " - " in profile["program"] and "branch" not in profile:
@@ -287,8 +344,14 @@ def parse_profile(html: str) -> Dict[str, Any]:
         profile["regNo"] = profile["regNo"].upper()
 
     if "hostellerStatus" in profile:
-        profile["isHosteller"] = "HOSTELLER" in profile["hostellerStatus"].upper()
-    elif "blockName" in profile or "roomNo" in profile:
+        st = profile["hostellerStatus"].upper()
+        if "HOSTELLER" in st or "HOSTEL" in st:
+            profile["isHosteller"] = True
+        elif "DAY" in st or "SCHOLAR" in st:
+            profile["isHosteller"] = False
+
+    # Presence of an allotted hostel block or room guarantees hosteller status
+    if profile.get("blockName") or profile.get("roomNo"):
         profile["isHosteller"] = True
 
     return profile
@@ -1265,6 +1328,30 @@ def parse_grade_history(html: str) -> Dict[str, Any]:
                     "creditsEarned": credits_earned,
                     "hasValidData": True,
                 }
+
+    # Regex fallback if table markup was atypical
+    cgpa = None
+    credits_earned = None
+    cgpa_m = re.search(r"CGPA\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", html, re.I)
+    if cgpa_m:
+        try:
+            cgpa = float(cgpa_m.group(1))
+        except ValueError:
+            pass
+
+    creds_m = re.search(r"(?:Credits\s*Earned|Earned\s*Credits)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", html, re.I)
+    if creds_m:
+        try:
+            credits_earned = float(creds_m.group(1))
+        except ValueError:
+            pass
+
+    if cgpa is not None or credits_earned is not None:
+        return {
+            "cgpa": cgpa,
+            "creditsEarned": credits_earned,
+            "hasValidData": True,
+        }
 
     return {"cgpa": None, "creditsEarned": None, "hasValidData": False}
 

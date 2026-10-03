@@ -661,3 +661,27 @@ def test_b3_parser_module_type_hints_evaluable():
     hints = typing.get_type_hints(parser)
     assert "_RECEIPT_RULES" in hints
     assert "_OD_RULES" in hints
+
+
+def test_parse_profile_with_hostel_details():
+    html = """
+    <html><body>
+    <h3>Personal Information</h3>
+    <table>
+      <tr><td>Student Name</td><td>PRAGYAN JAIN</td></tr>
+      <tr><td>Register Number</td><td>24BLC1100</td></tr>
+      <tr><td>Gender</td><td>MALE</td></tr>
+      <tr><td>Hosteller / Dayscholar</td><td>HOSTELLER</td></tr>
+      <tr><td>Block Name</td><td>D Block Mens Hostel(MH) (D - Block )</td></tr>
+      <tr><td>Room No</td><td>531</td></tr>
+      <tr><td>Mess Information</td><td>VEG - FUSION FOODS</td></tr>
+    </table>
+    </body></html>
+    """
+    from app.vtop.parser import parse_profile
+    prof = parse_profile(html)
+    assert prof["isHosteller"] is True
+    assert prof["blockName"] == "D Block Mens Hostel(MH) (D - Block )"
+    assert prof["roomNo"] == "531"
+    assert prof["messInfo"] == "VEG - FUSION FOODS"
+

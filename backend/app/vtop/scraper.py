@@ -159,6 +159,66 @@ def fetch_profile(session: VTOPSession) -> Dict[str, Any]:
     return P.parse_profile(session.post_menu(C.PROFILE))
 
 
+def fetch_hostel(session: VTOPSession, profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Fetch student hostel room, block, mess, and approved leave history.
+    Probes official VTOP hostel modules and merges with profile allotment info.
+    """
+    from app.vtop.hostel import parse_hostel_info, parse_leave_history
+
+    prof = profile or {}
+    block_name = prof.get("blockName")
+    room_no = prof.get("roomNo")
+    mess_info = prof.get("messInfo")
+    gender = prof.get("gender") or "Male"
+    is_hosteller = prof.get("isHosteller")
+    if is_hosteller is None:
+        is_hosteller = bool(block_name or room_no)
+    if block_name or room_no:
+        is_hosteller = True
+
+    hostel_info: Dict[str, Any] = {
+        "gender": gender,
+        "isHosteller": bool(is_hosteller),
+        "blockName": block_name,
+        "roomNo": room_no,
+        "messInfo": mess_info,
+    }
+
+    leaves: List[Dict[str, Any]] = []
+    # Probe candidate hostel and leave endpoints
+    leave_endpoints = [
+        "hostel/viewStudentLeaveHistory",
+        "leave/viewStudentLeaveHistory",
+        "hostel/viewHostelDetails",
+        "leave/StudentLeaveView",
+        "hostel/HostelLeave",
+    ]
+    for ep in leave_endpoints:
+        try:
+            resp_html = session.post_menu(ep, with_win_image=True)
+            if resp_html and ("leavehistorytable" in resp_html.lower() or "leaveappliedtable" in resp_html.lower()):
+                parsed_leaves = parse_leave_history(resp_html)
+                if parsed_leaves:
+                    leaves = parsed_leaves
+                    break
+            if resp_html and ("block" in resp_html.lower() or "room" in resp_html.lower()):
+                extra_info = parse_hostel_info(resp_html)
+                for k, v in extra_info.items():
+                    if v and not hostel_info.get(k):
+                        hostel_info[k] = v
+        except Exception:
+            continue
+
+    if hostel_info.get("blockName") or hostel_info.get("roomNo"):
+        hostel_info["isHosteller"] = True
+
+    return {
+        "hostelInfo": hostel_info,
+        "leaveHistory": leaves,
+    }
+
+
 def fetch_timetable_page(session: VTOPSession, semester_id: str) -> str:
     """
     One request, two payloads.
@@ -778,6 +838,10 @@ def build_student(
     credits_earned = grade_history.get("creditsEarned") if grade_history else None
     sem_gpa = semester_grades.get("gpa") if semester_grades else None
 
+    # Fallback: If cumulative CGPA is not yet finalized in grade history, adopt latest semester GPA
+    if cgpa is None and sem_gpa is not None:
+        cgpa = sem_gpa
+
     semester_gpa_list = []
     if sem_gpa is not None:
         semester_gpa_list.append({
@@ -791,6 +855,15 @@ def build_student(
     school = profile.get("school") or (proctor.get("school") if proctor else None)
     if not branch and school:
         branch = school
+
+    block_name = profile.get("blockName")
+    room_no = profile.get("roomNo")
+    mess_info = profile.get("messInfo")
+    is_hosteller = profile.get("isHosteller")
+    if is_hosteller is None:
+        is_hosteller = bool(block_name or room_no)
+    if block_name or room_no:
+        is_hosteller = True
 
     return {
         "name": profile.get("name"),
@@ -811,10 +884,10 @@ def build_student(
         "semesterGpa": semester_gpa_list,
         "proctor": proctor,
         "gender": profile.get("gender"),
-        "isHosteller": profile.get("isHosteller", False),
-        "blockName": profile.get("blockName"),
-        "roomNo": profile.get("roomNo"),
-        "messInfo": profile.get("messInfo"),
+        "isHosteller": bool(is_hosteller),
+        "blockName": block_name if is_hosteller else None,
+        "roomNo": room_no if is_hosteller else None,
+        "messInfo": mess_info if is_hosteller else None,
         "lastSynced": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1073,12 +1146,13 @@ def sync(
     # Fetch independent general and semester-scoped endpoints in parallel
     sem_id = semester["id"] if semester else None
 
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         f_profile = executor.submit(_step, report, "profile", lambda: fetch_profile(session))
-        f_grade_history = executor.submit(_step, report, "gradeHistory", lambda: fetch_grade_history(session)) if not fast_mode else None
+        # Grade history (cumulative CGPA + total credits earned) is essential and fast (<200ms) - never skip
+        f_grade_history = executor.submit(_step, report, "gradeHistory", lambda: fetch_grade_history(session))
         f_receipts = executor.submit(_step, report, "receipts", lambda: fetch_receipts(session)) if not fast_mode else None
         f_payments = executor.submit(_step, report, "payments", lambda: fetch_payments(session)) if not fast_mode else None
-        f_proctor = executor.submit(_step, report, "proctor", lambda: fetch_proctor(session)) if not fast_mode else None
+        f_proctor = executor.submit(_step, report, "proctor", lambda: fetch_proctor(session))
         f_dean_hod = executor.submit(_step, report, "deanHod", lambda: fetch_dean_hod(session)) if not fast_mode else None
         f_spotlight = executor.submit(_step, report, "spotlight", lambda: fetch_spotlight(session)) if not fast_mode else None
 
@@ -1086,7 +1160,7 @@ def sync(
         f_attendance = executor.submit(lambda: fetch_attendance_page(session, sem_id)) if sem_id else None
         f_marks = executor.submit(lambda: fetch_marks_page(session, sem_id)) if sem_id else None
         f_exams = executor.submit(lambda: fetch_exam_page(session, sem_id)) if (sem_id and not fast_mode) else None
-        f_sem_grades = executor.submit(_step, report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if (sem_id and not fast_mode) else None
+        f_sem_grades = executor.submit(_step, report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if sem_id else None
         f_calendar = executor.submit(_step, report, "calendar", lambda: fetch_vtop_academic_calendar(session, sem_id)) if (sem_id and not fast_mode) else None
 
         profile = f_profile.result() if f_profile else None
@@ -1215,6 +1289,18 @@ def sync(
     # Assemble AI study & attendance tasks
     ai_tasks = build_ai_tasks(student, courses_out, attendance, marks, exams)
 
+    # Fetch and assemble student hostel & leave details
+    hostel_data = _step(report, "hostel", lambda: fetch_hostel(session, profile)) or {
+        "hostelInfo": {
+            "gender": student.get("gender") or "Male",
+            "isHosteller": student.get("isHosteller", False),
+            "blockName": student.get("blockName"),
+            "roomNo": student.get("roomNo"),
+            "messInfo": student.get("messInfo"),
+        },
+        "leaveHistory": [],
+    }
+
     # Scrape On-duty (OD) records
     od_data = _step(
         report,
@@ -1265,6 +1351,8 @@ def sync(
         "deanHod": dean_hod,
         "assignments": assignments,
         "aiTasks": ai_tasks,
+        "hostel": hostel_data,
+        "hostelInfo": hostel_data.get("hostelInfo"),
         "od": od_data,
         "calendar": calendar_data or get_fallback_calendar(sem_id),
         "registry": registry.report(),
