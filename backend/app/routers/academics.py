@@ -399,9 +399,14 @@ def get_all_grades(
 
     sem_id = student.get("semesterId")
     grades_dict = {}
-    if sem_id and student.get("cgpa") is not None:
+    sem_gpa_val = None
+    sem_gpa_list = student.get("semesterGpa") or []
+    if sem_gpa_list:
+        sem_gpa_val = sem_gpa_list[-1].get("gpa")
+
+    if sem_id and (student.get("cgpa") is not None or store.get("grades")):
         grades_dict[sem_id] = {
-            "gpa": str(student.get("cgpa")),
+            "gpa": str(sem_gpa_val) if sem_gpa_val is not None else (str(student.get("cgpa")) if student.get("cgpa") is not None else None),
             "grades": store.get("grades") or [],
         }
 

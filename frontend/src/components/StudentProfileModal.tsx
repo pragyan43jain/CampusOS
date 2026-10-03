@@ -302,8 +302,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               Cumulative CGPA
             </span>
             <div className="mt-1 flex items-center gap-1.5 text-sm font-bold text-neutral-100">
-              <span className="text-emerald-400">{student?.cgpa ? Number(student.cgpa).toFixed(2) : '8.81'}</span>
-              <span className="text-[11px] font-normal text-neutral-500">/ 10.00</span>
+              <span className="text-emerald-400">
+                {student?.cgpa !== null && student?.cgpa !== undefined && !isNaN(Number(student.cgpa))
+                  ? Number(student.cgpa).toFixed(2)
+                  : 'Unavailable'}
+              </span>
+              {student?.cgpa !== null && student?.cgpa !== undefined && !isNaN(Number(student.cgpa)) && (
+                <span className="text-[11px] font-normal text-neutral-500">/ 10.00</span>
+              )}
             </div>
           </div>
         </div>

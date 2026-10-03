@@ -1287,73 +1287,267 @@ def parse_exam_schedule(html: str) -> Dict[str, List[Dict[str, Any]]]:
 
 def parse_grade_history(html: str) -> Dict[str, Any]:
     """
-    Parse cumulative earned credits and CGPA from examinations/examGradeView/StudentGradeHistory.
+    Parse cumulative earned credits, registered credits, and CGPA from examinations/examGradeView/StudentGradeHistory.
+    Correctly isolates summary cards/tables from course tables to avoid returning course credits or single-term values.
     """
-    if body_says(html, "not authorized", "no record", "no data"):
-        return {"cgpa": None, "creditsEarned": None, "hasValidData": False}
+    if not html or not html.strip():
+        return {
+            "cgpa": None,
+            "creditsEarned": None,
+            "registeredCredits": None,
+            "hasValidData": False,
+            "semesterHistory": [],
+        }
+
+    lowered = html.lower()
+    if ("not authorized" in lowered or "session expired" in lowered) and "<table" not in lowered:
+        return {
+            "cgpa": None,
+            "creditsEarned": None,
+            "registeredCredits": None,
+            "hasValidData": False,
+            "semesterHistory": [],
+        }
 
     soup = soup_of(html)
     tables = soup.find_all("table")
-    for table in reversed(tables):
-        first_row = table.find("tr")
-        if not first_row:
+
+    cgpa: Optional[float] = None
+    credits_earned: Optional[float] = None
+    credits_registered: Optional[float] = None
+    semester_history: List[Dict[str, Any]] = []
+
+    # 1. Inspect tables: separate dedicated summary tables from course listings
+    for table in tables:
+        rows = table.find_all("tr")
+        if not rows:
             continue
-        headings = first_row.find_all(["td", "th"])
-        if not headings:
-            continue
-        header_text = norm(" ".join(raw_text(h) for h in headings))
-        if "credits" in header_text or "cgpa" in header_text:
-            credits_idx = None
+
+        table_text = norm(table.get_text(" ")).lower()
+        is_course_table = any(
+            term in table_text for term in [
+                "course code", "sub code", "subject code", "course title", "sub title", "course type"
+            ]
+        )
+
+        if not is_course_table:
+            # Check horizontal layout: Find a header row
+            header_row = rows[0]
+            headings = header_row.find_all(["th", "td"])
+            h_texts = [norm(raw_text(h)).lower() for h in headings]
+
             cgpa_idx = None
-            for j, h in enumerate(headings):
-                h_norm = norm(raw_text(h))
-                if "earned" in h_norm or ("credits" in h_norm and "registered" not in h_norm and "total" not in h_norm):
-                    credits_idx = j
-                elif "cgpa" in h_norm or "cumulative" in h_norm:
+            earned_idx = None
+            reg_idx = None
+
+            for j, h in enumerate(h_texts):
+                if ("cgpa" in h or "cumulative" in h) and "semester" not in h:
                     cgpa_idx = j
+                elif "earned" in h or ("credit" in h and "reg" not in h and "total" not in h):
+                    earned_idx = j
+                elif "registered" in h or "reg" in h:
+                    reg_idx = j
 
-            cells = table.find_all("td")
-            n_head = len(headings)
-            offset = n_head if first_row.find_all("td") else 0
-            cgpa = None
-            credits_earned = None
-            if cgpa_idx is not None and (cgpa_idx + offset) < len(cells):
-                cgpa = to_float(cells[cgpa_idx + offset])
-            if credits_idx is not None and (credits_idx + offset) < len(cells):
-                credits_earned = to_float(cells[credits_idx + offset])
+            if cgpa_idx is not None or (earned_idx is not None and reg_idx is not None):
+                for row in rows[1:]:
+                    cells = row.find_all("td")
+                    if not cells:
+                        continue
+                    if cgpa_idx is not None and cgpa_idx < len(cells) and cgpa is None:
+                        val = to_float(cells[cgpa_idx])
+                        if val is not None and 0.0 <= val <= 10.0:
+                            cgpa = val
+                    if earned_idx is not None and earned_idx < len(cells) and credits_earned is None:
+                        val = to_float(cells[earned_idx])
+                        if val is not None and 0.0 <= val <= 400.0:
+                            credits_earned = val
+                    if reg_idx is not None and reg_idx < len(cells) and credits_registered is None:
+                        val = to_float(cells[reg_idx])
+                        if val is not None and 0.0 <= val <= 400.0:
+                            credits_registered = val
 
-            if cgpa is not None or credits_earned is not None:
-                return {
-                    "cgpa": cgpa,
-                    "creditsEarned": credits_earned,
-                    "hasValidData": True,
-                }
+            # Check vertical 2-column key-value layout
+            for row in rows:
+                cells = row.find_all(["td", "th"])
+                if len(cells) >= 2:
+                    lbl = norm(raw_text(cells[0])).lower()
+                    val_cell = cells[1]
+                    if ("cgpa" in lbl or "cumulative" in lbl) and "sem" not in lbl:
+                        v = to_float(val_cell)
+                        if v is not None and 0.0 <= v <= 10.0 and cgpa is None:
+                            cgpa = v
+                    elif "earned" in lbl and "credit" in lbl:
+                        v = to_float(val_cell)
+                        if v is not None and 0.0 <= v <= 400.0 and credits_earned is None:
+                            credits_earned = v
+                    elif "registered" in lbl and "credit" in lbl:
+                        v = to_float(val_cell)
+                        if v is not None and 0.0 <= v <= 400.0 and credits_registered is None:
+                            credits_registered = v
 
-    # Regex fallback if table markup was atypical
-    cgpa = None
-    credits_earned = None
-    cgpa_m = re.search(r"CGPA\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", html, re.I)
-    if cgpa_m:
-        try:
-            cgpa = float(cgpa_m.group(1))
-        except ValueError:
-            pass
+        else:
+            # Course listing table for a semester
+            sem_title = ""
+            prev = table.find_previous(["h2", "h3", "h4", "h5", "caption", "p", "b", "strong"])
+            if prev:
+                sem_title = norm(raw_text(prev))
 
-    creds_m = re.search(r"(?:Credits\s*Earned|Earned\s*Credits)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", html, re.I)
-    if creds_m:
-        try:
-            credits_earned = float(creds_m.group(1))
-        except ValueError:
-            pass
+            sem_gpa = None
+            sem_credits = None
+            courses = []
 
-    if cgpa is not None or credits_earned is not None:
-        return {
-            "cgpa": cgpa,
-            "creditsEarned": credits_earned,
-            "hasValidData": True,
-        }
+            first_row = rows[0]
+            headings = first_row.find_all(["th", "td"])
+            _COURSE_RULES: Sequence[ColumnRule] = [
+                ("code", contains("code")),
+                ("title", contains("title")),
+                ("credits", contains("credit")),
+                ("grade", contains("grade")),
+            ]
+            cols = discover_columns(headings, _COURSE_RULES)
 
-    return {"cgpa": None, "creditsEarned": None, "hasValidData": False}
+            for row in rows[1:]:
+                row_txt = norm(raw_text(row))
+                gpa_m = re.search(r"(?:GPA|Grade\s*Point\s*Average)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", row_txt, re.I)
+                if gpa_m and "cumulative" not in row_txt.lower() and "cgpa" not in row_txt.lower():
+                    try:
+                        g = float(gpa_m.group(1))
+                        if 0.0 <= g <= 10.0:
+                            sem_gpa = g
+                    except ValueError:
+                        pass
+
+                cum_m = re.search(r"(?:CGPA|Cumulative\s*GPA)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", row_txt, re.I)
+                if cum_m:
+                    try:
+                        c = float(cum_m.group(1))
+                        if 0.0 <= c <= 10.0:
+                            cgpa = c
+                    except ValueError:
+                        pass
+
+                creds_m = re.search(r"(?:Credits\s*Earned|Earned\s*Credits)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", row_txt, re.I)
+                if creds_m:
+                    try:
+                        cr = float(creds_m.group(1))
+                        if 0.0 <= cr <= 400.0:
+                            sem_credits = cr
+                    except ValueError:
+                        pass
+
+                cells = row.find_all("td")
+                if "code" in cols and cols["code"] < len(cells):
+                    raw_code = to_text(cells[cols["code"]])
+                    if raw_code and not any(k in raw_code.lower() for k in ["credits", "gpa", "total", "earned"]):
+                        course_entry = {
+                            "courseCode": raw_code.split("-")[0].strip(),
+                            "courseTitle": to_text(cells[cols["title"]]) if "title" in cols and cols["title"] < len(cells) else None,
+                            "credits": to_float(cells[cols["credits"]]) if "credits" in cols and cols["credits"] < len(cells) else None,
+                            "grade": to_text(cells[cols["grade"]]) if "grade" in cols and cols["grade"] < len(cells) else None,
+                        }
+                        if course_entry.get("grade"):
+                            courses.append(course_entry)
+
+            if sem_credits is None and courses:
+                sem_credits = sum(c["credits"] for c in courses if c.get("credits"))
+
+            if sem_gpa is None and courses:
+                grade_pts = {"S": 10.0, "A": 9.0, "B": 8.0, "C": 7.0, "D": 6.0, "E": 4.0, "F": 0.0, "N": 0.0}
+                p_sum = sum(grade_pts.get(c["grade"].strip().upper(), 0.0) * (c.get("credits") or 0.0) for c in courses if c.get("grade") and c["grade"].strip().upper() in grade_pts)
+                c_sum = sum((c.get("credits") or 0.0) for c in courses if c.get("grade") and c["grade"].strip().upper() in grade_pts)
+                if c_sum > 0:
+                    sem_gpa = round(p_sum / c_sum, 2)
+
+            if sem_gpa is not None or courses:
+                semester_history.append({
+                    "semester": sem_title or f"Semester {len(semester_history) + 1}",
+                    "gpa": sem_gpa,
+                    "credits": sem_credits,
+                    "courses": courses,
+                })
+
+    page_text = norm(soup.get_text(" "))
+
+    # Regex fallbacks across full rendered text and raw HTML
+    if cgpa is None:
+        for src in (page_text, html):
+            cgpa_m = re.search(
+                r"(?:Cumulative\s*Grade\s*Point\s*Average(?:\s*\(CGPA\))?|Cumulative\s*GPA|\bCGPA\b)\s*(?:\([^)]*\))?\s*[:\-]?(?:\s*is\s*)?\s*([0-9]+(?:\.[0-9]+)?)",
+                src,
+                re.I,
+            )
+            if cgpa_m:
+                try:
+                    v = float(cgpa_m.group(1))
+                    if 0.0 <= v <= 10.0:
+                        cgpa = v
+                        break
+                except ValueError:
+                    pass
+
+    # Check for explicit Total Credits Earned first
+    if credits_earned is None:
+        for src in (page_text, html):
+            tot_m = re.search(r"Total\s*Credits\s*Earned\s*[:\-]?(?:\s*is\s*)?\s*([0-9]+(?:\.[0-9]+)?)", src, re.I)
+            if tot_m:
+                try:
+                    v = float(tot_m.group(1))
+                    if 0.0 <= v <= 400.0:
+                        credits_earned = v
+                        break
+                except ValueError:
+                    pass
+
+    # If still not found and we have semester history with credits, sum them up
+    if credits_earned is None and semester_history:
+        sem_credits_sum = sum(s["credits"] for s in semester_history if s.get("credits"))
+        if sem_credits_sum > 0:
+            credits_earned = sem_credits_sum
+
+    # Fallback to bare Credits Earned / Earned Credits if still None
+    if credits_earned is None:
+        for src in (page_text, html):
+            creds_m = re.search(r"(?:Credits\s*Earned|Earned\s*Credits)\s*[:\-]?(?:\s*is\s*)?\s*([0-9]+(?:\.[0-9]+)?)", src, re.I)
+            if creds_m:
+                try:
+                    v = float(creds_m.group(1))
+                    if 0.0 <= v <= 400.0:
+                        credits_earned = v
+                        break
+                except ValueError:
+                    pass
+
+    if credits_registered is None:
+        for src in (page_text, html):
+            reg_m = re.search(r"(?:Total\s*)?Credits\s*Registered\s*[:\-]?(?:\s*is\s*)?\s*([0-9]+(?:\.[0-9]+)?)", src, re.I)
+            if not reg_m:
+                reg_m = re.search(r"Registered\s*Credits\s*[:\-]?(?:\s*is\s*)?\s*([0-9]+(?:\.[0-9]+)?)", src, re.I)
+            if reg_m:
+                try:
+                    v = float(reg_m.group(1))
+                    if 0.0 <= v <= 400.0:
+                        credits_registered = v
+                        break
+                except ValueError:
+                    pass
+
+    # Mathematical weighted average fallback if cumulative summary card was omitted
+    if cgpa is None and semester_history:
+        total_pts = sum((s["gpa"] or 0) * (s["credits"] or 0) for s in semester_history if s.get("gpa") is not None and s.get("credits"))
+        total_cr = sum(s["credits"] for s in semester_history if s.get("gpa") is not None and s.get("credits"))
+        if total_cr > 0:
+            cgpa = round(total_pts / total_cr, 2)
+            if credits_earned is None:
+                credits_earned = total_cr
+
+    has_valid = (cgpa is not None or credits_earned is not None)
+    return {
+        "cgpa": cgpa,
+        "creditsEarned": credits_earned,
+        "registeredCredits": credits_registered,
+        "hasValidData": has_valid,
+        "semesterHistory": semester_history,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1400,7 +1594,7 @@ def parse_semester_grades(html: str) -> Dict[str, Any]:
     grades: List[Dict[str, Any]] = []
 
     gpa: Optional[float] = None
-    gpa_match = re.search(r"GPA\s*:\s*([\d\.]+)", html, re.IGNORECASE)
+    gpa_match = re.search(r"(?:Semester\s*)?(?:GPA|Grade\s*Point\s*Average)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)", html, re.IGNORECASE)
     if gpa_match:
         try:
             gpa = float(gpa_match.group(1))
@@ -1429,6 +1623,13 @@ def parse_semester_grades(html: str) -> Dict[str, Any]:
             title_idx += stride
         if credits_idx is not None:
             credits_idx += stride
+
+    if gpa is None and grades:
+        grade_pts = {"S": 10.0, "A": 9.0, "B": 8.0, "C": 7.0, "D": 6.0, "E": 4.0, "F": 0.0, "N": 0.0}
+        p_sum = sum(grade_pts.get(g["grade"].strip().upper(), 0.0) * (g.get("credits") or 0.0) for g in grades if g.get("grade") and g["grade"].strip().upper() in grade_pts)
+        c_sum = sum((g.get("credits") or 0.0) for g in grades if g.get("grade") and g["grade"].strip().upper() in grade_pts)
+        if c_sum > 0:
+            gpa = round(p_sum / c_sum, 2)
 
     return {"grades": grades, "gpa": gpa}
 

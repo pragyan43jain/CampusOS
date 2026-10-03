@@ -450,6 +450,76 @@ class TestGradeHistory:
         assert res["cgpa"] is None
         assert res["creditsEarned"] is None
 
+    def test_handles_course_tables_without_corrupting_cumulative_cgpa(self):
+        html = """
+        <table>
+          <tr><th>Credits Registered</th><th>Credits Earned</th><th>CGPA</th></tr>
+          <tr><td>84.0</td><td>84.0</td><td>8.85</td></tr>
+        </table>
+        <h3>Fall Semester 2023-24</h3>
+        <table>
+          <tr><th>Course Code</th><th>Course Title</th><th>Credits</th><th>Grade</th></tr>
+          <tr><td>CSE1001</td><td>Problem Solving</td><td>4.0</td><td>S</td></tr>
+          <tr><td colspan="2">Credits Earned: 24.0</td><td colspan="2">GPA: 9.10</td></tr>
+        </table>
+        """
+        res = parse_grade_history(html)
+        assert res["hasValidData"] is True
+        assert res["cgpa"] == 8.85
+        assert res["creditsEarned"] == 84.0
+        assert len(res["semesterHistory"]) == 1
+        assert res["semesterHistory"][0]["gpa"] == 9.10
+
+    def test_parses_vertical_key_value_grade_history(self):
+        html = """
+        <table>
+          <tr><td>Total Credits Registered :</td><td>120.0</td></tr>
+          <tr><td>Total Credits Earned :</td><td>116.0</td></tr>
+          <tr><td>Cumulative Grade Point Average (CGPA) :</td><td>8.92</td></tr>
+        </table>
+        """
+        res = parse_grade_history(html)
+        assert res["hasValidData"] is True
+        assert res["cgpa"] == 8.92
+        assert res["creditsEarned"] == 116.0
+        assert res["registeredCredits"] == 120.0
+
+    def test_calculates_cgpa_from_semester_history_if_summary_row_omitted(self):
+        html = """
+        <h3>Fall Semester 2023-24</h3>
+        <table>
+          <tr><th>Course Code</th><th>Course Title</th><th>Credits</th><th>Grade</th></tr>
+          <tr><td>CSE1001</td><td>OOP</td><td>10.0</td><td>S</td></tr>
+          <tr><td colspan="2">Credits Earned: 10.0</td><td colspan="2">GPA: 9.00</td></tr>
+        </table>
+        <h3>Winter Semester 2023-24</h3>
+        <table>
+          <tr><th>Course Code</th><th>Course Title</th><th>Credits</th><th>Grade</th></tr>
+          <tr><td>MAT1001</td><td>Calculus</td><td>10.0</td><td>A</td></tr>
+          <tr><td colspan="2">Credits Earned: 10.0</td><td colspan="2">GPA: 8.00</td></tr>
+        </table>
+        """
+        res = parse_grade_history(html)
+        assert res["hasValidData"] is True
+        assert res["cgpa"] == 8.50
+        assert res["creditsEarned"] == 20.0
+
+    def test_parses_text_and_cards_cgpa(self):
+        html = """
+        <div class="card">
+          <label>Cumulative Grade Point Average (CGPA)</label>
+          <span>8.75</span>
+        </div>
+        <div class="card">
+          <label>Total Credits Earned</label>
+          <span>72.0</span>
+        </div>
+        """
+        res = parse_grade_history(html)
+        assert res["hasValidData"] is True
+        assert res["cgpa"] == 8.75
+        assert res["creditsEarned"] == 72.0
+
 
 # ---------------------------------------------------------------------------
 # semester grades tests

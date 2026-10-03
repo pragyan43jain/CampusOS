@@ -133,10 +133,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const attAttended = attendance?.attended ?? 0;
   const attTotal = attendance?.total ?? 0;
 
-  const latestSemGpa = student?.semesterGpa && student.semesterGpa.length > 0
-    ? student.semesterGpa[student.semesterGpa.length - 1].cgpa || student.semesterGpa[student.semesterGpa.length - 1].gpa
+  const latestSemCgpa = student?.semesterGpa && student.semesterGpa.length > 0
+    ? student.semesterGpa[student.semesterGpa.length - 1].cgpa
     : null;
-  const resolvedCgpa = (student.cgpa !== null && student.cgpa !== undefined) ? student.cgpa : latestSemGpa;
+  const resolvedCgpa = (student.cgpa !== null && student.cgpa !== undefined) ? student.cgpa : latestSemCgpa;
   const cgpaDisplay =
     resolvedCgpa !== null && resolvedCgpa !== undefined && !isNaN(Number(resolvedCgpa))
       ? Number(resolvedCgpa).toFixed(2)

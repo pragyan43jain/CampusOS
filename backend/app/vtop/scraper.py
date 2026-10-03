@@ -244,7 +244,14 @@ def fetch_exam_page(session: VTOPSession, semester_id: str) -> str:
 
 
 def fetch_grade_history(session: VTOPSession) -> Dict[str, Any]:
-    return P.parse_grade_history(session.post_menu(C.GRADE_HISTORY))
+    html = session.post_menu(C.GRADE_HISTORY)
+    data = P.parse_grade_history(html)
+    if not data.get("hasValidData") and getattr(session, "win_image", None):
+        html2 = session.post_menu(C.GRADE_HISTORY, with_win_image=True)
+        data2 = P.parse_grade_history(html2)
+        if data2.get("hasValidData"):
+            return data2
+    return data
 
 
 def fetch_semester_grades(session: VTOPSession, semester_id: str) -> Dict[str, Any]:
@@ -836,20 +843,55 @@ def build_student(
     profile = profile or {}
     cgpa = grade_history.get("cgpa") if grade_history else None
     credits_earned = grade_history.get("creditsEarned") if grade_history else None
+    registered_credits = (
+        (grade_history.get("registeredCredits") if grade_history else None)
+        or registry.total_credits
+    )
     sem_gpa = semester_grades.get("gpa") if semester_grades else None
 
-    # Fallback: If cumulative CGPA is not yet finalized in grade history, adopt latest semester GPA
-    if cgpa is None and sem_gpa is not None:
-        cgpa = sem_gpa
+    # Derive cumulative CGPA from semester history if summary row was missing
+    if cgpa is None and grade_history and grade_history.get("semesterHistory"):
+        valid_sems = [s for s in grade_history["semesterHistory"] if s.get("gpa") is not None and s.get("credits")]
+        if valid_sems:
+            total_pts = sum(s["gpa"] * s["credits"] for s in valid_sems)
+            total_cr = sum(s["credits"] for s in valid_sems)
+            if total_cr > 0:
+                cgpa = round(total_pts / total_cr, 2)
+                if credits_earned is None:
+                    credits_earned = total_cr
 
+    # Adopt single semester GPA as cumulative CGPA ONLY for true first-semester students
+    # (where cumulative CGPA is mathematically identical to term 1 GPA).
+    # Never corrupt multi-semester students by setting cumulative CGPA to a single semester GPA.
+    if cgpa is None and sem_gpa is not None:
+        is_first_term = False
+        if not grade_history or not grade_history.get("hasValidData"):
+            sem_name = (semester.get("name") if semester else "") or ""
+            if "1" in sem_name or (credits_earned is None or credits_earned <= registry.total_credits):
+                is_first_term = True
+        if is_first_term:
+            cgpa = sem_gpa
+
+    # Assemble semester_gpa_list from historical semesters
     semester_gpa_list = []
+    if grade_history and grade_history.get("semesterHistory"):
+        for sem_rec in grade_history["semesterHistory"]:
+            semester_gpa_list.append({
+                "semester": sem_rec.get("semester"),
+                "gpa": sem_rec.get("gpa"),
+                "cgpa": cgpa,
+                "credits": sem_rec.get("credits"),
+            })
+
     if sem_gpa is not None:
-        semester_gpa_list.append({
-            "semester": semester.get("name") if semester else "Current",
-            "gpa": sem_gpa,
-            "cgpa": cgpa or sem_gpa,
-            "credits": registry.total_credits,
-        })
+        current_sem_name = semester.get("name") if semester else "Current"
+        if not any(s.get("semester") == current_sem_name for s in semester_gpa_list):
+            semester_gpa_list.append({
+                "semester": current_sem_name,
+                "gpa": sem_gpa,
+                "cgpa": cgpa or sem_gpa,
+                "credits": registry.total_credits,
+            })
 
     branch = profile.get("branch")
     school = profile.get("school") or (proctor.get("school") if proctor else None)
@@ -878,7 +920,7 @@ def build_student(
         "cgpa": cgpa,
         "creditsEarned": credits_earned,
         "totalCreditsRequired": None,
-        "registeredCredits": registry.total_credits,
+        "registeredCredits": registered_credits,
         "rank": None,
         "overallAttendance": overall,
         "semesterGpa": semester_gpa_list,
@@ -1331,6 +1373,27 @@ def sync(
 
     normalized_exams = build_exams(exams, registry)
 
+    all_grades_dict = {}
+    if grade_history and grade_history.get("semesterHistory"):
+        for sem_rec in grade_history["semesterHistory"]:
+            s_name = sem_rec.get("semester") or "Semester"
+            all_grades_dict[s_name] = {
+                "gpa": str(sem_rec.get("gpa")) if sem_rec.get("gpa") is not None else None,
+                "grades": sem_rec.get("courses") or [],
+            }
+    if sem_id and semester_grades and semester_grades.get("grades"):
+        current_sem_label = (semester.get("name") if semester else None) or sem_id
+        all_grades_dict[current_sem_label] = {
+            "gpa": str(semester_grades.get("gpa")) if semester_grades.get("gpa") is not None else None,
+            "grades": semester_grades.get("grades") or [],
+        }
+
+    all_grades_data = {
+        "grades": all_grades_dict,
+        "cgpa": student.get("cgpa"),
+        "creditsEarned": student.get("creditsEarned"),
+    }
+
     return {
         "student": student,
         "semesters": semesters,
@@ -1355,6 +1418,9 @@ def sync(
         "hostelInfo": hostel_data.get("hostelInfo"),
         "od": od_data,
         "calendar": calendar_data or get_fallback_calendar(sem_id),
+        "grades": (semester_grades.get("grades") or []) if semester_grades else [],
+        "gradeHistory": grade_history,
+        "allGrades": all_grades_data,
         "registry": registry.report(),
         "syncReport": report.as_dict(),
     }
