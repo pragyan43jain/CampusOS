@@ -441,7 +441,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId"))
                 if has_verified_match:
                     fac_matches = True
-            elif enrolled_fac in ("Faculty unassigned", "LMS Instructor", "Instructor", "LMS Teacher") or normalize_faculty_name(enrolled_fac) == "":
+            elif enrolled_fac in ("Faculty unassigned", "LMS Instructor", "Instructor", "LMS Teacher", "Teams Instructor") or normalize_faculty_name(enrolled_fac) == "":
                 # Enrolled course has placeholder faculty name; trust verified course match
                 if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId")):
                     fac_matches = True
@@ -468,7 +468,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 continue
 
             poster_to_use = assign_poster or assign_fac or enrolled_fac
-            if poster_to_use in ("LMS Instructor", "Instructor", "LMS Teacher") or normalize_faculty_name(poster_to_use) == "":
+            if poster_to_use in ("LMS Instructor", "Instructor", "LMS Teacher", "Teams Instructor") or normalize_faculty_name(poster_to_use) == "":
                 poster_to_use = enrolled_fac
 
             logger.info(
