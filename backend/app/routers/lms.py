@@ -100,6 +100,30 @@ class LMSLoginRequest(BaseModel):
     password: Optional[str] = None
     sessionCookie: Optional[str] = None  # MoodleSession cookie
     campus: Optional[str] = "chennai"
+    regNo: Optional[str] = None
+
+
+def is_moodle_noise(text: Optional[str]) -> bool:
+    """Detects UI and navigation noise strings from Moodle pages to prevent corrupting teacher extraction."""
+    if not text:
+        return True
+    t = str(text).strip().lower()
+    if len(t) < 3 or len(t) > 60:
+        return True
+    noise_keywords = [
+        "contact site support", "log out", "logout", "powered by moodle", "weekly outline",
+        "switch role to", "accessibility", "digital assignments", "announcements",
+        "dashboard", "site home", "calendar", "all courses", "course overview",
+        "recently accessed", "course administration", "private files", "grades",
+        "preferences", "profile", "notifications", "messages", "general",
+        "topic", "module", "unit", "section", "attendance", "feedback",
+        "switch role", "site support",
+    ]
+    if any(k in t for k in noise_keywords):
+        return True
+    if re.match(r"^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}", t):
+        return True
+    return False
 
 
 def normalize_code(code: Optional[str]) -> str:
@@ -196,26 +220,26 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
             soup = BeautifulSoup(r.text, "html.parser")
             for el in soup.find_all(
                 ["span", "div", "p", "li", "a", "h3", "h4"],
-                class_=lambda c: c and any(k in str(c).lower() for k in ["teacher", "instructor", "faculty", "author", "user"]),
+                class_=lambda c: c and any(k in str(c).lower() for k in ["teacher", "instructor", "faculty", "author"]),
             ):
                 txt = el.get_text().strip()
-                if 3 <= len(txt) < 80 and not any(kw in txt.lower() for kw in ["dashboard", "course", "activity", "assignment", "announcement"]):
+                if 3 <= len(txt) < 80 and not is_moodle_noise(txt) and not any(kw in txt.lower() for kw in ["dashboard", "course", "activity", "assignment", "announcement"]):
                     teachers.append(txt)
             for m in re.finditer(r"(?:Faculty|Instructor|Professor|Teacher)\s*[:\-]?\s*([A-Za-z\s\.]+)", r.text, flags=re.IGNORECASE):
                 cand = m.group(1).strip().split("\n")[0].strip()
-                if 3 <= len(cand) < 80 and cand not in teachers:
+                if 3 <= len(cand) < 80 and not is_moodle_noise(cand) and cand not in teachers:
                     teachers.append(cand)
             # Check page header or course header text
             course_h = soup.find(["h1", "h2"], class_=lambda c: c and any(k in str(c).lower() for k in ["course", "header", "title"]))
             if course_h:
                 t_from_h = extract_teacher_from_lms_title(course_h.get_text())
-                if t_from_h and t_from_h not in teachers:
+                if t_from_h and not is_moodle_noise(t_from_h) and t_from_h not in teachers:
                     teachers.append(t_from_h)
 
             # Check <title> tag
             if soup.title and soup.title.string:
                 t_from_title_el = extract_teacher_from_lms_title(soup.title.string)
-                if t_from_title_el and t_from_title_el not in teachers:
+                if t_from_title_el and not is_moodle_noise(t_from_title_el) and t_from_title_el not in teachers:
                     teachers.append(t_from_title_el)
 
             # Map sections/modules to teachers and collect section-level teachers
@@ -231,7 +255,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
                         c_cand = m_sec.group(1).strip().split("\n")[0].strip()
                         if 3 <= len(c_cand) < 60:
                             sec_teacher = c_cand
-                if sec_teacher:
+                if sec_teacher and not is_moodle_noise(sec_teacher):
                     if sec_teacher not in teachers:
                         teachers.append(sec_teacher)
                     for a_link in sec.find_all("a", href=re.compile(r"/mod/assign/view\.php\?id=(\d+)")):
@@ -242,7 +266,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
             # Also check all headings on the page
             for h in soup.find_all(["h2", "h3", "h4", "h5"]):
                 h_teacher = extract_teacher_from_lms_title(h.get_text().strip())
-                if h_teacher and h_teacher not in teachers:
+                if h_teacher and not is_moodle_noise(h_teacher) and h_teacher not in teachers:
                     teachers.append(h_teacher)
     except Exception as exc:
         logger.debug("Could not fetch teacher details from LMS course page %s: %s", course_id, exc)
@@ -259,7 +283,7 @@ def fetch_lms_course_teachers_and_sections(session: requests.Session, course_id:
                     name_el = tr.find("a", href=re.compile(r"/user/view\.php"))
                     if name_el:
                         t_name = name_el.get_text().strip()
-                        if 3 <= len(t_name) < 80 and t_name not in teachers:
+                        if 3 <= len(t_name) < 80 and not is_moodle_noise(t_name) and t_name not in teachers:
                             teachers.append(t_name)
     except Exception as exc:
         logger.debug("Could not fetch participants from LMS course %s: %s", course_id, exc)
@@ -790,110 +814,161 @@ def fetch_assignments_for_lms_course(
 
         soup = BeautifulSoup(r.text, "html.parser")
         table = soup.find("table", class_=lambda x: x and "mod_index" in x) or soup.find("table", class_=lambda x: x and "generaltable" in x)
-        if not table:
-            return assignments
-
-        # Parse table headers if available
-        header_map: Dict[str, int] = {}
-        thead = table.find("thead")
-        if thead:
-            th_row = thead.find("tr")
-            if th_row:
-                for idx, th in enumerate(th_row.find_all(["th", "td"])):
-                    th_txt = th.get_text().strip().lower()
-                    if any(k in th_txt for k in ["assignment", "activity", "name"]):
-                        header_map["title"] = idx
-                    elif any(k in th_txt for k in ["due", "deadline", "date"]):
-                        header_map["due"] = idx
-                    elif any(k in th_txt for k in ["submission", "status"]):
-                        header_map["status"] = idx
-                    elif "grade" in th_txt:
-                        header_map["grade"] = idx
-                    elif any(k in th_txt for k in ["faculty", "teacher", "instructor", "author", "posted by", "staff", "prof"]):
-                        header_map["faculty"] = idx
-
-        all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
         parsed_candidates: List[Dict[str, Any]] = []
 
-        for row in all_trs:
-            cols = row.find_all(["td", "th"])
-            if len(cols) < 2:
-                continue
+        if table:
+            # Parse table headers if available
+            header_map: Dict[str, int] = {}
+            thead = table.find("thead")
+            if thead:
+                th_row = thead.find("tr")
+                if th_row:
+                    for idx, th in enumerate(th_row.find_all(["th", "td"])):
+                        th_txt = th.get_text().strip().lower()
+                        if any(k in th_txt for k in ["assignment", "activity", "name"]):
+                            header_map["title"] = idx
+                        elif any(k in th_txt for k in ["due", "deadline", "date"]):
+                            header_map["due"] = idx
+                        elif any(k in th_txt for k in ["submission", "status"]):
+                            header_map["status"] = idx
+                        elif "grade" in th_txt:
+                            header_map["grade"] = idx
+                        elif any(k in th_txt for k in ["faculty", "teacher", "instructor", "author", "posted by", "staff", "prof"]):
+                            header_map["faculty"] = idx
 
-            # Skip pure header rows without links
-            if not row.find("a") and row.find_all("th") and not row.find_all("td"):
-                continue
+            all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
 
-            link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a")
-            if not link:
-                continue
+            for row in all_trs:
+                cols = row.find_all(["td", "th"])
+                if len(cols) < 2:
+                    continue
 
-            title = link.get_text().strip()
-            href = link.get("href") or ""
-            assign_url = href if href.startswith("http") else f"{LMS_BASE_URL}{href}"
+                # Skip pure header rows without links
+                if not row.find("a") and row.find_all("th") and not row.find_all("td"):
+                    continue
 
-            m_cm = re.search(r"id=(\d+)", href)
-            activity_id = m_cm.group(1) if m_cm else str(len(assignments) + len(parsed_candidates) + 1)
-            assign_id = f"lms-{course_id}-{activity_id}"
+                link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a")
+                if not link:
+                    continue
 
-            # Identify which column index holds the assignment link
-            link_col_idx = 0
-            for i, col in enumerate(cols):
-                if col.find("a") == link or col.get_text().strip() == title:
-                    link_col_idx = i
-                    break
+                title = link.get_text().strip()
+                href = link.get("href") or ""
+                assign_url = href if href.startswith("http") else f"{LMS_BASE_URL}{href}"
 
-            due_raw = ""
-            status_raw = ""
-            row_faculty = ""
+                m_cm = re.search(r"id=(\d+)", href)
+                activity_id = m_cm.group(1) if m_cm else str(len(assignments) + len(parsed_candidates) + 1)
+                assign_id = f"lms-{course_id}-{activity_id}"
 
-            if "due" in header_map and header_map["due"] < len(cols):
-                due_raw = cols[header_map["due"]].get_text().strip()
-            if "status" in header_map and header_map["status"] < len(cols):
-                status_raw = cols[header_map["status"]].get_text().strip()
-            if "faculty" in header_map and header_map["faculty"] < len(cols):
-                row_faculty = cols[header_map["faculty"]].get_text().strip()
+                # Identify which column index holds the assignment link
+                link_col_idx = 0
+                for i, col in enumerate(cols):
+                    if col.find("a") == link or col.get_text().strip() == title:
+                        link_col_idx = i
+                        break
 
-            # Dynamic column heuristic fallback
-            if not due_raw or not status_raw:
-                other_cols = [(i, c.get_text().strip()) for i, c in enumerate(cols) if i != link_col_idx]
-                for idx_c, text in other_cols:
-                    lower_txt = text.lower()
-                    if any(kw in lower_txt for kw in ["submitted", "no submission", "not submitted", "graded", "turnedin", "turned in", "draft", "complete"]):
-                        if not status_raw:
-                            status_raw = text
-                    elif any(m in lower_txt for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
-                        if not due_raw:
-                            due_raw = text
+                due_raw = ""
+                status_raw = ""
+                row_faculty = ""
 
-            due_date_str, due_time_str = parse_moodle_date(due_raw)
+                if "due" in header_map and header_map["due"] < len(cols):
+                    due_raw = cols[header_map["due"]].get_text().strip()
+                if "status" in header_map and header_map["status"] < len(cols):
+                    status_raw = cols[header_map["status"]].get_text().strip()
+                if "faculty" in header_map and header_map["faculty"] < len(cols):
+                    row_faculty = cols[header_map["faculty"]].get_text().strip()
 
-            # Accurate Moodle status evaluation
-            status_lower = status_raw.lower()
-            is_submitted = (
-                any(kw in status_lower for kw in ["submitted for grading", "graded", "turnedin", "turned in", "complete"])
-                or ("submitted" in status_lower and "not submitted" not in status_lower and "draft" not in status_lower)
-            )
+                # Dynamic column heuristic fallback
+                if not due_raw or not status_raw:
+                    other_cols = [(i, c.get_text().strip()) for i, c in enumerate(cols) if i != link_col_idx]
+                    for idx_c, text in other_cols:
+                        lower_txt = text.lower()
+                        if any(kw in lower_txt for kw in ["submitted", "no submission", "not submitted", "graded", "turnedin", "turned in", "draft", "complete"]):
+                            if not status_raw:
+                                status_raw = text
+                        elif any(m in lower_txt for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
+                            if not due_raw:
+                                due_raw = text
 
-            is_pending = not is_submitted
-            topic_name = cols[0].get_text().strip() if len(cols) > 0 and link_col_idx != 0 else ""
-            prev_heading = row.find_previous(["h2", "h3", "h4", "th"], class_=lambda c: c and any(k in str(c).lower() for k in ["sectionname", "topic", "module"]))
-            if not topic_name and prev_heading:
-                topic_name = prev_heading.get_text().strip()
+                due_date_str, due_time_str = parse_moodle_date(due_raw)
 
-            parsed_candidates.append({
-                "assign_id": assign_id,
-                "activity_id": activity_id,
-                "title": title,
-                "assign_url": assign_url,
-                "due_date_str": due_date_str,
-                "due_time_str": due_time_str,
-                "is_submitted": is_submitted,
-                "is_pending": is_pending,
-                "row_faculty": row_faculty,
-                "topic_name": topic_name,
-                "row_text": row.get_text(),
-            })
+                # Accurate Moodle status evaluation
+                status_lower = status_raw.lower()
+                is_submitted = (
+                    any(kw in status_lower for kw in ["submitted for grading", "graded", "turnedin", "turned in", "complete"])
+                    or ("submitted" in status_lower and "not submitted" not in status_lower and "draft" not in status_lower)
+                )
+
+                is_pending = not is_submitted
+                topic_name = cols[0].get_text().strip() if len(cols) > 0 and link_col_idx != 0 else ""
+                prev_heading = row.find_previous(["h2", "h3", "h4", "th"], class_=lambda c: c and any(k in str(c).lower() for k in ["sectionname", "topic", "module"]))
+                if not topic_name and prev_heading:
+                    topic_name = prev_heading.get_text().strip()
+
+                parsed_candidates.append({
+                    "assign_id": assign_id,
+                    "activity_id": activity_id,
+                    "title": title,
+                    "assign_url": assign_url,
+                    "due_date_str": due_date_str,
+                    "due_time_str": due_time_str,
+                    "is_submitted": is_submitted,
+                    "is_pending": is_pending,
+                    "row_faculty": row_faculty,
+                    "topic_name": topic_name,
+                    "row_text": row.get_text(),
+                })
+
+        # Fallback: Scrape activities directly from course view page (/course/view.php?id={course_id})
+        if not parsed_candidates:
+            try:
+                view_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
+                r_v = session.get(view_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+                if r_v.status_code == 200 and "/login" not in r_v.url:
+                    soup_v = BeautifulSoup(r_v.text, "html.parser")
+                    for a_link in soup_v.find_all("a", href=re.compile(r"/mod/(?:assign|quiz)/view\.php\?id=\d+")):
+                        href = a_link.get("href") or ""
+                        m_id = re.search(r"id=(\d+)", href)
+                        if not m_id:
+                            continue
+                        act_id = m_id.group(1)
+                        a_id = f"lms-{course_id}-{act_id}"
+                        if any(c["assign_id"] == a_id for c in parsed_candidates):
+                            continue
+
+                        inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
+                        raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
+                        raw_title = re.sub(r"\s*(?:Assignment|Quiz)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
+                        if not raw_title or len(raw_title) < 2:
+                            continue
+
+                        parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
+                        act_txt = parent_act.get_text() if parent_act else ""
+                        due_raw = ""
+                        status_raw = ""
+                        m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
+                        if m_d:
+                            due_raw = m_d.group(1).strip()
+                        if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
+                            status_raw = "Submitted"
+
+                        d_str, t_str = parse_moodle_date(due_raw)
+                        is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
+
+                        parsed_candidates.append({
+                            "assign_id": a_id,
+                            "activity_id": act_id,
+                            "title": raw_title,
+                            "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                            "due_date_str": d_str,
+                            "due_time_str": t_str,
+                            "is_submitted": is_sub,
+                            "is_pending": not is_sub,
+                            "row_faculty": "",
+                            "topic_name": "",
+                            "row_text": act_txt or raw_title,
+                        })
+            except Exception as exc:
+                logger.debug("Could not scrape course view page for %s: %s", course_id, exc)
 
         if not parsed_candidates:
             return assignments
@@ -903,7 +978,7 @@ def fetch_assignments_for_lms_course(
             # 1. Row faculty column if explicitly provided
             if cand["row_faculty"]:
                 t_cand = extract_teacher_from_lms_title(cand["row_faculty"]) or cand["row_faculty"]
-                if 3 <= len(t_cand) < 60:
+                if 3 <= len(t_cand) < 60 and not is_moodle_noise(t_cand):
                     return t_cand, t_cand
 
             # 2. Extract from assignment view page / row metadata using thread-safe cloned session
@@ -918,13 +993,14 @@ def fetch_assignments_for_lms_course(
                 course_sections_map=course_sections_map,
                 activity_id=cand["activity_id"],
             )
-            if extracted:
+            if extracted and not is_moodle_noise(extracted):
                 return extracted, extracted
 
             # 3. Fall back to course-level LMS instructor, then verified course faculty
             fallback_prof = lms_course_prof
-            if not fallback_prof or fallback_prof in ("LMS Instructor", "Instructor", "LMS Teacher", "Faculty unassigned"):
-                fallback_prof = (c_teachers[0] if c_teachers else None) or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
+            if not fallback_prof or fallback_prof in ("LMS Instructor", "Instructor", "LMS Teacher", "Faculty unassigned") or is_moodle_noise(fallback_prof):
+                valid_c_teachers = [t for t in c_teachers if not is_moodle_noise(t)]
+                fallback_prof = (valid_c_teachers[0] if valid_c_teachers else None) or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
             return fallback_prof, None
 
         max_workers = min(5, max(1, len(parsed_candidates)))
@@ -1017,11 +1093,11 @@ def _process_single_lms_course(
     # Clone session for this worker thread to ensure complete thread safety
     worker_session = _clone_session(session)
 
-    c_teachers = list(lms_c.get("teachers") or [])
+    c_teachers = [t for t in (lms_c.get("teachers") or []) if not is_moodle_noise(t)]
     c_sections_map: Dict[str, str] = {}
 
     t_from_title = extract_teacher_from_lms_title(c_title)
-    if t_from_title and t_from_title not in c_teachers:
+    if t_from_title and not is_moodle_noise(t_from_title) and t_from_title not in c_teachers:
         c_teachers.append(t_from_title)
 
     is_verified, matched_rec, match_meta = verify_external_course(
@@ -1044,7 +1120,7 @@ def _process_single_lms_course(
     if not has_matching_teacher or not c_sections_map:
         page_teachers, page_sections = fetch_lms_course_teachers_and_sections(worker_session, c_id)
         for pt in page_teachers:
-            if pt and pt not in c_teachers:
+            if pt and not is_moodle_noise(pt) and pt not in c_teachers:
                 c_teachers.append(pt)
         if page_sections:
             c_sections_map.update(page_sections)
@@ -1060,7 +1136,6 @@ def _process_single_lms_course(
         )
 
     # Strict Verification: verify whether the course name is matching in the vtop course professor name
-    # If they match then only fetch, otherwise do not fetch!
     prof_matched = False
     if matched_rec:
         prof_matched = lms_course_matches_vtop_professor(
@@ -1070,16 +1145,17 @@ def _process_single_lms_course(
         )
 
     if not (is_verified and matched_rec and prof_matched):
+        expected_faculty = (matched_rec.facultyName if matched_rec else (match_meta.matchedFacultyName if match_meta else None)) or "None"
         logger.info(
             "LMS course %s ('%s') does not match VTOP course professor '%s'. Skipping fetch.",
             c_id,
             c_title,
-            matched_rec.facultyName if matched_rec else "None",
+            expected_faculty,
         )
         if match_meta:
             match_meta.verified = False
             match_meta.facultyMatch = False
-            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{matched_rec.facultyName if matched_rec else 'None'}'"
+            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{expected_faculty}'"
             return match_meta.model_dump(), None, [], None
         return {}, None, [], None
 
@@ -1112,22 +1188,10 @@ def _process_single_lms_course(
     verified_sub_assignments: List[Dict[str, Any]] = []
     for sa in sub_assignments:
         sa_poster = sa.get("postedBy") or sa.get("lmsProfessor") or sa.get("faculty") or sa.get("facultyName")
-        if sa_poster and normalize_faculty_name(sa_poster) == "":
+        if sa_poster and (normalize_faculty_name(sa_poster) == "" or is_moodle_noise(sa_poster)):
             sa_poster = None
 
-        if sa_poster:
-            if not match_faculty_names(real_faculty, sa_poster):
-                logger.warning(
-                    "[LMS ASSIGNMENT FILTER] Dropping assignment '%s' (ID: %s): poster '%s' does not match VTOP faculty '%s'",
-                    sa.get("title"),
-                    sa.get("id"),
-                    sa_poster,
-                    real_faculty,
-                )
-                continue
-            poster_to_use = sa_poster
-        else:
-            poster_to_use = real_faculty
+        poster_to_use = sa_poster or real_faculty
 
         sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
         sa["subjectId"] = matched_rec.courseCode
@@ -1135,7 +1199,7 @@ def _process_single_lms_course(
         sa["courseTitle"] = matched_rec.courseName
         sa["subject"] = matched_rec.courseName
         sa["faculty"] = poster_to_use
-        sa["facultyName"] = poster_to_use
+        sa["facultyName"] = real_faculty
         sa["professor"] = poster_to_use
         sa["lmsProfessor"] = poster_to_use
         sa["postedBy"] = poster_to_use
@@ -1219,9 +1283,16 @@ def get_lms_status(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """Returns the verified connection status of VIT LMS for the active student."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        authorization=authorization,
+    )
     store = load_store(reg)
     is_connected = bool(store.get("lmsConnected"))
     account = store.get("lmsAccount") or {}
@@ -1257,6 +1328,7 @@ def login_and_sync_lms(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Connects to VIT LMS, validates credentials or session cookie,
@@ -1279,13 +1351,19 @@ def login_and_sync_lms(
                 cand_user = clean_u
 
         # Derive active student registration number from verified session or valid LMS credentials
+        from app.storage import find_reg_by_email
         reg = (
-            resolve_student_reg(x_session_id=x_session_id, x_reg_no=x_reg_no, x_auth_user=x_auth_user)
+            resolve_student_reg(
+                x_session_id=x_session_id,
+                x_reg_no=x_reg_no,
+                x_auth_user=x_auth_user,
+                authorization=authorization,
+            )
+            or (find_reg_by_email(payload.username) if payload.username else None)
+            or (payload.regNo.strip().upper() if payload.regNo and payload.regNo.strip() else None)
+            or (x_reg_no.strip().upper() if x_reg_no and x_reg_no.strip() else None)
             or cand_user
         )
-        if not reg and payload.username:
-            from app.storage import find_reg_by_email
-            reg = find_reg_by_email(payload.username)
 
         if not reg and not _is_test_environment():
             raise HTTPException(
@@ -1294,6 +1372,16 @@ def login_and_sync_lms(
             )
 
         store = load_store(reg)
+        if reg and not (store.get("student") or {}).get("name"):
+            disp_name = auth_info.get("displayName") or payload.username or reg
+            if not store.get("student"):
+                from app.storage import empty_student
+                store["student"] = empty_student()
+            store["student"]["name"] = disp_name
+            store["student"]["regNo"] = reg
+            if payload.username and "@" in payload.username:
+                store["student"]["email"] = payload.username
+
         vtop_courses = list(store.get("courses") or [])
 
         current_sem = (store.get("selectedSemester") or {}).get("name")
@@ -1394,9 +1482,17 @@ def sync_lms(
     x_lms_pass: Optional[str] = Header(None, alias="X-LMS-Pass"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """Re-synchronizes authentic coursework from VIT LMS with multi-cookie resilience and auto-reauth."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user)
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user or x_lms_user,
+        authorization=authorization,
+    )
     if not reg:
         raise HTTPException(
             status_code=400,

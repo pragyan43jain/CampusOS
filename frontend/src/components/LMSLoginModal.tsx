@@ -86,11 +86,13 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
 
     try {
       const resolvedUsername = username.includes('@') ? username.trim() : username.trim().toUpperCase();
+      const cachedReg = typeof window !== 'undefined' ? (localStorage.getItem('campus_current_reg_no') || undefined) : undefined;
       const res = await CampusAPI.loginLMS({
         username: loginMode === 'credentials' ? resolvedUsername : undefined,
         password: loginMode === 'credentials' ? password.trim() : undefined,
         sessionCookie: loginMode === 'session_cookie' ? sessionCookie.trim() : undefined,
         campus: campus,
+        regNo: cachedReg,
       });
 
       if (!res.success) {

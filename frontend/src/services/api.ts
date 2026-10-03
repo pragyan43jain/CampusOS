@@ -984,9 +984,11 @@ export const CampusAPI = {
     };
   },
 
-  loginLMS: async (credentials: { username?: string; password?: string; sessionCookie?: string; campus?: string }): Promise<{
+  loginLMS: async (credentials: { username?: string; password?: string; sessionCookie?: string; campus?: string; regNo?: string }): Promise<{
     success: boolean;
     message: string;
+    sessionId?: string;
+    regNo?: string;
     username?: string;
     displayName?: string;
     assignments?: Assignment[];
@@ -1011,9 +1013,14 @@ export const CampusAPI = {
 
     try {
       const extraHeaders: Record<string, string> = {};
-      if (cleanUser && !cleanUser.includes('@')) {
-        extraHeaders['X-Reg-No'] = cleanUser;
+      const cachedReg = typeof window !== 'undefined'
+        ? (window.localStorage.getItem('campus_current_reg_no') || window.localStorage.getItem('campus_vtop_username'))
+        : null;
+      const targetReg = credentials.regNo || (cleanUser && !cleanUser.includes('@') ? cleanUser : cachedReg);
+      if (targetReg && targetReg !== 'Not available' && targetReg !== 'Sync Required') {
+        extraHeaders['X-Reg-No'] = targetReg.trim().toUpperCase();
       }
+
       const res = await fetchWithTimeout(`${getApiBase()}/lms/login`, {
         method: 'POST',
         headers: getAuthHeaders(extraHeaders),
@@ -1022,6 +1029,9 @@ export const CampusAPI = {
           password: credentials.password || undefined,
           sessionCookie: credentials.sessionCookie || undefined,
           campus: campus,
+          regNo: targetReg && targetReg !== 'Not available' && targetReg !== 'Sync Required'
+            ? targetReg.trim().toUpperCase()
+            : undefined,
         }),
       }, 60000);
 
@@ -1045,6 +1055,18 @@ export const CampusAPI = {
           success: false,
           message: data.detail || data.message || `LMS login failed with status ${res.status}`,
         };
+      }
+
+      if (data && data.sessionId) {
+        persistSessionId(data.sessionId);
+      }
+      if (data && data.student) {
+        activeStudent = data.student;
+        if (typeof window !== 'undefined' && data.student.regNo) {
+          window.localStorage.setItem('campus_current_reg_no', data.student.regNo);
+        }
+      } else if (data && data.regNo && typeof window !== 'undefined') {
+        window.localStorage.setItem('campus_current_reg_no', data.regNo);
       }
 
       return data;
