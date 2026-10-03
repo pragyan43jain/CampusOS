@@ -718,8 +718,9 @@ def get_assignments(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("assignments") or []
 
 

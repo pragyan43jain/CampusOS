@@ -158,11 +158,14 @@ def find_reg_by_email(email: Optional[str]) -> Optional[str]:
     except Exception as exc:
         logger.debug("[Storage] profiles_cache email lookup: %s", exc)
 
-    # 3. Search existing store_*.json files in DATA_DIR
+    # 3. Search existing store_*.json files in DATA_DIR and seed directory
     try:
         import glob
         pattern = os.path.join(DATA_DIR, "store_*.json")
-        for store_path in glob.glob(pattern):
+        search_paths = list(glob.glob(pattern))
+        seed_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed")
+        search_paths.extend(glob.glob(os.path.join(seed_dir, "store_*.json")))
+        for store_path in search_paths:
             try:
                 base = os.path.basename(store_path)
                 s_reg = base[6:-5].upper() if base.startswith("store_") and base.endswith(".json") else ""
@@ -212,6 +215,11 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
         p = _data_file_for(clean_reg)
         if p and os.path.exists(p):
             target_path = p
+        elif not _is_test_environment():
+            # Check seed bundle directory (e.g. backend/app/seed/store_{clean_reg}.json)
+            seed_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed", f"store_{clean_reg}.json")
+            if os.path.exists(seed_file):
+                target_path = seed_file
         elif _is_test_environment() and os.path.exists(DATA_FILE):
             # In test suite with isolated tmp_path, allow reading the test fixture file
             target_path = DATA_FILE

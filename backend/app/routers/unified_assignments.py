@@ -308,6 +308,31 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 
     # 2. Student's enrolled courses for the current semester
     courses = list(store.get("courses") or [])
+    if not courses and store.get("assignments"):
+        seen_codes: Dict[str, Dict[str, Any]] = {}
+        for a in store.get("assignments") or []:
+            c_code = canonicalize_course_code(a.get("courseCode"))
+            if not c_code:
+                continue
+            fac = (a.get("faculty") or a.get("postedBy") or a.get("lmsProfessor") or "Faculty unassigned").strip()
+            title = (a.get("courseTitle") or a.get("subject") or c_code).strip()
+            if c_code not in seen_codes or (seen_codes[c_code]["faculty"] == "Faculty unassigned" and fac != "Faculty unassigned"):
+                seen_codes[c_code] = {
+                    "code": c_code,
+                    "courseCode": c_code,
+                    "title": title,
+                    "courseTitle": title,
+                    "courseName": title,
+                    "faculty": fac,
+                    "facultyName": fac,
+                    "semester": sem_name,
+                }
+        synth_courses = list(seen_codes.values())
+        if synth_courses:
+            courses = synth_courses
+            if not store.get("courses"):
+                store = dict(store)
+                store["courses"] = synth_courses
 
     # Extract student's subjects and the faculty assigned to each subject
     vtop_subjects_summary: List[Dict[str, Any]] = []
@@ -413,8 +438,12 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 fac_matches = True
             elif not norm_assign_fac and not norm_poster:
                 # No specific faculty was specified on the assignment, rely on course-level verified match
-                has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId"))
+                has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId"))
                 if has_verified_match:
+                    fac_matches = True
+            elif enrolled_fac in ("Faculty unassigned", "LMS Instructor", "Instructor", "LMS Teacher") or normalize_faculty_name(enrolled_fac) == "":
+                # Enrolled course has placeholder faculty name; trust verified course match
+                if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId")):
                     fac_matches = True
             else:
                 # A specific faculty was specified, but it DOES NOT match enrolled VTOP faculty -> REJECT!
@@ -876,11 +905,12 @@ def get_academic_accounts_status(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Returns connection status and metadata for all connected academic platforms.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     teams_connected = bool(store.get("teamsConnected"))
     lms_connected = bool(store.get("lmsConnected"))
@@ -923,11 +953,12 @@ def get_unified_assignments(
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Returns the unified subject-centric assignment dashboard for the current semester.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user, authorization=authorization)
     store = load_store(reg)
     return build_unified_assignment_dashboard(store)
 
@@ -942,12 +973,13 @@ def sync_all_academic_accounts(
     x_lms_pass: Optional[str] = Header(None, alias="X-LMS-Pass"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Re-synchronizes all connected academic platforms (Teams + LMS)
     and returns the updated unified assignment dashboard.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user or x_lms_user, authorization=authorization)
     if not reg:
         return {
             "success": False,
@@ -963,7 +995,13 @@ def sync_all_academic_accounts(
     if store.get("teamsConnected"):
         try:
             from app.routers.teams import sync_teams
-            sync_teams(x_session_id=x_session_id, x_reg_no=x_reg_no or reg, sessionId=sessionId, regNo=regNo or reg)
+            sync_teams(
+                x_session_id=x_session_id,
+                x_reg_no=x_reg_no or reg,
+                sessionId=sessionId,
+                regNo=regNo or reg,
+                authorization=authorization,
+            )
             synced_sources.append("Microsoft Teams")
         except HTTPException as he:
             logger.warning("Teams HTTP error during sync-all: %s", he.detail)
@@ -985,6 +1023,7 @@ def sync_all_academic_accounts(
                 x_lms_pass=x_lms_pass,
                 sessionId=sessionId,
                 regNo=regNo or reg,
+                authorization=authorization,
             )
             synced_sources.append("VIT LMS")
         except HTTPException as he:
@@ -1020,11 +1059,12 @@ def get_all_assignments_endpoint(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     """
     Returns all verified assignments in store for the active student.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     dash = build_unified_assignment_dashboard(store)
     flat: List[Dict[str, Any]] = []

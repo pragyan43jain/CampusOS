@@ -1145,6 +1145,24 @@ def _process_single_lms_course(
         )
 
     if not (is_verified and matched_rec and prof_matched):
+        # If course code matched an enrolled subject in the current semester, attempt to fetch assignments
+        if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch:
+            try:
+                candidate_assigns = fetch_assignments_for_lms_course(
+                    session=worker_session,
+                    course_id=c_id,
+                    course_title=c_title,
+                    vtop_course={"code": matched_rec.courseCode, "title": matched_rec.courseName, "faculty": matched_rec.facultyName},
+                    lms_teachers=c_teachers,
+                    course_sections_map=c_sections_map,
+                )
+                if candidate_assigns:
+                    is_verified = True
+                    prof_matched = True
+            except Exception as e_cand:
+                logger.debug("Candidate assignments fetch: %s", e_cand)
+
+    if not (is_verified and matched_rec and prof_matched):
         expected_faculty = (matched_rec.facultyName if matched_rec else (match_meta.matchedFacultyName if match_meta else None)) or "None"
         logger.info(
             "LMS course %s ('%s') does not match VTOP course professor '%s'. Skipping fetch.",
@@ -1248,6 +1266,24 @@ def fetch_vit_lms_coursework(
     curr_sem_name = verified_enrolled[0].semester if verified_enrolled else (current_semester or "Fall Semester 2026-27")
 
     enrolled_courses = fetch_lms_enrolled_courses(session)
+    if not verified_enrolled and enrolled_courses:
+        synthesized_vtop = []
+        for c in enrolled_courses:
+            c_title = c.get("title") or ""
+            c_codes = extract_course_code_candidates(c_title) + extract_course_code_candidates(c.get("shortname"))
+            if c_codes:
+                teachers = c.get("teachers") or []
+                synthesized_vtop.append({
+                    "code": c_codes[0],
+                    "title": c_title,
+                    "faculty": teachers[0] if teachers else "LMS Instructor",
+                })
+        if synthesized_vtop:
+            vtop_courses = synthesized_vtop
+            store_data["courses"] = vtop_courses
+            verified_enrolled = build_verified_semester_course_records(store_data)
+            curr_sem_name = verified_enrolled[0].semester if verified_enrolled else curr_sem_name
+
     logger.info("Found %d courses on VIT LMS. Matching with %d VTOP courses for semester '%s'...", len(enrolled_courses), len(verified_enrolled), curr_sem_name)
 
     all_assignments: List[Dict[str, Any]] = []
@@ -1393,6 +1429,15 @@ def login_and_sync_lms(
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
+        existing_lms = [a for a in existing_assignments if a.get("source") == "LMS"]
+
+        # Preserve verified existing LMS assignments if live fetch returned empty
+        if not assignments and existing_lms:
+            assignments = existing_lms
+            if not matched_subjects and (store.get("lmsAccount") or {}).get("matchedSubjects"):
+                matched_subjects = store["lmsAccount"]["matchedSubjects"]
+            if not course_matches and (store.get("lmsAccount") or {}).get("courseMatches"):
+                course_matches = store["lmsAccount"]["courseMatches"]
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in assignments:
@@ -1627,6 +1672,15 @@ def sync_lms(
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
+        existing_lms = [a for a in existing_assignments if a.get("source") == "LMS"]
+
+        # Preserve verified existing LMS assignments if live fetch returned empty
+        if not assignments and existing_lms:
+            assignments = existing_lms
+            if not matched_subjects and (store.get("lmsAccount") or {}).get("matchedSubjects"):
+                matched_subjects = store["lmsAccount"]["matchedSubjects"]
+            if not course_matches and (store.get("lmsAccount") or {}).get("courseMatches"):
+                course_matches = store["lmsAccount"]["courseMatches"]
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in assignments:

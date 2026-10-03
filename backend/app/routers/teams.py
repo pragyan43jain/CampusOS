@@ -1020,7 +1020,7 @@ def _process_single_team(
         source_professors=team_professors,
     )
 
-    if is_verified and matched_rec:
+    if (is_verified or match_meta.courseCodeMatch) and matched_rec:
         matched_vtop = {
             "code": matched_rec.courseCode,
             "title": matched_rec.courseName,
@@ -1053,7 +1053,7 @@ def _process_single_team(
             sa["subjectId"] = matched_rec.courseCode
             sa["courseCode"] = matched_rec.courseCode
             sa["courseTitle"] = matched_rec.courseName
-            sa["faculty"] = matched_rec.facultyName
+            sa["faculty"] = sa.get("faculty") or matched_rec.facultyName
 
         matched_summary = {
             "courseCode": matched_rec.courseCode,
@@ -1162,6 +1162,20 @@ def fetch_microsoft_teams_coursework(
 
     teams_list = list(teams_dict.values())
     user_info["teamsCount"] = len(teams_list)
+
+    if not vtop_courses and teams_list:
+        synthesized_courses = []
+        for t in teams_list:
+            t_name = t.get("displayName") or ""
+            cands = extract_course_code_candidates(t_name)
+            if cands:
+                synthesized_courses.append({
+                    "code": cands[0],
+                    "title": t_name,
+                    "faculty": "Teams Instructor",
+                })
+        if synthesized_courses:
+            vtop_courses = synthesized_courses
 
     logger.info("Found %d Teams for student %s. Matching with %d VTOP courses...", len(teams_list), email, len(vtop_courses))
 
@@ -1367,6 +1381,28 @@ def login_and_sync_teams(
 
         store = load_store(reg)
 
+        # If access token was not acquired directly (e.g. MFA policy), check stored refresh token
+        stored_refresh = (store.get("teamsAccount") or {}).get("refreshToken")
+        if stored_refresh and not access_token:
+            try:
+                s_refresh = get_teams_session()
+                r_ref = s_refresh.post(
+                    LOGIN_TOKEN_URL,
+                    data={
+                        "client_id": TEAMS_CLIENT_ID,
+                        "grant_type": "refresh_token",
+                        "refresh_token": stored_refresh,
+                        "resource": GRAPH_RESOURCE,
+                    },
+                    timeout=REQUEST_TIMEOUT,
+                )
+                if r_ref.status_code == 200:
+                    ref_json = r_ref.json()
+                    access_token = ref_json.get("access_token")
+                    refresh_token = ref_json.get("refresh_token") or stored_refresh
+            except Exception as exc:
+                logger.warning("Token acquisition from stored refresh token: %s", exc)
+
         # Load enrolled subjects from the VTOP section
         vtop_courses = list(store.get("courses") or [])
         if not vtop_courses:
@@ -1389,6 +1425,15 @@ def login_and_sync_teams(
         # Retain non-Teams assignments (e.g. from VTOP assessments/LMS)
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
+        existing_teams = [a for a in existing_assignments if a.get("source") == "Teams"]
+
+        # Preserve verified existing Teams coursework if live fetch returned empty
+        if not teams_assignments and existing_teams:
+            teams_assignments = existing_teams
+            if not matched_subjects and (store.get("teamsAccount") or {}).get("matchedSubjects"):
+                matched_subjects = store["teamsAccount"]["matchedSubjects"]
+            if not course_matches and (store.get("teamsAccount") or {}).get("courseMatches"):
+                course_matches = store["teamsAccount"]["courseMatches"]
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in teams_assignments:
