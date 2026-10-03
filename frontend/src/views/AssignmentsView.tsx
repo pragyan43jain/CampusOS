@@ -274,7 +274,6 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       });
       if (dashboard.unmatchedAssignments) {
         dashboard.unmatchedAssignments.forEach((a) => {
-          if (a.source?.toUpperCase().includes('LMS')) return;
           const prof = findFaculty(
             a.courseCode,
             a.courseTitle,

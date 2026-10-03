@@ -948,7 +948,10 @@ def build_assignments(
         marks_list = c.get("marks") or []
         for m in marks_list:
             m_title = m.get("title") or ""
-            if any(term in m_title.lower() for term in ("da", "assignment", "project", "quiz")):
+            m_lower = m_title.lower()
+            if any(term in m_lower for term in ("da", "assignment", "project", "quiz", "assessment", "review", "exercise", "case study", "seminar", "task")):
+                if any(exam_kw in m_lower for exam_kw in ("cat-1", "cat 1", "cat1", "cat-2", "cat 2", "cat2", "fat theory", "fat exam")) and not any(term in m_lower for term in ("da", "assignment", "quiz")):
+                    continue
                 is_submitted = (m.get("status") or "").lower() == "present" or (m.get("scored") is not None)
                 weight = m.get("maxWeightage") or m.get("weightage") or 10.0
                 assignments.append({

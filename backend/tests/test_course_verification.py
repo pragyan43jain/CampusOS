@@ -602,5 +602,35 @@ class TestFacultyMatchingSystem:
         assert match_faculty_names("RISHIKESHAN C A", "Dr Rolla Subrahmanyam") is False
         assert match_faculty_names("JAYA VIGNESH T", "Dr. Saranya Nair") is False
 
+    def test_verify_semester_match_academic_year_spans(self):
+        # Winter 2024-25 matches Winter 2025
+        ok, reason = verify_semester_match("Winter Semester 2024-25", "BCSE308L Winter 2025")
+        assert ok is True, reason
+
+        # Winter 2024-25 matches Winter 2024-25
+        ok, reason = verify_semester_match("Winter Semester 2024-25", "BCSE308L Winter Semester 2024-25")
+        assert ok is True, reason
+
+        # Winter 2024-25 matches Winter 2024
+        ok, reason = verify_semester_match("Winter Semester 2024-25", "BCSE308L Winter 2024")
+        assert ok is True, reason
+
+        # Fall 2024-25 matches Fall 2024
+        ok, reason = verify_semester_match("Fall Semester 2024-25", "BCSE308L Fall 2024")
+        assert ok is True, reason
+
+        # Winter 2024-25 does NOT match previous academic year Winter 2023-24
+        ok, reason = verify_semester_match("Winter Semester 2024-25", "BCSE308L Winter Semester 2023-24")
+        assert ok is False
+
+        # Fall 2024-25 does NOT match Fall 2025
+        ok, reason = verify_semester_match("Fall Semester 2024-25", "BCSE308L Fall 2025")
+        assert ok is False
+
+        # CH20242501 semester ID matches Winter 2025
+        ok, reason = verify_semester_match("CH20242501", "BCSE308L Winter 2025")
+        assert ok is True, reason
+
+
 
 

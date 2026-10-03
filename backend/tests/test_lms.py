@@ -1044,5 +1044,88 @@ class TestTeacherExtractionAndSectionParsing:
         assert len(assignments_with_teacher) == 1
         assert assignments_with_teacher[0]["faculty"] == "Dr. Fallback Teacher"
 
+    def test_fetch_assignments_scrapes_view_page_for_quizzes_and_turnitin(self):
+        """Validates that course view page activities (quizzes, turnitin) are scraped and included."""
+        from app.routers.lms import fetch_assignments_for_lms_course
+
+        session = MagicMock()
+        def mock_get(url, **kwargs):
+            r = MagicMock()
+            r.status_code = 200
+            r.url = url
+            if "assign/index.php" in url:
+                r.text = '<table class="mod_index"><tbody></tbody></table>'
+            elif "course/view.php" in url:
+                r.text = """
+                <html>
+                  <body>
+                    <li class="activity quiz modtype_quiz">
+                      <div class="activity-item">
+                        <a href="https://lms.vit.ac.in/mod/quiz/view.php?id=777">
+                          <span class="instancename">Module 3 Online Quiz Quiz</span>
+                        </a>
+                        <div class="activity-dates">Due: Sunday, 30 August 2026, 11:59 PM</div>
+                      </div>
+                    </li>
+                    <li class="activity turnitintooltwo modtype_turnitintooltwo">
+                      <div class="activity-item">
+                        <a href="https://lms.vit.ac.in/mod/turnitintooltwo/view.php?id=888">
+                          <span class="instancename">Research Term Paper Turnitin</span>
+                        </a>
+                        <div class="activity-dates">Due: Monday, 31 August 2026, 11:59 PM</div>
+                      </div>
+                    </li>
+                  </body>
+                </html>
+                """
+            return r
+
+        session.get.side_effect = mock_get
+        course = {"code": "BCSE308L", "title": "Computer Networks", "faculty": "RISHIKESHAN C A"}
+
+        assignments = fetch_assignments_for_lms_course(
+            session=session,
+            course_id="2057",
+            course_title="Computer Networks",
+            vtop_course=course,
+            lms_teachers=["RISHIKESHAN C A"],
+        )
+
+        assert len(assignments) == 2
+        titles = [a["title"] for a in assignments]
+        assert "Module 3 Online Quiz" in titles
+        assert "Research Term Paper" in titles
+
+    def test_build_assignments_continuous_assessment_keywords(self):
+        """Verifies VTOP continuous assessment keywords include lab assessments, project reviews, seminars, and exercises."""
+        from app.vtop.scraper import build_assignments
+
+        courses = [
+            {
+                "code": "BCSE308L",
+                "title": "Computer Networks",
+                "faculty": "RISHIKESHAN C A",
+                "marks": [
+                    {"title": "CAT-1 Theory Exam", "scored": 45, "maxMarks": 50},
+                    {"title": "Lab Assessment 1", "scored": 10, "maxMarks": 10},
+                    {"title": "Project Review 1", "scored": None, "maxMarks": 20},
+                    {"title": "Seminar Presentation", "scored": None, "maxMarks": 10},
+                    {"title": "Programming Exercise 3", "scored": 10, "maxMarks": 10},
+                    {"title": "Digital Assignment 1", "scored": None, "maxMarks": 10},
+                ],
+            }
+        ]
+
+        assigns = build_assignments(courses)
+        # CAT-1 Theory Exam should be excluded, all others included
+        titles = [a["title"] for a in assigns]
+        assert not any("CAT-1" in t for t in titles)
+        assert any("Lab Assessment 1" in t for t in titles)
+        assert any("Project Review 1" in t for t in titles)
+        assert any("Seminar Presentation" in t for t in titles)
+        assert any("Programming Exercise 3" in t for t in titles)
+        assert any("Digital Assignment 1" in t for t in titles)
+
+
 
 

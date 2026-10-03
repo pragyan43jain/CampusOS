@@ -446,8 +446,13 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId")):
                     fac_matches = True
             else:
-                # A specific faculty was specified, but it DOES NOT match enrolled VTOP faculty -> REJECT!
-                fac_matches = False
+                # A specific faculty was specified, but it DOES NOT match enrolled VTOP faculty!
+                # BUT if it is from an already-verified course (e.g. course coordinator or TA in the course),
+                # trust the verified course match!
+                if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId")):
+                    fac_matches = True
+                else:
+                    fac_matches = False
 
             if not fac_matches:
                 logger.warning(
@@ -730,16 +735,16 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     # Central Principle: "Subject first, assignment second, source third"
     subject_map: Dict[str, Dict[str, Any]] = {}
     for c in courses:
-        code = canonicalize_course_code(c.get("code"))
+        code = canonicalize_course_code(c.get("code") or c.get("courseCode"))
         if not code:
             continue
         subject_map[code] = {
             "id": code,
             "courseCode": code,
-            "courseTitle": c.get("title") or code,
+            "courseTitle": c.get("title") or c.get("courseTitle") or c.get("courseName") or code,
             "type": c.get("type", "Theory"),
             "slot": c.get("slot"),
-            "faculty": c.get("faculty"),
+            "faculty": c.get("faculty") or c.get("facultyName"),
             "venue": c.get("venue"),
             "teamsMatched": code in teams_matched_codes,
             "teamsChannelName": next((m.get("teamName") for m in (teams_account.get("matchedSubjects") or []) if m.get("courseCode") == code), None),
@@ -757,20 +762,33 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 
     for a in enriched_assignments:
         c_code = canonicalize_course_code(a.get("courseCode"))
-        # Exact match to enrolled subject
-        matched_sub = subject_map.get(c_code)
+        matched_sub = subject_map.get(c_code) if c_code else None
+
+        # Fallback 1: Base code match (e.g. BCSE308 matching BCSE308L or BCSE308P)
+        if not matched_sub and c_code:
+            base_code = re.sub(r"[A-Z]{1,2}$", "", c_code)
+            matching_subs = [s for code_k, s in subject_map.items() if code_k.startswith(base_code)]
+            if len(matching_subs) == 1:
+                matched_sub = matching_subs[0]
+            elif matching_subs:
+                if c_code.endswith("P"):
+                    matched_sub = next((s for s in matching_subs if s["courseCode"].endswith("P") or "LAB" in (s.get("type") or "").upper()), matching_subs[0])
+                else:
+                    matched_sub = next((s for s in matching_subs if s["courseCode"].endswith("L") or "THEORY" in (s.get("type") or "").upper()), matching_subs[0])
+
+        # Fallback 2: Title keyword match against enrolled subjects
+        if not matched_sub and (a.get("courseTitle") or a.get("title")):
+            cand_title = a.get("courseTitle") or a.get("title")
+            for code_k, s in subject_map.items():
+                title_ok, _ = verify_course_title_match(s["courseTitle"], cand_title)
+                if title_ok:
+                    matched_sub = s
+                    break
+
         if matched_sub:
             matched_sub["assignments"].append(a)
         else:
-            is_lms_item = (
-                a.get("source") == "LMS"
-                or "lms" in str(a.get("id", "")).lower()
-                or "LMS" in a.get("sourceList", [])
-                or a.get("platformName") == "VIT LMS"
-            )
-            # Unmatched/unverified LMS coursework MUST NOT be shown anywhere in CampusOS
-            if not is_lms_item:
-                unmatched_assignments.append(a)
+            unmatched_assignments.append(a)
 
     # 7. Sort assignments under each subject: Overdue first, Due Soonest next, then Later deadlines
     total_pending_all = 0

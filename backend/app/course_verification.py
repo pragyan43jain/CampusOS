@@ -499,11 +499,13 @@ def extract_academic_context(text: Optional[str]) -> Dict[str, Any]:
     Extracts all structured academic context attributes from a text string:
     - season: "FALL", "WINTER", "SUMMER"
     - year: 2026, 2025, etc.
+    - years: set of years, e.g. {2024, 2025}
+    - academic_year_span: (2024, 2025)
     - sem_num: 1, 2, 3, 4, etc.
     - is_archived: bool
     """
     if not text:
-        return {"season": None, "year": None, "sem_num": None, "is_archived": False}
+        return {"season": None, "year": None, "years": set(), "academic_year_span": None, "sem_num": None, "is_archived": False}
 
     upper = str(text).upper()
     is_archived = any(kw in upper for kw in ["ARCHIVED", "OLD COURSE", "PREVIOUS SEMESTER", "PREV SEM"])
@@ -519,10 +521,43 @@ def extract_academic_context(text: Optional[str]) -> Dict[str, Any]:
     elif "SUMMER" in upper or "SUM" in upper:
         season = "SUMMER"
 
-    m_yr = re.search(r"\b(20[2-3]\d)\b", upper)
-    year = int(m_yr.group(1)) if m_yr else None
+    # Academic year span: e.g. "2024-25", "2024-2025", "2024/25", "2024_25", "CH20242501"
+    academic_year_span: Optional[Tuple[int, int]] = None
+    years: Set[int] = set()
 
-    return {"season": season, "year": year, "sem_num": sem_num, "is_archived": is_archived}
+    m_span = re.search(r"\b(20[2-3]\d)\s*[-/_\\]\s*(?:20)?([2-3]\d)\b", upper)
+    if m_span:
+        y1 = int(m_span.group(1))
+        raw_y2 = m_span.group(2)
+        y2 = int("20" + raw_y2) if len(raw_y2) == 2 else int(raw_y2)
+        if y2 in (y1 + 1, y1):
+            academic_year_span = (y1, y2)
+            years.update([y1, y2])
+
+    if not academic_year_span:
+        m_code_span = re.search(r"\b[A-Z]{2}(20[2-3]\d)([2-3]\d)\d{2}\b", upper)
+        if m_code_span:
+            y1 = int(m_code_span.group(1))
+            y2 = int("20" + m_code_span.group(2))
+            if y2 in (y1 + 1, y1):
+                academic_year_span = (y1, y2)
+                years.update([y1, y2])
+
+    m_yr = re.search(r"\b(20[2-3]\d)\b", upper)
+    single_year = int(m_yr.group(1)) if m_yr else None
+    if single_year:
+        years.add(single_year)
+
+    primary_year = (academic_year_span[0] if academic_year_span else single_year)
+
+    return {
+        "season": season,
+        "year": primary_year,
+        "years": years,
+        "academic_year_span": academic_year_span,
+        "sem_num": sem_num,
+        "is_archived": is_archived,
+    }
 
 
 def extract_semester_term_year(text: Optional[str]) -> Optional[Tuple[str, int]]:
@@ -540,7 +575,8 @@ def extract_semester_term_year(text: Optional[str]) -> Optional[Tuple[str, int]]
 def verify_semester_match(current_sem_name: str, external_text: str) -> Tuple[bool, Optional[str]]:
     """
     Ensures external courses belonging to previous semesters (e.g. Semester 3 vs Semester 4,
-    Fall 2025 vs Fall 2026) are rejected.
+    Fall 2025 vs Fall 2026) are rejected, while gracefully handling academic year spans
+    like 'Winter Semester 2024-25' matching 'Winter 2025' or 'Winter 2024-25'.
     """
     curr = extract_academic_context(current_sem_name)
     ext = extract_academic_context(external_text)
@@ -554,13 +590,42 @@ def verify_semester_match(current_sem_name: str, external_text: str) -> Tuple[bo
         curr_yr_str = f" {curr['year']}" if curr['year'] else ""
         return False, f"Semester mismatch: external course is {ext['season']}{ext_yr_str}, current is {curr['season']}{curr_yr_str}"
 
-    # 2. Year mismatch (if both specify year)
-    if curr["year"] and ext["year"] and curr["year"] != ext["year"]:
-        return False, f"Academic year mismatch: external course belongs to year {ext['year']}, current is {curr['year']}"
-
-    # 3. Semester number mismatch (if both specify sem number)
+    # 2. Semester number mismatch (if both specify sem number)
     if curr["sem_num"] and ext["sem_num"] and curr["sem_num"] != ext["sem_num"]:
         return False, f"Semester mismatch: external course is Semester {ext['sem_num']}, current is Semester {curr['sem_num']}"
+
+    # 3. Year & Academic Year Span Verification
+    curr_span = curr.get("academic_year_span")
+    ext_span = ext.get("academic_year_span")
+    curr_years = curr.get("years") or (set([curr["year"]]) if curr.get("year") else set())
+    ext_years = ext.get("years") or (set([ext["year"]]) if ext.get("year") else set())
+
+    if curr_span and ext_span:
+        if curr_span != ext_span:
+            return False, f"Academic year mismatch: external course academic year {ext_span[0]}-{str(ext_span[1])[-2:]} does not match current {curr_span[0]}-{str(curr_span[1])[-2:]}"
+    elif curr_span and ext_years:
+        ext_single = next(iter(ext_years))
+        if curr.get("season") == "FALL" and ext.get("season") == "FALL":
+            if ext_single != curr_span[0]:
+                return False, f"Academic year mismatch: external course year {ext_single} does not match current academic year {curr_span[0]}-{str(curr_span[1])[-2:]}"
+        elif curr.get("season") in ("WINTER", "SUMMER") and ext.get("season") in ("WINTER", "SUMMER"):
+            if ext_single not in curr_span:
+                return False, f"Academic year mismatch: external course year {ext_single} does not match current academic year {curr_span[0]}-{str(curr_span[1])[-2:]}"
+        elif not ext_years.intersection(curr_years):
+            if not (abs(ext_single - curr_span[0]) <= 1 or abs(ext_single - curr_span[1]) <= 1):
+                return False, f"Academic year mismatch: external course year {ext_single} does not match current academic year {curr_span[0]}-{str(curr_span[1])[-2:]}"
+    elif ext_span and curr_years:
+        if not curr_years.intersection(ext_years):
+            return False, f"Academic year mismatch: external course academic year {ext_span[0]}-{str(ext_span[1])[-2:]} does not match current year {curr.get('year')}"
+    elif curr.get("year") and ext.get("year"):
+        c_y = curr["year"]
+        e_y = ext["year"]
+        if c_y != e_y:
+            # Special case: Winter/Summer term calendar year offset (+1 year from academic start year)
+            if curr.get("season") == ext.get("season") and curr.get("season") in ("WINTER", "SUMMER") and abs(c_y - e_y) == 1:
+                pass
+            else:
+                return False, f"Academic year mismatch: external course belongs to year {e_y}, current is {c_y}"
 
     return True, None
 
@@ -797,6 +862,10 @@ def verify_external_course(
         for cand in candidate_fac_names:
             c_canon = canonicalize_faculty_name(cand)
             if c_canon and enrolled_canon_fac and (c_canon == enrolled_canon_fac or c_canon in enrolled_canon_fac or enrolled_canon_fac in c_canon):
+                faculty_name_matched = True
+                match_result.sourceFacultyName = cand
+                break
+            if match_faculty_names(matched_enrolled.facultyName, cand):
                 faculty_name_matched = True
                 match_result.sourceFacultyName = cand
                 break

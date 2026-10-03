@@ -918,57 +918,57 @@ def fetch_assignments_for_lms_course(
                     "row_text": row.get_text(),
                 })
 
-        # Fallback: Scrape activities directly from course view page (/course/view.php?id={course_id})
-        if not parsed_candidates:
-            try:
-                view_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
-                r_v = session.get(view_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-                if r_v.status_code == 200 and "/login" not in r_v.url:
-                    soup_v = BeautifulSoup(r_v.text, "html.parser")
-                    for a_link in soup_v.find_all("a", href=re.compile(r"/mod/(?:assign|quiz)/view\.php\?id=\d+")):
-                        href = a_link.get("href") or ""
-                        m_id = re.search(r"id=(\d+)", href)
-                        if not m_id:
-                            continue
-                        act_id = m_id.group(1)
-                        a_id = f"lms-{course_id}-{act_id}"
-                        if any(c["assign_id"] == a_id for c in parsed_candidates):
-                            continue
+        # Also scrape activities directly from course view page (/course/view.php?id={course_id})
+        # to capture quizzes, Turnitin assignments, workshops, and section activities that do not appear on mod/assign/index
+        try:
+            view_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
+            r_v = session.get(view_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+            if r_v.status_code == 200 and "/login" not in r_v.url:
+                soup_v = BeautifulSoup(r_v.text, "html.parser")
+                for a_link in soup_v.find_all("a", href=re.compile(r"/mod/(?:assign|quiz|turnitintooltwo|turnitin|workshop)/view\.php\?id=\d+")):
+                    href = a_link.get("href") or ""
+                    m_id = re.search(r"id=(\d+)", href)
+                    if not m_id:
+                        continue
+                    act_id = m_id.group(1)
+                    a_id = f"lms-{course_id}-{act_id}"
+                    if any(c["assign_id"] == a_id or c.get("activity_id") == act_id for c in parsed_candidates):
+                        continue
 
-                        inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
-                        raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
-                        raw_title = re.sub(r"\s*(?:Assignment|Quiz)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
-                        if not raw_title or len(raw_title) < 2:
-                            continue
+                    inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
+                    raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
+                    raw_title = re.sub(r"\s*(?:Assignment|Quiz|Turnitin Assignment 2|Turnitin)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
+                    if not raw_title or len(raw_title) < 2:
+                        continue
 
-                        parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
-                        act_txt = parent_act.get_text() if parent_act else ""
-                        due_raw = ""
-                        status_raw = ""
-                        m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
-                        if m_d:
-                            due_raw = m_d.group(1).strip()
-                        if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
-                            status_raw = "Submitted"
+                    parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
+                    act_txt = parent_act.get_text() if parent_act else ""
+                    due_raw = ""
+                    status_raw = ""
+                    m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
+                    if m_d:
+                        due_raw = m_d.group(1).strip()
+                    if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
+                        status_raw = "Submitted"
 
-                        d_str, t_str = parse_moodle_date(due_raw)
-                        is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
+                    d_str, t_str = parse_moodle_date(due_raw)
+                    is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
 
-                        parsed_candidates.append({
-                            "assign_id": a_id,
-                            "activity_id": act_id,
-                            "title": raw_title,
-                            "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
-                            "due_date_str": d_str,
-                            "due_time_str": t_str,
-                            "is_submitted": is_sub,
-                            "is_pending": not is_sub,
-                            "row_faculty": "",
-                            "topic_name": "",
-                            "row_text": act_txt or raw_title,
-                        })
-            except Exception as exc:
-                logger.debug("Could not scrape course view page for %s: %s", course_id, exc)
+                    parsed_candidates.append({
+                        "assign_id": a_id,
+                        "activity_id": act_id,
+                        "title": raw_title,
+                        "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                        "due_date_str": d_str,
+                        "due_time_str": t_str,
+                        "is_submitted": is_sub,
+                        "is_pending": not is_sub,
+                        "row_faculty": "",
+                        "topic_name": "",
+                        "row_text": act_txt or raw_title,
+                    })
+        except Exception as exc:
+            logger.debug("Could not scrape course view page for %s: %s", course_id, exc)
 
         if not parsed_candidates:
             return assignments
@@ -1144,36 +1144,20 @@ def _process_single_lms_course(
             lms_teachers=c_teachers,
         )
 
-    if not (is_verified and matched_rec and prof_matched):
-        # If course code matched an enrolled subject in the current semester, attempt to fetch assignments
-        if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch:
-            try:
-                candidate_assigns = fetch_assignments_for_lms_course(
-                    session=worker_session,
-                    course_id=c_id,
-                    course_title=c_title,
-                    vtop_course={"code": matched_rec.courseCode, "title": matched_rec.courseName, "faculty": matched_rec.facultyName},
-                    lms_teachers=c_teachers,
-                    course_sections_map=c_sections_map,
-                )
-                if candidate_assigns:
-                    is_verified = True
-                    prof_matched = True
-            except Exception as e_cand:
-                logger.debug("Candidate assignments fetch: %s", e_cand)
-
-    if not (is_verified and matched_rec and prof_matched):
+    # If course code matched an enrolled subject in the current semester, mark verified and fetch coursework
+    if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch:
+        is_verified = True
+        match_meta.verified = True
+        match_meta.facultyMatch = prof_matched
+    elif not is_verified or not matched_rec:
         expected_faculty = (matched_rec.facultyName if matched_rec else (match_meta.matchedFacultyName if match_meta else None)) or "None"
         logger.info(
-            "LMS course %s ('%s') does not match VTOP course professor '%s'. Skipping fetch.",
+            "LMS course %s ('%s') did not match any enrolled course in current semester. Skipping fetch.",
             c_id,
             c_title,
-            expected_faculty,
         )
         if match_meta:
             match_meta.verified = False
-            match_meta.facultyMatch = False
-            match_meta.rejectionReason = f"LMS course '{c_title}' does not match VTOP professor '{expected_faculty}'"
             return match_meta.model_dump(), None, [], None
         return {}, None, [], None
 
