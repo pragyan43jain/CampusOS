@@ -836,21 +836,47 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     l_matches = lms_account.get("courseMatches") or []
 
     subject_list: List[Dict[str, Any]] = []
-    for sub in subject_map.values():
-        # Sort assignments: Overdue first, Due Soon next, Pending next, Status Unavailable next, DONE last
-        def sort_priority(item: Dict[str, Any]) -> Tuple[int, str]:
-            st = (item.get("displayStatus") or "").upper()
-            if st == "OVERDUE":
-                return (0, item.get("sortKey", ""))
-            elif st == "DUE SOON":
-                return (1, item.get("sortKey", ""))
-            elif st == "PENDING":
-                return (2, item.get("sortKey", ""))
-            elif st == "STATUS_UNAVAILABLE":
-                return (3, item.get("sortKey", ""))
-            else:  # DONE / Submitted
-                return (4, item.get("sortKey", ""))
+    def parse_sort_timestamp(item: Dict[str, Any]) -> float:
+        sk = item.get("sortKey") or ""
+        if sk and not sk.startswith("9999"):
+            try:
+                return datetime.fromisoformat(sk).timestamp()
+            except Exception:
+                pass
+        due_d = item.get("dueDate") or ""
+        if due_d and due_d != "TBA" and "continuous" not in due_d.lower():
+            try:
+                time_part = item.get("dueTime") or "23:59"
+                return datetime.strptime(f"{due_d} {time_part}", "%Y-%m-%d %H:%M").timestamp()
+            except Exception:
+                pass
+        up_d = item.get("uploadDate") or ""
+        if up_d:
+            try:
+                return datetime.strptime(up_d, "%Y-%m-%d").timestamp()
+            except Exception:
+                pass
+        return 0.0
 
+    def sort_priority(item: Dict[str, Any]) -> Tuple[int, float]:
+        st = (item.get("displayStatus") or "").upper()
+        ts = parse_sort_timestamp(item)
+        # Latest first -> negate timestamp so larger/newer timestamp is ordered first
+        neg_ts = -ts if ts > 0 else float("inf")
+        if st == "OVERDUE":
+            return (0, neg_ts)
+        elif st == "DUE SOON":
+            return (1, neg_ts)
+        elif st == "PENDING":
+            return (2, neg_ts)
+        elif st == "STATUS_UNAVAILABLE":
+            return (3, neg_ts)
+        else:  # DONE / Submitted
+            return (4, neg_ts)
+
+    unmatched_assignments.sort(key=sort_priority)
+
+    for sub in subject_map.values():
         sub["assignments"].sort(key=sort_priority)
 
         p_cnt = len([a for a in sub["assignments"] if (a.get("displayStatus") or "").upper() in ("PENDING", "DUE SOON", "OVERDUE")])

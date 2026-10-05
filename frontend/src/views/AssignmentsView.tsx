@@ -17,7 +17,7 @@ import { CampusAPI } from '../services/api';
 import { TeamsLoginModal } from '../components/TeamsLoginModal';
 import { LMSLoginModal } from '../components/LMSLoginModal';
 import { MetricCard } from '../components/MetricCard';
-import { isAssignmentDone, setManualOverride } from '../utils/assignmentUtils';
+import { isAssignmentDone, parseAssignmentDate, setManualOverride } from '../utils/assignmentUtils';
 
 interface AssignmentsViewProps {
   assignments?: Assignment[];
@@ -69,7 +69,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'SUBMITTED'>('ALL');
-  const [sortOrder, setSortOrder] = useState<'DUE_SOON' | 'COURSE'>('DUE_SOON');
+  const [sortOrder, setSortOrder] = useState<'LATEST' | 'PENDING_FIRST' | 'DUE_SOON' | 'COURSE'>('LATEST');
 
   const isSyncing = externalSyncingAll || syncingAll;
 
@@ -363,17 +363,52 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         const doneA = isAssignmentDone(a, studentRegNo);
         const doneB = isAssignmentDone(b, studentRegNo);
 
-        // 1. Pending assignments strictly on top, completed assignments strictly at the bottom
-        if (!doneA && doneB) return -1;
-        if (doneA && !doneB) return 1;
+        if (sortOrder === 'LATEST') {
+          // Strictly latest-to-oldest order
+          const tA = parseAssignmentDate(a);
+          const tB = parseAssignmentDate(b);
+          if (tA > 0 && tB === 0) return -1;
+          if (tA === 0 && tB > 0) return 1;
+          if (tB !== tA) return tB - tA;
 
-        // 2. Secondary sort within the same status partition
-        if (sortOrder === 'DUE_SOON') {
-          const keyA = (a as any).sortKey || (a.dueDate && a.dueDate.trim() ? a.dueDate.trim() : '9999-99-99');
-          const keyB = (b as any).sortKey || (b.dueDate && b.dueDate.trim() ? b.dueDate.trim() : '9999-99-99');
-          return keyA.localeCompare(keyB);
+          // Tie-breaker 1: Pending before Completed if dates are identical
+          if (!doneA && doneB) return -1;
+          if (doneA && !doneB) return 1;
+
+          // Tie-breaker 2: Course / Title
+          return (a.title || '').localeCompare(b.title || '');
         }
-        return (a.courseCode || a.subject || '').localeCompare(b.courseCode || b.subject || '');
+
+        if (sortOrder === 'PENDING_FIRST') {
+          // Pending assignments strictly on top, completed assignments strictly at the bottom
+          if (!doneA && doneB) return -1;
+          if (doneA && !doneB) return 1;
+
+          const tA = parseAssignmentDate(a);
+          const tB = parseAssignmentDate(b);
+          if (tA > 0 && tB === 0) return -1;
+          if (tA === 0 && tB > 0) return 1;
+          if (tB !== tA) return tB - tA;
+          return (a.title || '').localeCompare(b.title || '');
+        }
+
+        if (sortOrder === 'DUE_SOON') {
+          // Oldest to Latest (Due soonest)
+          const tA = parseAssignmentDate(a);
+          const tB = parseAssignmentDate(b);
+          if (tA > 0 && tB === 0) return -1;
+          if (tA === 0 && tB > 0) return 1;
+          if (tA !== tB) return tA - tB;
+          return (a.title || '').localeCompare(b.title || '');
+        }
+
+        // COURSE
+        const courseA = a.courseCode || a.subject || '';
+        const courseB = b.courseCode || b.subject || '';
+        if (courseA !== courseB) return courseA.localeCompare(courseB);
+        const tA = parseAssignmentDate(a);
+        const tB = parseAssignmentDate(b);
+        return tB - tA;
       });
   }, [allAssignments, sourceFilter, statusFilter, searchQuery, sortOrder, studentRegNo]);
 
@@ -492,9 +527,11 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
               className="custom-select-control"
-              style={{ height: '44px', minWidth: '160px' }}
+              style={{ height: '44px', minWidth: '175px' }}
             >
-              <option value="DUE_SOON">Sort: Due Soonest</option>
+              <option value="LATEST">Sort: Latest to Oldest</option>
+              <option value="PENDING_FIRST">Sort: Pending First (Latest)</option>
+              <option value="DUE_SOON">Sort: Oldest to Latest</option>
               <option value="COURSE">Sort: By Course</option>
             </select>
           </div>
@@ -526,7 +563,12 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
               const isDone = isAssignmentDone(a, studentRegNo);
               const isOverdue = !isDone && (Boolean(a.isOverdue) || (a.displayStatus || '').toUpperCase() === 'OVERDUE');
               const isDueSoon = !isDone && !isOverdue && (Boolean(a.isDueSoon) || (a.displayStatus || '').toUpperCase() === 'DUE SOON');
-              const showCompletedHeader = isDone && idx > 0 && !isAssignmentDone(filteredAssignments[idx - 1], studentRegNo);
+              const hasRemainingPending = filteredAssignments.slice(idx).some((item) => !isAssignmentDone(item, studentRegNo));
+              const showCompletedHeader =
+                !hasRemainingPending &&
+                isDone &&
+                idx > 0 &&
+                !isAssignmentDone(filteredAssignments[idx - 1], studentRegNo);
 
               return (
                 <React.Fragment key={a.id}>

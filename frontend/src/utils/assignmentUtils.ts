@@ -1,4 +1,4 @@
-import { Assignment } from '../types';
+import type { Assignment } from '../types/index.ts';
 
 export const getManualOverrides = (regNo?: string): Record<string, boolean> => {
   if (typeof window === 'undefined') return {};
@@ -121,4 +121,44 @@ export const isAssignmentDone = (a: Assignment | any, regNo?: string): boolean =
   }
 
   return false;
+};
+
+/**
+ * Extracts normalized epoch timestamp from an assignment for chronological sorting.
+ * Supports sortKey, dueDateTime, dueDate (ISO or DD-MM-YYYY), uploadDate, and submittedAt.
+ */
+export const parseAssignmentDate = (a: any): number => {
+  if (!a) return 0;
+  if (a.sortKey && typeof a.sortKey === 'string' && !a.sortKey.startsWith('9999')) {
+    const t = Date.parse(a.sortKey);
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (a.dueDateTime && typeof a.dueDateTime === 'string') {
+    const t = Date.parse(a.dueDateTime);
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (a.dueDate && typeof a.dueDate === 'string' && a.dueDate !== 'TBA' && !a.dueDate.toLowerCase().includes('continuous')) {
+    const raw = a.dueDate.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      const timePart = a.dueTime ? `T${a.dueTime}:00` : (raw.includes('T') || raw.includes(' ') ? '' : 'T23:59:59');
+      const t = Date.parse(raw.includes(' ') ? raw.replace(' ', 'T') : `${raw}${timePart}`);
+      if (!isNaN(t) && t > 0) return t;
+    }
+    const dmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmy) {
+      const t = Date.parse(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T23:59:59`);
+      if (!isNaN(t) && t > 0) return t;
+    }
+    const t = Date.parse(raw);
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (a.uploadDate && typeof a.uploadDate === 'string') {
+    const t = Date.parse(a.uploadDate);
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (a.submittedAt && typeof a.submittedAt === 'string') {
+    const t = Date.parse(a.submittedAt);
+    if (!isNaN(t) && t > 0) return t;
+  }
+  return 0;
 };
