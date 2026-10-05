@@ -120,6 +120,10 @@ class VTOPSession:
         self.username: Optional[str] = None
         self.last_login_at: Optional[datetime.datetime] = None
         self._lock = threading.Lock()
+        # Cached login page HTML from start_handshake() — reused by fetch_captcha()
+        # to avoid a redundant GET that would overwrite self.csrf with a new token
+        # not paired with the captcha image the user receives.
+        self._login_page_html: Optional[str] = None
 
     def serialize_state(self) -> Dict[str, Any]:
         """Serialize session state for stateless serverless persistence."""
@@ -200,6 +204,9 @@ class VTOPSession:
         for attempt in range(2):
             if self._is_login_page(response.text):
                 self.captcha_kind = self._detect_captcha_kind(response.text)
+                # Cache the login page so fetch_captcha() can reuse it without
+                # issuing another GET (which would refresh self.csrf and break login).
+                self._login_page_html = response.text
                 logger.info(
                     "[VTOP] Reached login form (captcha kind: %s)", self.captcha_kind
                 )
@@ -257,13 +264,22 @@ class VTOPSession:
         Extracts the in-page base64 image or queries the dynamic
         /get/new/captcha endpoint that VTOP loads.
         """
-        response = self._get(C.LOGIN_PAGE)
-        if not self._is_login_page(response.text):
-            self.start_handshake()
+        # Use the cached login page from start_handshake() if available.
+        # Making a fresh GET here would update self.csrf with a new token that
+        # is NOT paired with the captcha image served to the user, causing
+        # VTOP to reject even a correctly-typed captcha on the first attempt.
+        if self._login_page_html and self._is_login_page(self._login_page_html):
+            login_html = self._login_page_html
+            logger.debug("[VTOP] fetch_captcha: reusing cached login page HTML")
+        else:
             response = self._get(C.LOGIN_PAGE)
+            if not self._is_login_page(response.text):
+                self.start_handshake()
+                response = self._get(C.LOGIN_PAGE)
+            login_html = response.text
 
         # 1. Try to extract from login page HTML
-        b64 = self._extract_captcha_b64(response.text)
+        b64 = self._extract_captcha_b64(login_html)
 
         # 2. If not in static HTML, query VTOP's dynamic captcha endpoint
         if not b64:
