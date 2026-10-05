@@ -50,6 +50,36 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
   const approvedHours = odData?.approvedHours ?? odData?.usedHours ?? (records.reduce((sum, r) => sum + (r.hours || 0), 0));
   const maxHours = odData?.maxHours || 40;
 
+  const parseDate = (d?: string) => {
+    if (!d) return 0;
+    const clean = String(d).trim();
+    const parsed = Date.parse(clean);
+    if (!isNaN(parsed)) return parsed;
+    const parts = clean.split(/[-/ ]/);
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      let month = 0;
+      let year = parseInt(parts[2], 10);
+      if (year < 100) year += 2000;
+      const monthPart = parts[1].toUpperCase();
+      const MONTHS: Record<string, number> = {
+        JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+        JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11
+      };
+      if (MONTHS[monthPart.slice(0, 3)] !== undefined) {
+        month = MONTHS[monthPart.slice(0, 3)];
+      } else if (!isNaN(parseInt(monthPart, 10))) {
+        month = parseInt(monthPart, 10) - 1;
+      }
+      return new Date(year, month, isNaN(day) ? 1 : day).getTime();
+    }
+    return 0;
+  };
+
+  const sortedRecords = [...records].sort(
+    (a, b) => parseDate(b.date || (b as any).fromDate) - parseDate(a.date || (a as any).fromDate)
+  );
+
   return (
     <div
       className="modal-backdrop overscroll-contain"
@@ -131,7 +161,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '12px',
             padding: '16px 24px',
             backgroundColor: 'rgba(255, 255, 255, 0.02)',
@@ -151,15 +181,6 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
             </span>
             <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#10b981' }}>{maxHours} hrs</div>
           </div>
-
-          <div style={{ padding: '10px 14px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.1)' }}>
-            <span style={{ fontSize: '0.72rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 600 }}>
-              Pending OD
-            </span>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f59e0b' }}>
-              {odData?.pendingHours || 0} hrs
-            </div>
-          </div>
         </div>
 
         {/* Records List */}
@@ -168,7 +189,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
               Loading on-duty records from university ledger...
             </div>
-          ) : records.length === 0 ? (
+          ) : sortedRecords.length === 0 ? (
             <div
               style={{
                 display: 'flex',
@@ -201,7 +222,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {records.map((rec, idx) => (
+              {sortedRecords.map((rec, idx) => (
                 <div
                   key={rec.id || idx}
                   style={{

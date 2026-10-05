@@ -188,16 +188,21 @@ def fetch_hostel(session: VTOPSession, profile: Optional[Dict[str, Any]] = None)
     leaves: List[Dict[str, Any]] = []
     # Probe candidate hostel and leave endpoints
     leave_endpoints = [
-        "hostel/viewStudentLeaveHistory",
+        "leave/viewStudentLeaveHistoryChn",
         "leave/viewStudentLeaveHistory",
-        "hostel/viewHostelDetails",
+        "leave/StudentLeaveViewChn",
         "leave/StudentLeaveView",
+        "leave/doStudentLeaveViewChn",
+        "leave/doStudentLeaveView",
+        "hostel/viewStudentLeaveHistory",
+        "hostel/viewHostelDetails",
+        "hostel/viewHostelDetailsChn",
         "hostel/HostelLeave",
     ]
     for ep in leave_endpoints:
         try:
             resp_html = session.post_menu(ep, with_win_image=True)
-            if resp_html and ("leavehistorytable" in resp_html.lower() or "leaveappliedtable" in resp_html.lower()):
+            if resp_html and ("leavehistorytable" in resp_html.lower() or "leaveappliedtable" in resp_html.lower() or "leave" in resp_html.lower()):
                 parsed_leaves = parse_leave_history(resp_html)
                 if parsed_leaves:
                     leaves = parsed_leaves
@@ -209,6 +214,19 @@ def fetch_hostel(session: VTOPSession, profile: Optional[Dict[str, Any]] = None)
                         hostel_info[k] = v
         except Exception:
             continue
+
+    if not leaves:
+        fallback_hostel_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            "frontend", "public", "data", "hostel.json"
+        )
+        if os.path.exists(fallback_hostel_file):
+            try:
+                with open(fallback_hostel_file, "r", encoding="utf-8") as f:
+                    fb = json.load(f)
+                    leaves = fb.get("leaveHistory") or []
+            except Exception:
+                pass
 
     if hostel_info.get("blockName") or hostel_info.get("roomNo"):
         hostel_info["isHosteller"] = True

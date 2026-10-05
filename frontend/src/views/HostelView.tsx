@@ -86,6 +86,18 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
         }
         if (data.leaveHistory && data.leaveHistory.length > 0) {
           setLeaveHistory(data.leaveHistory);
+        } else {
+          try {
+            const fbRes = await fetch('/data/hostel.json');
+            if (fbRes.ok) {
+              const fbData = await fbRes.json();
+              if (fbData?.leaveHistory && fbData.leaveHistory.length > 0) {
+                setLeaveHistory(fbData.leaveHistory);
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
         }
       }
     } catch (err) {
@@ -441,9 +453,6 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                 <Calendar size={18} color="#6366f1" />
                 <span>Latest Sanctioned Leave Pass</span>
               </h2>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Official VTOP Student Leave System
-              </span>
             </div>
 
             {activeLeave ? (

@@ -172,7 +172,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-neutral-400">
                 <Calendar className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{student?.semester ? `Semester ${student.semester}` : 'Fall Semester 2026-27'}</span>
+                <span>{student?.semester ? (String(student.semester).toLowerCase().includes('semester') ? student.semester : `Semester ${student.semester}`) : 'Fall Semester 2026-27'}</span>
               </div>
               <h2 className="mt-0.5 text-base font-bold text-white truncate">
                 {displayName}

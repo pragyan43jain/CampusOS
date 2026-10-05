@@ -762,23 +762,22 @@ def get_fallback_calendar(semester_id: Optional[str] = None, student_exams: Any 
         try:
             with open(CALENDAR_JSON_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, dict):
+                if isinstance(data, dict) and data.get("semesterId") == sem_id:
                     raw_cals = data.get("calendars") or []
                     if raw_cals and len(raw_cals) > 0:
                         raw_calendars = raw_cals
-                        sem_id = data.get("semesterId") or sem_id
         except Exception as exc:
             logger.warning("[Calendar] Fallback file read error: %s", exc)
 
     if not raw_calendars:
         generated = build_authentic_semester_calendar(sem_id)
-        # Cache to CALENDAR_JSON_PATH so frontend static read also benefits
-        try:
-            os.makedirs(os.path.dirname(CALENDAR_JSON_PATH), exist_ok=True)
-            with open(CALENDAR_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(generated, f, indent=2)
-        except Exception as exc:
-            logger.warning("[Calendar] Could not write authentic calendar to static cache: %s", exc)
+        if sem_id == "CH20262701":
+            try:
+                os.makedirs(os.path.dirname(CALENDAR_JSON_PATH), exist_ok=True)
+                with open(CALENDAR_JSON_PATH, "w", encoding="utf-8") as f:
+                    json.dump(generated, f, indent=2)
+            except Exception as exc:
+                logger.warning("[Calendar] Could not write authentic calendar to static cache: %s", exc)
         cal_res = generated
     else:
         cal_res = {

@@ -27,6 +27,7 @@ export interface Student {
   program?: string | null;
   branch?: string | null;
   semester?: number | string | null;
+  semesterId?: string | null;
   batch?: string | null;
   cgpa?: number | null;
   creditsEarned?: number | null;

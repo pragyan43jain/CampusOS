@@ -85,6 +85,7 @@ export interface CalendarViewProps {
   calendars?: any;
   initialCalendars?: MonthCalendar[];
   calendarType?: string;
+  semesterId?: string | null;
   handleCalendarFetch?: (type: string) => void | Promise<void>;
   onCalendarTypeChange?: (newType: string) => void;
   exams?: any;
@@ -95,6 +96,7 @@ export function CalendarView({
   calendars,
   initialCalendars,
   calendarType = "ALL",
+  semesterId,
   handleCalendarFetch,
   onCalendarTypeChange,
   exams,
@@ -121,7 +123,7 @@ export function CalendarView({
       if (handleCalendarFetch) {
         await handleCalendarFetch(typeToFetch);
       } else {
-        const data: CalendarResponse = await CampusAPI.getCalendar(undefined, typeToFetch);
+        const data: CalendarResponse = await CampusAPI.getCalendar(semesterId || undefined, typeToFetch);
         if (data && data.calendars && data.calendars.length > 0) {
           setInternalCalendars(data.calendars);
           setCurrentType(typeToFetch);

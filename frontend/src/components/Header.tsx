@@ -65,7 +65,9 @@ export const Header: React.FC<HeaderProps> = ({
   const studentDisplayName = formatTitleCase(rawStudentName) || 'Student';
   const studentRegNo = student?.regNo || (savedUser && /\d/.test(savedUser) ? savedUser.toUpperCase() : 'Sync Required');
   const studentProgram = student?.program || 'VIT Chennai';
-  const studentSemester = student?.semester ? `Semester ${student.semester}` : 'Fall Semester 2026-27';
+  const studentSemester = student?.semester
+    ? (String(student.semester).toLowerCase().includes('semester') ? student.semester : `Semester ${student.semester}`)
+    : 'Fall Semester 2026-27';
 
   const avatarInitials = student?.name
     ? student.name

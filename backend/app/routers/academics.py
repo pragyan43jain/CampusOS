@@ -341,6 +341,11 @@ def get_hostel_details(
         x_auth_user=x_auth_user,
         authorization=authorization,
     )
+    fallback_hostel_file = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+        "frontend", "public", "data", "hostel.json"
+    )
+
     if not reg:
         return {
             "hostelInfo": {
@@ -352,6 +357,7 @@ def get_hostel_details(
             },
             "leaveHistory": [],
         }
+
     store = load_store(reg)
     student = store.get("student") or {}
     hostel_data = store.get("hostel") or {}
@@ -384,11 +390,7 @@ def get_hostel_details(
     }
 
     leave_history = hostel_data.get("leaveHistory") or store.get("leaveHistory") or []
-    if not leave_history and is_hosteller:
-        fallback_hostel_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            "frontend", "public", "data", "hostel.json"
-        )
+    if not leave_history:
         if os.path.exists(fallback_hostel_file):
             try:
                 with open(fallback_hostel_file, "r", encoding="utf-8") as f:
@@ -396,6 +398,14 @@ def get_hostel_details(
                     leave_history = fb.get("leaveHistory") or []
             except Exception:
                 pass
+
+    if leave_history and not hostel_data.get("leaveHistory"):
+        store["hostel"] = {
+            "hostelInfo": hostel_info,
+            "leaveHistory": leave_history,
+        }
+        store["leaveHistory"] = leave_history
+        save_store(store, reg)
 
     return {
         "hostelInfo": hostel_info,
@@ -466,7 +476,19 @@ def get_calendar(
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     student = store.get("student") or {}
-    sem_id = semesterId or student.get("semesterId") or "CH20262701"
+    selected_sem = store.get("selectedSemester") or {}
+    sem_id = semesterId or selected_sem.get("id") or student.get("semesterId")
+    if not sem_id and student.get("semester"):
+        import re
+        sem_str = str(student.get("semester"))
+        yr_m = re.search(r"20(\d\d)", sem_str)
+        yr = yr_m.group(1) if yr_m else "26"
+        next_yr = f"{int(yr) + 1:02d}"
+        is_winter = "winter" in sem_str.lower()
+        sem_id = f"CH20{yr}{next_yr}{'05' if is_winter else '01'}"
+    if not sem_id:
+        sem_id = "CH20262701"
+
     student_exams = store.get("examsList") or store.get("exams")
 
     # 1. Attempt live scrape if active session exists
@@ -489,13 +511,13 @@ def get_calendar(
         except Exception as exc:
             logger.warning("[Calendar] Live fetch failed in get_calendar: %s", exc)
 
-    # 2. Check persisted calendar in store
+    # 2. Check persisted calendar in store (must match the requested/active semester)
     stored_cal = store.get("calendar")
     if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
-        if not semesterId or stored_cal.get("semesterId") == sem_id:
+        if stored_cal.get("semesterId") == sem_id:
             return merge_student_exams_into_calendar(stored_cal, student_exams)
 
-    # 3. Fallback to authentic academic calendar
+    # 3. Fallback to authentic academic calendar for this exact semester and year
     fallback_cal = get_fallback_calendar(sem_id, student_exams=student_exams)
     store["calendar"] = fallback_cal
     save_store(store, reg)

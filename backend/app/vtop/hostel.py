@@ -185,13 +185,13 @@ def parse_leave_history(history_html: str, applied_html: Optional[str] = None) -
 
     if history_html:
         soup = BeautifulSoup(history_html, "html.parser")
-        table = soup.find(id="LeaveHistoryTable") or soup.find("table")
-        if table:
+        tables = soup.find_all("table")
+        for table in tables:
             for row in table.find_all("tr"):
                 cols = row.find_all("td")
                 if len(cols) >= 8:
                     leave_id = cols[1].get_text(strip=True)
-                    if leave_id and leave_id.isalnum():
+                    if leave_id and (leave_id.isalnum() or any(c.isdigit() for c in leave_id)):
                         leaves[leave_id] = {
                             "leaveId": leave_id,
                             "visitPlace": cols[2].get_text(strip=True),
@@ -205,13 +205,13 @@ def parse_leave_history(history_html: str, applied_html: Optional[str] = None) -
 
     if applied_html:
         soup_app = BeautifulSoup(applied_html, "html.parser")
-        table_app = soup_app.find(id="LeaveAppliedTable") or soup_app.find("table")
-        if table_app:
+        tables_app = soup_app.find_all("table")
+        for table_app in tables_app:
             for row in table_app.find_all("tr"):
                 cols = row.find_all("td")
                 if len(cols) >= 9:
                     leave_id = cols[2].get_text(strip=True)
-                    if leave_id and leave_id.isalnum():
+                    if leave_id and (leave_id.isalnum() or any(c.isdigit() for c in leave_id)):
                         leaves[leave_id] = {
                             "leaveId": leave_id,
                             "visitPlace": cols[3].get_text(strip=True),

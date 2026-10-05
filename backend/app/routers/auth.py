@@ -19,6 +19,7 @@ a real payload against them.
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -604,6 +605,41 @@ def get_vtop_od(
                                 })
         if extracted:
             records = extracted
+
+    def _parse_od_date(d_val: Any) -> datetime:
+        if not d_val or not isinstance(d_val, str):
+            return datetime.min
+        clean = d_val.strip()
+        for fmt in (
+            "%d-%b-%Y", "%d-%B-%Y", "%d-%m-%Y",
+            "%d/%b/%Y", "%d/%B/%Y", "%d/%m/%Y",
+            "%Y-%m-%d", "%Y/%m/%d",
+            "%d %b %Y", "%d %B %Y",
+            "%b %d, %Y", "%B %d, %Y",
+            "%d-%b-%y", "%d/%m/%y"
+        ):
+            try:
+                return datetime.strptime(clean, fmt)
+            except ValueError:
+                pass
+        m = re.match(r"^(\d{1,2})[-/\s]([A-Za-z]+|\d{1,2})[-/\s](\d{2,4})", clean)
+        if m:
+            day = int(m.group(1))
+            m_part = m.group(2)
+            yr = int(m.group(3))
+            if yr < 100:
+                yr += 2000
+            months = {"JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+                      "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12}
+            month = int(m_part) if m_part.isdigit() else months.get(m_part[:3].upper(), 1)
+            try:
+                return datetime(yr, month, day)
+            except ValueError:
+                pass
+        return datetime.min
+
+    if records:
+        records.sort(key=lambda r: _parse_od_date(r.get("date") or r.get("fromDate")), reverse=True)
 
     used = od.get("usedHours")
     if used is None or (used == 0 and len(records) > 0):

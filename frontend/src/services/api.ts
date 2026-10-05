@@ -669,12 +669,27 @@ export const CampusAPI = {
   },
 
   getCalendar: async (semesterId?: string, type?: string): Promise<CalendarResponse> => {
+    let semToUse: string = semesterId || '';
+    if (!semToUse) {
+      if (activeStudent?.semesterId) {
+        semToUse = activeStudent.semesterId;
+      } else if (activeStudent?.semester) {
+        const semStr = String(activeStudent.semester);
+        const yrMatch = semStr.match(/20(\d\d)/);
+        const yr = yrMatch ? yrMatch[1] : '26';
+        const nextYr = String(parseInt(yr, 10) + 1).padStart(2, '0');
+        const isWinter = semStr.toLowerCase().includes('winter');
+        semToUse = `CH20${yr}${nextYr}${isWinter ? '05' : '01'}`;
+      } else {
+        semToUse = 'CH20262701';
+      }
+    }
     const params = new URLSearchParams();
-    if (semesterId) params.append('semesterId', semesterId);
+    params.append('semesterId', semToUse);
     if (type) params.append('type', type);
     const q = params.toString() ? `?${params.toString()}` : '';
     let res = await fetchJson<CalendarResponse>(`/calendar${q}`, undefined, {
-      semesterId: semesterId || 'CH20262701',
+      semesterId: semToUse,
       calendars: [],
     });
     if (!res || !res.calendars || res.calendars.length === 0) {
@@ -682,7 +697,7 @@ export const CampusAPI = {
         const staticRes = await fetch('/calendar/academic_calendar.json');
         if (staticRes.ok) {
           const staticData = await staticRes.json();
-          if (staticData && staticData.calendars && staticData.calendars.length > 0) {
+          if (staticData && staticData.calendars && staticData.calendars.length > 0 && staticData.semesterId === semToUse) {
             return staticData;
           }
         }

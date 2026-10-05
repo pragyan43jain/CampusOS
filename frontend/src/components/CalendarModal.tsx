@@ -10,6 +10,7 @@ interface CalendarModalProps {
   attendance?: any[];
   calendars?: any;
   calendarType?: string;
+  semesterId?: string | null;
   handleCalendarFetch?: (type: string) => void | Promise<void>;
 }
 
@@ -20,6 +21,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
   attendance,
   calendars,
   calendarType = "ALL",
+  semesterId,
   handleCalendarFetch,
 }) => {
   useLockBodyScroll(isOpen);
@@ -90,6 +92,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
           <CalendarView
             calendars={calendars}
             calendarType={calendarType}
+            semesterId={semesterId}
             handleCalendarFetch={handleCalendarFetch}
             exams={exams}
             attendance={attendance}

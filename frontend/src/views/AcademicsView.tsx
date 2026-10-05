@@ -135,7 +135,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const handleCalendarFetch = async (fnCalendarType?: string) => {
     const typeToUse = fnCalendarType || calendarType || 'ALL';
     try {
-      const data = await CampusAPI.getCalendar(undefined, typeToUse);
+      const semToUse = student?.semesterId || (student as any)?.semester || undefined;
+      const data = await CampusAPI.getCalendar(semToUse, typeToUse);
       if (data && data.calendars && data.calendars.length > 0) {
         setCalendarData(data);
         setCalendarType(typeToUse);
@@ -148,7 +149,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   useEffect(() => {
     const loadCalendar = async () => {
       try {
-        const data = await CampusAPI.getCalendar();
+        const semToUse = student?.semesterId || (student as any)?.semester || undefined;
+        const data = await CampusAPI.getCalendar(semToUse);
         if (data && data.calendars) {
           setCalendarData(data);
         }
@@ -2412,6 +2414,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         <CalendarView
           calendars={calendarData?.calendars}
           calendarType={calendarType}
+          semesterId={student?.semesterId}
           handleCalendarFetch={handleCalendarFetch}
           exams={exams}
           attendance={attendance}
@@ -2433,6 +2436,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         attendance={attendance}
         calendars={calendarData?.calendars}
         calendarType={calendarType}
+        semesterId={student?.semesterId}
         handleCalendarFetch={handleCalendarFetch}
       />
 
