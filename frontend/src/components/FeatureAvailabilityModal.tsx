@@ -27,7 +27,7 @@ const FEATURE_NAMES: Record<string, { label: string; view: string; subTab?: stri
   marks: { label: 'Assessment & CAT Marks', view: 'academics', subTab: 'marks', desc: 'Internal evaluation components, CAT 1/2 marks, and scored weightage.' },
   exams: { label: 'Exam Schedules', view: 'academics', subTab: 'exams', desc: 'Official examination schedules with dates, timings, and campus venue allotment.' },
   faculty: { label: 'Faculty Directory', view: 'academics', subTab: 'faculty', desc: 'Assigned course faculty, cabin numbers, designations, and student proctor details.' },
-  courses: { label: 'Enrolled Courses & Study Materials', view: 'academics', subTab: 'courses', desc: 'Current enrolled course syllabus, credits, course types, and study resources.' },
+  courses: { label: 'Enrolled Courses & VHelp Study Materials', view: 'academics', subTab: 'courses', desc: 'Current enrolled course syllabus, credits, course types, and VHelp study resources.' },
   grades: { label: 'Semester Grade History', view: 'academics', subTab: 'grades', desc: 'Semester-by-semester GPA standings, course grades (S/A/B/C/D/E/F), and cumulative CGPA.' },
   cgpaPredictor: { label: 'Interactive CGPA Predictor', view: 'academics', subTab: 'grades', desc: 'Simulate potential course grades and project cumulative graduation CGPA targets.' },
   attendancePredictor: { label: 'Attendance Safe-Miss Predictor', view: 'academics', subTab: 'attendance', desc: 'Predictive calculator for attendance safety margins and recovery classes.' },

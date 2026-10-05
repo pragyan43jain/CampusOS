@@ -1921,11 +1921,26 @@ a {
    MODAL SYSTEM
    ========================================================================== */
 
-/* Prevent background scrolling when any modal or popover is open */
+/* Prevent background scrolling when any modal, popup card, or drawer is open */
 body.modal-open,
 html.modal-open {
   overflow: hidden !important;
   overscroll-behavior: none !important;
+}
+
+body.modal-open .main-viewport,
+body.modal-open .app-main-content-wrap,
+body.modal-open .page-container,
+body.modal-open main {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  pointer-events: none !important;
+}
+
+body.modal-open .modal-backdrop,
+body.modal-open [role="dialog"],
+body.modal-open .modal-content-glass {
+  pointer-events: auto !important;
 }
 
 .modal-backdrop {

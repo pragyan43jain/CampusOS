@@ -2397,9 +2397,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                         rel="noreferrer"
                         className="btn btn-secondary btn-sm"
                         style={{ flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        title={`Open official VHelp study materials for ${course.code}`}
                       >
                         <ExternalLink size={13} />
-                        <span>Study Materials</span>
+                        <span>VHelp Study Materials</span>
                       </a>
                     </div>
                   </div>

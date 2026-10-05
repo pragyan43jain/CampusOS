@@ -398,6 +398,17 @@ def get_hostel_details(
                     leave_history = fb.get("leaveHistory") or []
             except Exception:
                 pass
+        seed_store_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "seed", f"store_{reg}.json"
+        )
+        if not leave_history and os.path.exists(seed_store_file):
+            try:
+                with open(seed_store_file, "r", encoding="utf-8") as f:
+                    fb = json.load(f)
+                    leave_history = fb.get("leaveHistory") or (fb.get("hostel") or {}).get("leaveHistory") or []
+            except Exception:
+                pass
 
     if leave_history and not hostel_data.get("leaveHistory"):
         store["hostel"] = {

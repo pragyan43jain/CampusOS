@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { NavView } from './Sidebar';
 import { ThemeType, THEMES } from './Header';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface MobileMoreDrawerProps {
   isOpen: boolean;
@@ -44,6 +45,8 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
   onLogout,
   onOpenFeatures,
 }) => {
+  useLockBodyScroll(isOpen);
+
   if (!isOpen) return null;
 
   return (

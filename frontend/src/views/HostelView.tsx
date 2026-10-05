@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 import { StudentProfile, HostelInfo, LeaveRecord } from '../types';
+import { DEFAULT_LEAVE_HISTORY, DEFAULT_HOSTEL_INFO } from '../services/defaultHostelData';
 
 interface HostelViewProps {
   student: StudentProfile;
@@ -27,13 +28,13 @@ type HostelTab = 'leave' | 'laundry';
 export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
   const [activeTab, setActiveTab] = useState<HostelTab>('leave');
   const [hostelInfo, setHostelInfo] = useState<HostelInfo>({
-    gender: student.gender || 'Male',
-    isHosteller: student.isHosteller ?? true,
-    blockName: student.blockName || 'A',
-    roomNo: student.roomNo || '',
-    messInfo: student.messInfo || 'NON VEG',
+    gender: student.gender || DEFAULT_HOSTEL_INFO.gender || 'Male',
+    isHosteller: student.isHosteller ?? DEFAULT_HOSTEL_INFO.isHosteller ?? true,
+    blockName: student.blockName || DEFAULT_HOSTEL_INFO.blockName || 'D Block',
+    roomNo: student.roomNo || DEFAULT_HOSTEL_INFO.roomNo || '531',
+    messInfo: student.messInfo || DEFAULT_HOSTEL_INFO.messInfo || 'VEG',
   });
-  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>([]);
+  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>(DEFAULT_LEAVE_HISTORY);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Leave filters and search
@@ -69,6 +70,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
   // 1. Fetch hostel profile & leave history
   const loadHostelDetails = async () => {
     setLoadingDetails(true);
+    let loadedFromApi = false;
     try {
       const data = await CampusAPI.getHostelDetails();
       if (data) {
@@ -86,25 +88,33 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
         }
         if (data.leaveHistory && data.leaveHistory.length > 0) {
           setLeaveHistory(data.leaveHistory);
-        } else {
-          try {
-            const fbRes = await fetch('/data/hostel.json');
-            if (fbRes.ok) {
-              const fbData = await fbRes.json();
-              if (fbData?.leaveHistory && fbData.leaveHistory.length > 0) {
-                setLeaveHistory(fbData.leaveHistory);
-              }
-            }
-          } catch (e) {
-            // ignore
-          }
+          loadedFromApi = true;
         }
       }
     } catch (err) {
-      console.warn('[HostelView] Could not load live hostel details:', err);
-    } finally {
-      setLoadingDetails(false);
+      console.warn('[HostelView] Could not load live hostel details from API:', err);
     }
+
+    if (!loadedFromApi) {
+      try {
+        const fbRes = await fetch('/data/hostel.json');
+        if (fbRes.ok) {
+          const fbData = await fbRes.json();
+          if (fbData?.hostelInfo) {
+            setHostelInfo((prev) => ({
+              ...prev,
+              ...fbData.hostelInfo,
+            }));
+          }
+          if (fbData?.leaveHistory && fbData.leaveHistory.length > 0) {
+            setLeaveHistory(fbData.leaveHistory);
+          }
+        }
+      } catch (e) {
+        // Fallback already pre-loaded into state via DEFAULT_LEAVE_HISTORY
+      }
+    }
+    setLoadingDetails(false);
   };
 
   // 2. Fetch laundry schedule
