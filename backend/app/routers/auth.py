@@ -745,6 +745,7 @@ def get_sync_report(
 
 @router.get("/status")
 def get_status(
+    authorization: Optional[str] = Header(None),
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
@@ -755,7 +756,14 @@ def get_status(
     Whether the dashboard is showing real synced data for the active student session.
     Never returns another user's pre-loaded data.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user)
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
     store = load_store(reg)
     if not store.get("authenticated"):
         return {

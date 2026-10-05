@@ -16,12 +16,14 @@ interface VtopLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (data?: any) => void;
+  noticeMessage?: string;
 }
 
 export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  noticeMessage,
 }) => {
   const [username, setUsername] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -215,6 +217,31 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         </div>
 
         {/* Notifications */}
+        {noticeMessage && !errorMsg && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '0.80rem',
+              gap: '8px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              lineHeight: 1.4,
+              background: 'rgba(59, 130, 246, 0.12)',
+              border: '1px solid rgba(59, 130, 246, 0.28)',
+              color: 'var(--brand-primary, #60a5fa)',
+              marginBottom: '12px',
+            }}
+          >
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+              {noticeMessage}
+            </span>
+          </div>
+        )}
         {errorMsg && (
           <div
             className="status-badge error"

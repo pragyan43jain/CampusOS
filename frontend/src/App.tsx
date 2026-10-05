@@ -149,6 +149,7 @@ export const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [activeView, setActiveView] = useState<NavView>('dashboard');
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
+  const [vtopModalNotice, setVtopModalNotice] = useState<string>('');
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [showMobileMore, setShowMobileMore] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
@@ -311,15 +312,18 @@ export const App: React.FC = () => {
       setSyncing(true);
       const vtopStatus = await CampusAPI.getVtopStatus();
       if (!vtopStatus || !vtopStatus.authenticated) {
-        setIsAuthenticated(false);
-        setStudent(null);
-        setCourses([]);
-        setTimetable([]);
-        setAttendance([]);
-        setMarks([]);
-        setExams([]);
-        setFaculty([]);
-        setAssignments([]);
+        // If the user was already authenticated, NEVER wipe state or log them out
+        if (!isAuthenticated) {
+          setIsAuthenticated(false);
+          setStudent(null);
+          setCourses([]);
+          setTimetable([]);
+          setAttendance([]);
+          setMarks([]);
+          setExams([]);
+          setFaculty([]);
+          setAssignments([]);
+        }
         return;
       }
 
@@ -373,8 +377,10 @@ export const App: React.FC = () => {
         if (aiData && aiData.length > 0) setAiTasks(aiData);
         setIsAuthenticated(true);
       } else {
-        setIsAuthenticated(false);
-        setStudent(null);
+        if (!isAuthenticated) {
+          setIsAuthenticated(false);
+          setStudent(null);
+        }
       }
 
       await loadAcademicAccountsStatus();
@@ -433,6 +439,7 @@ export const App: React.FC = () => {
   const handleHeaderSync = async () => {
     if (syncing) return;
     if (!isAuthenticated) {
+      setVtopModalNotice('');
       setShowVtopModal(true);
       return;
     }
@@ -444,19 +451,52 @@ export const App: React.FC = () => {
       const vtopResult = await CampusAPI.syncVtop();
       if (vtopResult && vtopResult.success === false) {
         console.warn('[CampusAPI] VTOP live sync notice:', vtopResult.message);
+        // CRITICAL: Do NOT sign out or wipe dashboard state!
+        // Open the login modal with an informative message so the user can re-authenticate.
+        setVtopModalNotice(
+          vtopResult.message ||
+            'VTOP session expired. Sign in with your VTOP credentials to fetch the latest details.'
+        );
+        setShowVtopModal(true);
+        triggerSyncToast('VTOP Session Expired — Please Sign In to Refresh');
+        return;
+      }
+
+      // If fresh data was returned directly in vtopResult, update local state immediately
+      if (vtopResult && vtopResult.success) {
+        const studentObj: StudentProfile | null = (vtopResult.student as unknown as StudentProfile) || (vtopResult.data?.student as StudentProfile) || null;
+        if (studentObj && studentObj.regNo) {
+          CampusAPI.setActiveStudent(studentObj);
+          setStudent(studentObj);
+          CampusAnalytics.syncProfile(studentObj);
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
+            window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(vtopResult));
+          }
+        }
+        if (vtopResult.courses && vtopResult.courses.length > 0) setCourses(vtopResult.courses);
+        if (vtopResult.timetable && vtopResult.timetable.length > 0) setTimetable(vtopResult.timetable);
+        if (vtopResult.attendance && vtopResult.attendance.length > 0) setAttendance(vtopResult.attendance);
+        if (vtopResult.marks && vtopResult.marks.length > 0) setMarks(vtopResult.marks);
+        if (vtopResult.exams && Object.keys(vtopResult.exams).length > 0) setExams(vtopResult.exams as any);
+        if (vtopResult.faculty && vtopResult.faculty.length > 0) setFaculty(vtopResult.faculty);
       }
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
-      await CampusAPI.syncAllAcademicAccounts();
+      try {
+        await CampusAPI.syncAllAcademicAccounts();
+      } catch (accErr) {
+        console.warn('Academic accounts sync notice:', accErr);
+      }
 
       // 3. Reload all student data into React state
       await loadAllData();
       triggerSyncToast('Synced Successfully');
       CampusAnalytics.trackEvent('sync_completed', '/sync');
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Direct live sync notice:', err);
-      await loadAllData();
-      triggerSyncToast('Synced Successfully');
+      // Even on error, NEVER wipe existing dashboard state
+      triggerSyncToast(err?.message || 'Sync encountered a network issue');
       CampusAnalytics.trackEvent('sync_failed', '/sync');
     } finally {
       setSyncing(false);
@@ -932,8 +972,10 @@ export const App: React.FC = () => {
         />
         <VtopLoginModal
           isOpen={showVtopModal}
+          noticeMessage={vtopModalNotice}
           onClose={() => {
             setShowVtopModal(false);
+            setVtopModalNotice('');
             if (typeof window !== 'undefined' && window.location.pathname === '/login') {
               window.history.replaceState(null, '', '/');
             }
@@ -1089,8 +1131,10 @@ export const App: React.FC = () => {
       {/* VTOP Auth & Sync Modal */}
       <VtopLoginModal
         isOpen={showVtopModal}
+        noticeMessage={vtopModalNotice}
         onClose={() => {
           setShowVtopModal(false);
+          setVtopModalNotice('');
           if (typeof window !== 'undefined' && window.location.pathname === '/login') {
             window.history.replaceState(null, '', '/');
           }

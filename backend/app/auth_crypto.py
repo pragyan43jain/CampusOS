@@ -43,6 +43,13 @@ def get_auth_secret() -> str:
         _CACHED_SECRET = env_secret.strip()
         return _CACHED_SECRET
 
+    # On serverless platforms (Vercel, AWS Lambda) without an env secret, use a consistent deterministic key
+    # so all stateless Lambda containers verify each other's tokens without mismatching ephemeral /tmp keys.
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        fallback = hashlib.sha256(b"CampusOS_Persistent_Serverless_Secret_Key_2026").hexdigest()
+        _CACHED_SECRET = fallback
+        return _CACHED_SECRET
+
     from app.storage import DATA_DIR
     candidate_paths = [
         os.path.join(DATA_DIR, ".session_secret"),
