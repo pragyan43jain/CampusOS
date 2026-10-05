@@ -161,10 +161,10 @@ export default function Home({
         <div className="container mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 lg:gap-4">
             <div className="font-mono text-white text-xl lg:text-2xl font-bold tracking-widest italic transform -skew-x-12">
-              UIMIX
+              CampusOS
             </div>
             <div className="h-3 lg:h-4 w-px bg-white/40"></div>
-            <span className="text-white/60 text-[8px] lg:text-[10px] font-mono">EST. 2025</span>
+            <span className="text-white/60 text-[8px] lg:text-[10px] font-mono">EST. 2026</span>
           </div>
           
           <div className="hidden lg:flex items-center gap-3 text-[10px] font-mono text-white/60">
@@ -195,9 +195,9 @@ export default function Home({
             <div className="relative">
               <div className="hidden lg:block absolute -left-3 top-0 bottom-0 w-1 dither-pattern opacity-40"></div>
               <h1 className="text-2xl lg:text-5xl font-bold text-white mb-3 lg:mb-4 leading-tight font-mono tracking-wider" style={{ letterSpacing: '0.1em' }}>
-                PERFECT
+                CONNECTED
                 <span className="block text-white mt-1 lg:mt-2 opacity-90">
-                  PROPORTIONS
+                  CAMPUS
                 </span>
               </h1>
             </div>
@@ -212,7 +212,7 @@ export default function Home({
             {/* Description with subtle grid pattern */}
             <div className="relative">
               <p className="text-xs lg:text-base text-gray-300 mb-5 lg:mb-6 leading-relaxed font-mono opacity-80">
-                Where geometry meets humanity — Da Vinci's vision of ideal form
+                Where students, academics, opportunities, and campus life come together.
               </p>
               
               {/* Technical corner accent - desktop only */}
@@ -230,14 +230,14 @@ export default function Home({
               >
                 <span className="hidden lg:block absolute -top-1 -left-1 w-2 h-2 border-t-2 border-l-2 border-white group-hover:border-black transition-colors"></span>
                 <span className="hidden lg:block absolute -bottom-1 -right-1 w-2 h-2 border-b-2 border-r-2 border-white group-hover:border-black transition-colors"></span>
-                {isLoggedIn ? (studentName ? `ENTER AS ${studentName.split(' ')[0].toUpperCase()}` : 'ENTER DASHBOARD') : 'GET STARTED'}
+                {isLoggedIn ? (studentName ? `ENTER AS ${studentName.split(' ')[0].toUpperCase()}` : 'EXPLORE CAMPUSOS') : 'EXPLORE CAMPUSOS'}
               </button>
               <button 
                 onClick={handleLearn}
                 type="button"
                 className="relative px-5 lg:px-6 py-2 lg:py-2.5 bg-transparent text-white/70 font-mono text-xs lg:text-sm border border-white/40 hover:border-white hover:text-white transition-all duration-200 cursor-pointer"
               >
-                LEARN MORE
+                DISCOVER MORE
               </button>
             </div>
 
@@ -245,7 +245,7 @@ export default function Home({
             <div className="flex items-center gap-2 mt-4 opacity-40">
               <span className="text-white text-[9px] font-mono tracking-wider">00</span>
               <div className="flex-1 h-px bg-white"></div>
-              <span className="text-white text-[9px] font-mono tracking-widest">VITRUVIAN</span>
+              <span className="text-white text-[9px] font-mono tracking-widest">CAMPUSOS</span>
             </div>
           </div>
         </div>
@@ -257,7 +257,7 @@ export default function Home({
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse"></div>
-              SYSTEM.ACTIVE
+              © CAMPUSOS.SYSTEM
             </span>
             <div className="hidden lg:flex items-center gap-0.5">
               {Array.from({ length: 12 }).map((_, i) => (
@@ -277,7 +277,7 @@ export default function Home({
           <div className="flex items-center gap-3 lg:gap-6">
             <div className="flex items-center gap-1">
               <span className="hidden lg:inline">◐</span>
-              <span>RENDERING</span>
+              <span>CAMPUSOS ACTIVE</span>
               <div className="flex gap-0.5">
                 <div className="w-1 h-1 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                 <div className="w-1 h-1 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
