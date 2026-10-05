@@ -34,7 +34,7 @@ import { BentoCard } from '../components/ui/bento-card';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
 import { getSessionGreeting, cycleNextGreeting, isGreetingValidForPeriod, getTimePeriod } from '../utils/greeting';
-import { isAssignmentDone } from '../utils/assignmentUtils';
+import { isAssignmentDone, isTeamsAssignment } from '../utils/assignmentUtils';
 
 interface DashboardViewProps {
   student: StudentProfile;
@@ -499,7 +499,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </span>
                       </div>
                       <div className="text-[11px] text-neutral-400 mt-1 flex items-center gap-2">
-                        <span>{item.source === 'TEAMS' ? 'Teams Assignment' : 'Moodle LMS'}</span>
+                        <span>{isTeamsAssignment(item) ? 'Teams Assignment' : 'Moodle LMS'}</span>
                         <span>•</span>
                         <span className="text-amber-400 flex items-center gap-1">
                           <Clock size={10} /> Due {item.dueDate || '11:59 PM'}
@@ -957,8 +957,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span style={{ fontSize: '0.76rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)', fontWeight: 700 }}>
                     {item.courseCode || 'COURSE'}
                   </span>
-                  <span className={`status-badge ${item.source === 'TEAMS' ? 'info' : 'warning'}`}>
-                    {item.source === 'TEAMS' ? 'Teams' : 'Moodle LMS'}
+                  <span className={`status-badge ${isTeamsAssignment(item) ? 'info' : 'warning'}`}>
+                    {isTeamsAssignment(item) ? 'Teams' : 'Moodle LMS'}
                   </span>
                 </div>
 
@@ -967,7 +967,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 {(() => {
-                  const isLms = item.source === 'LMS';
+                  const isLms = !isTeamsAssignment(item);
                   const rawPoster = (item as any).postedBy || (item as any).lmsProfessor || (item as any).facultyName || (item as any).faculty || (item as any).professor;
                   const pName = rawPoster && rawPoster !== 'LMS Instructor' && rawPoster !== 'Faculty unassigned'
                     ? rawPoster

@@ -35,7 +35,7 @@ import { LandingPageView } from './views/LandingPageView';
 import { HostelView } from './views/HostelView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
-import { isAssignmentDone } from './utils/assignmentUtils';
+import { isAssignmentDone, isTeamsAssignment } from './utils/assignmentUtils';
 
 interface RouteInfo {
   isLanding: boolean;
@@ -108,25 +108,36 @@ const applyManualStatusOverrides = (items: Assignment[], regNo?: string): Assign
     const overrides = raw ? JSON.parse(raw) : {};
     return items.map((a) => {
       let manualDone: boolean | undefined = undefined;
-      if (a.id && overrides[a.id] !== undefined) manualDone = overrides[a.id];
-      else if (a.title && overrides[a.title] !== undefined) manualDone = overrides[a.title];
-      else if (a.id && a.id.startsWith('unified-')) {
+      if (a.id && overrides[a.id] !== undefined) {
+        manualDone = overrides[a.id];
+      } else if (a.id && a.id.startsWith('unified-')) {
         for (const p of a.id.replace('unified-', '').split('-')) {
           if (p && overrides[p] !== undefined) {
             manualDone = overrides[p];
             break;
           }
         }
+      } else if (a.title && overrides[a.title] !== undefined) {
+        // Only fall back to title override if no conflicting verified Teams submission
+        const isTeams = isTeamsAssignment(a);
+        const rawTeamsState = String((a as any).teamsSubmissionState || (a as any).submissionStatus || '').trim().toLowerCase();
+        const hasVerifiedTeamsSubmission = isTeams && (
+          ['submitted', 'turnedin', 'returned', 'released'].includes(rawTeamsState) ||
+          Boolean((a as any).submittedAt)
+        );
+        if (!hasVerifiedTeamsSubmission) {
+          manualDone = overrides[a.title];
+        }
       }
 
       const done = manualDone !== undefined ? manualDone : isAssignmentDone(a, reg);
-      const isTeams = Boolean(a.source?.toUpperCase().includes('TEAMS'));
+      const isTeams = isTeamsAssignment(a);
 
       return {
         ...a,
         isDone: done,
         isSubmitted: done,
-        status: done ? (isTeams ? 'Turned in' : 'Submitted') : (a.status === 'Submitted' || a.status === 'DONE' ? 'Pending' : a.status || 'Pending'),
+        status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
         displayStatus: done ? 'DONE' : 'PENDING',
         applicationStatus: done ? 'DONE' : 'PENDING',
       };
@@ -804,9 +815,12 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleToggleAssignment = async (id: string, currentStatus: 'Pending' | 'Submitted') => {
-    const nextStatus = currentStatus === 'Pending' ? 'Submitted' : 'Pending';
-    const isDone = nextStatus === 'Submitted';
+  const handleToggleAssignment = async (id: string, currentStatus: 'Pending' | 'Submitted' | string) => {
+    const isCurrentlyDone = currentStatus === 'Submitted' || currentStatus === 'Turned in' || currentStatus === 'DONE';
+    const isDone = !isCurrentlyDone;
+    const target = assignments.find((x) => x.id === id);
+    const isTeams = target ? isTeamsAssignment(target) : false;
+    const nextStatus = isDone ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending';
 
     // 1. Immediately persist manual checkmark to student-scoped localStorage
     if (typeof window !== 'undefined') {

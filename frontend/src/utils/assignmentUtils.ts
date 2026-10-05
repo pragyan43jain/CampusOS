@@ -37,21 +37,38 @@ export const setManualOverride = (
 };
 
 /**
+ * Checks whether an assignment originates from or links to Microsoft Teams.
+ */
+export const isTeamsAssignment = (a: Assignment | any): boolean => {
+  if (!a) return false;
+  const src = String(a.source || '').toUpperCase();
+  if (src.includes('TEAMS')) return true;
+  if (Array.isArray(a.sourceList) && a.sourceList.some((s: string) => String(s).toUpperCase().includes('TEAMS'))) return true;
+  if (typeof a.platformName === 'string' && a.platformName.toUpperCase().includes('TEAMS')) return true;
+  if (typeof a.id === 'string' && (a.id.startsWith('teams-') || a.id.includes('-teams-'))) return true;
+  if (a.teamsSubmissionState !== undefined || a.teamsCourseId !== undefined || a.matchedTeamName !== undefined) return true;
+  return false;
+};
+
+/**
  * Robustly checks if an assignment is completed / turned in / submitted.
  * Prioritizes:
- * 1. User manual override for this student session.
- * 2. Explicit boolean flags (`isDone`, `isSubmitted`).
+ * 1. User manual override for this specific assignment ID.
+ * 2. Authentic Microsoft Teams submission state & timestamp:
+ *    - If turned in in Teams ('submitted', 'turnedin', 'returned', 'released', valid submittedAt) -> DONE (true)
+ *    - If confirmed not submitted in Teams ('working', 'notSubmitted', unsubmitted) -> PENDING (false)
  * 3. Verified submission timestamp (`submittedAt`, `submittedDateTime`).
- * 4. Status string matching any "turned in", "submitted", "done", "completed", "returned", "released", "graded".
- * 5. Teams-specific submission states (`teamsSubmissionState`, `submissionStatus`).
+ * 4. Status string matching "turned in", "submitted", "done", "completed", "returned", "released", "graded".
+ * 5. Direct boolean flags (`isDone`, `isSubmitted`).
  */
 export const isAssignmentDone = (a: Assignment | any, regNo?: string): boolean => {
   if (!a) return false;
 
-  // 1. Check manual localStorage overrides first
+  // 1. Direct explicit user manual override by exact assignment ID
   const overrides = getManualOverrides(regNo);
-  if (a.id && overrides[a.id] !== undefined) return Boolean(overrides[a.id]);
-  if (a.title && overrides[a.title] !== undefined) return Boolean(overrides[a.title]);
+  if (a.id && overrides[a.id] !== undefined) {
+    return Boolean(overrides[a.id]);
+  }
   if (a.id && typeof a.id === 'string' && a.id.startsWith('unified-')) {
     const parts = a.id.replace('unified-', '').split('-');
     for (const p of parts) {
@@ -59,27 +76,75 @@ export const isAssignmentDone = (a: Assignment | any, regNo?: string): boolean =
     }
   }
 
-  // 2. Direct boolean flags
-  if (a.isDone === true || a.isSubmitted === true) return true;
+  // 2. Authentic Microsoft Teams submission details check
+  const isTeams = isTeamsAssignment(a);
+  const rawTeamsState = String(
+    a.teamsSubmissionState || a.submissionStatus || a.submissionState || ''
+  ).trim().toLowerCase();
 
-  // 3. Submitted timestamp exists (unless explicit resubmission is required)
-  const reassigned = Boolean(a.reassignedAt || a.reassignedDateTime);
-  if (!reassigned) {
-    const subAt = a.submittedAt || a.submittedDateTime || (a as any).turnInDateTime;
-    if (subAt && typeof subAt === 'string' && subAt.trim() !== '') {
-      return true;
+  const subAt = a.submittedAt || a.submittedDateTime || (a as any).turnInDateTime;
+  const unSubAt = a.unsubmittedAt || a.unsubmittedDateTime;
+  const hasValidSubmittedAt = Boolean(
+    subAt &&
+    typeof subAt === 'string' &&
+    subAt.trim() !== '' &&
+    (!unSubAt || (Date.parse(unSubAt) < Date.parse(subAt)))
+  );
+
+  const reassigned = Boolean(a.reassignedAt || a.reassignedDateTime || rawTeamsState === 'reassigned' || rawTeamsState === 'resubmissionrequired');
+
+  if (isTeams) {
+    // If explicit resubmission is required in Teams, it is not done
+    if (reassigned) return false;
+
+    // Check confirmed turned-in states in Teams
+    const isTeamsTurnedIn =
+      rawTeamsState === 'submitted' ||
+      rawTeamsState === 'turnedin' ||
+      rawTeamsState === 'turned_in' ||
+      rawTeamsState === 'turned in' ||
+      rawTeamsState === 'turned-in' ||
+      rawTeamsState === 'completed' ||
+      rawTeamsState === 'released' ||
+      rawTeamsState === 'returned' ||
+      rawTeamsState === 'graded' ||
+      (rawTeamsState.includes('turn') && !rawTeamsState.includes('not') && !rawTeamsState.includes('unturn')) ||
+      (rawTeamsState.includes('submit') && !rawTeamsState.includes('not') && !rawTeamsState.includes('unsubmit') && !rawTeamsState.includes('resubmit') && !rawTeamsState.includes('pending')) ||
+      hasValidSubmittedAt;
+
+    if (isTeamsTurnedIn) return true;
+
+    // Confirmed unsubmitted in Teams
+    if (
+      rawTeamsState === 'working' ||
+      rawTeamsState === 'notsubmitted' ||
+      rawTeamsState === 'not_submitted' ||
+      rawTeamsState === 'unsubmitted' ||
+      rawTeamsState === 'pending'
+    ) {
+      return false;
     }
   }
 
-  // 4. Status / applicationStatus / displayStatus / teamsSubmissionState / submissionStatus
+  // 3. Submitted timestamp exists (unless explicit resubmission is required)
+  if (!reassigned && hasValidSubmittedAt) {
+    return true;
+  }
+
+  // 4. Check title override only if no conflicting platform state exists
+  if (a.title && overrides[a.title] !== undefined) {
+    return Boolean(overrides[a.title]);
+  }
+
+  // 5. Direct boolean flags
+  if (a.isDone === true || a.isSubmitted === true) return true;
+
+  // 6. Status / applicationStatus / displayStatus
   const candidateValues = [
     a.status,
     a.displayStatus,
     a.applicationStatus,
-    a.teamsSubmissionState,
-    a.submissionStatus,
     a.state,
-    a.submissionState,
   ];
 
   for (const raw of candidateValues) {
@@ -103,12 +168,12 @@ export const isAssignmentDone = (a: Assignment | any, regNo?: string): boolean =
       return true;
     }
 
-    // Turned in variations (e.g. "TURNED IN LATE", "TURNED IN ON SEP 23")
+    // Turned in variations
     if (clean.includes('TURN') && !clean.includes('NOT') && !clean.includes('UNTURN')) {
       return true;
     }
 
-    // Submitted variations (e.g. "SUBMITTED LATE", "SUBMITTED ON TIME")
+    // Submitted variations
     if (
       clean.includes('SUBMIT') &&
       !clean.includes('NOT') &&
@@ -121,6 +186,22 @@ export const isAssignmentDone = (a: Assignment | any, regNo?: string): boolean =
   }
 
   return false;
+};
+
+/**
+ * Returns canonical user-facing status label for an assignment.
+ */
+export const getAssignmentStatusLabel = (a: Assignment | any, regNo?: string): string => {
+  const done = isAssignmentDone(a, regNo);
+  const isTeams = isTeamsAssignment(a);
+  if (done) {
+    return isTeams ? 'Turned in' : 'Submitted';
+  }
+  const isOverdue = Boolean(a?.isOverdue) || String(a?.displayStatus || a?.status || '').toUpperCase() === 'OVERDUE';
+  if (isOverdue) return 'Overdue';
+  const isDueSoon = Boolean(a?.isDueSoon) || String(a?.displayStatus || a?.status || '').toUpperCase() === 'DUE SOON';
+  if (isDueSoon) return 'Due Soon';
+  return 'Pending';
 };
 
 /**

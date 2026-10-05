@@ -430,7 +430,7 @@ export const CampusAPI = {
     return fetchJson<Assignment[]>('/assignments', undefined, []);
   },
 
-  updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted'): Promise<Assignment> => {
+  updateAssignmentStatus: async (id: string, status: 'Pending' | 'Submitted' | 'Turned in' | string): Promise<Assignment> => {
     const res = await fetchWithTimeout(`${getApiBase()}/assignments/${id}/status`, {
       method: 'POST',
       headers: getAuthHeaders(),

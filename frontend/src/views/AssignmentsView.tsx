@@ -17,7 +17,7 @@ import { CampusAPI } from '../services/api';
 import { TeamsLoginModal } from '../components/TeamsLoginModal';
 import { LMSLoginModal } from '../components/LMSLoginModal';
 import { MetricCard } from '../components/MetricCard';
-import { isAssignmentDone, parseAssignmentDate, setManualOverride } from '../utils/assignmentUtils';
+import { isAssignmentDone, isTeamsAssignment, parseAssignmentDate, setManualOverride } from '../utils/assignmentUtils';
 
 interface AssignmentsViewProps {
   assignments?: Assignment[];
@@ -83,25 +83,27 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           ...s,
           assignments: s.assignments.map((item) => {
             const done = isAssignmentDone(item, studentRegNo);
+            const isTeams = isTeamsAssignment(item);
             return {
               ...item,
               isDone: done,
               isSubmitted: done,
-              status: done ? 'Submitted' : item.status,
-              displayStatus: done ? 'DONE' : item.displayStatus,
-              applicationStatus: done ? 'DONE' : item.applicationStatus,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
             };
           }),
         })),
         unmatchedAssignments: (data.unmatchedAssignments || []).map((item) => {
           const done = isAssignmentDone(item, studentRegNo);
+          const isTeams = isTeamsAssignment(item);
           return {
             ...item,
             isDone: done,
             isSubmitted: done,
-            status: done ? 'Submitted' : item.status,
-            displayStatus: done ? 'DONE' : item.displayStatus,
-            applicationStatus: done ? 'DONE' : item.applicationStatus,
+            status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+            displayStatus: done ? 'DONE' : 'PENDING',
+            applicationStatus: done ? 'DONE' : 'PENDING',
           };
         }),
       };
@@ -297,8 +299,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   const handleToggle = (a: EnrichedAssignment) => {
     const isDone = isAssignmentDone(a, studentRegNo);
-    const nextStatus = isDone ? 'Pending' : 'Submitted';
-    const nextIsDone = nextStatus === 'Submitted';
+    const isTeams = isTeamsAssignment(a);
+    const nextStatus = isDone ? 'Pending' : (isTeams ? 'Turned in' : 'Submitted');
+    const nextIsDone = !isDone;
 
     setManualOverride(a.id, a.title, nextIsDone, studentRegNo);
     onToggleStatus(a.id, isDone ? 'Submitted' : 'Pending');
@@ -561,6 +564,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {filteredAssignments.map((a, idx) => {
               const isDone = isAssignmentDone(a, studentRegNo);
+              const isTeams = isTeamsAssignment(a);
               const isOverdue = !isDone && (Boolean(a.isOverdue) || (a.displayStatus || '').toUpperCase() === 'OVERDUE');
               const isDueSoon = !isDone && !isOverdue && (Boolean(a.isDueSoon) || (a.displayStatus || '').toUpperCase() === 'DUE SOON');
               const hasRemainingPending = filteredAssignments.slice(idx).some((item) => !isAssignmentDone(item, studentRegNo));
@@ -720,7 +724,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                         {isOverdue ? <AlertCircle size={13} /> : <Clock size={13} />}
                         <span>
                           {isDone
-                            ? `Completed (Due: ${a.dueDate || '11:59 PM'})`
+                            ? `${isTeams ? 'Turned in' : 'Submitted'} (Due: ${a.dueDate || '11:59 PM'})`
                             : isOverdue
                             ? `Overdue: ${a.dueDate || 'Passed'}`
                             : `Deadline: ${a.dueDate || '11:59 PM'}`}
@@ -731,11 +735,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span className={`status-badge ${isDone ? 'safe' : isOverdue ? 'critical' : 'warning'}`}>
-                      {isDone ? (a.source?.toUpperCase().includes('TEAMS') ? 'Turned in ✓' : 'Submitted ✓') : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
+                      {isDone ? (isTeams ? 'Turned in ✓' : 'Submitted ✓') : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
                     </span>
 
                     {(() => {
-                      const isTeams = a.source === 'TEAMS' || a.source === 'Teams' || a.sourceList?.includes('Teams');
                       const portalUrl =
                         a.submissionUrl ||
                         (a as any).teamsSubmissionUrl ||

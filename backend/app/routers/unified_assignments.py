@@ -82,17 +82,65 @@ def are_duplicate_assignments(a1: Dict[str, Any], a2: Dict[str, Any]) -> bool:
 def is_assignment_record_done(item: Optional[Dict[str, Any]]) -> bool:
     """
     Checks if an assignment item has been turned in / submitted / completed.
+    For Microsoft Teams assignments:
+    - If turned in in Teams ('submitted', 'turnedin', 'returned', 'released', valid submittedAt) -> True (DONE)
+    - If confirmed not submitted in Teams ('working', 'notSubmitted', 'unsubmitted') and no valid submittedAt -> False (PENDING)
     Handles all variations of Teams ("turned in", "submitted", "returned", "released")
     and LMS submission flags.
     """
     if not item or not isinstance(item, dict):
         return False
-    if item.get("isDone") is True or item.get("isSubmitted") is True:
-        return True
-    if item.get("submittedAt") and str(item.get("submittedAt")).strip():
+
+    sub_at = str(item.get("submittedAt") or "").strip()
+    unsub_at = str(item.get("unsubmittedAt") or "").strip()
+    has_valid_sub_at = bool(sub_at and sub_at != "None" and (not unsub_at or unsub_at < sub_at))
+
+    raw_teams_state = str(
+        item.get("teamsSubmissionState")
+        or item.get("submissionStatus")
+        or item.get("submissionState")
+        or ""
+    ).strip().lower()
+
+    is_teams = (
+        "teams" in str(item.get("source") or "").lower()
+        or str(item.get("id") or "").startswith("teams-")
+        or bool(raw_teams_state)
+    )
+
+    if is_teams:
+        # 1. Turned in in Teams
+        if (
+            raw_teams_state in (
+                "submitted",
+                "turnedin",
+                "turned in",
+                "turned_in",
+                "turned-in",
+                "completed",
+                "returned",
+                "released",
+                "graded",
+                "done",
+            )
+            or ("turn" in raw_teams_state and "not" not in raw_teams_state and "unturn" not in raw_teams_state)
+            or ("submit" in raw_teams_state and "not" not in raw_teams_state and "unsubmit" not in raw_teams_state and "resubmit" not in raw_teams_state and "pending" not in raw_teams_state)
+            or has_valid_sub_at
+        ):
+            return True
+
+        # 2. Confirmed working / unsubmitted in Teams
+        if raw_teams_state in ("working", "notsubmitted", "not_submitted", "unsubmitted", "pending") and not has_valid_sub_at:
+            return False
+
+    # For non-teams or generic assignments
+    if has_valid_sub_at:
         return True
 
-    for field in ("status", "applicationStatus", "displayStatus", "teamsSubmissionState", "submissionStatus", "state"):
+    if item.get("isDone") is True or item.get("isSubmitted") is True:
+        return True
+
+    for field in ("status", "applicationStatus", "displayStatus", "state"):
         val = str(item.get(field) or "").strip().lower()
         if not val:
             continue

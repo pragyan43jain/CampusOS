@@ -264,6 +264,8 @@ def fetch_student_teams_submission(
     s = session or requests
     urls = [
         f"https://assignments.onenote.com/api/v1.0/edu/classes/{class_id}/assignments/{assignment_id}/submissions",
+        f"https://graph.microsoft.com/v1.0/education/classes/{class_id}/assignments/{assignment_id}/submissions/mySubmission",
+        f"https://graph.microsoft.com/v1.0/education/me/assignments/{assignment_id}/submissions",
         f"https://graph.microsoft.com/v1.0/education/classes/{class_id}/assignments/{assignment_id}/submissions",
     ]
 
@@ -273,7 +275,13 @@ def fetch_student_teams_submission(
                 r = s.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
                 if r.status_code == 200:
                     data = r.json()
-                    items = data.get("value", [])
+                    # 1. Handle single submission object directly returned by endpoint
+                    if isinstance(data, dict) and not data.get("value") and (
+                        data.get("status") or data.get("submittedDateTime") or data.get("submittedBy") or data.get("recipient")
+                    ):
+                        return data, False
+
+                    items = data.get("value", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
                     if not items:
                         return None, False
 
@@ -755,12 +763,28 @@ def fetch_assignments_for_matched_team(
                                 due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
                                 due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
 
-                                sub_record, api_failed = fetch_student_teams_submission(
-                                    team_id,
-                                    assign_id,
-                                    edu_headers,
-                                    authenticated_user_id=authenticated_user_id,
-                                )
+                                sub_record = None
+                                api_failed = False
+                                item_sub = item.get("submission") or item.get("submissions")
+                                if isinstance(item_sub, list) and item_sub:
+                                    item_sub = item_sub[0]
+                                if isinstance(item_sub, dict) and (item_sub.get("status") or item_sub.get("submittedDateTime")):
+                                    sub_record = item_sub
+                                elif item.get("submittedDateTime") or item.get("turnInDateTime"):
+                                    sub_record = {
+                                        "status": item.get("status") or "submitted",
+                                        "submittedDateTime": item.get("submittedDateTime") or item.get("turnInDateTime"),
+                                    }
+                                elif str(item.get("status") or "").lower() in ("submitted", "turnedin", "turned in", "returned", "released"):
+                                    sub_record = {"status": item.get("status")}
+
+                                if not sub_record:
+                                    sub_record, api_failed = fetch_student_teams_submission(
+                                        team_id,
+                                        assign_id,
+                                        edu_headers,
+                                        authenticated_user_id=authenticated_user_id,
+                                    )
                                 sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=due_dt, api_failed=api_failed)
                                 title = item.get("displayName") or f"{course_code} Assignment"
 
@@ -837,12 +861,28 @@ def fetch_assignments_for_matched_team(
                 due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
 
                 # Query authenticated student submission
-                sub_record, api_failed = fetch_student_teams_submission(
-                    team_id,
-                    assign_id,
-                    edu_headers,
-                    authenticated_user_id=authenticated_user_id,
-                )
+                sub_record = None
+                api_failed = False
+                item_sub = item.get("submission") or item.get("submissions")
+                if isinstance(item_sub, list) and item_sub:
+                    item_sub = item_sub[0]
+                if isinstance(item_sub, dict) and (item_sub.get("status") or item_sub.get("submittedDateTime")):
+                    sub_record = item_sub
+                elif item.get("submittedDateTime") or item.get("turnInDateTime"):
+                    sub_record = {
+                        "status": item.get("status") or "submitted",
+                        "submittedDateTime": item.get("submittedDateTime") or item.get("turnInDateTime"),
+                    }
+                elif str(item.get("status") or "").lower() in ("submitted", "turnedin", "turned in", "returned", "released"):
+                    sub_record = {"status": item.get("status")}
+
+                if not sub_record:
+                    sub_record, api_failed = fetch_student_teams_submission(
+                        team_id,
+                        assign_id,
+                        edu_headers,
+                        authenticated_user_id=authenticated_user_id,
+                    )
                 sub_meta = map_teams_submission_status(sub_record, due_datetime_iso=due_dt, api_failed=api_failed)
 
                 title = item.get("displayName") or f"{course_code} Assignment"
@@ -1662,19 +1702,33 @@ def sync_teams(
         )
 
         existing_assignments = store.get("assignments") or []
+        existing_teams_map = {a.get("id"): a for a in existing_assignments if a.get("source") == "Teams"}
         other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in teams_assignments:
             a_id = str(a.get("id", ""))
             a_title = str(a.get("title", ""))
-            if manual_status.get(a_id) is True or manual_status.get(a_title) is True:
+
+            # If existing store record already had verified submittedAt / DONE and API was transiently unavailable
+            prev_a = existing_teams_map.get(a_id)
+            if prev_a and (prev_a.get("isDone") is True or prev_a.get("submittedAt")) and not a.get("isDone"):
+                if a.get("teamsSubmissionState") in ("unavailable", "notSubmitted") and prev_a.get("teamsSubmissionState") in ("submitted", "turnedin", "returned", "released"):
+                    a["status"] = prev_a.get("status", "DONE")
+                    a["applicationStatus"] = prev_a.get("applicationStatus", "DONE")
+                    a["displayStatus"] = prev_a.get("displayStatus", "DONE")
+                    a["teamsSubmissionState"] = prev_a.get("teamsSubmissionState", "submitted")
+                    a["submittedAt"] = prev_a.get("submittedAt")
+                    a["isDone"] = True
+                    a["isSubmitted"] = True
+
+            if manual_status.get(a_id) is True:
                 a["status"] = "Submitted"
                 a["applicationStatus"] = "DONE"
                 a["displayStatus"] = "DONE"
                 a["isDone"] = True
                 a["isSubmitted"] = True
-            elif manual_status.get(a_id) is False or manual_status.get(a_title) is False:
+            elif manual_status.get(a_id) is False:
                 a["status"] = "Pending"
                 a["applicationStatus"] = "PENDING"
                 a["displayStatus"] = "PENDING"
