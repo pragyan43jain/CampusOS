@@ -6,6 +6,13 @@ import { SplineScene } from "@/components/ui/splite";
 import { Card } from "@/components/ui/card";
 import { Spotlight } from "@/components/ui/spotlight";
 import { GlowCard } from "@/components/ui/spotlight-card";
+import HeroAscii from "@/components/ui/hero-ascii";
+
+export function DemoOne() {
+  return <HeroAscii />;
+}
+
+export const DemoHeroAscii = DemoOne;
 
 export function Demo() {
   return <Component />;

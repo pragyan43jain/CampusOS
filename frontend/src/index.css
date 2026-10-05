@@ -2436,4 +2436,25 @@ body.modal-open .modal-content-glass {
   }
 }
 
+/* ==========================================================================
+   HERO ASCII & UIMIX VITRUVIAN STYLES
+   ========================================================================== */
+.dither-pattern {
+  background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
+.stars-bg {
+  background-image: 
+    radial-gradient(1px 1px at 20px 30px, #eee, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 40px 70px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 50px 160px, #ddd, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 130px 80px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 160px 120px, #ddd, rgba(0,0,0,0));
+  background-repeat: repeat;
+  background-size: 200px 200px;
+}
+
+
 
