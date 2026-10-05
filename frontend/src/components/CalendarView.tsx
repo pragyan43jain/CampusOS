@@ -152,23 +152,44 @@ export function CalendarView({
     return [src];
   }, [internalCalendars, calendars, initialCalendars]);
 
-  const [activeIdx, setActiveIdx] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("calendar-active-index");
-      return saved ? Number(saved) || 0 : 0;
-    }
-    return 0;
-  });
+  // Find current real-time month index in safeCalendars
+  const currentMonthIdx = useMemo(() => {
+    if (!safeCalendars || safeCalendars.length === 0) return 0;
+    const now = new Date();
+    const nowMonth = now.getMonth(); // 0-11
+    const nowYear = now.getFullYear();
+    const MONTH_LOOKUP: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    };
+    const found = safeCalendars.findIndex((cal: any) => {
+      const rawMonth = String(cal.month || "").trim().toLowerCase();
+      const calYear = cal.year ? Number(cal.year) : nowYear;
+      for (const [abbr, mNum] of Object.entries(MONTH_LOOKUP)) {
+        if (rawMonth.includes(abbr)) {
+          return mNum === nowMonth && (!cal.year || calYear === nowYear);
+        }
+      }
+      return false;
+    });
+    return found >= 0 ? found : 0;
+  }, [safeCalendars]);
 
+  const [activeIdx, setActiveIdx] = useState<number>(0);
+  const [hasUserSelectedMonth, setHasUserSelectedMonth] = useState<boolean>(false);
+
+  // Automatically select current month when safeCalendars loads unless user clicked a tab
   useEffect(() => {
-    localStorage.setItem("calendar-active-index", String(activeIdx));
-  }, [activeIdx]);
+    if (!hasUserSelectedMonth && safeCalendars.length > 0) {
+      setActiveIdx(currentMonthIdx);
+    }
+  }, [currentMonthIdx, safeCalendars.length, hasUserSelectedMonth]);
 
   useEffect(() => {
     if (activeIdx >= safeCalendars.length && safeCalendars.length > 0) {
-      setActiveIdx(0);
+      setActiveIdx(currentMonthIdx);
     }
-  }, [safeCalendars.length, activeIdx]);
+  }, [safeCalendars.length, activeIdx, currentMonthIdx]);
 
   const activeCalendar = safeCalendars[activeIdx] || {};
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -310,6 +331,7 @@ export function CalendarView({
           <button
             key={calendar.id || calendar.month || idx}
             onClick={() => {
+              setHasUserSelectedMonth(true);
               setActiveIdx(idx);
               setSelectedDay(null);
             }}

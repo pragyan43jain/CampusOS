@@ -147,8 +147,9 @@ def get_od(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
-    return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo)
+    return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
 
 
 @router.get("/faculty")
@@ -230,11 +231,11 @@ def get_exams(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Grouped by exam type, matching ``/api/vtop/exams``."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    exams = load_store(reg).get("exams")
-    return exams if isinstance(exams, dict) else {}
+    from app.routers.auth import get_vtop_exams
+    return get_vtop_exams(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
 
 
 @router.get("/receipts")
@@ -325,7 +326,7 @@ def get_hostel_details(
     store = load_store(reg)
     student = store.get("student") or {}
     hostel_data = store.get("hostel") or {}
-    stored_info = hostel_data.get("hostelInfo") or {}
+    stored_info = hostel_data.get("hostelInfo") or store.get("hostelInfo") or {}
 
     gender = stored_info.get("gender") or student.get("gender") or "Male"
     block_name = stored_info.get("blockName") or student.get("blockName")
@@ -353,7 +354,7 @@ def get_hostel_details(
         "messInfo": mess_info if is_hosteller else None,
     }
 
-    leave_history = hostel_data.get("leaveHistory") or []
+    leave_history = hostel_data.get("leaveHistory") or store.get("leaveHistory") or []
     if not leave_history and is_hosteller:
         fallback_hostel_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
@@ -425,6 +426,7 @@ def get_calendar(
     regNo: Optional[str] = Query(None),
     semesterId: Optional[str] = Query(None),
     type: Optional[str] = Query("ALL"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Return semester academic calendar (instructional days, holidays, exams).
@@ -432,10 +434,10 @@ def get_calendar(
     """
     from app.vtop.calendar import get_fallback_calendar, fetch_vtop_academic_calendar, merge_student_exams_into_calendar
     from app.vtop.client import client_manager
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     student = store.get("student") or {}
-    sem_id = semesterId or student.get("semesterId") or "CH20242501"
+    sem_id = semesterId or student.get("semesterId") or "CH20262701"
     student_exams = store.get("examsList") or store.get("exams")
 
     # 1. Attempt live scrape if active session exists

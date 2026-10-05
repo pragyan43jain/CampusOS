@@ -429,6 +429,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             colSpan={2}
             tilt={true}
             borderAnim={true}
+            borderAnimColor="rgba(16, 185, 129, 0.45)"
+            borderAnimDelay={0}
             title="VTOP Academics & Attendance"
             description="Real-time 75% attendance defense buffer, class routines & verified CGPA"
             icon={<GraduationCap size={20} className="text-emerald-400" />}
@@ -491,6 +493,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <BentoCard
             colSpan={2}
             tilt={true}
+            borderAnim={true}
+            borderAnimColor="rgba(59, 130, 246, 0.45)"
+            borderAnimDelay={1}
             title="Assignments & Deadlines"
             description="Unified Moodle LMS quizzes, Microsoft Teams tasks & submission status"
             icon={<ClipboardList size={20} className="text-blue-400" />}
@@ -555,6 +560,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <BentoCard
             colSpan={1}
             tilt={true}
+            borderAnim={true}
+            borderAnimColor="rgba(245, 158, 11, 0.45)"
+            borderAnimDelay={2}
             title="Fees & Ledger"
             description="Tuition, hostel & mess balance"
             icon={<CreditCard size={20} className="text-amber-400" />}
@@ -599,6 +607,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <BentoCard
             colSpan={1}
             tilt={true}
+            borderAnim={true}
+            borderAnimColor="rgba(251, 146, 60, 0.45)"
+            borderAnimDelay={3}
             title="LeetCode"
             description="Problem statistics & topic practice"
             icon={<Code2 size={20} className="text-amber-400" />}
@@ -635,6 +646,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <BentoCard
             colSpan={1}
             tilt={true}
+            borderAnim={true}
+            borderAnimColor="rgba(6, 182, 212, 0.45)"
+            borderAnimDelay={4}
             title="Hostel & Living"
             description="Room allotment, mess & leave pass"
             icon={<Building size={20} className="text-cyan-400" />}
@@ -669,6 +683,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <BentoCard
             colSpan={1}
             tilt={true}
+            borderAnim={true}
+            borderAnimColor="rgba(236, 72, 153, 0.45)"
+            borderAnimDelay={5}
             title="AI Study Planner"
             description="Predictive revision & daily schedule"
             icon={<BrainCircuit size={20} className="text-pink-400" />}

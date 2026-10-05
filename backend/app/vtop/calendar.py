@@ -303,7 +303,7 @@ def fetch_vtop_academic_calendar(
     Queries all months in parallel and parses instructional days, holidays, order-of-day, and exams.
     Preserves authentic live VTOP calendar data.
     """
-    sem_id = semester_id or "CH20242501"
+    sem_id = semester_id or "CH20262701"
 
     # Enforce UniCC calendar group type constraints
     if sem_id.endswith("05"):
@@ -755,7 +755,7 @@ def get_fallback_calendar(semester_id: Optional[str] = None, student_exams: Any 
     Falls back to authentic VIT calendar generator if dataset is missing or invalid.
     Optionally overlays student's personal exam schedule if provided.
     """
-    sem_id = semester_id or "CH20242501"
+    sem_id = semester_id or "CH20262701"
     raw_calendars = []
 
     if os.path.exists(CALENDAR_JSON_PATH):

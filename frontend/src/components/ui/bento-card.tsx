@@ -29,6 +29,8 @@ export interface BentoCardProps {
   tilt?: boolean
   spotlight?: boolean
   borderAnim?: boolean
+  borderAnimColor?: string | { from?: string; to?: string }
+  borderAnimDelay?: number
   onClick?: () => void
   ctaText?: string
 }
@@ -61,6 +63,8 @@ export function BentoCard({
   tilt = false,
   spotlight = true,
   borderAnim = false,
+  borderAnimColor,
+  borderAnimDelay = 0,
   onClick,
   ctaText,
 }: BentoCardProps) {
@@ -168,7 +172,14 @@ export function BentoCard({
       )}
 
       {/* Border Beam */}
-      {borderAnim && <BorderBeam isHovered={isHovered} />}
+      {borderAnim && (
+        <BorderBeam
+          isHovered={isHovered}
+          colorFrom={typeof borderAnimColor === 'object' ? borderAnimColor?.from : "transparent"}
+          colorTo={typeof borderAnimColor === 'string' ? borderAnimColor : borderAnimColor?.to}
+          delay={borderAnimDelay}
+        />
+      )}
 
       {/* Background Effect */}
       {background && (

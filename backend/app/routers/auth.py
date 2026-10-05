@@ -541,21 +541,70 @@ def get_vtop_od(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     On-duty hours extracted directly from VTOP Academics -> Student OD details module.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
     has_valid = bool(od.get("hasValidData") or is_auth or store.get("courses") or store.get("attendance"))
 
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
-    records = od.get("records") or od.get("odRecords") or []
+    records = list(od.get("records") or od.get("odRecords") or [])
+
+    if not records:
+        # Extract all On-Duty class attendances from courses / attendance breakdown
+        extracted: List[Dict[str, Any]] = []
+        for c in store.get("courses") or []:
+            c_code = c.get("code") or c.get("courseCode") or ""
+            c_title = c.get("title") or c.get("courseTitle") or c_code
+            vl = c.get("viewLink") or c.get("attendanceRecords") or c.get("attendanceDetails")
+            if isinstance(vl, list):
+                for entry in vl:
+                    if isinstance(entry, dict):
+                        st = (entry.get("status") or "").strip().lower()
+                        if any(kw in st for kw in ("duty", "od")):
+                            extracted.append({
+                                "id": f"od_{c_code}_{entry.get('date', '')}_{len(extracted)}",
+                                "courseCode": c_code,
+                                "courseTitle": c_title,
+                                "date": entry.get("date", ""),
+                                "slot": entry.get("slot") or entry.get("dayTime") or "",
+                                "hours": 1,
+                                "status": "Approved",
+                                "reason": f"Class Attendance On-Duty ({c_code})",
+                                "category": "Academic / Event OD",
+                            })
+        for a in store.get("attendance") or []:
+            c_code = a.get("courseCode") or a.get("code") or ""
+            c_title = a.get("courseTitle") or a.get("title") or c_code
+            recs = a.get("records") or []
+            if isinstance(recs, list):
+                for entry in recs:
+                    if isinstance(entry, dict):
+                        st = (entry.get("status") or "").strip().lower()
+                        if any(kw in st for kw in ("duty", "od")):
+                            d = entry.get("date", "")
+                            if not any(x.get("courseCode") == c_code and x.get("date") == d for x in extracted):
+                                extracted.append({
+                                    "id": f"od_{c_code}_{d}_{len(extracted)}",
+                                    "courseCode": c_code,
+                                    "courseTitle": c_title,
+                                    "date": d,
+                                    "slot": entry.get("slot") or "",
+                                    "hours": 1,
+                                    "status": "Approved",
+                                    "reason": f"Class Attendance On-Duty ({c_code})",
+                                    "category": "Academic / Event OD",
+                                })
+        if extracted:
+            records = extracted
 
     used = od.get("usedHours")
-    if used is None:
+    if used is None or (used == 0 and len(records) > 0):
         used = sum(r.get("hours", 0) for r in records) if records else (0 if has_valid else None)
 
     approved = used if used is not None else (0 if has_valid else None)
@@ -594,13 +643,48 @@ def get_vtop_exams(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Exam schedule grouped by exam type ("CAT 1", "FAT", ...), as VTOP groups it.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    exams = load_store(reg).get("exams")
-    return exams if isinstance(exams, dict) else {}
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    store = load_store(reg)
+    exams = store.get("exams") or {}
+    exams_list = store.get("examsList") or []
+
+    # If examsList has full enriched items (with course codes, titles, dates, venues, rows, seats), group by examType
+    if exams_list:
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for ex in exams_list:
+            t = ex.get("examType") or "Examination"
+            grouped.setdefault(t, []).append(ex)
+        return grouped
+
+    # If raw slot-based exams exist, enrich with student courses
+    courses = store.get("courses") or []
+    slot_to_course = {}
+    for c in courses:
+        s = c.get("slot") or ""
+        for part in s.replace("+", " ").split():
+            slot_to_course[part.strip().upper()] = c
+
+    enriched_grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for exam_type, items in (exams.items() if isinstance(exams, dict) else []):
+        enriched_grouped[exam_type] = []
+        for it in items:
+            sl = (it.get("slot") or "").strip().upper()
+            matched_c = slot_to_course.get(sl) or {}
+            c_code = it.get("courseCode") or matched_c.get("code") or matched_c.get("courseCode") or sl
+            c_title = it.get("courseTitle") or it.get("courseName") or matched_c.get("title") or matched_c.get("courseTitle") or f"{exam_type} Exam ({sl})"
+            enriched_grouped[exam_type].append({
+                **it,
+                "courseCode": c_code,
+                "courseTitle": c_title,
+                "courseName": c_title,
+                "facultyName": it.get("facultyName") or matched_c.get("faculty") or matched_c.get("facultyName") or "",
+            })
+    return enriched_grouped if enriched_grouped else (exams if isinstance(exams, dict) else {})
 
 
 @router.get("/timetable")

@@ -632,10 +632,13 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             deduped_assignments.append(merged)
         else:
             used_ids.add(t_id)
+            t_url = t_item.get("submissionUrl") or t_item.get("platformUrl") or t_item.get("webUrl") or "https://teams.microsoft.com"
             deduped_assignments.append({
                 **t_item,
                 "sourceList": ["Teams"],
-                "teamsSubmissionUrl": t_item.get("platformUrl"),
+                "submissionUrl": t_url,
+                "platformUrl": t_url,
+                "teamsSubmissionUrl": t_url,
             })
 
     for l_item in lms_items:

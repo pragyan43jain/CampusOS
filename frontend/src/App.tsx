@@ -426,7 +426,11 @@ export const App: React.FC = () => {
 
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setSyncResultMsg(res.message ? `✓ ${res.message} (${timeStr})` : `✓ Synced all accounts successfully (${timeStr})`);
-      triggerSyncToast('Synced Successfully');
+      if (res.message && res.message.toLowerCase().includes('lms') && (res.message.toLowerCase().includes('expired') || res.message.toLowerCase().includes('sign in'))) {
+        triggerSyncToast('LMS session expired — please re-link LMS');
+      } else {
+        triggerSyncToast('Synced Successfully');
+      }
     } catch (err: any) {
       console.error('Failed to sync all accounts:', err);
       setSyncResultMsg(`⚠️ Sync encountered an error: ${err.message || 'Network error'}`);

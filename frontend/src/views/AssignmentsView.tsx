@@ -173,22 +173,25 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   }, []);
 
   const handleRefreshAll = async () => {
-    if (onSyncAll) {
-      onSyncAll();
-      await loadUnifiedData();
-      return;
-    }
     setSyncingAll(true);
     try {
-      const res = await CampusAPI.syncAllAcademicAccounts();
-      if (res.dashboard) {
-        setDashboard(res.dashboard);
-        if (onAssignmentsUpdated && res.dashboard.subjects) {
-          const flatList: Assignment[] = [];
-          res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
-          onAssignmentsUpdated(flatList);
+      if (onSyncAll) {
+        await onSyncAll();
+      } else {
+        const res = await CampusAPI.syncAllAcademicAccounts();
+        if (res.dashboard) {
+          setDashboard(res.dashboard);
+          if (onAssignmentsUpdated && res.dashboard.subjects) {
+            const flatList: Assignment[] = [];
+            res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => flatList.push(...s.assignments));
+            if (res.dashboard.unmatchedAssignments) {
+              flatList.push(...res.dashboard.unmatchedAssignments);
+            }
+            onAssignmentsUpdated(flatList);
+          }
         }
       }
+      await loadUnifiedData();
     } catch (err) {
       console.error(err);
     } finally {
@@ -737,18 +740,30 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                       {isDone ? 'Submitted ✓' : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
                     </span>
 
-                    {a.submissionUrl && (
-                      <a
-                        href={a.submissionUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
-                      >
-                        <span>Open Portal</span>
-                        <ExternalLink size={13} />
-                      </a>
-                    )}
+                    {(() => {
+                      const isTeams = a.source === 'TEAMS' || a.source === 'Teams' || a.sourceList?.includes('Teams');
+                      const portalUrl =
+                        a.submissionUrl ||
+                        (a as any).teamsSubmissionUrl ||
+                        (a as any).lmsSubmissionUrl ||
+                        (a as any).platformUrl ||
+                        (a as any).webUrl ||
+                        (isTeams ? 'https://teams.microsoft.com' : 'https://lms.vit.ac.in');
+
+                      return (
+                        <a
+                          href={portalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                          title={`Open in ${isTeams ? 'Microsoft Teams' : 'VIT Moodle LMS'}`}
+                        >
+                          <span>Open Portal</span>
+                          <ExternalLink size={13} />
+                        </a>
+                      );
+                    })()}
                   </div>
                 </div>
               </React.Fragment>
