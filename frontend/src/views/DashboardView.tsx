@@ -34,6 +34,7 @@ import { BentoCard } from '../components/ui/bento-card';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
 import { getSessionGreeting, cycleNextGreeting, isGreetingValidForPeriod, getTimePeriod } from '../utils/greeting';
+import { isAssignmentDone } from '../utils/assignmentUtils';
 
 interface DashboardViewProps {
   student: StudentProfile;
@@ -233,33 +234,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const lmsConnected = Boolean(lmsAccount?.connected);
   const lmsFailed = Boolean(lmsAccount?.status === 'failed' || lmsAccount?.failed);
 
-  const pendingAssignments = assignments.filter((a) => {
-    let isDone = Boolean(a.isDone || a.isSubmitted);
-    const st = (a.displayStatus || a.status || '').toUpperCase().trim();
-    if (st === 'DONE' || st === 'SUBMITTED' || st === 'COMPLETED') {
-      isDone = true;
-    }
-    if (typeof window !== 'undefined') {
-      try {
-        const reg = student?.regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
-        const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
-        if (raw) {
-          const overrides = JSON.parse(raw);
-          if (a.id && overrides[a.id] !== undefined) isDone = overrides[a.id];
-          else if (a.title && overrides[a.title] !== undefined) isDone = overrides[a.title];
-          else if (a.id && a.id.startsWith('unified-')) {
-            for (const p of a.id.replace('unified-', '').split('-')) {
-              if (p && overrides[p] !== undefined) {
-                isDone = overrides[p];
-                break;
-              }
-            }
-          }
-        }
-      } catch (e) {}
-    }
-    return !isDone;
-  });
+  const pendingAssignments = assignments.filter((a) => !isAssignmentDone(a, student?.regNo));
 
   // --- Live Dynamic Data for Bento Grid Hub ---
   // 1. Live Hostel Details

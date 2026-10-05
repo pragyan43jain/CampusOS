@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface LMSLoginModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   isConnected = false,
   onDisconnect,
 }) => {
+  useLockBodyScroll(isOpen);
   const initialVal = initialRegNo || initialUsername;
   const [campus, setCampus] = useState<'chennai' | 'vellore'>('chennai');
   const [loginMode, setLoginMode] = useState<'credentials' | 'session_cookie'>('credentials');
@@ -126,8 +128,8 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose} onWheel={(e) => e.stopPropagation()}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

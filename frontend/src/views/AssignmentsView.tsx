@@ -17,6 +17,7 @@ import { CampusAPI } from '../services/api';
 import { TeamsLoginModal } from '../components/TeamsLoginModal';
 import { LMSLoginModal } from '../components/LMSLoginModal';
 import { MetricCard } from '../components/MetricCard';
+import { isAssignmentDone, setManualOverride } from '../utils/assignmentUtils';
 
 interface AssignmentsViewProps {
   assignments?: Assignment[];
@@ -41,55 +42,6 @@ interface EnrichedAssignment extends Assignment {
   lmsProfessor?: string;
   postedBy?: string;
 }
-
-const getManualOverrides = (regNo?: string): Record<string, boolean> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
-    const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-};
-
-const setManualOverride = (id: string, title: string | undefined, isDone: boolean, regNo?: string) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
-    const key = `campus_manual_assignment_status_${reg}`;
-    const raw = window.localStorage.getItem(key);
-    const overrides = raw ? JSON.parse(raw) : {};
-    overrides[id] = isDone;
-    if (title) overrides[title] = isDone;
-    if (id.startsWith('unified-')) {
-      id.replace('unified-', '').split('-').forEach((p) => {
-        if (p) overrides[p] = isDone;
-      });
-    }
-    window.localStorage.setItem(key, JSON.stringify(overrides));
-  } catch {}
-};
-
-const isAssignmentDone = (a: Assignment, regNo?: string): boolean => {
-  const overrides = getManualOverrides(regNo);
-  if (a.id && overrides[a.id] !== undefined) return overrides[a.id];
-  if (a.title && overrides[a.title] !== undefined) return overrides[a.title];
-  if (a.id && a.id.startsWith('unified-')) {
-    const parts = a.id.replace('unified-', '').split('-');
-    for (const p of parts) {
-      if (p && overrides[p] !== undefined) return overrides[p];
-    }
-  }
-  const st = (a.displayStatus || a.status || '').toUpperCase().trim();
-  return Boolean(
-    a.isDone ||
-    a.isSubmitted ||
-    st === 'DONE' ||
-    st === 'SUBMITTED' ||
-    st === 'COMPLETED'
-  );
-};
 
 export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   assignments: _assignments,
@@ -737,7 +689,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span className={`status-badge ${isDone ? 'safe' : isOverdue ? 'critical' : 'warning'}`}>
-                      {isDone ? 'Submitted ✓' : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
+                      {isDone ? (a.source?.toUpperCase().includes('TEAMS') ? 'Turned in ✓' : 'Submitted ✓') : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
                     </span>
 
                     {(() => {

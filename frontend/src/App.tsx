@@ -35,6 +35,7 @@ import { LandingPageView } from './views/LandingPageView';
 import { HostelView } from './views/HostelView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { isAssignmentDone } from './utils/assignmentUtils';
 
 interface RouteInfo {
   isLanding: boolean;
@@ -104,31 +105,31 @@ const applyManualStatusOverrides = (items: Assignment[], regNo?: string): Assign
   try {
     const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
     const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
-    if (!raw) return items;
-    const overrides = JSON.parse(raw);
+    const overrides = raw ? JSON.parse(raw) : {};
     return items.map((a) => {
-      let isDone: boolean | undefined = undefined;
-      if (a.id && overrides[a.id] !== undefined) isDone = overrides[a.id];
-      else if (a.title && overrides[a.title] !== undefined) isDone = overrides[a.title];
+      let manualDone: boolean | undefined = undefined;
+      if (a.id && overrides[a.id] !== undefined) manualDone = overrides[a.id];
+      else if (a.title && overrides[a.title] !== undefined) manualDone = overrides[a.title];
       else if (a.id && a.id.startsWith('unified-')) {
         for (const p of a.id.replace('unified-', '').split('-')) {
           if (p && overrides[p] !== undefined) {
-            isDone = overrides[p];
+            manualDone = overrides[p];
             break;
           }
         }
       }
-      if (isDone !== undefined) {
-        return {
-          ...a,
-          isDone,
-          isSubmitted: isDone,
-          status: isDone ? 'Submitted' : 'Pending',
-          displayStatus: isDone ? 'DONE' : 'PENDING',
-          applicationStatus: isDone ? 'DONE' : 'PENDING',
-        };
-      }
-      return a;
+
+      const done = manualDone !== undefined ? manualDone : isAssignmentDone(a, reg);
+      const isTeams = Boolean(a.source?.toUpperCase().includes('TEAMS'));
+
+      return {
+        ...a,
+        isDone: done,
+        isSubmitted: done,
+        status: done ? (isTeams ? 'Turned in' : 'Submitted') : (a.status === 'Submitted' || a.status === 'DONE' ? 'Pending' : a.status || 'Pending'),
+        displayStatus: done ? 'DONE' : 'PENDING',
+        applicationStatus: done ? 'DONE' : 'PENDING',
+      };
     });
   } catch {
     return items;
@@ -917,32 +918,7 @@ export const App: React.FC = () => {
     );
   }
 
-  const pendingAssignmentsCount = assignments.filter((a) => {
-    if (typeof window !== 'undefined') {
-      try {
-        const reg = student?.regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
-        const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
-        if (raw) {
-          const overrides = JSON.parse(raw);
-          let isDone: boolean | undefined = undefined;
-          if (a.id && overrides[a.id] !== undefined) isDone = overrides[a.id];
-          else if (a.title && overrides[a.title] !== undefined) isDone = overrides[a.title];
-          else if (a.id && a.id.startsWith('unified-')) {
-            for (const p of a.id.replace('unified-', '').split('-')) {
-              if (p && overrides[p] !== undefined) {
-                isDone = overrides[p];
-                break;
-              }
-            }
-          }
-          if (isDone !== undefined) return !isDone;
-        }
-      } catch {}
-    }
-    const st = (a.displayStatus || a.status || '').toUpperCase().trim();
-    const isDone = Boolean(a.isDone || a.isSubmitted || st === 'DONE' || st === 'SUBMITTED' || st === 'COMPLETED');
-    return !isDone;
-  }).length;
+  const pendingAssignmentsCount = assignments.filter((a) => !isAssignmentDone(a, student?.regNo)).length;
   const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
   if (showLanding || !isAuthenticated || !student) {
@@ -1113,7 +1089,7 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeView === 'fees' && <FeesView fees={fees} />}
+        {activeView === 'fees' && <FeesView fees={fees} onRefresh={loadAllData} />}
 
         {activeView === 'placements' && (
           <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />

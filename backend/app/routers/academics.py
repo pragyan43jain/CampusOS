@@ -242,21 +242,50 @@ def get_exams(
 def get_receipts(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    return load_store(reg).get("receipts") or []
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
+    store = load_store(reg)
+    receipts = store.get("receipts") or store.get("fees") or []
+    if not receipts and reg:
+        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
+        if os.path.exists(seed_path):
+            try:
+                with open(seed_path, "r", encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    receipts = sdata.get("receipts") or sdata.get("fees") or []
+            except Exception:
+                pass
+    return receipts
 
 
 @router.get("/dues")
 def get_dues(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
     return load_store(reg).get("dues") or {"hasDues": False, "totalDue": 0.0, "items": []}
 
 
@@ -757,7 +786,46 @@ def get_assignments(
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
-    return load_store(reg).get("assignments") or []
+    store = load_store(reg)
+    raw_assignments = store.get("assignments") or []
+    manual_status = store.get("manualAssignmentStatus") or {}
+    enriched = []
+    for a in raw_assignments:
+        a_copy = dict(a)
+        a_id = str(a_copy.get("id") or "")
+        a_title = str(a_copy.get("title") or "")
+        is_manually_done = manual_status.get(a_id)
+        if is_manually_done is None and a_title:
+            is_manually_done = manual_status.get(a_title)
+
+        if is_manually_done is not None:
+            is_done = bool(is_manually_done)
+        else:
+            sub_st = str(a_copy.get("teamsSubmissionState") or a_copy.get("submissionStatus") or "").lower().strip()
+            raw_st = str(a_copy.get("status") or a_copy.get("applicationStatus") or "").lower().strip()
+            sub_at = a_copy.get("submittedAt")
+            is_done = bool(
+                a_copy.get("isDone") is True
+                or a_copy.get("isSubmitted") is True
+                or (sub_at and str(sub_at).strip())
+                or sub_st in ("submitted", "turnedin", "turned in", "turned_in", "returned", "released", "completed", "done", "graded")
+                or raw_st in ("submitted", "turnedin", "turned in", "turned_in", "returned", "released", "completed", "done", "graded")
+                or ("turn" in sub_st and "not" not in sub_st and "unturn" not in sub_st)
+                or ("turn" in raw_st and "not" not in raw_st and "unturn" not in raw_st)
+            )
+
+        if is_done:
+            a_copy["isDone"] = True
+            a_copy["isSubmitted"] = True
+            if a_copy.get("status") in ("Pending", "PENDING", None):
+                a_copy["status"] = "Submitted"
+            if a_copy.get("applicationStatus") in ("PENDING", None):
+                a_copy["applicationStatus"] = "DONE"
+            if a_copy.get("displayStatus") in ("PENDING", None):
+                a_copy["displayStatus"] = "DONE"
+        enriched.append(a_copy)
+
+    return enriched
 
 
 @router.post("/assignments/{assignment_id}/status")
@@ -789,7 +857,10 @@ def update_assignment_status(
     assignments = list(store.get("assignments") or [])
     manual_status = dict(store.get("manualAssignmentStatus") or {})
 
-    is_done = payload.status.upper() in ("SUBMITTED", "DONE", "COMPLETED")
+    is_done = (
+        payload.status.upper() in ("SUBMITTED", "DONE", "COMPLETED", "TURNED IN", "TURNEDIN", "TURNED_IN")
+        or ("TURN" in payload.status.upper() and "NOT" not in payload.status.upper())
+    )
     
     # 1. Update manual override registry
     manual_status[assignment_id] = is_done
@@ -858,11 +929,31 @@ def update_assignment_status(
 def get_fees(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    return load_store(reg).get("fees") or []
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
+    store = load_store(reg)
+    fees = store.get("fees") or store.get("receipts") or []
+    if not fees and reg:
+        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
+        if os.path.exists(seed_path):
+            try:
+                with open(seed_path, "r", encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    fees = sdata.get("fees") or sdata.get("receipts") or []
+            except Exception:
+                pass
+    return fees
 
 
 @router.get("/placements")

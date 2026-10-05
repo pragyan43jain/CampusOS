@@ -79,6 +79,32 @@ def are_duplicate_assignments(a1: Dict[str, Any], a2: Dict[str, Any]) -> bool:
     return False
 
 
+def is_assignment_record_done(item: Optional[Dict[str, Any]]) -> bool:
+    """
+    Checks if an assignment item has been turned in / submitted / completed.
+    Handles all variations of Teams ("turned in", "submitted", "returned", "released")
+    and LMS submission flags.
+    """
+    if not item or not isinstance(item, dict):
+        return False
+    if item.get("isDone") is True or item.get("isSubmitted") is True:
+        return True
+    if item.get("submittedAt") and str(item.get("submittedAt")).strip():
+        return True
+
+    for field in ("status", "applicationStatus", "displayStatus", "teamsSubmissionState", "submissionStatus", "state"):
+        val = str(item.get(field) or "").strip().lower()
+        if not val:
+            continue
+        if val in ("done", "submitted", "completed", "returned", "released", "graded", "turnedin", "turned in", "turned_in", "turned-in"):
+            return True
+        if "turn" in val and "not" not in val and "unturn" not in val:
+            return True
+        if "submit" in val and "not" not in val and "unsubmit" not in val and "resubmit" not in val and "pending" not in val:
+            return True
+    return False
+
+
 def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) -> Dict[str, Any]:
     """
     Combines duplicate assignment records into a single unified record.
@@ -89,13 +115,8 @@ def merge_assignment_pair(teams_item: Dict[str, Any], lms_item: Dict[str, Any]) 
     title2 = lms_item.get("title") or ""
     title = title1 if len(title1) >= len(title2) else title2
 
-    # Status priority: If either is DONE / Submitted, final is DONE / Submitted
-    is_done = bool(
-        teams_item.get("isDone")
-        or lms_item.get("isDone")
-        or (teams_item.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
-        or (lms_item.get("status") or "").upper() in ("DONE", "SUBMITTED", "COMPLETED")
-    )
+    # Status priority: If either is DONE / Turned In / Submitted, final is DONE
+    is_done = is_assignment_record_done(teams_item) or is_assignment_record_done(lms_item)
     is_unavail = (
         teams_item.get("status") == "STATUS_UNAVAILABLE" and lms_item.get("status") == "STATUS_UNAVAILABLE"
     )
@@ -170,7 +191,12 @@ def compute_relative_deadline(
         now = now.astimezone(IST)
 
     st_upper = (current_status or "").upper().strip()
-    is_already_done = is_done or st_upper in ("DONE", "SUBMITTED", "COMPLETED")
+    is_already_done = (
+        is_done
+        or st_upper in ("DONE", "SUBMITTED", "COMPLETED", "TURNED IN", "TURNEDIN", "TURNED_IN", "TURNED-IN", "RETURNED", "RELEASED", "GRADED")
+        or ("TURN" in st_upper and "NOT" not in st_upper and "UNTURN" not in st_upper)
+        or ("SUBMIT" in st_upper and "NOT" not in st_upper and "UNSUBMIT" not in st_upper and "RESUBMIT" not in st_upper and "PENDING" not in st_upper)
+    )
     is_unavailable = st_upper in ("STATUS_UNAVAILABLE", "UNAVAILABLE")
 
     if not due_date_str or due_date_str == "TBA":
@@ -717,7 +743,11 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             a["isSubmitted"] = is_done
         else:
             raw_st = a.get("applicationStatus") or a.get("status") or "PENDING"
-            is_done = bool(a.get("isDone") or a.get("isSubmitted") or raw_st.upper() in ("DONE", "SUBMITTED", "COMPLETED"))
+            is_done = is_assignment_record_done(a) or (
+                raw_st.upper() in ("DONE", "SUBMITTED", "COMPLETED", "TURNED IN", "TURNEDIN", "TURNED_IN", "TURNED-IN", "RETURNED", "RELEASED", "GRADED")
+                or ("TURN" in raw_st.upper() and "NOT" not in raw_st.upper() and "UNTURN" not in raw_st.upper())
+                or ("SUBMIT" in raw_st.upper() and "NOT" not in raw_st.upper() and "UNSUBMIT" not in raw_st.upper() and "PENDING" not in raw_st.upper())
+            )
 
         meta = compute_relative_deadline(due_d, due_t, raw_st, now_utc, is_done=is_done)
 
@@ -731,6 +761,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
             "displayStatus": "DONE" if is_done else meta["finalStatus"],
             "status": "DONE" if is_done else meta["finalStatus"],
             "isDone": is_done or meta["finalStatus"] == "DONE",
+            "isSubmitted": is_done or meta["finalStatus"] == "DONE",
         }
         enriched_assignments.append(enriched)
 
@@ -1127,7 +1158,10 @@ def update_assignment_status_endpoint(
     assignments = list(store.get("assignments") or [])
     manual_status = dict(store.get("manualAssignmentStatus") or {})
     new_status = payload.status
-    is_done = new_status.upper() in ("SUBMITTED", "DONE", "COMPLETED")
+    is_done = (
+        new_status.upper() in ("SUBMITTED", "DONE", "COMPLETED", "TURNED IN", "TURNEDIN", "TURNED_IN")
+        or ("TURN" in new_status.upper() and "NOT" not in new_status.upper())
+    )
 
     manual_status[assignment_id] = is_done
     if assignment_id.startswith("unified-"):

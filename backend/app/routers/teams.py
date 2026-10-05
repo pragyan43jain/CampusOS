@@ -131,73 +131,24 @@ def map_teams_submission_status(
             "uiStatus": app_status,
         }
 
-    raw_state = (submission_data.get("status") or "").lower().strip()
+    raw_state = (
+        submission_data.get("status")
+        or submission_data.get("state")
+        or submission_data.get("submissionState")
+        or ""
+    ).lower().strip()
     submission_id = submission_data.get("id")
-    submitted_at = submission_data.get("submittedDateTime")
-    returned_at = submission_data.get("returnedDateTime") or submission_data.get("releasedDateTime")
-    reassigned_at = submission_data.get("reassignedDateTime")
+    submitted_at = submission_data.get("submittedDateTime") or submission_data.get("submittedAt") or submission_data.get("turnInDateTime")
+    returned_at = submission_data.get("returnedDateTime") or submission_data.get("releasedDateTime") or submission_data.get("returnedAt")
+    reassigned_at = submission_data.get("reassignedDateTime") or submission_data.get("reassignedAt")
+    unsubmitted_at = submission_data.get("unsubmittedDateTime") or submission_data.get("unsubmittedAt")
 
-    # Priority 1: Actual submitted / completed / released
-    if raw_state in ("submitted", "turnedin", "completed", "released"):
-        is_late = False
-        if due_datetime_iso and submitted_at:
-            try:
-                due_dt = datetime.fromisoformat(due_datetime_iso.replace("Z", "+00:00"))
-                sub_dt = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
-                is_late = sub_dt > due_dt
-            except Exception:
-                pass
-        return {
-            "teamsSubmissionState": raw_state,
-            "applicationStatus": "DONE",
-            "isDone": True,
-            "isSubmitted": True,
-            "isOverdue": False,
-            "isLate": is_late,
-            "submittedAt": submitted_at,
-            "returnedAt": returned_at,
-            "submissionId": submission_id,
-            "statusSource": "teams_graph_submission",
-            "statusVerifiedAt": now.isoformat(),
-            "uiStatus": "DONE",
-        }
-
-    # Section 9: Returned -> DONE unless source explicitly indicates resubmission is required
-    if raw_state == "returned":
-        is_resubmission_required = bool(reassigned_at)
-        if is_resubmission_required:
-            return {
-                "teamsSubmissionState": "resubmissionRequired",
-                "applicationStatus": "PENDING",
-                "isDone": False,
-                "isSubmitted": False,
-                "isOverdue": False,
-                "isLate": False,
-                "submittedAt": submitted_at,
-                "returnedAt": returned_at,
-                "submissionId": submission_id,
-                "statusSource": "teams_graph_submission",
-                "statusVerifiedAt": now.isoformat(),
-                "uiStatus": "PENDING",
-            }
-        else:
-            return {
-                "teamsSubmissionState": "returned",
-                "applicationStatus": "DONE",
-                "isDone": True,
-                "isSubmitted": True,
-                "isOverdue": False,
-                "isLate": False,
-                "submittedAt": submitted_at,
-                "returnedAt": returned_at,
-                "submissionId": submission_id,
-                "statusSource": "teams_graph_submission",
-                "statusVerifiedAt": now.isoformat(),
-                "uiStatus": "DONE",
-            }
-
-    # Priority 2: Explicit resubmission requirement
-    if raw_state in ("reassigned", "resubmissionrequired"):
+    # Priority 2: Explicit resubmission requirement (takes precedence)
+    is_resubmission_required = (
+        raw_state in ("reassigned", "resubmissionrequired")
+        or bool(reassigned_at)
+    )
+    if is_resubmission_required:
         return {
             "teamsSubmissionState": "resubmissionRequired",
             "applicationStatus": "PENDING",
@@ -211,6 +162,49 @@ def map_teams_submission_status(
             "statusSource": "teams_graph_submission",
             "statusVerifiedAt": now.isoformat(),
             "uiStatus": "PENDING",
+        }
+
+    # Priority 1: Actual turned in / submitted / completed / released / returned
+    is_turned_in = (
+        raw_state in (
+            "submitted",
+            "turnedin",
+            "turned_in",
+            "turned in",
+            "turned-in",
+            "completed",
+            "released",
+            "returned",
+            "done",
+            "graded",
+        )
+        or ("turn" in raw_state and "not" not in raw_state and "unturn" not in raw_state)
+        or ("submit" in raw_state and "not" not in raw_state and "unsubmit" not in raw_state)
+        or bool(submitted_at and (not unsubmitted_at or unsubmitted_at < submitted_at))
+    )
+
+    if is_turned_in:
+        is_late = False
+        if due_datetime_iso and submitted_at:
+            try:
+                due_dt = datetime.fromisoformat(due_datetime_iso.replace("Z", "+00:00"))
+                sub_dt = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
+                is_late = sub_dt > due_dt
+            except Exception:
+                pass
+        return {
+            "teamsSubmissionState": raw_state or "submitted",
+            "applicationStatus": "DONE",
+            "isDone": True,
+            "isSubmitted": True,
+            "isOverdue": False,
+            "isLate": is_late,
+            "submittedAt": submitted_at or (returned_at if "return" in raw_state else None),
+            "returnedAt": returned_at,
+            "submissionId": submission_id,
+            "statusSource": "teams_graph_submission",
+            "statusVerifiedAt": now.isoformat(),
+            "uiStatus": "DONE",
         }
 
     # Priority 3 & 4: Working / not submitted
@@ -268,46 +262,59 @@ def fetch_student_teams_submission(
     Returns: (submission_record, api_failed)
     """
     s = session or requests
-    url = f"https://assignments.onenote.com/api/v1.0/edu/classes/{class_id}/assignments/{assignment_id}/submissions"
-    for attempt in range(max_retries + 1):
-        try:
-            r = s.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-            if r.status_code == 200:
-                data = r.json()
-                items = data.get("value", [])
-                if not items:
-                    return None, False
+    urls = [
+        f"https://assignments.onenote.com/api/v1.0/edu/classes/{class_id}/assignments/{assignment_id}/submissions",
+        f"https://graph.microsoft.com/v1.0/education/classes/{class_id}/assignments/{assignment_id}/submissions",
+    ]
 
-                if authenticated_user_id:
-                    for item in items:
-                        recip = item.get("recipient") or {}
-                        recip_id = recip.get("userId")
-                        sub_by = (item.get("submittedBy") or {}).get("user") or {}
-                        sub_id = sub_by.get("id")
-                        if recip_id == authenticated_user_id or sub_id == authenticated_user_id:
-                            return item, False
+    for attempt in range(max_retries + 1):
+        for url in urls:
+            try:
+                r = s.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+                if r.status_code == 200:
+                    data = r.json()
+                    items = data.get("value", [])
+                    if not items:
+                        return None, False
+
+                    if authenticated_user_id:
+                        target_uid = str(authenticated_user_id).lower().strip()
+                        for item in items:
+                            recip = item.get("recipient") or {}
+                            recip_id = str(recip.get("userId") or (recip.get("user") or {}).get("id") or item.get("userId") or "").lower().strip()
+                            sub_by = (item.get("submittedBy") or {}).get("user") or {}
+                            sub_id = str(sub_by.get("id") or (item.get("submittedBy") or {}).get("userId") or "").lower().strip()
+                            if (recip_id and recip_id == target_uid) or (sub_id and sub_id == target_uid):
+                                return item, False
+
                     if len(items) == 1:
                         return items[0], False
-                    return None, False
-                else:
-                    return items[0], False
 
-            elif r.status_code == 404:
-                return None, False
-            elif r.status_code in (401, 403):
-                logger.warning("Teams submission auth issue (%s) for class %s / assignment %s", r.status_code, class_id, assignment_id)
-                return None, True
-            else:
-                if attempt < max_retries:
-                    time.sleep(0.2 * (attempt + 1))
+                    # If multiple items and UID didn't strictly match, prioritize any turned-in / submitted record
+                    for item in items:
+                        item_st = str(item.get("status") or item.get("state") or "").lower().strip()
+                        if (
+                            item_st in ("submitted", "turnedin", "turned in", "turned_in", "returned", "released")
+                            or item.get("submittedDateTime")
+                            or ("turn" in item_st and "not" not in item_st)
+                        ):
+                            return item, False
+
+                    if items:
+                        return items[0], False
+                    return None, False
+
+                elif r.status_code == 404:
                     continue
-                return None, True
-        except Exception as exc:
-            logger.warning("Teams submission fetch attempt %d failed: %s", attempt + 1, exc)
-            if attempt < max_retries:
-                time.sleep(0.2 * (attempt + 1))
+                elif r.status_code in (401, 403):
+                    continue
+                else:
+                    if attempt < max_retries:
+                        time.sleep(0.15 * (attempt + 1))
+                        continue
+            except Exception as exc:
+                logger.debug("Teams submission fetch error on %s: %s", url, exc)
                 continue
-            return None, True
 
     return None, True
 
@@ -1242,8 +1249,31 @@ def fetch_microsoft_teams_coursework(
                 due_dt = item.get("dueDateTime") or ""
                 due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
                 due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
-                status_raw = (item.get("status") or "").lower()
-                is_sub = status_raw in ("submitted", "turnedin", "completed")
+                status_raw = str(item.get("status") or item.get("state") or "").lower().strip()
+                is_sub = (
+                    status_raw in ("submitted", "turnedin", "turned in", "turned_in", "completed", "returned", "released", "done", "graded")
+                    or ("turn" in status_raw and "not" not in status_raw and "unturn" not in status_raw)
+                    or ("submit" in status_raw and "not" not in status_raw and "unsubmit" not in status_raw)
+                )
+
+                sub_meta = None
+                if not is_sub and class_id and item.get("id"):
+                    sub_rec, _ = fetch_student_teams_submission(
+                        class_id,
+                        item.get("id"),
+                        headers=headers,
+                        authenticated_user_id=authenticated_user_id,
+                        session=s,
+                    )
+                    if sub_rec:
+                        sub_meta = map_teams_submission_status(sub_rec, due_datetime_iso=due_dt)
+                        is_sub = sub_meta["isDone"]
+
+                if not sub_meta:
+                    sub_meta = map_teams_submission_status(
+                        {"status": "submitted" if is_sub else status_raw} if (is_sub or status_raw) else None,
+                        due_datetime_iso=due_dt,
+                    )
 
                 instr_obj = item.get("instructions")
                 clean_instr = clean_html_instructions(instr_obj.get("content") if isinstance(instr_obj, dict) else "")
@@ -1263,8 +1293,18 @@ def fetch_microsoft_teams_coursework(
                     "webUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
                     "dueDate": due_date_str,
                     "dueTime": due_time_str,
-                    "status": "Submitted" if is_sub else "Pending",
-                    "priority": "Critical" if not is_sub else "Medium",
+                    "status": "Submitted" if is_sub else sub_meta["applicationStatus"],
+                    "applicationStatus": "DONE" if is_sub else sub_meta["applicationStatus"],
+                    "displayStatus": "DONE" if is_sub else sub_meta["applicationStatus"],
+                    "teamsSubmissionState": sub_meta["teamsSubmissionState"],
+                    "submissionStatus": sub_meta["teamsSubmissionState"],
+                    "submittedAt": sub_meta["submittedAt"],
+                    "returnedAt": sub_meta["returnedAt"],
+                    "submissionId": sub_meta["submissionId"],
+                    "isDone": is_sub,
+                    "isSubmitted": is_sub,
+                    "isLate": sub_meta["isLate"],
+                    "priority": "Critical" if (sub_meta["isOverdue"] and not is_sub) else "Medium",
                     "weightage": 10,
                     "instructions": clean_instr,
                 })

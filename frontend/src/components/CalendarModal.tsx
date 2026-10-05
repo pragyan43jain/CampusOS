@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { CalendarView } from './CalendarView';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface CalendarModalProps {
   isOpen: boolean;
@@ -21,10 +22,10 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
   calendarType = "ALL",
   handleCalendarFetch,
 }) => {
+  useLockBodyScroll(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -32,7 +33,6 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -41,7 +41,7 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
 
   return (
     <div
-      className="modal-backdrop"
+      className="modal-backdrop overscroll-contain"
       style={{
         position: 'fixed',
         inset: 0,
@@ -52,11 +52,14 @@ export const CalendarModal: React.FC<CalendarModalProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
+        overscrollBehavior: 'contain',
       }}
       onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="card"
+        className="card overscroll-contain"
+        onWheel={(e) => e.stopPropagation()}
         style={{
           width: '100%',
           maxWidth: '1100px',

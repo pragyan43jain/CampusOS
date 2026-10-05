@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { CampusAnalytics } from '../services/analytics';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface AdminAnalyticsModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const AdminAnalyticsModal: React.FC<AdminAnalyticsModalProps> = ({
   onClose,
   studentRegNo,
 }) => {
+  useLockBodyScroll(isOpen);
   const [adminKey, setAdminKey] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return window.sessionStorage.getItem('campusos_admin_key') || '';
@@ -74,9 +76,13 @@ export const AdminAnalyticsModal: React.FC<AdminAnalyticsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in overscroll-contain"
+      onWheel={(e) => e.stopPropagation()}
+    >
       <div
-        className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden"
+        className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden overscroll-contain"
+        onWheel={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-card, #121826)',
           borderColor: 'var(--border-subtle, rgba(255,255,255,0.1))',

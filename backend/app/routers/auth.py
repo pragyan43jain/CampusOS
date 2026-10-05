@@ -16,7 +16,9 @@ the pipeline would take the whole dashboard down rather than show a stale doc.
 a real payload against them.
 """
 
+import json
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -719,21 +721,50 @@ def get_vtop_faculty(
 def get_vtop_receipts(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    return load_store(reg).get("receipts") or []
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
+    store = load_store(reg)
+    receipts = store.get("receipts") or store.get("fees") or []
+    if not receipts and reg:
+        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
+        if os.path.exists(seed_path):
+            try:
+                with open(seed_path, "r", encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    receipts = sdata.get("receipts") or sdata.get("fees") or []
+            except Exception:
+                pass
+    return receipts
 
 
 @router.get("/dues")
 def get_vtop_dues(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
     return load_store(reg).get("dues") or {"hasDues": False, "totalDue": 0.0, "items": []}
 
 
@@ -741,11 +772,31 @@ def get_vtop_dues(
 def get_vtop_fees(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
-    return load_store(reg).get("fees") or []
+    reg = resolve_student_reg(
+        x_session_id=x_session_id,
+        x_reg_no=x_reg_no,
+        session_id=sessionId,
+        reg_no=regNo,
+        x_auth_user=x_auth_user,
+        authorization=authorization,
+    )
+    store = load_store(reg)
+    fees = store.get("fees") or store.get("receipts") or []
+    if not fees and reg:
+        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
+        if os.path.exists(seed_path):
+            try:
+                with open(seed_path, "r", encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    fees = sdata.get("fees") or sdata.get("receipts") or []
+            except Exception:
+                pass
+    return fees
 
 
 @router.get("/spotlight")

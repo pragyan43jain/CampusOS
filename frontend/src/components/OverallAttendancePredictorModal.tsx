@@ -3,6 +3,7 @@ import { X, ChevronLeft, ChevronRight, RotateCcw, Calendar, Info } from 'lucide-
 import { Attendance, Exam } from '../types';
 import { analyzeAllCalendars } from '../services/calendarService';
 import { DEFAULT_EXAMS } from '../services/defaultData';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface OverallAttendancePredictorModalProps {
   isOpen: boolean;
@@ -221,16 +222,14 @@ export const OverallAttendancePredictorModal: React.FC<OverallAttendancePredicto
   dayCardsMap = {},
   exams = [],
 }) => {
+  useLockBodyScroll(isOpen);
   const [dateStates, setDateStates] = useState<Record<number, number>>({});
   const [mode, setMode] = useState<'CAT1' | 'CAT2' | 'LID'>('LID');
   const [monthIdx, setMonthIdx] = useState<number>(0);
 
-  // Lock body scroll and handle Escape key
+  // Handle Escape key
   useEffect(() => {
     if (!isOpen) return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -238,7 +237,6 @@ export const OverallAttendancePredictorModal: React.FC<OverallAttendancePredicto
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -529,8 +527,9 @@ export const OverallAttendancePredictorModal: React.FC<OverallAttendancePredicto
 
   return (
     <div
-      className="modal-backdrop"
+      className="modal-backdrop overscroll-contain"
       onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
         inset: 0,
@@ -545,8 +544,9 @@ export const OverallAttendancePredictorModal: React.FC<OverallAttendancePredicto
       }}
     >
       <div
-        className="modal-content-glass"
+        className="modal-content-glass overscroll-contain"
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
         style={{
           maxWidth: '920px',
           width: '100%',

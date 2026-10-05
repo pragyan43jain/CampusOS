@@ -370,6 +370,7 @@ export interface FeeItem {
   dueDate?: string;
   receiptNumber?: string;
   paymentDate?: string;
+  date?: string;
 }
 
 export interface PlacementDrive {

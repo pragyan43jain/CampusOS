@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 import { FeatureAvailabilityMap } from '../types';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface FeatureAvailabilityModalProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export const FeatureAvailabilityModal: React.FC<FeatureAvailabilityModalProps> =
   onClose,
   onNavigateTo,
 }) => {
+  useLockBodyScroll(isOpen);
   const [features, setFeatures] = useState<FeatureAvailabilityMap>({});
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -127,13 +129,16 @@ export const FeatureAvailabilityModal: React.FC<FeatureAvailabilityModalProps> =
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
+        overscrollBehavior: 'contain',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onWheel={(e) => e.stopPropagation()}
     >
       <div
         className="card"
+        onWheel={(e) => e.stopPropagation()}
         style={{
           width: '100%',
           maxWidth: '820px',
@@ -145,6 +150,7 @@ export const FeatureAvailabilityModal: React.FC<FeatureAvailabilityModalProps> =
           borderRadius: '16px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
           overflow: 'hidden',
+          overscrollBehavior: 'contain',
           padding: 0,
         }}
       >

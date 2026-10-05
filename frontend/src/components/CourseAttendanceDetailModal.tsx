@@ -9,6 +9,7 @@ import {
   Calendar as CalendarIcon,
 } from 'lucide-react';
 import { Attendance, MonthCalendar } from '../types';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface CourseAttendanceDetailModalProps {
   isOpen: boolean;
@@ -223,6 +224,8 @@ export const CourseAttendanceDetailModalContent: React.FC<CourseAttendanceDetail
   calendars = [],
   targetAttendance = 75,
 }) => {
+  useLockBodyScroll(isOpen);
+
   // Stepper deltas for hypothetical simulation
   const [simAttendedDelta, setSimAttendedDelta] = useState<number>(0);
   const [simMissedDelta, setSimMissedDelta] = useState<number>(0);
@@ -231,8 +234,6 @@ export const CourseAttendanceDetailModalContent: React.FC<CourseAttendanceDetail
 
   useEffect(() => {
     if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     setSimAttendedDelta(0);
     setSimMissedDelta(0);
@@ -245,7 +246,6 @@ export const CourseAttendanceDetailModalContent: React.FC<CourseAttendanceDetail
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, course, onClose]);
@@ -381,8 +381,9 @@ export const CourseAttendanceDetailModalContent: React.FC<CourseAttendanceDetail
 
   return (
     <div
-      className="modal-backdrop"
+      className="modal-backdrop overscroll-contain"
       onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
         inset: 0,
@@ -393,11 +394,13 @@ export const CourseAttendanceDetailModalContent: React.FC<CourseAttendanceDetail
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
+        overscrollBehavior: 'contain',
       }}
     >
       <div
-        className="modal-content-glass"
+        className="modal-content-glass overscroll-contain"
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
         style={{
           maxWidth: '680px',
           width: '100%',
@@ -408,6 +411,7 @@ export const CourseAttendanceDetailModalContent: React.FC<CourseAttendanceDetail
           background: 'var(--bg-secondary, #121826)',
           border: '1px solid var(--border-card, rgba(255,255,255,0.12))',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+          overscrollBehavior: 'contain',
         }}
       >
         {/* Header Bar */}

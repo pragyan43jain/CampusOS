@@ -11,6 +11,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface VtopLoginModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   onLoginSuccess,
   noticeMessage,
 }) => {
+  useLockBodyScroll(isOpen);
   const [username, setUsername] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('campus_vtop_username') || '';
@@ -193,8 +195,8 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+    <div className="modal-backdrop" onClick={onClose} onWheel={(e) => e.stopPropagation()}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

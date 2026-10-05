@@ -1921,6 +1921,13 @@ a {
    MODAL SYSTEM
    ========================================================================== */
 
+/* Prevent background scrolling when any modal or popover is open */
+body.modal-open,
+html.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1931,6 +1938,9 @@ a {
   align-items: center;
   justify-content: center;
   padding: var(--space-xl);
+  overflow-y: auto;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y;
 }
 
 .modal-content-glass {
@@ -1943,6 +1953,7 @@ a {
   max-height: calc(100vh - 48px);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain !important;
   box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;

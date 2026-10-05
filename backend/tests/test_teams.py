@@ -556,6 +556,22 @@ class TestTeamsSubmissionStatus:
         assert result["applicationStatus"] == "STATUS_UNAVAILABLE"
         assert result["isDone"] is False
 
+    def test_turned_in_variations_are_done(self):
+        for st in ("turned in", "Turned In", "turnedin", "turned_in", "turned-in", "Turned in late"):
+            sub = {"status": st, "id": f"sub-{st}"}
+            result = map_teams_submission_status(sub, "2026-08-30T18:29:00Z")
+            assert result["applicationStatus"] == "DONE"
+            assert result["isDone"] is True
+            assert result["isSubmitted"] is True
+            assert result["isOverdue"] is False
+
+    def test_submitted_datetime_without_status_is_done(self):
+        sub = {"submittedDateTime": "2026-09-20T10:00:00Z", "id": "sub-dt"}
+        result = map_teams_submission_status(sub, "2026-08-30T18:29:00Z")
+        assert result["applicationStatus"] == "DONE"
+        assert result["isDone"] is True
+        assert result["isSubmitted"] is True
+
     def test_submission_belongs_to_authenticated_student(self):
         student_id = "user-pragyan-1100"
         submissions_resp = {

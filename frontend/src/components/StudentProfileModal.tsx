@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { CampusAPI } from '../services/api';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface StudentProfileModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   student,
   onCredentialsUpdated,
 }) => {
+  useLockBodyScroll(isOpen);
   const [isEditing, setIsEditing] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -133,12 +135,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     .slice(0, 2)
     .toUpperCase() || 'ST';
 
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=VIT-STUDENT-${encodeURIComponent(regNo)}`;
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200 overscroll-contain"
       onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -146,7 +147,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         exit={{ opacity: 0, scale: 0.96, y: 15 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-2xl border border-neutral-800 bg-[#0d0d0d] p-6 text-neutral-100 shadow-2xl overflow-hidden my-8"
+        onWheel={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg rounded-2xl border border-neutral-800 bg-[#0d0d0d] p-6 text-neutral-100 shadow-2xl overflow-hidden my-8 overscroll-contain"
       >
         {/* Top Close Button */}
         <button
@@ -158,7 +160,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           <X size={18} />
         </button>
 
-        {/* Card Header (Avatar + Academic Context + QR Code) */}
+        {/* Card Header (Avatar + Academic Context) */}
         <div className="flex items-start justify-between gap-4 pr-6">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="relative h-14 w-14 shrink-0 rounded-full border-2 border-neutral-700 bg-neutral-900 flex items-center justify-center text-lg font-bold text-white shadow-inner ring-2 ring-emerald-500/20">
@@ -179,15 +181,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 {student?.program || 'B.Tech - Computer Science & Engineering'}
               </p>
             </div>
-          </div>
-
-          {/* Student Profile QR Code */}
-          <div className="shrink-0 rounded-xl p-1 bg-white/5 border border-neutral-800 shadow-sm" title={`Scan to verify student ${regNo}`}>
-            <img
-              src={qrCodeUrl}
-              alt={`QR Code for ${regNo}`}
-              className="h-14 w-14 rounded-lg object-contain bg-white p-1"
-            />
           </div>
         </div>
 

@@ -38,6 +38,7 @@ import {
   ODResponse,
 } from '../types';
 import { MetricCard } from '../components/MetricCard';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { WeekSelector } from '../components/WeekSelector';
 import { TimetableSlotCard } from '../components/TimetableSlotCard';
 import { getStudyMaterialUrl } from '../services/studyMaterialService';
@@ -110,6 +111,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const [_loadingGrades, setLoadingGrades] = useState(false);
   const [activeGradeSem, setActiveGradeSem] = useState<string>('');
   const [openCourseModal, setOpenCourseModal] = useState<SemesterGradeItem | null>(null);
+  useLockBodyScroll(Boolean(openCourseModal));
   const [predictedGrades, setPredictedGrades] = useState<Record<string, string>>({});
   const [extraSemesters, setExtraSemesters] = useState<Array<{ id: number; name: string; credits: number; gpa: number }>>([]);
 
@@ -2080,7 +2082,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                 {/* MODAL: COURSE CUTOFF BOUNDARIES & COMPONENT MARKS BREAKDOWN */}
                 {openCourseModal && (
                   <div
-                    className="modal-backdrop"
+                    className="modal-backdrop overscroll-contain"
                     style={{
                       position: 'fixed',
                       inset: 0,
@@ -2091,11 +2093,14 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       padding: '16px',
+                      overscrollBehavior: 'contain',
                     }}
                     onClick={() => setOpenCourseModal(null)}
+                    onWheel={(e) => e.stopPropagation()}
                   >
                     <div
-                      className="card"
+                      className="card overscroll-contain"
+                      onWheel={(e) => e.stopPropagation()}
                       style={{
                         width: '100%',
                         maxWidth: '720px',
@@ -2107,6 +2112,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                         border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
                         borderRadius: '16px',
                         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+                        overscrollBehavior: 'contain',
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >

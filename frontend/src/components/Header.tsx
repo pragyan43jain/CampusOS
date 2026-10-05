@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { ThemeSwitcher, THEMES, ThemeType, ThemeOption } from './ThemeSwitcher';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 export { THEMES, ThemeSwitcher };
 export type { ThemeType, ThemeOption };
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
 }) => {
   const [showAppModal, setShowAppModal] = useState<boolean>(false);
+  useLockBodyScroll(showAppModal);
 
   const formatTitleCase = (val: string): string => {
     if (!val) return '';
@@ -174,8 +176,8 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* App Coming Soon Modal */}
       {showAppModal && (
-        <div className="modal-backdrop" onClick={() => setShowAppModal(false)}>
-          <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+        <div className="modal-backdrop overscroll-contain" onClick={() => setShowAppModal(false)} onWheel={(e) => e.stopPropagation()}>
+          <div className="modal-content-glass overscroll-contain" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="modal-header-row">
               <div className="brand-icon-box" style={{ width: '38px', height: '38px' }}>
                 <Smartphone size={18} />

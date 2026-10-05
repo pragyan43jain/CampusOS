@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface TeamsLoginModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   isConnected = false,
   onDisconnect,
 }) => {
+  useLockBodyScroll(isOpen);
   const [email, setEmail] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('campus_teams_saved_email');
@@ -119,8 +121,8 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(480px, 94vw)', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div className="modal-backdrop" onClick={onClose} onWheel={(e) => e.stopPropagation()}>
+      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} style={{ maxWidth: 'min(480px, 94vw)', width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
         {/* Modal Header */}
         <div className="modal-header-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

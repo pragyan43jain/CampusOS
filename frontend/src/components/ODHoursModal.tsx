@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Clock, CheckCircle2, FileText, Calendar } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 import { ODResponse, Attendance } from '../types';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface ODHoursModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface ODHoursModalProps {
 }
 
 export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) => {
+  useLockBodyScroll(isOpen);
   const [odData, setOdData] = useState<ODResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,8 +33,6 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
 
   useEffect(() => {
     if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -40,7 +40,6 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -53,7 +52,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
 
   return (
     <div
-      className="modal-backdrop"
+      className="modal-backdrop overscroll-contain"
       style={{
         position: 'fixed',
         inset: 0,
@@ -64,11 +63,14 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
+        overscrollBehavior: 'contain',
       }}
       onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
     >
       <div
-        className="card"
+        className="card overscroll-contain"
+        onWheel={(e) => e.stopPropagation()}
         style={{
           width: '100%',
           maxWidth: '560px',
