@@ -1,19 +1,51 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Spotlight } from "@/components/ui/spotlight"
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "card card-hover rounded-2xl border border-[var(--border-card)] bg-[var(--surface-primary)] text-card-foreground shadow-sm",
-      className
-    )}
-    {...props}
-  />
-))
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  spotlight?: boolean;
+  spotlightColor?: string;
+  spotlightSize?: number;
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  (
+    {
+      className,
+      spotlight = true,
+      spotlightColor = "var(--foreground, #ffffff)",
+      spotlightSize = 320,
+      ...props
+    },
+    ref
+  ) => {
+    if (spotlight) {
+      return (
+        <Spotlight asChild color={spotlightColor} size={spotlightSize}>
+          <div
+            ref={ref}
+            className={cn(
+              "card card-hover rounded-2xl border border-[var(--border-card)] bg-[var(--surface-primary)] text-card-foreground shadow-sm",
+              className
+            )}
+            {...props}
+          />
+        </Spotlight>
+      );
+    }
+
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "card card-hover rounded-2xl border border-[var(--border-card)] bg-[var(--surface-primary)] text-card-foreground shadow-sm",
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+)
 Card.displayName = "Card"
 
 const CardHeader = React.forwardRef<
@@ -75,4 +107,4 @@ const CardFooter = React.forwardRef<
 ))
 CardFooter.displayName = "CardFooter"
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent, type CardProps }

@@ -26,12 +26,30 @@ export function CrmDashboardDemo() {
   );
 }
 
+export function SpotlightDemo() {
+  return (
+    <div className="flex w-full items-center justify-center p-10">
+      <Spotlight
+        asChild
+        className="w-80 rounded-xl border bg-card p-6 text-card-foreground shadow-sm"
+      >
+        <div>
+          <h3 className="text-lg font-semibold">Move your cursor here</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The light follows it, and so does the edge.
+          </p>
+        </div>
+      </Spotlight>
+    </div>
+  );
+}
+
 export function SplineSceneBasic() {
   return (
     <Card className="w-full h-[500px] bg-black/[0.96] relative overflow-hidden">
       <Spotlight
         className="-top-40 left-0 md:left-60 md:-top-20"
-        fill="white"
+        color="white"
       />
       
       <div className="flex h-full">

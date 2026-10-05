@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { ThemeType } from '../components/ThemeSwitcher';
 import HeroAscii from '../components/ui/hero-ascii';
+import { Spotlight } from '../components/ui/spotlight';
 
 interface LandingPageViewProps {
   onOpenLogin?: () => void;
@@ -98,97 +99,105 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </p>
         </div>
 
-        {/* Bento Grid (4 Architectural Blocks) */}
+        {/* Bento Grid (4 Architectural Blocks with Spotlight hover animation) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '24px' }}>
           {/* Card 1: 75% Attendance Defense */}
           <div className="caide-layer-card-wrap">
-            <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-emerald)' }}>
-                  <Percent size={20} />
+            <Spotlight asChild color="#10B981" size={320}>
+              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-emerald)' }}>
+                    <Percent size={20} />
+                  </div>
+                  <span className="status-badge safe">75% Defended</span>
                 </div>
-                <span className="status-badge safe">75% Defended</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
+                  Mathematical Attendance Defense
+                </h3>
+                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+                  Automated projection of safe leaves, recovery quotas, and debarment warnings calculated dynamically from verified VTOP attendance counts.
+                </p>
+                <div style={{ padding: '12px 14px', borderRadius: '6px', background: '#121212', border: '1px solid #282828', fontSize: '0.80rem', fontFamily: 'var(--font-mono, monospace)', color: 'var(--accent-cyan)' }}>
+                  formula: Math.floor((attended - 0.75 * conducted) / 0.75)
+                </div>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                Mathematical Attendance Defense
-              </h3>
-              <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
-                Automated projection of safe leaves, recovery quotas, and debarment warnings calculated dynamically from verified VTOP attendance counts.
-              </p>
-              <div style={{ padding: '12px 14px', borderRadius: '6px', background: '#121212', border: '1px solid #282828', fontSize: '0.80rem', fontFamily: 'var(--font-mono, monospace)', color: 'var(--accent-cyan)' }}>
-                formula: Math.floor((attended - 0.75 * conducted) / 0.75)
-              </div>
-            </div>
+            </Spotlight>
             <div className="caide-layer-back"></div>
           </div>
 
           {/* Card 2: Unified Teams & LMS Coursework */}
           <div className="caide-layer-card-wrap" id="integrations">
-            <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-blue)' }}>
-                  <Layers size={20} />
+            <Spotlight asChild color="#4C8DFF" size={320}>
+              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-blue)' }}>
+                    <Layers size={20} />
+                  </div>
+                  <span className="status-badge info">Multi-Portal</span>
                 </div>
-                <span className="status-badge info">Multi-Portal</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
+                  Unified Multi-Platform Deadlines
+                </h3>
+                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+                  Single-button global synchronization that aggregates Microsoft Teams assignments, Moodle quizzes, and digital submissions.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span className="status-badge neutral">Teams Channels</span>
+                  <span className="status-badge neutral">Moodle Dropboxes</span>
+                  <span className="status-badge neutral">Digital DA1/DA2</span>
+                </div>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                Unified Multi-Platform Deadlines
-              </h3>
-              <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
-                Single-button global synchronization that aggregates Microsoft Teams assignments, Moodle quizzes, and digital submissions.
-              </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="status-badge neutral">Teams Channels</span>
-                <span className="status-badge neutral">Moodle Dropboxes</span>
-                <span className="status-badge neutral">Digital DA1/DA2</span>
-              </div>
-            </div>
+            </Spotlight>
             <div className="caide-layer-back"></div>
           </div>
 
           {/* Card 3: AI Adaptive Study Planner */}
           <div className="caide-layer-card-wrap" id="baby-ai">
-            <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-purple)' }}>
-                  <BrainCircuit size={20} />
+            <Spotlight asChild color="#B575FF" size={320}>
+              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-purple)' }}>
+                    <BrainCircuit size={20} />
+                  </div>
+                  <span className="status-badge ai">BABY AI</span>
                 </div>
-                <span className="status-badge ai">BABY AI</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
+                  Adaptive Recovery &amp; Exam Planner
+                </h3>
+                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+                  AI-generated revision schedules calibrated against your impending CAT 1, CAT 2, and FAT exam dates and internal marks scores.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span className="status-badge safe">High Priority Recovery</span>
+                  <span className="status-badge neutral">Exam Schedule Sync</span>
+                </div>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                Adaptive Recovery &amp; Exam Planner
-              </h3>
-              <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
-                AI-generated revision schedules calibrated against your impending CAT 1, CAT 2, and FAT exam dates and internal marks scores.
-              </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="status-badge safe">High Priority Recovery</span>
-                <span className="status-badge neutral">Exam Schedule Sync</span>
-              </div>
-            </div>
+            </Spotlight>
             <div className="caide-layer-back"></div>
           </div>
 
           {/* Card 4: Placements & DSA Tracker */}
           <div className="caide-layer-card-wrap">
-            <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-orange)' }}>
-                  <Award size={20} />
+            <Spotlight asChild color="#FF7849" size={320}>
+              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-orange)' }}>
+                    <Award size={20} />
+                  </div>
+                  <span className="status-badge warning">Super Dream</span>
                 </div>
-                <span className="status-badge warning">Super Dream</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
+                  Placement Readiness &amp; Coding Radar
+                </h3>
+                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+                  Instant qualification status across Super Dream (≥8.00 CGPA) and Dream company cutoffs combined with active LeetCode tracking.
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span className="status-badge safe">0 Active Arrears</span>
+                  <span className="status-badge info">LeetCode Sync</span>
+                </div>
               </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                Placement Readiness &amp; Coding Radar
-              </h3>
-              <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
-                Instant qualification status across Super Dream (≥8.00 CGPA) and Dream company cutoffs combined with active LeetCode tracking.
-              </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="status-badge safe">0 Active Arrears</span>
-                <span className="status-badge info">LeetCode Sync</span>
-              </div>
-            </div>
+            </Spotlight>
             <div className="caide-layer-back"></div>
           </div>
         </div>

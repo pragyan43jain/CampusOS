@@ -14,6 +14,13 @@
   --font-heading: 'Space Grotesk', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
+  /* Standard shadcn variables */
+  --foreground: #ffffff;
+  --background: #0b0b0b;
+  --card: #141414;
+  --card-foreground: #ffffff;
+  --muted-foreground: #94A3B8;
+
   /* Surfaces & Backgrounds - Classy Jet Black System matching Screenshot_20261001_201016.png */
   --bg-primary: #0b0b0b;
   --bg-secondary: #0e0e0e;
