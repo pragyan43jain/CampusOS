@@ -17,8 +17,6 @@ import {
 } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 import { StudentProfile, HostelInfo, LeaveRecord } from '../types';
-import { DEFAULT_LEAVE_HISTORY, DEFAULT_HOSTEL_INFO } from '../services/defaultHostelData';
-
 interface HostelViewProps {
   student: StudentProfile;
 }
@@ -28,13 +26,13 @@ type HostelTab = 'leave' | 'laundry';
 export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
   const [activeTab, setActiveTab] = useState<HostelTab>('leave');
   const [hostelInfo, setHostelInfo] = useState<HostelInfo>({
-    gender: student.gender || DEFAULT_HOSTEL_INFO.gender || 'Male',
-    isHosteller: student.isHosteller ?? DEFAULT_HOSTEL_INFO.isHosteller ?? true,
-    blockName: student.blockName || DEFAULT_HOSTEL_INFO.blockName || 'D Block',
-    roomNo: student.roomNo || DEFAULT_HOSTEL_INFO.roomNo || '531',
-    messInfo: student.messInfo || DEFAULT_HOSTEL_INFO.messInfo || 'VEG',
+    gender: student.gender || undefined,
+    isHosteller: student.isHosteller !== undefined ? student.isHosteller : Boolean(student.blockName || student.roomNo),
+    blockName: student.blockName || undefined,
+    roomNo: student.roomNo || undefined,
+    messInfo: student.messInfo || undefined,
   });
-  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>(DEFAULT_LEAVE_HISTORY);
+  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Leave filters and search
@@ -70,7 +68,6 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
   // 1. Fetch hostel profile & leave history
   const loadHostelDetails = async () => {
     setLoadingDetails(true);
-    let loadedFromApi = false;
     try {
       const data = await CampusAPI.getHostelDetails();
       if (data) {
@@ -86,35 +83,13 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
             }
           }
         }
-        if (data.leaveHistory && data.leaveHistory.length > 0) {
-          setLeaveHistory(data.leaveHistory);
-          loadedFromApi = true;
-        }
+        setLeaveHistory(data.leaveHistory || []);
       }
     } catch (err) {
       console.warn('[HostelView] Could not load live hostel details from API:', err);
+    } finally {
+      setLoadingDetails(false);
     }
-
-    if (!loadedFromApi) {
-      try {
-        const fbRes = await fetch('/data/hostel.json');
-        if (fbRes.ok) {
-          const fbData = await fbRes.json();
-          if (fbData?.hostelInfo) {
-            setHostelInfo((prev) => ({
-              ...prev,
-              ...fbData.hostelInfo,
-            }));
-          }
-          if (fbData?.leaveHistory && fbData.leaveHistory.length > 0) {
-            setLeaveHistory(fbData.leaveHistory);
-          }
-        }
-      } catch (e) {
-        // Fallback already pre-loaded into state via DEFAULT_LEAVE_HISTORY
-      }
-    }
-    setLoadingDetails(false);
   };
 
   // 2. Fetch laundry schedule
@@ -327,19 +302,19 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Block Allotment</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#38bdf8' }}>{hostelInfo.blockName || 'Block Allotted'}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#38bdf8' }}>{hostelInfo.blockName || (hostelInfo.isHosteller ? 'Block Allotted' : 'Day Scholar')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Room Number</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.roomNo ? `Room ${hostelInfo.roomNo}` : 'Allotted on Arrival'}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.roomNo ? `Room ${hostelInfo.roomNo}` : (hostelInfo.isHosteller ? 'Allotted on Arrival' : 'Day Scholar')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mess Enrolled</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#10b981' }}>{hostelInfo.messInfo || 'Special / Veg'}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#10b981' }}>{hostelInfo.messInfo || (hostelInfo.isHosteller ? 'Special / Veg' : 'Not Enrolled')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gender</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.gender || 'Male'}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.gender || 'Not Specified'}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sanctioned Leaves</span>

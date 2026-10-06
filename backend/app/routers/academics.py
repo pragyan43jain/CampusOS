@@ -341,10 +341,6 @@ def get_hostel_details(
         x_auth_user=x_auth_user,
         authorization=authorization,
     )
-    fallback_hostel_file = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-        "frontend", "public", "data", "hostel.json"
-    )
 
     if not reg:
         return {
@@ -391,13 +387,6 @@ def get_hostel_details(
 
     leave_history = hostel_data.get("leaveHistory") or store.get("leaveHistory") or []
     if not leave_history:
-        if os.path.exists(fallback_hostel_file):
-            try:
-                with open(fallback_hostel_file, "r", encoding="utf-8") as f:
-                    fb = json.load(f)
-                    leave_history = fb.get("leaveHistory") or []
-            except Exception:
-                pass
         seed_store_file = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "seed", f"store_{reg}.json"

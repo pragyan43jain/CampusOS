@@ -125,7 +125,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     }
   };
 
-  const regNo = student?.regNo || vtopUser || '21BCE0001';
+  const regNo = student?.regNo || vtopUser || 'Not available';
   const displayName = student?.name || 'Student Profile';
   const initials = displayName
     .split(' ')
@@ -428,7 +428,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     type="text"
                     value={lmsUser}
                     onChange={(e) => setLmsUser(e.target.value)}
-                    placeholder="21BCE0001"
+                    placeholder="e.g. 24BCE1001"
                     className="w-full bg-neutral-950 border border-neutral-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
                   />
                 ) : (

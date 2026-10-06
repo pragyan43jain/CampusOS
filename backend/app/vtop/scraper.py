@@ -215,18 +215,6 @@ def fetch_hostel(session: VTOPSession, profile: Optional[Dict[str, Any]] = None)
         except Exception:
             continue
 
-    if not leaves:
-        fallback_hostel_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            "frontend", "public", "data", "hostel.json"
-        )
-        if os.path.exists(fallback_hostel_file):
-            try:
-                with open(fallback_hostel_file, "r", encoding="utf-8") as f:
-                    fb = json.load(f)
-                    leaves = fb.get("leaveHistory") or []
-            except Exception:
-                pass
 
     if hostel_info.get("blockName") or hostel_info.get("roomNo"):
         hostel_info["isHosteller"] = True

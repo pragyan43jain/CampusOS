@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Calendar, Info } from 'lucide-react';
 import { Attendance, Exam } from '../types';
 import { analyzeAllCalendars } from '../services/calendarService';
-import { DEFAULT_EXAMS } from '../services/defaultData';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 interface OverallAttendancePredictorModalProps {
@@ -110,18 +109,7 @@ export function buildExamScheduleMap(examsProp?: any, attendance?: Attendance[])
     });
   };
 
-  // 1. Populate baseline from DEFAULT_EXAMS
-  if (DEFAULT_EXAMS && typeof DEFAULT_EXAMS === 'object') {
-    for (const [examType, items] of Object.entries(DEFAULT_EXAMS)) {
-      if (Array.isArray(items)) {
-        for (const it of items) {
-          addEntry(examType, it);
-        }
-      }
-    }
-  }
-
-  // 2. Overlay live exams records from prop if available (array or record object)
+  // Populate live exams records from prop if available (array or record object)
   if (examsProp) {
     if (Array.isArray(examsProp) && examsProp.length > 0) {
       for (const ex of examsProp) {
