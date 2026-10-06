@@ -9,11 +9,10 @@ import {
   Zap,
   LogOut,
   ShieldCheck,
-  Building,
   Layers,
 } from 'lucide-react';
 
-export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner' | 'hostel';
+export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
 
 interface SidebarProps {
   activeView: NavView;
@@ -51,7 +50,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { id: 'fees' as NavView, label: 'Fees & Ledger', icon: CreditCard },
     { id: 'placements' as NavView, label: 'LeetCode', icon: Code2 },
-    { id: 'hostel' as NavView, label: 'Hostel & Living', icon: Building },
   ];
 
   const intelligenceNavItems = [

@@ -31,11 +31,10 @@ const FEATURE_NAMES: Record<string, { label: string; view: string; subTab?: stri
   grades: { label: 'Semester Grade History', view: 'academics', subTab: 'grades', desc: 'Semester-by-semester GPA standings, course grades (S/A/B/C/D/E/F), and cumulative CGPA.' },
   cgpaPredictor: { label: 'Interactive CGPA Predictor', view: 'academics', subTab: 'grades', desc: 'Simulate potential course grades and project cumulative graduation CGPA targets.' },
   attendancePredictor: { label: 'Attendance Safe-Miss Predictor', view: 'academics', subTab: 'attendance', desc: 'Predictive calculator for attendance safety margins and recovery classes.' },
-  hostel: { label: 'Hostel, Mess & Laundry Hub', view: 'hostel', desc: 'Daily mess meal menus, hostel laundry schedules across blocks, and leave requests.' },
   od: { label: 'On-Duty (OD) Hours Tracker', view: 'academics', subTab: 'attendance', desc: 'Approved, pending, and total OD duty leave hours extracted from VTOP.' },
   calendar: { label: 'Semester Academic Calendar', view: 'academics', subTab: 'timetable', desc: 'Instructional working days, university holidays, and examination milestones.' },
   assignments: { label: 'Digital Assignments (DA)', view: 'assignments', desc: 'DA continuous assessment tasks integrated with LMS & Teams verification.' },
-  fees: { label: 'Fee Invoices & Receipts', view: 'fees', desc: 'Tuition and hostel fee receipts with official transaction serial numbers and balances.' },
+  fees: { label: 'Fee Invoices & Receipts', view: 'fees', desc: 'Tuition and institutional fee receipts with official transaction serial numbers and balances.' },
   placements: { label: 'LeetCode Analytics & Cockpit', view: 'placements', desc: 'Personal LeetCode account link, problem solving statistics, and topic mastery.' },
   aiTasks: { label: 'AI Adaptive Study Tasks', view: 'ai-planner', desc: 'Intelligent personalized study sprints generated based on attendance and test performance.' },
   dsa: { label: 'LeetCode & DSA Tracker', view: 'placements', desc: 'Algorithmic problem-solving metrics, contest ratings, and company readiness simulations.' },
@@ -82,7 +81,7 @@ export const FeatureAvailabilityModal: React.FC<FeatureAvailabilityModalProps> =
       desc: 'System integrated capability.',
     };
     const isAvailable = raw ? raw.available : true;
-    const source = raw?.source || (key === 'hostel' ? 'vtop & unmessify' : 'vtop');
+    const source = raw?.source || 'vtop';
     const count = raw?.count ?? 0;
     const status = raw?.status || (isAvailable ? 'ok' : 'unavailable');
     const message = raw?.message || meta.desc;

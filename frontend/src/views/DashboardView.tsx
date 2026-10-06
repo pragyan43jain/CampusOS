@@ -11,7 +11,6 @@ import {
   ClipboardList,
   CreditCard,
   Code2,
-  Building,
   BrainCircuit,
   ShieldCheck,
   RotateCcw,
@@ -24,10 +23,8 @@ import {
   FeeItem,
   PlacementDrive,
   AIStudyTask,
-  HostelDetails,
   DSACategory,
 } from '../types';
-import { CampusAPI } from '../services/api';
 import { NavView } from '../components/Sidebar';
 import { BentoGrid } from '../components/ui/bento-grid';
 import { BentoCard } from '../components/ui/bento-card';
@@ -236,89 +233,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const pendingAssignments = assignments.filter((a) => !isAssignmentDone(a, student?.regNo));
 
-  // --- Live Dynamic Data for Bento Grid Hub ---
-  // 1. Live Hostel Details
-  const [hostelDetails, setHostelDetails] = useState<HostelDetails | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    CampusAPI.getHostelDetails()
-      .then((data) => {
-        if (isMounted && data) {
-          setHostelDetails(data);
-        }
-      })
-      .catch((err) => {
-        console.warn('[DashboardView] Could not load hostel details:', err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const activeHostelInfo = {
-    gender: hostelDetails?.hostelInfo?.gender || student?.gender || null,
-    blockName: hostelDetails?.hostelInfo?.blockName || student?.blockName || null,
-    roomNo: hostelDetails?.hostelInfo?.roomNo || student?.roomNo || null,
-    messInfo: hostelDetails?.hostelInfo?.messInfo || student?.messInfo || null,
-    isHosteller: hostelDetails?.hostelInfo?.isHosteller !== undefined ? hostelDetails?.hostelInfo?.isHosteller : (student?.isHosteller !== undefined ? student?.isHosteller : null),
-  };
-
-  const rawBlock = activeHostelInfo.blockName || '';
-  const rawRoom = activeHostelInfo.roomNo || '';
-  const rawMess = activeHostelInfo.messInfo || '';
-
-  const isHosteller = activeHostelInfo.isHosteller;
-
-  const getCleanBlockName = (block?: string | null, hosteller?: boolean | null): string => {
-    if (block && block.trim()) {
-      const clean = block.trim();
-      const parenMatch = clean.match(/\(\s*([A-Za-z0-9]+)\s*-\s*Block\s*\)/i);
-      if (parenMatch) return `Block ${parenMatch[1].toUpperCase()}`;
-      const blockLetterMatch = clean.match(/\b([A-Za-z0-9]+)\s+Block\b/i);
-      if (blockLetterMatch) return `Block ${blockLetterMatch[1].toUpperCase()}`;
-      const letterBlockMatch = clean.match(/\bBlock\s+([A-Za-z0-9]+)\b/i);
-      if (letterBlockMatch) return `Block ${letterBlockMatch[1].toUpperCase()}`;
-      return clean;
-    }
-    if (hosteller === false) return 'Day Scholar';
-    return 'Unavailable';
-  };
-
-  const getCleanRoom = (room?: string | null, hosteller?: boolean | null): string => {
-    if (room && room.trim()) {
-      const clean = room.trim();
-      return clean.toLowerCase().startsWith('room') ? clean : `Room ${clean}`;
-    }
-    if (hosteller === false) return 'Day Scholar';
-    return 'Unavailable';
-  };
-
-  const getCleanMessAndLeave = (
-    mess?: string | null,
-    hosteller?: boolean | null,
-    leaveHistory?: any[]
-  ): string => {
-    if (mess && mess.trim()) {
-      const upper = mess.toUpperCase();
-      let messLabel = mess.split('-')[0].trim();
-      if (upper.includes('NON')) messLabel = 'Non-Veg Mess';
-      else if (upper.includes('SPECIAL') || upper.includes('FOOD')) messLabel = 'Special Mess';
-      else if (upper.includes('VEG')) messLabel = 'Veg Mess';
-      const hasApprovedLeave = leaveHistory?.some(
-        (l) => (l.status || '').toUpperCase().includes('APPROVED')
-      );
-      return `${messLabel}${hasApprovedLeave ? ' • Leave Approved' : ''}`;
-    }
-    if (hosteller === false) return 'Not Enrolled';
-    return 'Unavailable';
-  };
-
-  const displayBlockName = getCleanBlockName(rawBlock, isHosteller);
-  const displayRoom = getCleanRoom(rawRoom, isHosteller);
-  const displayMessAndLeave = getCleanMessAndLeave(rawMess, isHosteller, hostelDetails?.leaveHistory);
-
-  // 2. Pending Fee Balance Calculation
+  // 1. Pending Fee Balance Calculation
   const pendingDuesTotal = fees
     .filter((f) => f.status === 'Pending' || ((f.pendingAmount ?? 0) > 0))
     .reduce((sum, f) => sum + (f.pendingAmount ?? f.amount ?? 0), 0);
@@ -530,7 +445,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             borderAnimColor="rgba(245, 158, 11, 0.45)"
             borderAnimDelay={2}
             title="Fees & Ledger"
-            description="Tuition, hostel & mess balance"
+            description="Tuition, academic & curricular balance"
             icon={<CreditCard size={20} className="text-amber-400" />}
             badge={
               <span
@@ -608,52 +523,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </BentoCard>
 
-          {/* Card 5: Hostel & Living (1 col) */}
+          {/* Card 5: AI Study Planner (2 cols) */}
           <BentoCard
-            colSpan={1}
-            tilt={true}
-            borderAnim={true}
-            borderAnimColor="rgba(6, 182, 212, 0.45)"
-            borderAnimDelay={4}
-            title="Hostel & Living"
-            description="Room allotment, mess & leave pass"
-            icon={<Building size={20} className="text-cyan-400" />}
-            badge={
-              <span
-                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                  isHosteller === false
-                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/25'
-                    : isHosteller === true
-                    ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25'
-                    : 'bg-neutral-500/10 text-neutral-400 border-neutral-500/25'
-                }`}
-              >
-                {displayBlockName}
-              </span>
-            }
-            onClick={() => onSelectView?.('hostel')}
-            ctaText="View Hostel Details"
-          >
-            <div className="p-3 rounded-xl bg-[#181818] border border-[#262626] my-2">
-              <div className="text-xs text-neutral-400">
-                {isHosteller === false ? 'Campus Living' : isHosteller === true ? 'Room & Mess' : 'Hostel Status'}
-              </div>
-              <div className="text-base sm:text-lg font-bold text-white mt-1 truncate">
-                {displayRoom}
-              </div>
-              <div className="text-[11px] text-cyan-300/80 mt-1 truncate">
-                {displayMessAndLeave}
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* Card 6: AI Study Planner (1 col) */}
-          <BentoCard
-            colSpan={1}
+            colSpan={2}
             tilt={true}
             borderAnim={true}
             borderAnimColor="rgba(236, 72, 153, 0.45)"
-            borderAnimDelay={5}
+            borderAnimDelay={4}
             title="AI Study Planner"
             description="Predictive revision & daily schedule"
             icon={<BrainCircuit size={20} className="text-pink-400" />}

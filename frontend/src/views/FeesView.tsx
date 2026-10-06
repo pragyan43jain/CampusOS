@@ -134,7 +134,7 @@ export const FeesView: React.FC<FeesViewProps> = ({ fees: initialFees, onRefresh
             </div>
             <h2 className="hero-heading">Fee Management &amp; Receipts</h2>
             <p className="hero-desc">
-              Authoritative financial ledger tracking tuition installments, hostel disbursements, mess balances, and official payment receipts.
+              Authoritative financial ledger tracking tuition installments, institutional disbursements, and official payment receipts.
             </p>
           </div>
 
@@ -182,7 +182,7 @@ export const FeesView: React.FC<FeesViewProps> = ({ fees: initialFees, onRefresh
         <MetricCard
           label="Total Institutional Fees"
           value={showFeeDetails ? `₹${totalFees.toLocaleString('en-IN')}` : '₹ ••••••'}
-          subtext={showFeeDetails ? "Tuition, hostel & curriculum fee" : "Fee details hidden • Click eye to reveal"}
+          subtext={showFeeDetails ? "Tuition & curriculum fee" : "Fee details hidden • Click eye to reveal"}
           icon={
             <button
               onClick={toggleShowFees}

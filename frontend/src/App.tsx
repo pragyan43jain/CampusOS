@@ -32,7 +32,6 @@ import { FeesView } from './views/FeesView';
 import { PlacementsView } from './views/PlacementsView';
 import { AIPlannerView } from './views/AIPlannerView';
 import { LandingPageView } from './views/LandingPageView';
-import { HostelView } from './views/HostelView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { isAssignmentDone, isTeamsAssignment } from './utils/assignmentUtils';
@@ -88,14 +87,6 @@ const getRouteFromPath = (path: string): RouteInfo => {
   }
   if (clean === '/ai-planner' || clean === '/planner') {
     return { isLanding: false, isLogin: false, isAdmin: false, view: 'ai-planner' };
-  }
-  if (
-    clean === '/hostel' ||
-    clean === '/mess' ||
-    clean === '/laundry' ||
-    clean === '/leave'
-  ) {
-    return { isLanding: false, isLogin: false, isAdmin: false, view: 'hostel' };
   }
   return { isLanding: true, isLogin: false, isAdmin: false, view: 'dashboard' };
 };
@@ -1118,8 +1109,6 @@ export const App: React.FC = () => {
             exams={exams}
           />
         )}
-
-        {activeView === 'hostel' && <HostelView student={student} />}
       </div>
 
       {/* VTOP Auth & Sync Modal */}
