@@ -125,7 +125,7 @@ def parse_hostel_info(html: str) -> Dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
     info: Dict[str, Any] = {
         "gender": None,
-        "isHosteller": False,
+        "isHosteller": None,
         "blockName": None,
         "roomNo": None,
         "messInfo": None,
@@ -168,7 +168,7 @@ def parse_hostel_info(html: str) -> Dict[str, Any]:
                     elif "VEG" in mess_val:
                         info["messInfo"] = "VEG"
                     else:
-                        info["messInfo"] = val or "NOT ALLOTTED"
+                        info["messInfo"] = val or None
 
     # Presence of an allotted block or room guarantees hosteller status
     if info.get("blockName") or info.get("roomNo"):

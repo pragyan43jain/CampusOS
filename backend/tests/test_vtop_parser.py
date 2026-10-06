@@ -738,20 +738,20 @@ def test_parse_profile_with_hostel_details():
     <html><body>
     <h3>Personal Information</h3>
     <table>
-      <tr><td>Student Name</td><td>PRAGYAN JAIN</td></tr>
-      <tr><td>Register Number</td><td>24BLC1100</td></tr>
-      <tr><td>Gender</td><td>MALE</td></tr>
+      <tr><td>Student Name</td><td>SAMPLE STUDENT</td></tr>
+      <tr><td>Register Number</td><td>99XYZ0001</td></tr>
+      <tr><td>Gender</td><td>FEMALE</td></tr>
       <tr><td>Hosteller / Dayscholar</td><td>HOSTELLER</td></tr>
-      <tr><td>Block Name</td><td>D Block Mens Hostel(MH) (D - Block )</td></tr>
-      <tr><td>Room No</td><td>531</td></tr>
-      <tr><td>Mess Information</td><td>VEG - FUSION FOODS</td></tr>
+      <tr><td>Block Name</td><td>Sample Block</td></tr>
+      <tr><td>Room No</td><td>101</td></tr>
+      <tr><td>Mess Information</td><td>SPECIAL MESS</td></tr>
     </table>
     </body></html>
     """
     from app.vtop.parser import parse_profile
     prof = parse_profile(html)
     assert prof["isHosteller"] is True
-    assert prof["blockName"] == "D Block Mens Hostel(MH) (D - Block )"
-    assert prof["roomNo"] == "531"
-    assert prof["messInfo"] == "VEG - FUSION FOODS"
+    assert prof["blockName"] == "Sample Block"
+    assert prof["roomNo"] == "101"
+    assert prof["messInfo"] == "SPECIAL MESS"
 

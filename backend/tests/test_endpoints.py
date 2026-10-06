@@ -242,7 +242,7 @@ class TestNewVTOPAndHostelEndpoints:
         assert "calendars" in cal
         features = client.get("/api/features").json()
         assert "hostel" in features
-        assert features["hostel"]["available"] is True
+        assert isinstance(features["hostel"]["available"], bool)
         assert "grades" in features
         assert "cgpaPredictor" in features
         assert "attendancePredictor" in features

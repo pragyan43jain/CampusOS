@@ -646,11 +646,11 @@ export const CampusAPI = {
   getHostelDetails: async (): Promise<HostelDetails> => {
     return fetchJson<HostelDetails>('/hostel/details', undefined, {
       hostelInfo: {
-        gender: activeStudent?.gender || 'Male',
-        isHosteller: activeStudent?.isHosteller ?? true,
-        blockName: activeStudent?.blockName || 'A',
-        roomNo: activeStudent?.roomNo || '',
-        messInfo: activeStudent?.messInfo || 'NON VEG',
+        gender: activeStudent?.gender || undefined,
+        isHosteller: activeStudent?.isHosteller ?? undefined,
+        blockName: activeStudent?.blockName || undefined,
+        roomNo: activeStudent?.roomNo || undefined,
+        messInfo: activeStudent?.messInfo || undefined,
       },
       leaveHistory: [],
     });

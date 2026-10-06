@@ -167,19 +167,17 @@ def fetch_hostel(session: VTOPSession, profile: Optional[Dict[str, Any]] = None)
     from app.vtop.hostel import parse_hostel_info, parse_leave_history
 
     prof = profile or {}
-    block_name = prof.get("blockName")
-    room_no = prof.get("roomNo")
-    mess_info = prof.get("messInfo")
-    gender = prof.get("gender") or "Male"
+    block_name = prof.get("blockName") or None
+    room_no = prof.get("roomNo") or None
+    mess_info = prof.get("messInfo") or None
+    gender = prof.get("gender") or None
     is_hosteller = prof.get("isHosteller")
-    if is_hosteller is None:
-        is_hosteller = bool(block_name or room_no)
     if block_name or room_no:
         is_hosteller = True
 
     hostel_info: Dict[str, Any] = {
         "gender": gender,
-        "isHosteller": bool(is_hosteller),
+        "isHosteller": is_hosteller,
         "blockName": block_name,
         "roomNo": room_no,
         "messInfo": mess_info,
@@ -908,8 +906,6 @@ def build_student(
     room_no = profile.get("roomNo")
     mess_info = profile.get("messInfo")
     is_hosteller = profile.get("isHosteller")
-    if is_hosteller is None:
-        is_hosteller = bool(block_name or room_no)
     if block_name or room_no:
         is_hosteller = True
 
@@ -932,7 +928,7 @@ def build_student(
         "semesterGpa": semester_gpa_list,
         "proctor": proctor,
         "gender": profile.get("gender"),
-        "isHosteller": bool(is_hosteller),
+        "isHosteller": is_hosteller,
         "blockName": block_name if is_hosteller else None,
         "roomNo": room_no if is_hosteller else None,
         "messInfo": mess_info if is_hosteller else None,
@@ -1343,8 +1339,8 @@ def sync(
     # Fetch and assemble student hostel & leave details
     hostel_data = _step(report, "hostel", lambda: fetch_hostel(session, profile)) or {
         "hostelInfo": {
-            "gender": student.get("gender") or "Male",
-            "isHosteller": student.get("isHosteller", False),
+            "gender": student.get("gender"),
+            "isHosteller": student.get("isHosteller"),
             "blockName": student.get("blockName"),
             "roomNo": student.get("roomNo"),
             "messInfo": student.get("messInfo"),

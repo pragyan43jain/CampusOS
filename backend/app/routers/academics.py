@@ -346,12 +346,13 @@ def get_hostel_details(
         return {
             "hostelInfo": {
                 "gender": None,
-                "isHosteller": False,
+                "isHosteller": None,
                 "blockName": None,
                 "roomNo": None,
                 "messInfo": None,
             },
             "leaveHistory": [],
+            "available": False,
         }
 
     store = load_store(reg)
@@ -359,57 +360,37 @@ def get_hostel_details(
     hostel_data = store.get("hostel") or {}
     stored_info = hostel_data.get("hostelInfo") or store.get("hostelInfo") or {}
 
-    gender = stored_info.get("gender") or student.get("gender") or "Male"
-    block_name = stored_info.get("blockName") or student.get("blockName")
-    room_no = stored_info.get("roomNo") or student.get("roomNo")
-    mess_info = stored_info.get("messInfo") or student.get("messInfo")
+    gender = stored_info.get("gender") or student.get("gender") or None
+    block_name = stored_info.get("blockName") or student.get("blockName") or None
+    room_no = stored_info.get("roomNo") or student.get("roomNo") or None
+    mess_info = stored_info.get("messInfo") or student.get("messInfo") or None
 
-    # If student has block or room allotted, they are an allotted hosteller
-    has_allotment = bool(
-        (block_name and block_name.strip() and "day scholar" not in block_name.lower()) or
-        (room_no and room_no.strip() and "day scholar" not in room_no.lower())
-    )
     is_hosteller = stored_info.get("isHosteller")
     if is_hosteller is None:
         is_hosteller = student.get("isHosteller")
-    if has_allotment:
+
+    if block_name or room_no:
         is_hosteller = True
-    elif is_hosteller is None:
-        is_hosteller = False
 
     hostel_info = {
         "gender": gender,
-        "isHosteller": bool(is_hosteller),
+        "isHosteller": is_hosteller,
         "blockName": block_name if is_hosteller else None,
         "roomNo": room_no if is_hosteller else None,
         "messInfo": mess_info if is_hosteller else None,
     }
 
-    leave_history = hostel_data.get("leaveHistory") or store.get("leaveHistory") or []
-    if not leave_history:
-        seed_store_file = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "seed", f"store_{reg}.json"
-        )
-        if not leave_history and os.path.exists(seed_store_file):
-            try:
-                with open(seed_store_file, "r", encoding="utf-8") as f:
-                    fb = json.load(f)
-                    leave_history = fb.get("leaveHistory") or (fb.get("hostel") or {}).get("leaveHistory") or []
-            except Exception:
-                pass
+    leave_history = hostel_data.get("leaveHistory")
+    if leave_history is None:
+        leave_history = store.get("leaveHistory")
+    leave_history = leave_history or []
 
-    if leave_history and not hostel_data.get("leaveHistory"):
-        store["hostel"] = {
-            "hostelInfo": hostel_info,
-            "leaveHistory": leave_history,
-        }
-        store["leaveHistory"] = leave_history
-        save_store(store, reg)
+    has_details = bool(block_name or room_no or mess_info or is_hosteller is not None or leave_history)
 
     return {
         "hostelInfo": hostel_info,
         "leaveHistory": leave_history,
+        "available": has_details,
     }
 
 
@@ -666,10 +647,11 @@ def get_feature_availability(
     sem_gpa = student_data.get("semesterGpa") or []
     has_grades = bool(student_data.get("cgpa") is not None or sem_gpa)
 
-    hostel_data = store.get("hostelInfo") or {}
-    leave_hist = store.get("leaveHistory") or []
-    has_hostel = bool(hostel_data or leave_hist or student_data.get("roomNo"))
-    hostel_count = (1 if hostel_data else 0) + len(leave_hist)
+    hostel_obj = store.get("hostel") or {}
+    hostel_data = hostel_obj.get("hostelInfo") or store.get("hostelInfo") or {}
+    leave_hist = hostel_obj.get("leaveHistory") or store.get("leaveHistory") or []
+    has_hostel = bool(hostel_data.get("blockName") or hostel_data.get("roomNo") or hostel_data.get("isHosteller") is not None or leave_hist)
+    hostel_count = (1 if (hostel_data.get("blockName") or hostel_data.get("roomNo")) else 0) + len(leave_hist)
 
     placements = store.get("placements") or []
     dsa_list = store.get("dsaTopics") or store.get("dsa") or []
@@ -709,11 +691,11 @@ def get_feature_availability(
             "message": "Predictive attendance safe-margin & recovery simulator.",
         },
         "hostel": {
-            "source": "vtop & unmessify",
-            "available": True,
-            "count": hostel_count if hostel_count > 0 else 6,
-            "status": "ok",
-            "message": "Mess menu schedules, laundry time tables, and room leave tracking available.",
+            "source": "vtop",
+            "available": has_hostel,
+            "count": hostel_count,
+            "status": "ok" if has_hostel else "unavailable",
+            "message": "VTOP hostel room allotment, sanctioned leave permissions, and mess records." if has_hostel else "Hostel and leave records unavailable on VTOP.",
         },
         "od": {
             "source": "vtop",

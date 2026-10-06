@@ -45,11 +45,11 @@
         "faculty mobile number": "9774305438"
       }
     },
-    "gender": "MALE",
-    "isHosteller": true,
-    "blockName": "D Block Mens Hostel(MH) (D - Block )",
-    "roomNo": "531",
-    "messInfo": "VEG - FUSION FOODS AND CATERING PRIVATE LIMITED",
+    "gender": null,
+    "isHosteller": null,
+    "blockName": null,
+    "roomNo": null,
+    "messInfo": null,
     "lastSynced": "2026-10-02T19:10:27.606271+00:00"
   },
   "semesters": [
@@ -14862,8 +14862,8 @@
   "storeVersion": 2,
   "hostel": {
     "hostelInfo": {
-      "gender": "MALE",
-      "isHosteller": false,
+      "gender": null,
+      "isHosteller": null,
       "blockName": null,
       "roomNo": null,
       "messInfo": null

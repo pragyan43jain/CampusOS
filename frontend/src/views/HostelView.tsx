@@ -27,7 +27,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
   const [activeTab, setActiveTab] = useState<HostelTab>('leave');
   const [hostelInfo, setHostelInfo] = useState<HostelInfo>({
     gender: student.gender || undefined,
-    isHosteller: student.isHosteller !== undefined ? student.isHosteller : Boolean(student.blockName || student.roomNo),
+    isHosteller: student.isHosteller !== undefined ? student.isHosteller : undefined,
     blockName: student.blockName || undefined,
     roomNo: student.roomNo || undefined,
     messInfo: student.messInfo || undefined,
@@ -244,16 +244,16 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                 <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>Hostel &amp; Campus Living</h1>
                 <span
                   style={{
-                    backgroundColor: hostelInfo.isHosteller ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
-                    color: hostelInfo.isHosteller ? '#10b981' : '#94a3b8',
-                    border: hostelInfo.isHosteller ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(148, 163, 184, 0.25)',
+                    backgroundColor: hostelInfo.isHosteller === true ? 'rgba(16, 185, 129, 0.15)' : hostelInfo.isHosteller === false ? 'rgba(59, 130, 246, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                    color: hostelInfo.isHosteller === true ? '#10b981' : hostelInfo.isHosteller === false ? '#60a5fa' : '#94a3b8',
+                    border: hostelInfo.isHosteller === true ? '1px solid rgba(16, 185, 129, 0.25)' : hostelInfo.isHosteller === false ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid rgba(148, 163, 184, 0.25)',
                     fontSize: '0.75rem',
                     padding: '3px 10px',
                     borderRadius: '12px',
                     fontWeight: 600,
                   }}
                 >
-                  {hostelInfo.isHosteller ? 'Hosteller' : 'Day Scholar'}
+                  {hostelInfo.isHosteller === true ? 'Hosteller' : hostelInfo.isHosteller === false ? 'Day Scholar' : 'Unavailable'}
                 </span>
               </div>
               <p style={{ margin: '6px 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
@@ -302,23 +302,23 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Block Allotment</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#38bdf8' }}>{hostelInfo.blockName || (hostelInfo.isHosteller ? 'Block Allotted' : 'Day Scholar')}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#38bdf8' }}>{hostelInfo.blockName || (hostelInfo.isHosteller === false ? 'Day Scholar' : 'Unavailable')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Room Number</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.roomNo ? `Room ${hostelInfo.roomNo}` : (hostelInfo.isHosteller ? 'Allotted on Arrival' : 'Day Scholar')}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.roomNo ? (hostelInfo.roomNo.toLowerCase().startsWith('room') ? hostelInfo.roomNo : `Room ${hostelInfo.roomNo}`) : (hostelInfo.isHosteller === false ? 'Day Scholar' : 'Unavailable')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mess Enrolled</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#10b981' }}>{hostelInfo.messInfo || (hostelInfo.isHosteller ? 'Special / Veg' : 'Not Enrolled')}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#10b981' }}>{hostelInfo.messInfo || (hostelInfo.isHosteller === false ? 'Not Enrolled' : 'Unavailable')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gender</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.gender || 'Not Specified'}</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{hostelInfo.gender || 'Unavailable'}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sanctioned Leaves</span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#6366f1' }}>{leaveHistory.length} Recorded</span>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#6366f1' }}>{leaveHistory.length > 0 ? `${leaveHistory.length} Recorded` : (hostelInfo.isHosteller === false ? 'Not Applicable' : 'Unavailable')}</span>
           </div>
         </div>
       </div>
@@ -383,50 +383,50 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                 <ShieldCheck size={16} color="#10b981" />
                 <span>Current Residency</span>
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: '#10b981' }}>
-                {hostelInfo.isHosteller ? 'Active Hosteller' : 'Day Scholar'}
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: hostelInfo.isHosteller === true ? '#10b981' : hostelInfo.isHosteller === false ? '#60a5fa' : '#94a3b8' }}>
+                {hostelInfo.isHosteller === true ? 'Active Hosteller' : hostelInfo.isHosteller === false ? 'Day Scholar' : 'Unavailable'}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {hostelInfo.blockName || 'Residential block verified'}
+                {hostelInfo.blockName || (hostelInfo.isHosteller === false ? 'Off-campus residency' : 'Unavailable')}
               </div>
             </div>
 
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                <CheckCircle2 size={16} color="#3b82f6" />
+                <CheckCircle2 size={16} color={leaveHistory.length > 0 ? '#3b82f6' : '#94a3b8'} />
                 <span>Sanctioned Leaves</span>
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: '#60a5fa' }}>
-                {approvedCount} Approved
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: leaveHistory.length > 0 ? '#60a5fa' : '#94a3b8' }}>
+                {leaveHistory.length > 0 ? `${approvedCount} Approved` : (hostelInfo.isHosteller === false ? 'Not Applicable' : 'Unavailable')}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {closedCount} completed outings &bull; {leaveHistory.length} total applications
+                {leaveHistory.length > 0 ? `${closedCount} completed outings • ${leaveHistory.length} total applications` : (hostelInfo.isHosteller === false ? 'Day scholars do not require hostel leaves' : 'Leave details unavailable')}
               </div>
             </div>
 
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                <Compass size={16} color="#f59e0b" />
+                <Compass size={16} color={leaveHistory.length > 0 ? '#f59e0b' : '#94a3b8'} />
                 <span>Outings Recorded</span>
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: '#fbbf24' }}>
-                {outingCount} Passes
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: leaveHistory.length > 0 ? '#fbbf24' : '#94a3b8' }}>
+                {leaveHistory.length > 0 ? `${outingCount} Passes` : (hostelInfo.isHosteller === false ? 'Not Applicable' : 'Unavailable')}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {vacationCount} semester vacations sanctioned
+                {leaveHistory.length > 0 ? `${vacationCount} semester vacations sanctioned` : (hostelInfo.isHosteller === false ? 'Day scholar status verified' : 'Outing details unavailable')}
               </div>
             </div>
 
             <div className="card" style={{ padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
-                <Home size={16} color="#a855f7" />
+                <Home size={16} color={hostelInfo.isHosteller === true ? '#a855f7' : '#94a3b8'} />
                 <span>Gate Pass Protocol</span>
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: '#c084fc' }}>
-                VTOP Biometric
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '8px', color: hostelInfo.isHosteller === true ? '#c084fc' : '#94a3b8' }}>
+                {hostelInfo.isHosteller === true ? 'VTOP Biometric' : 'Unavailable'}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Synchronized with hostel gate logs
+                {hostelInfo.isHosteller === true ? 'Synchronized with hostel gate logs' : 'Gate pass tracking unavailable'}
               </div>
             </div>
           </div>
@@ -504,7 +504,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Destination Place</span>
                     <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', color: '#fff' }}>
                       <MapPin size={15} color="#38bdf8" />
-                      <span>{activeLeave.visitPlace || 'Hometown / Local Area'}</span>
+                      <span>{activeLeave.visitPlace || 'Unavailable'}</span>
                     </div>
                   </div>
 
@@ -512,7 +512,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Departure (From)</span>
                     <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                       <Clock size={15} color="#10b981" />
-                      <span>{activeLeave.from || 'Scheduled departure'}</span>
+                      <span>{activeLeave.from || 'Unavailable'}</span>
                     </div>
                   </div>
 
@@ -520,14 +520,14 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Return (To)</span>
                     <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                       <Clock size={15} color="#f59e0b" />
-                      <span>{activeLeave.to || 'Scheduled return'}</span>
+                      <span>{activeLeave.to || 'Unavailable'}</span>
                     </div>
                   </div>
 
                   <div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sanction Reason</span>
                     <div style={{ fontWeight: 500, marginTop: '2px', color: '#e2e8f0' }}>
-                      {activeLeave.reason || 'Personal visit'}
+                      {activeLeave.reason || 'Unavailable'}
                     </div>
                   </div>
                 </div>
@@ -563,10 +563,12 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                   color: 'var(--text-muted)',
                 }}
               >
-                <CheckCircle2 size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
-                <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-main)' }}>You are currently on campus</div>
-                <p style={{ margin: '4px 0 0', fontSize: '0.825rem' }}>
-                  No active or pending leave applications recorded on VTOP.
+                <AlertCircle size={32} color="#94a3b8" style={{ margin: '0 auto 8px', opacity: 0.6 }} />
+                <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-main)' }}>Leave Pass Details Unavailable</div>
+                <p style={{ margin: '4px 0 0', fontSize: '0.825rem', color: 'var(--text-muted)' }}>
+                  {hostelInfo.isHosteller === false
+                    ? 'Day scholars do not require residential hostel leave passes.'
+                    : 'No active or pending leave applications available on VTOP for this account.'}
                 </p>
               </div>
             )}
@@ -591,7 +593,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                   <span>Sanctioned Leave History</span>
                 </h3>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  {leaveHistory.length} total leave records synchronized from VTOP
+                  {leaveHistory.length > 0 ? `${leaveHistory.length} total leave records synchronized from VTOP` : 'Leave records unavailable'}
                 </span>
               </div>
 
@@ -662,8 +664,18 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
             {filteredLeaveList.length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <AlertCircle size={28} style={{ margin: '0 auto 10px', opacity: 0.6 }} />
-                <p style={{ margin: 0, fontWeight: 500 }}>No leave records matching "{leaveSearch}"</p>
-                <span style={{ fontSize: '0.8rem' }}>Try clearing the search query or adjusting your filter</span>
+                <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-main)' }}>
+                  {leaveHistory.length === 0
+                    ? 'Leave records unavailable'
+                    : `No leave records matching "${leaveSearch}"`}
+                </p>
+                <span style={{ fontSize: '0.8rem' }}>
+                  {leaveHistory.length === 0
+                    ? (hostelInfo.isHosteller === false
+                        ? 'Day scholars are not assigned residential hostel leaves on VTOP.'
+                        : 'No hostel leave applications found on VTOP for your account.')
+                    : 'Try clearing the search query or adjusting your filter'}
+                </span>
               </div>
             ) : (
               <div className="table-responsive-wrapper">
@@ -704,7 +716,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                           <td style={{ fontSize: '0.875rem', fontWeight: 500 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <MapPin size={13} color="var(--text-muted)" />
-                              <span>{leave.visitPlace || '—'}</span>
+                              <span>{leave.visitPlace || 'Unavailable'}</span>
                             </div>
                           </td>
                           <td style={{ fontSize: '0.825rem', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
@@ -721,7 +733,7 @@ export const HostelView: React.FC<HostelViewProps> = ({ student }) => {
                           </td>
                           <td style={{ fontSize: '0.825rem', maxWidth: '280px' }}>
                             <div style={{ color: 'var(--text-main)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {leave.reason || '—'}
+                              {leave.reason || 'Unavailable'}
                             </div>
                             {leave.remarks && (
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
