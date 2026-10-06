@@ -533,4 +533,94 @@ class TestVtopLmsFacultyMatchingDashboard:
         cg_subj = next(s for s in data2["subjects"] if s["courseCode"] == "BCSE305L")
         assert cg_subj["assignments"][0]["title"] == "Assignment 4"
 
+    def test_sync_rejects_unmatched_faculty_assignments(self):
+        """Verifies that assignments with an explicit faculty that does not match enrolled VTOP faculty are rejected."""
+        store = {
+            "authenticated": True,
+            "selectedSemester": {"id": "CH20262701", "name": "Fall Semester 2026-27"},
+            "courses": [
+                {
+                    "code": "BCSE302L",
+                    "title": "Database Systems",
+                    "faculty": "RISHIKESHAN C A",
+                }
+            ],
+            "assignments": [
+                {
+                    "id": "teams-valid",
+                    "courseCode": "BCSE302L",
+                    "courseTitle": "Database Systems",
+                    "title": "Database Project",
+                    "faculty": "RISHIKESHAN C A",
+                    "source": "Teams",
+                    "status": "Pending",
+                },
+                {
+                    "id": "teams-unmatched",
+                    "courseCode": "BCSE302L",
+                    "courseTitle": "Database Systems",
+                    "title": "Unmatched Assignment",
+                    "faculty": "DR. WRONG PROFESSOR",
+                    "source": "Teams",
+                    "status": "Pending",
+                },
+            ],
+        }
+        dash = build_unified_assignment_dashboard(store)
+        assert dash["totalAssignments"] == 1
+        sub = next(s for s in dash["subjects"] if s["courseCode"] == "BCSE302L")
+        assert len(sub["assignments"]) == 1
+        assert sub["assignments"][0]["id"] == "teams-valid"
+
+    def test_sync_correctly_marks_pending_and_done_status(self):
+        """Verifies that submitted assignments are cleanly marked DONE and pending are marked PENDING."""
+        store = {
+            "authenticated": True,
+            "selectedSemester": {"id": "CH20262701", "name": "Fall Semester 2026-27"},
+            "courses": [
+                {
+                    "code": "BCSE308L",
+                    "title": "Computer Networks",
+                    "faculty": "JAYA VIGNESH T",
+                }
+            ],
+            "assignments": [
+                {
+                    "id": "teams-done",
+                    "courseCode": "BCSE308L",
+                    "title": "Lab 1 Submission",
+                    "faculty": "JAYA VIGNESH T",
+                    "source": "Teams",
+                    "status": "Submitted",
+                    "teamsSubmissionState": "submitted",
+                    "isDone": True,
+                    "dueDate": "2026-09-01",
+                },
+                {
+                    "id": "lms-pending",
+                    "courseCode": "BCSE308L",
+                    "title": "DA 2 Pending",
+                    "faculty": "JAYA VIGNESH T",
+                    "source": "LMS",
+                    "status": "Pending",
+                    "isDone": False,
+                    "dueDate": "2026-12-31",
+                },
+            ],
+        }
+        dash = build_unified_assignment_dashboard(store)
+        assert dash["totalAssignments"] == 2
+        assert dash["totalPendingAssignments"] == 1
+        assert dash["totalSubmittedAssignments"] == 1
+
+        sub = next(s for s in dash["subjects"] if s["courseCode"] == "BCSE308L")
+        assign_done = next(a for a in sub["assignments"] if a["id"] == "teams-done")
+        assign_pending = next(a for a in sub["assignments"] if a["id"] == "lms-pending")
+
+        assert assign_done["isDone"] is True
+        assert assign_done["displayStatus"] == "DONE"
+        assert assign_pending["isDone"] is False
+        assert assign_pending["displayStatus"] == "PENDING"
+
+
 

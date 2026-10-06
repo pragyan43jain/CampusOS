@@ -801,3 +801,45 @@ class TestTeamsSubmissionStatus:
         assert user_info["courses"][0]["code"] == "BCSE302L"
         assert user_info["courses"][1]["code"] == "BECE303L"
 
+    def test_teams_rejects_unmatched_faculty_team(self):
+        """Verifies that Teams channels where faculty does not match enrolled VTOP faculty are not matched or fetched."""
+        from app.routers.teams import _process_single_team
+        from app.course_verification import build_verified_semester_course_records
+        from unittest.mock import MagicMock
+
+        store_data = {
+            "selectedSemester": {"name": "Fall Semester 2026-27", "id": "CH20262701"},
+            "courses": [
+                {
+                    "code": "BCSE308L",
+                    "title": "Computer Networks",
+                    "faculty": "JAYA VIGNESH T",
+                }
+            ],
+        }
+        verified_enrolled = build_verified_semester_course_records(store_data)
+
+        team_wrong_prof = {
+            "id": "team-wrong",
+            "displayName": "BCSE308L - Computer Networks - SARAVANA KUMAR R",
+            "description": "Section A",
+        }
+        mock_session = MagicMock()
+        mock_r = MagicMock(status_code=200)
+        mock_r.json.return_value = {"value": []}
+        mock_session.get.return_value = mock_r
+
+        meta, vtop, sub_assigns, summary = _process_single_team(
+            team=team_wrong_prof,
+            verified_enrolled=verified_enrolled,
+            headers={},
+            assignments_headers=None,
+            authenticated_user_id=None,
+            session=mock_session,
+        )
+        assert meta["verified"] is False
+        assert vtop is None
+        assert sub_assigns == []
+        assert summary is None
+
+

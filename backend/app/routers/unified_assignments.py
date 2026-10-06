@@ -521,12 +521,8 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                     fac_matches = True
             else:
                 # A specific faculty was specified, but it DOES NOT match enrolled VTOP faculty!
-                # BUT if it is from an already-verified course (e.g. course coordinator or TA in the course),
-                # trust the verified course match!
-                if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId")):
-                    fac_matches = True
-                else:
-                    fac_matches = False
+                # Strictly reject: assignment must belong to the student and faculty matched.
+                fac_matches = False
 
             if not fac_matches:
                 logger.warning(

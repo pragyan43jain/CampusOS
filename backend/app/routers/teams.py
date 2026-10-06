@@ -31,6 +31,8 @@ from app.course_verification import (
     ExternalCourseMatch,
     canonicalize_course_code,
     canonicalize_faculty_name,
+    normalize_faculty_name,
+    match_faculty_names,
     extract_course_code_candidates,
     build_verified_semester_course_records,
     verify_external_course,
@@ -1071,7 +1073,7 @@ def _process_single_team(
         source_professors=team_professors,
     )
 
-    if (is_verified or match_meta.courseCodeMatch) and matched_rec:
+    if is_verified and matched_rec and match_meta.facultyMatch:
         matched_vtop = {
             "code": matched_rec.courseCode,
             "title": matched_rec.courseName,
@@ -1099,12 +1101,35 @@ def _process_single_team(
             session=session,
         )
 
+        verified_subject_assignments = []
         for sa in subject_assignments:
+            # Check if assignment author conflicts with enrolled professor
+            sa_fac = sa.get("faculty") or sa.get("facultyName") or sa.get("postedBy")
+            if sa_fac and normalize_faculty_name(sa_fac) != "" and matched_rec.facultyName not in ("Faculty unassigned", "Instructor", "Teams Instructor"):
+                if not match_faculty_names(matched_rec.facultyName, sa_fac) and sa_fac.upper() not in matched_rec.facultyName.upper() and matched_rec.facultyName.upper() not in sa_fac.upper():
+                    logger.warning(
+                        "[Teams Assignment] Dropping assignment '%s': faculty '%s' does not match enrolled VTOP faculty '%s'",
+                        sa.get("title"),
+                        sa_fac,
+                        matched_rec.facultyName,
+                    )
+                    continue
+
             sa["verifiedCourseMatchId"] = f"match-teams-{team_id}"
             sa["subjectId"] = matched_rec.courseCode
             sa["courseCode"] = matched_rec.courseCode
             sa["courseTitle"] = matched_rec.courseName
-            sa["faculty"] = sa.get("faculty") or matched_rec.facultyName
+            sa["faculty"] = matched_rec.facultyName
+            sa["facultyName"] = matched_rec.facultyName
+
+            # Explicitly enforce pending vs done
+            is_done = bool(sa.get("isDone") or sa.get("isSubmitted"))
+            sa["isDone"] = is_done
+            sa["isSubmitted"] = is_done
+            sa["status"] = "DONE" if is_done else (sa.get("applicationStatus") or "PENDING")
+            sa["applicationStatus"] = "DONE" if is_done else (sa.get("applicationStatus") or "PENDING")
+            sa["uiStatus"] = "DONE" if is_done else (sa.get("uiStatus") or "PENDING")
+            verified_subject_assignments.append(sa)
 
         matched_summary = {
             "courseCode": matched_rec.courseCode,
@@ -1112,12 +1137,12 @@ def _process_single_team(
             "faculty": matched_rec.facultyName,
             "teamId": team_id,
             "teamName": team_name,
-            "assignmentsCount": len(subject_assignments),
+            "assignmentsCount": len(verified_subject_assignments),
         }
 
-        return match_meta.model_dump(), matched_vtop, subject_assignments, matched_summary
+        return match_meta.model_dump(), matched_vtop, verified_subject_assignments, matched_summary
     else:
-        logger.debug("Teams channel '%s' skipped: %s", team_name, match_meta.rejectionReason)
+        logger.info("Teams channel '%s' skipped (faculty or course did not match): %s", team_name, match_meta.rejectionReason)
         return match_meta.model_dump(), None, [], None
 
 

@@ -1136,28 +1136,37 @@ def _process_single_lms_course(
         )
 
     # Strict Verification: verify whether the course name is matching in the vtop course professor name
-    prof_matched = False
+    prof_ok = False
     if matched_rec:
-        prof_matched = lms_course_matches_vtop_professor(
-            lms_title=c_title,
-            vtop_faculty=matched_rec.facultyName,
-            lms_teachers=c_teachers,
-        )
+        prof_ok = bool(match_meta and match_meta.facultyMatch)
+        if not prof_ok:
+            prof_ok = lms_course_matches_vtop_professor(
+                lms_title=c_title,
+                vtop_faculty=matched_rec.facultyName,
+                lms_teachers=c_teachers,
+            )
+        if not prof_ok and c_teachers and matched_rec.facultyName:
+            prof_ok = any(match_faculty_names(matched_rec.facultyName, t) for t in c_teachers)
 
-    # If course code matched an enrolled subject in the current semester, mark verified and fetch coursework
-    if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch:
+    # Only verify and fetch if course code, semester, AND professor match!
+    if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch and prof_ok:
         is_verified = True
         match_meta.verified = True
-        match_meta.facultyMatch = prof_matched
-    elif not is_verified or not matched_rec:
+        match_meta.facultyMatch = True
+    else:
         expected_faculty = (matched_rec.facultyName if matched_rec else (match_meta.matchedFacultyName if match_meta else None)) or "None"
         logger.info(
-            "LMS course %s ('%s') did not match any enrolled course in current semester. Skipping fetch.",
+            "LMS course %s ('%s') did not match enrolled course and professor in current semester (expected faculty '%s', got %s). Skipping fetch.",
             c_id,
             c_title,
+            expected_faculty,
+            c_teachers or "unmatched",
         )
         if match_meta:
             match_meta.verified = False
+            match_meta.facultyMatch = False
+            if not prof_ok:
+                match_meta.rejectionReason = f"Faculty mismatch: expected '{expected_faculty}', LMS course teachers were {c_teachers or 'unmatched'}"
             return match_meta.model_dump(), None, [], None
         return {}, None, [], None
 
@@ -1193,6 +1202,20 @@ def _process_single_lms_course(
         if sa_poster and (normalize_faculty_name(sa_poster) == "" or is_moodle_noise(sa_poster)):
             sa_poster = None
 
+        # Check if this assignment belongs to another section's teacher
+        act_id = str(sa.get("activityId") or "")
+        if act_id and c_sections_map and act_id in c_sections_map:
+            sec_t = c_sections_map[act_id]
+            if sec_t and normalize_faculty_name(sec_t) != "" and real_faculty not in ("Faculty unassigned", "LMS Instructor", "Instructor", "LMS Teacher"):
+                if not match_faculty_names(real_faculty, sec_t) and sec_t.upper() not in real_faculty.upper() and real_faculty.upper() not in sec_t.upper():
+                    logger.warning(
+                        "[LMS Assignment] Dropping assignment '%s': section teacher '%s' does not match enrolled VTOP faculty '%s'",
+                        sa.get("title"),
+                        sec_t,
+                        real_faculty,
+                    )
+                    continue
+
         poster_to_use = sa_poster or real_faculty
 
         sa["verifiedCourseMatchId"] = f"match-lms-{c_id}"
@@ -1210,6 +1233,14 @@ def _process_single_lms_course(
         sa["verified"] = True
         sa["source"] = "LMS"
         sa["lmsCourseId"] = c_id
+
+        # Explicitly enforce pending vs done
+        is_done = bool(sa.get("isDone") or sa.get("isSubmitted"))
+        sa["isDone"] = is_done
+        sa["isSubmitted"] = is_done
+        sa["status"] = "Submitted" if is_done else "Pending"
+        sa["applicationStatus"] = "DONE" if is_done else "PENDING"
+        sa["displayStatus"] = "DONE" if is_done else "PENDING"
         verified_sub_assignments.append(sa)
 
     matched_summary = {
