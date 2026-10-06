@@ -184,7 +184,6 @@ class VTOPClientManager:
                     # Strictly enforce unauthenticated state for unsigned tokens
                     session.is_authenticated = False
                     session.username = None
-                    session.csrf = None
                     session.authorized_id = None
                     handle = _Handle(session)
                     handle.reg_no = None
@@ -279,7 +278,7 @@ class VTOPClientManager:
 
         if session is not None and captcha:
             try:
-                session.login(username, password, captcha.strip().upper())
+                session.login(username, password, captcha.strip())
                 authenticated = True
             except VTOPAuthError as exc:
                 last_error = exc

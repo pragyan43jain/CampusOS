@@ -214,8 +214,11 @@ class VTOPSession:
 
             # Still on the landing page — submit the pre-login form.
             logger.info("[VTOP] Landing page, submitting prelogin/setup (try %d)", attempt + 1)
-            self._submit_prelogin(response.text)
-            response = self._get(C.LOGIN_PAGE)
+            resp = self._submit_prelogin(response.text)
+            if self._is_login_page(resp.text):
+                response = resp
+            else:
+                response = self._get(C.LOGIN_PAGE)
 
         raise VTOPAuthError(
             "VTOP never served its login form. The portal is likely down or "
@@ -223,7 +226,7 @@ class VTOPSession:
             code=101,
         )
 
-    def _submit_prelogin(self, landing_html: str) -> None:
+    def _submit_prelogin(self, landing_html: str) -> requests.Response:
         """POST the landing page's #stdForm, exactly as StudentCC serialises it."""
         soup = BeautifulSoup(landing_html, "html.parser")
         form = soup.find(id="stdForm")
@@ -242,7 +245,7 @@ class VTOPSession:
         elif not any(name == "flag" for name, _ in fields):
             fields.append(("flag", "VTOP"))
 
-        self._post(C.PRELOGIN_SETUP, fields)
+        return self._post(C.PRELOGIN_SETUP, fields)
 
     @staticmethod
     def _is_login_page(html: str) -> bool:
@@ -346,14 +349,14 @@ class VTOPSession:
         """
         reg_no = username.strip().upper()
         self.username = reg_no
-        clean_captcha = (captcha or "").strip().upper()
+        clean_captcha = (captcha or "").strip()
 
         fields: List[Tuple[str, str]] = [
             ("_csrf", self.csrf or ""),
             ("username", reg_no),
             ("password", password),
-            ("captchaStr", clean_captcha if getattr(self, "captcha_kind", "default") != "grecaptcha" else ""),
-            ("gResponse", clean_captcha if getattr(self, "captcha_kind", "default") == "grecaptcha" else ""),
+            ("captchaStr", clean_captcha),
+            ("gResponse", clean_captcha),
         ]
 
         logger.info("[VTOP] Submitting credentials for %s", reg_no)
