@@ -1,13 +1,4 @@
-import { useEffect } from 'react';
-
-declare global {
-  interface Window {
-    UnicornStudio?: {
-      isInitialized?: boolean;
-      init: () => void;
-    };
-  }
-}
+import { useState } from 'react';
 
 export interface HeroAsciiProps {
   onGetStarted?: () => void;
@@ -24,104 +15,18 @@ export default function Home({
   isLoggedIn,
   studentName,
 }: HeroAsciiProps = {}) {
-  useEffect(() => {
-    // If UnicornStudio script already exists, just re-init
-    if (window.UnicornStudio) {
-      try {
-        window.UnicornStudio.init();
-      } catch {
-        // Safe fallback
-      }
-    }
+  const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
 
-    const embedScript = document.createElement('script');
-    embedScript.type = 'text/javascript';
-    embedScript.textContent = `
-      !function(){
-        if(!window.UnicornStudio){
-          window.UnicornStudio={isInitialized:!1};
-          var i=document.createElement("script");
-          i.src="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.33/dist/unicornStudio.umd.js";
-          i.onload=function(){
-            window.UnicornStudio.isInitialized||(window.UnicornStudio.init(),window.UnicornStudio.isInitialized=!0)
-          };
-          (document.head || document.body).appendChild(i)
-        } else {
-          try { window.UnicornStudio.init(); } catch(e){}
-        }
-      }();
-    `;
-    document.head.appendChild(embedScript);
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+    setMouseOffset({ x, y });
+  };
 
-    // Add CSS to hide branding elements and crop canvas
-    const style = document.createElement('style');
-    style.textContent = `
-      [data-us-project] {
-        position: relative !important;
-        overflow: hidden !important;
-      }
-      
-      [data-us-project] canvas {
-        clip-path: inset(0 0 10% 0) !important;
-      }
-      
-      [data-us-project] * {
-        pointer-events: none !important;
-      }
-      [data-us-project] a[href*="unicorn"],
-      [data-us-project] button[title*="unicorn"],
-      [data-us-project] div[title*="Made with"],
-      [data-us-project] .unicorn-brand,
-      [data-us-project] [class*="brand"],
-      [data-us-project] [class*="credit"],
-      [data-us-project] [class*="watermark"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        position: absolute !important;
-        left: -9999px !important;
-        top: -9999px !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Function to aggressively hide branding
-    const hideBranding = () => {
-      const projectDiv = document.querySelector('[data-us-project]');
-      if (projectDiv) {
-        // Find and remove any elements containing branding text
-        const allElements = projectDiv.querySelectorAll('*');
-        allElements.forEach(el => {
-          const text = (el.textContent || '').toLowerCase();
-          if (text.includes('made with') || text.includes('unicorn')) {
-            el.remove(); // Completely remove the element
-          }
-        });
-      }
-    };
-
-    // Run immediately and periodically
-    hideBranding();
-    const interval = setInterval(hideBranding, 100);
-    
-    // Also try after delays
-    const timeout1 = setTimeout(hideBranding, 1000);
-    const timeout2 = setTimeout(hideBranding, 3000);
-    const timeout3 = setTimeout(hideBranding, 5000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-      clearTimeout(timeout3);
-      if (embedScript.parentNode) {
-        embedScript.parentNode.removeChild(embedScript);
-      }
-      if (style.parentNode) {
-        style.parentNode.removeChild(style);
-      }
-    };
-  }, []);
+  const handleMouseLeave = () => {
+    setMouseOffset({ x: 0, y: 0 });
+  };
 
   const handleStart = () => {
     if (onGetStarted) {
@@ -144,17 +49,42 @@ export default function Home({
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black text-white select-none">
-      {/* Vitruvian man animation - hidden on mobile */}
-      <div className="absolute inset-0 w-full h-full hidden lg:block">
+    <main 
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="relative min-h-screen overflow-hidden bg-black text-white select-none"
+    >
+      {/* Background stars / particle field */}
+      <div className="absolute inset-0 w-full h-full stars-bg opacity-75 pointer-events-none"></div>
+
+      {/* Futuristic College Campus Blueprint Graphic - Desktop Parallax */}
+      <div className="absolute inset-0 w-full h-full hidden lg:flex items-center justify-end pointer-events-none pr-4 xl:pr-12 2xl:pr-20 overflow-hidden">
         <div 
-          data-us-project="whwOGlfJ5Rz2rHaEUgHl" 
-          style={{ width: '100%', height: '100%', minHeight: '100vh' }}
-        />
+          className="relative w-[52vw] max-w-[860px] aspect-[1.45/1] flex items-center justify-center transition-transform duration-200 ease-out"
+          style={{
+            transform: `perspective(1000px) rotateY(${mouseOffset.x * 4}deg) rotateX(${-mouseOffset.y * 4}deg) translate3d(${mouseOffset.x * 8}px, ${mouseOffset.y * 8}px, 0)`,
+          }}
+        >
+          {/* Subtle ambient backlight behind the architectural blueprint */}
+          <div className="absolute w-80 h-80 rounded-full bg-white/[0.03] blur-3xl pointer-events-none"></div>
+
+          <img 
+            src="/assets/campus-hero-blueprint.png" 
+            alt="CampusOS Architectural Blueprint" 
+            className="w-full h-full object-contain pointer-events-none select-none mix-blend-screen opacity-95 filter drop-shadow-[0_0_25px_rgba(255,255,255,0.08)]"
+            draggable={false}
+          />
+        </div>
       </div>
 
-      {/* Mobile stars background */}
-      <div className="absolute inset-0 w-full h-full lg:hidden stars-bg"></div>
+      {/* Mobile background blueprint watermark */}
+      <div className="absolute inset-0 w-full h-full lg:hidden flex items-center justify-center opacity-25 pointer-events-none overflow-hidden">
+        <img 
+          src="/assets/campus-hero-blueprint.png" 
+          alt="CampusOS Blueprint" 
+          className="w-[120vw] max-w-none object-contain mix-blend-screen"
+        />
+      </div>
 
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-20 border-b border-white/20">
