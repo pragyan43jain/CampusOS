@@ -175,6 +175,12 @@ export const App: React.FC = () => {
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
   const [isFeatureModalOpen, setIsFeatureModalOpen] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('campusos_sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
 
   // Teams & LMS Integration States
   const [isTeamsModalOpen, setIsTeamsModalOpen] = useState<boolean>(false);
@@ -1043,7 +1049,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="app-shell" data-theme={currentTheme}>
+    <div className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`} data-theme={currentTheme}>
       <Sidebar
         activeView={activeView}
         onSelectView={(view) => {
@@ -1063,6 +1069,18 @@ export const App: React.FC = () => {
         onLogout={handleSignOut}
         onOpenAdmin={() => setShowAdminModal(true)}
         onOpenFeatures={() => setIsFeatureModalOpen(true)}
+        student={student}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenLMS={() => setIsLMSModalOpen(true)}
+        onOpenTeams={() => setIsTeamsModalOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => {
+          const next = !isSidebarCollapsed;
+          setIsSidebarCollapsed(next);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('campusos_sidebar_collapsed', String(next));
+          }
+        }}
       />
 
       <div className="main-viewport">
@@ -1078,18 +1096,37 @@ export const App: React.FC = () => {
           onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
           syncing={syncing}
+          pendingAssignmentsCount={pendingAssignmentsCount}
+          criticalAttendanceCount={criticalAttendanceCount}
+          onNavigate={(view, subTab) => {
+            setActiveView(view as NavView);
+            if (subTab) {
+              setAcademicsSubTab(subTab as AcademicsSubTab);
+              if (typeof window !== 'undefined') {
+                window.history.pushState(null, '', `/${view}/${subTab}`);
+              }
+            } else if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', `/${view}`);
+            }
+          }}
         />
 
         {activeView === 'dashboard' && (
           <DashboardView
             student={student}
             timetable={timetable}
+            courses={courses}
+            attendance={attendance}
+            marks={marks}
+            exams={exams}
             assignments={assignments}
             fees={fees}
             placements={placements}
             dsaTopics={dsaTopics}
             aiTasks={aiTasks}
             onSelectView={setActiveView}
+            onSelectAcademicsSubTab={handleSelectAcademicsSubTab}
+            onToggleAssignment={handleToggleAssignment}
             onSync={handleHeaderSync}
             syncing={syncing}
             onOpenSyncModal={handleHeaderSync}

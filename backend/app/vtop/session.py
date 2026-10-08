@@ -176,17 +176,19 @@ class VTOPSession:
 
     def _get(self, path: str, **kwargs: Any) -> requests.Response:
         timeout = kwargs.pop("timeout", 15.0)
-        response = self.http.get(self._url(path), timeout=timeout, **kwargs)
-        self._absorb(response.text)
-        return response
+        with self._lock:
+            response = self.http.get(self._url(path), timeout=timeout, **kwargs)
+            self._absorb(response.text)
+            return response
 
     def _post(
         self, path: str, data: List[Tuple[str, str]], **kwargs: Any
     ) -> requests.Response:
         timeout = kwargs.pop("timeout", 15.0)
-        response = self.http.post(self._url(path), data=data, timeout=timeout, **kwargs)
-        self._absorb(response.text)
-        return response
+        with self._lock:
+            response = self.http.post(self._url(path), data=data, timeout=timeout, **kwargs)
+            self._absorb(response.text)
+            return response
 
     # -- handshake ---------------------------------------------------------
 
@@ -280,11 +282,8 @@ class VTOPSession:
             login_html = self._login_page_html
             logger.debug("[VTOP] fetch_captcha: reusing cached login page HTML")
         else:
-            response = self._get(C.LOGIN_PAGE)
-            if not self._is_login_page(response.text):
-                self.start_handshake()
-                response = self._get(C.LOGIN_PAGE)
-            login_html = response.text
+            self.start_handshake()
+            login_html = self._login_page_html or ""
 
         # 1. Try to extract from login page HTML
         b64 = self._extract_captcha_b64(login_html)

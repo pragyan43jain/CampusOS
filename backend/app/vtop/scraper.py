@@ -1199,50 +1199,63 @@ def sync(
             "so no semester-scoped module can be fetched"
         )
 
-    # Fetch independent general and semester-scoped endpoints in parallel
+    # Fetch independent general and semester-scoped endpoints sequentially to prevent
+    # rotating CSRF token race conditions and premature session expiration on VTOP.
     sem_id = semester["id"] if semester else None
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        f_profile = executor.submit(_step, report, "profile", lambda: fetch_profile(session))
-        # Grade history (cumulative CGPA + total credits earned) is essential and fast (<200ms) - never skip
-        f_grade_history = executor.submit(_step, report, "gradeHistory", lambda: fetch_grade_history(session))
-        f_receipts = executor.submit(_step, report, "receipts", lambda: fetch_receipts(session)) if not fast_mode else None
-        f_payments = executor.submit(_step, report, "payments", lambda: fetch_payments(session)) if not fast_mode else None
-        f_proctor = executor.submit(_step, report, "proctor", lambda: fetch_proctor(session))
-        f_dean_hod = executor.submit(_step, report, "deanHod", lambda: fetch_dean_hod(session)) if not fast_mode else None
-        f_spotlight = executor.submit(_step, report, "spotlight", lambda: fetch_spotlight(session)) if not fast_mode else None
+    profile = _step(report, "profile", lambda: fetch_profile(session))
+    grade_history = _step(report, "gradeHistory", lambda: fetch_grade_history(session))
+    receipts = _step(report, "receipts", lambda: fetch_receipts(session)) or [] if not fast_mode else []
+    payments = _step(report, "payments", lambda: fetch_payments(session)) or {"hasDues": False, "totalDue": 0.0, "items": []} if not fast_mode else {"hasDues": False, "totalDue": 0.0, "items": []}
+    proctor = _step(report, "proctor", lambda: fetch_proctor(session))
+    dean_hod = _step(report, "deanHod", lambda: fetch_dean_hod(session)) or [] if not fast_mode else []
+    spotlight = _step(report, "spotlight", lambda: fetch_spotlight(session)) or [] if not fast_mode else []
 
-        f_timetable = executor.submit(lambda: fetch_timetable_page(session, sem_id)) if sem_id else None
-        f_attendance = executor.submit(lambda: fetch_attendance_page(session, sem_id)) if sem_id else None
-        f_marks = executor.submit(lambda: fetch_marks_page(session, sem_id)) if sem_id else None
-        f_exams = executor.submit(lambda: fetch_exam_page(session, sem_id)) if (sem_id and not fast_mode) else None
-        f_sem_grades = executor.submit(_step, report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if sem_id else None
-        f_calendar = executor.submit(_step, report, "calendar", lambda: fetch_vtop_academic_calendar(session, sem_id)) if (sem_id and not fast_mode) else None
+    page = None
+    att_html = None
+    marks_html = None
+    exams_html = None
+    page_err = None
+    att_err = None
+    marks_err = None
+    exams_err = None
 
-        profile = f_profile.result() if f_profile else None
-        grade_history = f_grade_history.result() if f_grade_history else None
-        receipts = f_receipts.result() or [] if f_receipts else []
-        payments = f_payments.result() or {"hasDues": False, "totalDue": 0.0, "items": []} if f_payments else {"hasDues": False, "totalDue": 0.0, "items": []}
-        proctor = f_proctor.result() if f_proctor else None
-        dean_hod = f_dean_hod.result() or [] if f_dean_hod else []
-        spotlight = f_spotlight.result() or [] if f_spotlight else []
-        calendar_data = f_calendar.result() if f_calendar else None
+    if sem_id:
+        try:
+            page = fetch_timetable_page(session, sem_id)
+        except VTOPAuthError:
+            raise
+        except Exception as exc:
+            logger.warning("[VTOP Scraper] Timetable fetch failed: %s", exc)
+            page_err = exc
 
-        page = None
-        if f_timetable:
+        try:
+            att_html = fetch_attendance_page(session, sem_id)
+        except VTOPAuthError:
+            raise
+        except Exception as exc:
+            logger.warning("[VTOP Scraper] Attendance fetch failed: %s", exc)
+            att_err = exc
+
+        try:
+            marks_html = fetch_marks_page(session, sem_id)
+        except VTOPAuthError:
+            raise
+        except Exception as exc:
+            logger.warning("[VTOP Scraper] Marks fetch failed: %s", exc)
+            marks_err = exc
+
+        if not fast_mode:
             try:
-                page = f_timetable.result()
+                exams_html = fetch_exam_page(session, sem_id)
+            except VTOPAuthError:
+                raise
             except Exception as exc:
-                logger.warning("[VTOP Scraper] Timetable fetch failed: %s", exc)
+                logger.warning("[VTOP Scraper] Exam fetch failed: %s", exc)
+                exams_err = exc
 
-        att_html = None
-        if f_attendance:
-            try:
-                att_html = f_attendance.result()
-            except Exception:
-                pass
-
-        semester_grades = f_sem_grades.result() or {"grades": [], "gpa": None} if f_sem_grades else {"grades": [], "gpa": None}
+    semester_grades = _step(report, "semesterGrades", lambda: fetch_semester_grades(session, sem_id)) if sem_id else {"grades": [], "gpa": None}
+    calendar_data = _step(report, "calendar", lambda: fetch_vtop_academic_calendar(session, sem_id)) if (sem_id and not fast_mode) else None
 
     registry = build_registry([])
     grid: Dict[str, List[Dict[str, Any]]] = {}
@@ -1261,49 +1274,48 @@ def sync(
                 count_of=lambda g: sum(len(v) for v in (g or {}).values()),
             ) or {}
         else:
-            report.record("courses", FAILED, message="timetable page not retrieved")
-            report.record("timetableGrid", FAILED, message="timetable page not retrieved")
+            msg = str(page_err) if page_err else "timetable page not retrieved"
+            report.record("courses", FAILED, message=msg)
+            report.record("timetableGrid", FAILED, message=msg)
 
         def _get_attendance():
-            if not f_attendance:
-                return []
-            html = f_attendance.result()
-            if html is None:
+            if att_err:
+                raise att_err
+            if att_html is None:
                 raise RuntimeError("attendance page not retrieved")
-            return P.parse_attendance(html)
+            return P.parse_attendance(att_html)
 
         def _get_marks():
-            if not f_marks:
-                return []
-            html = f_marks.result()
-            if html is None:
+            if marks_err:
+                raise marks_err
+            if marks_html is None:
                 raise RuntimeError("marks page not retrieved")
-            return P.parse_marks(html)
+            return P.parse_marks(marks_html)
 
         def _get_exams():
-            if not f_exams:
+            if exams_err:
+                raise exams_err
+            if exams_html is None:
                 return {}
-            html = f_exams.result()
-            if html is None:
-                raise RuntimeError("exams page not retrieved")
-            return P.parse_exam_schedule(html)
+            return P.parse_exam_schedule(exams_html)
 
         attendance_rows = _step(report, "attendance", _get_attendance) or []
         if not fast_mode and sem_id and getattr(session, "is_authenticated", False) and attendance_rows:
-            def _fetch_row_detail(row):
+            for row in attendance_rows[:8]:
                 cid = row.get("classId")
                 sname = row.get("slotName") or row.get("slot") or ""
                 if cid and sname:
-                    logs, _ = fetch_course_attendance_detail(
-                        session, sem_id, cid, slot_name=sname,
-                        course_code=row.get("courseCode", ""),
-                        course_title=row.get("courseTitle", ""),
-                        faculty_name=row.get("facultyName", ""),
-                    )
-                    if logs:
-                        row["viewLink"] = logs
-            with ThreadPoolExecutor(max_workers=min(len(attendance_rows), 5)) as pool:
-                list(pool.map(_fetch_row_detail, attendance_rows))
+                    try:
+                        logs, _ = fetch_course_attendance_detail(
+                            session, sem_id, cid, slot_name=sname,
+                            course_code=row.get("courseCode", ""),
+                            course_title=row.get("courseTitle", ""),
+                            faculty_name=row.get("facultyName", ""),
+                        )
+                        if logs:
+                            row["viewLink"] = logs
+                    except Exception as e:
+                        logger.debug("[VTOP Scraper] Detail log notice for class %s: %s", cid, e)
         marks_rows = _step(report, "marks", _get_marks) or []
         if not fast_mode and sem_id:
             exams = _step(

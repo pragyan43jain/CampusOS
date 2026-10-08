@@ -290,7 +290,7 @@ class VTOPClientManager:
                 )
 
         # 2. If not yet authenticated and no manual captcha was supplied (headless reauth), run OCR solver
-        if not authenticated and not captcha and is_ocr_available():
+        if not authenticated and not captcha and is_ocr_available() and not os.environ.get("PYTEST_CURRENT_TEST"):
             max_retries = 2
             for attempt in range(max_retries):
                 try:

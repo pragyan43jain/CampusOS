@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
 import {
   RefreshCw,
-  Smartphone,
-  CheckCircle2,
+  Bell,
   Menu,
-  X,
-  LogOut,
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { ThemeSwitcher, THEMES, ThemeType, ThemeOption } from './ThemeSwitcher';
-import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { RollText } from './ui/RollText';
+import { NotificationPanel } from './NotificationPanel';
 
 export { THEMES, ThemeSwitcher };
 export type { ThemeType, ThemeOption };
@@ -28,6 +25,9 @@ interface HeaderProps {
   onToggleMobileMenu?: () => void;
   onLogout?: () => void;
   onOpenFeatures?: () => void;
+  pendingAssignmentsCount?: number;
+  criticalAttendanceCount?: number;
+  onNavigate?: (view: string, subTab?: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -40,20 +40,26 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfileModal,
   syncing,
   onToggleMobileMenu,
-  onLogout,
+  pendingAssignmentsCount = 0,
+  criticalAttendanceCount = 0,
+  onNavigate,
 }) => {
-  const [showAppModal, setShowAppModal] = useState<boolean>(false);
-  useLockBodyScroll(showAppModal);
+  const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
 
   const formatTitleCase = (val: string): string => {
     if (!val) return '';
     const clean = val.trim();
     if (!clean) return '';
     const first = clean.split(' ')[0];
-    if (/\d/.test(first)) {
-      return first.toUpperCase();
-    }
+    if (/\d/.test(first)) return first.toUpperCase();
     return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+  };
+
+  const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   };
 
   const savedUser = typeof window !== 'undefined' ? localStorage.getItem('campus_vtop_username') : '';
@@ -65,10 +71,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const studentDisplayName = formatTitleCase(rawStudentName) || 'Student';
   const studentRegNo = student?.regNo || (savedUser && /\d/.test(savedUser) ? savedUser.toUpperCase() : 'Sync Required');
-  const studentProgram = student?.program || 'VIT Chennai';
-  const studentSemester = student?.semester
-    ? (String(student.semester).toLowerCase().includes('semester') ? student.semester : `Semester ${student.semester}`)
-    : 'Fall Semester 2026-27';
 
   const avatarInitials = student?.name
     ? student.name
@@ -80,152 +82,118 @@ export const Header: React.FC<HeaderProps> = ({
         .toUpperCase()
     : 'OS';
 
-  const formatViewTitle = (view: string) => {
-    switch (view) {
+  const unreadNotifCount = (pendingAssignmentsCount > 0 ? 1 : 0) + (criticalAttendanceCount > 0 ? 1 : 0) + 1;
+
+  const getSupportingText = (): string => {
+    switch (activeView) {
       case 'dashboard':
-        return 'Dashboard';
+        return 'Here is your academic overview for today.';
       case 'academics':
-        return 'Academics';
+        return 'Course registry, live attendance margins, and examination marks.';
       case 'assignments':
-        return 'Assignments';
+        return 'Pending coursework and unified assignment submissions.';
       case 'fees':
-        return 'Fees & Ledger';
+        return 'University financial dues and payment receipts.';
       case 'placements':
-        return 'LeetCode';
+        return 'Placement readiness and DSA algorithmic benchmarks.';
       case 'ai-planner':
-        return 'AI Study Planner';
+        return 'AI-powered syllabus and study workload roadmap.';
       default:
-        return view.replace('-', ' ');
+        return 'University student academic workspace.';
     }
   };
 
   return (
-    <>
-      <header className="app-header">
-        <div className="header-left-block">
-          {onToggleMobileMenu && (
-            <button
-              onClick={onToggleMobileMenu}
-              className="mobile-hamburger-btn btn btn-ghost btn-sm"
-              aria-label="Open Actions Drawer"
-            >
-              <Menu size={20} />
-            </button>
-          )}
-          <div className="header-title-group">
-            <h1 className="header-page-title">{formatViewTitle(activeView)}</h1>
-            <div className="header-context-meta">
-              <span className="header-context-program">{studentProgram}</span>
-              <span className="header-context-separator">•</span>
-              <span className="header-context-sem">{studentSemester}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="header-right-actions">
-          {/* Direct Live Sync Button */}
+    <header className="app-header">
+      {/* Left: Greeting & Academic Supporting Context */}
+      <div className="header-left-block">
+        {onToggleMobileMenu && (
           <button
-            className="button button-blue button-sm header-sync-btn"
-            onClick={onSync || onOpenVtopModal}
-            disabled={syncing}
-            title={syncing ? "Synchronizing academic data..." : "Sync latest grades, attendance, timetable & assignments directly"}
+            onClick={onToggleMobileMenu}
+            className="mobile-hamburger-btn"
+            aria-label="Open Navigation Drawer"
           >
-            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            <span className="sync-btn-label"><RollText text={syncing ? 'Syncing...' : 'Sync'} /></span>
+            <Menu size={18} />
+          </button>
+        )}
+        <div className="header-greeting-block">
+          <h1 className="header-greeting-title">
+            {getGreeting()}, <span className="header-greeting-name">{studentDisplayName}</span>
+          </h1>
+          <p className="header-greeting-sub">
+            {getSupportingText()}
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Actions, Notifications, Sync, Theme, Profile */}
+      <div className="header-right-actions">
+        {/* Live Sync Action */}
+        <button
+          type="button"
+          className="header-action-btn sync-btn"
+          onClick={onSync || onOpenVtopModal}
+          disabled={syncing}
+          title={syncing ? 'Synchronizing university records...' : 'Sync with VTOP portal'}
+        >
+          <RefreshCw size={14} className={syncing ? 'animate-spin text-blue-500' : ''} />
+          <span className="sync-btn-text">
+            <RollText text={syncing ? 'Syncing...' : 'Sync'} />
+          </span>
+        </button>
+
+        {/* Notifications Button with Dropdown Panel */}
+        <div className="relative">
+          <button
+            type="button"
+            className="header-action-icon-btn notif-btn"
+            onClick={() => setIsNotifOpen(!isNotifOpen)}
+            title="Notifications"
+            aria-label="Notifications"
+          >
+            <Bell size={16} />
+            {unreadNotifCount > 0 && (
+              <span className="header-notif-dot" />
+            )}
           </button>
 
-
-
-          {/* Theme Switcher Button & Dropdown */}
-          {onSelectTheme && (
-            <ThemeSwitcher
-              currentTheme={currentTheme}
-              onSelectTheme={onSelectTheme}
-            />
-          )}
-
-          <div className="header-divider desktop-only-inline" />
-
-          {/* User Profile Capsule */}
-          <div
-            className="user-profile-capsule cursor-pointer"
-            onClick={onOpenProfileModal || onOpenVtopModal}
-            title="View & Edit Student Profile & Connected Credentials"
-          >
-            <div className="user-avatar-circle">{avatarInitials}</div>
-            <div className="user-profile-text-block">
-              <span className="user-profile-name">
-                {studentDisplayName}
-              </span>
-              <span className="user-profile-reg">
-                {studentRegNo}
-              </span>
-            </div>
-          </div>
-
-          {/* Sign Out Button (Desktop Only) */}
-          {onLogout && (
-            <button
-              className="header-logout-btn desktop-only-inline"
-              onClick={onLogout}
-              title="Sign out of current session"
-              aria-label="Sign out"
-            >
-              <LogOut size={14} />
-            </button>
-          )}
+          <NotificationPanel
+            isOpen={isNotifOpen}
+            onClose={() => setIsNotifOpen(false)}
+            onNavigate={onNavigate}
+            attendanceCount={criticalAttendanceCount}
+            pendingAssignmentsCount={pendingAssignmentsCount}
+            lastSyncedTime={student?.lastSynced}
+          />
         </div>
-      </header>
 
-      {/* App Coming Soon Modal */}
-      {showAppModal && (
-        <div className="modal-backdrop overscroll-contain" onClick={() => setShowAppModal(false)} onWheel={(e) => e.stopPropagation()}>
-          <div className="modal-content-glass overscroll-contain" onClick={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-            <div className="modal-header-row">
-              <div className="brand-icon-box" style={{ width: '38px', height: '38px' }}>
-                <Smartphone size={18} />
-              </div>
-              <button
-                onClick={() => setShowAppModal(false)}
-                className="btn btn-ghost btn-sm"
-                style={{ padding: '4px' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
+        {/* Theme Switcher Dropdown */}
+        {onSelectTheme && (
+          <ThemeSwitcher
+            currentTheme={currentTheme}
+            onSelectTheme={onSelectTheme}
+          />
+        )}
 
-            <div>
-              <span className="status-badge info" style={{ marginBottom: '8px' }}>
-                Development Preview
-              </span>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                CampusOS Mobile App
-              </h2>
-              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Native mobile builds for iOS and Android featuring offline timetable widgets, real-time attendance safety alerts, and automated LMS assignment sync.
-              </p>
-            </div>
+        <div className="header-vertical-divider" />
 
-            <div style={{ background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: 'var(--radius-md)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.86rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>
-                <CheckCircle2 size={16} />
-                <span>Beta Testing in Progress</span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Register for early TestFlight and APK access via student portal notification.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowAppModal(false)}
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-            >
-              <span>Got it</span>
-            </button>
+        {/* User Profile Capsule */}
+        <div
+          className="header-profile-capsule"
+          onClick={onOpenProfileModal || onOpenVtopModal}
+          title="Student Profile & Settings"
+          role="button"
+          tabIndex={0}
+        >
+          <div className="header-profile-avatar">
+            {avatarInitials}
+          </div>
+          <div className="header-profile-info">
+            <span className="header-profile-name">{studentDisplayName}</span>
+            <span className="header-profile-reg">{studentRegNo}</span>
           </div>
         </div>
-      )}
-    </>
+      </div>
+    </header>
   );
 };
