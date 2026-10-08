@@ -225,11 +225,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     } catch (e) {}
   };
 
-  const teamsConnected = Boolean(teamsAccount?.connected);
+  const teamsConnected = Boolean(teamsAccount?.connected && teamsAccount?.status !== 'failed');
   const teamsFailed = Boolean(teamsAccount?.status === 'failed' || teamsAccount?.failed);
 
-  const lmsConnected = Boolean(lmsAccount?.connected);
+  const lmsExpired = Boolean(lmsAccount?.status === 'expired' || lmsAccount?.expired);
   const lmsFailed = Boolean(lmsAccount?.status === 'failed' || lmsAccount?.failed);
+  const lmsConnected = Boolean(lmsAccount?.connected && !lmsExpired && !lmsFailed);
 
   const pendingAssignments = assignments.filter((a) => !isAssignmentDone(a, student?.regNo));
 
@@ -429,8 +430,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   Teams: {teamsConnected ? 'Synced' : 'Unlinked'}
                 </span>
                 <span className="flex items-center gap-1 text-[11px]">
-                  <span className={`w-1.5 h-1.5 rounded-full ${lmsConnected ? 'bg-emerald-400' : 'bg-neutral-500'}`} />
-                  LMS: {lmsConnected ? 'Synced' : 'Unlinked'}
+                  <span className={`w-1.5 h-1.5 rounded-full ${lmsConnected ? 'bg-emerald-400' : lmsExpired ? 'bg-amber-400' : 'bg-neutral-500'}`} />
+                  LMS: {lmsConnected ? 'Synced' : lmsExpired ? 'Expired' : 'Unlinked'}
                 </span>
               </div>
               <span className="text-[11px] text-neutral-400">Synced across course hubs</span>
@@ -736,15 +737,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div
                   style={{
                     fontSize: '0.78rem',
-                    color: lmsFailed ? 'var(--accent-crimson)' : lmsConnected ? 'var(--accent-emerald)' : 'var(--text-muted)',
+                    color: lmsFailed
+                      ? 'var(--accent-crimson)'
+                      : lmsExpired
+                      ? '#fbbf24'
+                      : lmsConnected
+                      ? 'var(--accent-emerald)'
+                      : 'var(--text-muted)',
                     fontWeight: 500,
                   }}
                 >
                   {lmsConnected
                     ? 'Active • Quizzes & Dropboxes Synced'
+                    : lmsExpired
+                    ? 'Session Expired • Please re-link your Moodle account'
                     : lmsFailed
                     ? 'Connection Failed • Click to retry'
-                    : 'Not Connected'}
+                    : 'Not Connected • Link to sync assignments'}
                 </div>
               </div>
             </div>
@@ -767,10 +776,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     fontSize: '0.74rem',
                     cursor: 'pointer',
                   }}
-                  title="Reset or re-enter Moodle LMS credentials"
+                  title="Re-link or refresh Moodle LMS credentials"
                 >
                   <RotateCcw size={12} />
-                  <span>Reset</span>
+                  <span>Re-link</span>
+                </button>
+              </div>
+            ) : lmsExpired ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span
+                  className="status-badge"
+                  style={{
+                    fontSize: '0.74rem',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                  }}
+                >
+                  Session Expired ⚠️
+                </span>
+                <button
+                  type="button"
+                  onClick={onLinkLMS}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '0 10px',
+                    height: '28px',
+                    fontSize: '0.74rem',
+                    cursor: 'pointer',
+                  }}
+                  title="Re-link Moodle LMS account"
+                >
+                  <RotateCcw size={12} />
+                  <span>Re-link LMS</span>
                 </button>
               </div>
             ) : lmsFailed ? (
@@ -779,7 +820,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   Failed ⚠️
                 </span>
                 <button onClick={onLinkLMS} className="btn btn-secondary btn-sm" style={{ padding: '0 10px' }}>
-                  Retry
+                  Re-link LMS
                 </button>
               </div>
             ) : (

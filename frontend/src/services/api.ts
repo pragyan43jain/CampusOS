@@ -697,7 +697,7 @@ export const CampusAPI = {
         const staticRes = await fetch('/calendar/academic_calendar.json');
         if (staticRes.ok) {
           const staticData = await staticRes.json();
-          if (staticData && staticData.calendars && staticData.calendars.length > 0 && staticData.semesterId === semToUse) {
+          if (staticData && staticData.calendars && staticData.calendars.length > 0) {
             return staticData;
           }
         }

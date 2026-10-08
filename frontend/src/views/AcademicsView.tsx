@@ -106,6 +106,12 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
   const [activeTab, setActiveTab] = useState<AcademicsSubTab>(getSubTabFromUrl());
 
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
   // All Grades & CGPA Predictor states
   const [allGradesData, setAllGradesData] = useState<AllGradesResponse | null>(null);
   const [_loadingGrades, setLoadingGrades] = useState(false);
@@ -411,6 +417,67 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       return true;
     });
   }, [exams, examFilter]);
+  // Track manual exam completion status overrides
+  const [manualExamCompleted, setManualExamCompleted] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const reg = student?.regNo || 'default';
+      const raw = localStorage.getItem(`campus_exam_completed_${reg}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const isExamDone = (ex: Exam, examKey: string): boolean => {
+    if (manualExamCompleted[examKey] !== undefined) {
+      return manualExamCompleted[examKey];
+    }
+    if ((ex as any).isCompleted || (ex as any).status === 'Completed' || (ex as any).status === 'Done') {
+      return true;
+    }
+    const dateStr = ex.date;
+    if (!dateStr) return false;
+    try {
+      const parsed = Date.parse(dateStr);
+      if (!isNaN(parsed)) {
+        return new Date(parsed).setHours(23, 59, 59, 999) < Date.now();
+      }
+      const parts = dateStr.trim().split(/[-/ ]+/);
+      if (parts.length === 3) {
+        const monthNames: Record<string, number> = {
+          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+        };
+        let day = parseInt(parts[0], 10);
+        let year = parseInt(parts[2], 10);
+        let month = monthNames[parts[1].toLowerCase().slice(0, 3)];
+        if (month === undefined && !isNaN(parseInt(parts[1], 10))) {
+          month = parseInt(parts[1], 10) - 1;
+        }
+        if (year < 100) year += 2000;
+        if (!isNaN(day) && month !== undefined && !isNaN(year)) {
+          const d = new Date(year, month, day, 23, 59, 59, 999);
+          return d.getTime() < Date.now();
+        }
+      }
+    } catch (e) {}
+    return false;
+  };
+
+  const toggleExamCompleted = (examKey: string, currentDone: boolean) => {
+    const next = !currentDone;
+    setManualExamCompleted((prev) => {
+      const updated = { ...prev, [examKey]: next };
+      if (typeof window !== 'undefined') {
+        try {
+          const reg = student?.regNo || 'default';
+          localStorage.setItem(`campus_exam_completed_${reg}`, JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+  };
 
   const [marksFilter, setMarksFilter] = useState<'ALL' | 'CAT 1' | 'CAT 2' | 'FAT' | 'DA'>('ALL');
   const [courseSearch, setCourseSearch] = useState('');
@@ -1429,6 +1496,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     <th style={{ minWidth: '85px', textAlign: 'center' }}>Row</th>
                     <th style={{ minWidth: '85px', textAlign: 'center' }}>Column</th>
                     <th style={{ minWidth: '85px', textAlign: 'center' }}>Seat No.</th>
+                    <th style={{ minWidth: '95px', textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1449,24 +1517,29 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     const colVal = ex.column ?? ex.seatColumn ?? derived.column;
                     const seatNum = ex.seatNumber;
 
+                    const examKey = `${ex.courseCode || ''}-${ex.examType || ''}-${ex.date || ''}-${idx}`;
+                    const isDone = isExamDone(ex, examKey);
+
                     return (
-                      <tr key={idx}>
-                        <td>
-                          <span className="status-badge info">{ex.examType || 'CAT 1'}</span>
+                      <tr key={idx} className={isDone ? 'exam-row-completed' : ''} style={isDone ? { opacity: 0.6 } : undefined}>
+                        <td style={isDone ? { textDecoration: 'line-through', textDecorationColor: 'rgba(239, 68, 68, 0.75)' } : undefined}>
+                          <span className={`status-badge ${isDone ? 'success' : 'info'}`} style={{ textDecoration: 'none' }}>
+                            {ex.examType || 'CAT 1'}
+                          </span>
                         </td>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--accent-cyan)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>
                           {ex.courseCode}
                         </td>
-                        <td style={{ fontWeight: 600 }}>{ex.courseTitle || ex.title}</td>
-                        <td style={{ fontWeight: 700 }}>{ex.date}</td>
-                        <td style={{ fontFamily: 'var(--font-mono)' }}>{ex.time || '9:30 AM'}</td>
-                        <td>
+                        <td style={{ fontWeight: 600, textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>{ex.courseTitle || ex.title}</td>
+                        <td style={{ fontWeight: 700, textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>{ex.date}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>{ex.time || '9:30 AM'}</td>
+                        <td style={isDone ? { textDecoration: 'line-through', textDecorationColor: 'rgba(239, 68, 68, 0.75)' } : undefined}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <MapPin size={13} color="var(--accent-orange)" />
                             <span>{ex.venue || 'Academic Block'}</span>
                           </div>
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>
                           {rowVal ? (
                             <span
                               style={{
@@ -1478,6 +1551,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                 background: 'rgba(59, 130, 246, 0.15)',
                                 color: '#60a5fa',
                                 border: '1px solid rgba(59, 130, 246, 0.3)',
+                                textDecoration: isDone ? 'line-through' : 'none',
                               }}
                             >
                               Row {rowVal}
@@ -1486,7 +1560,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>
                           {colVal ? (
                             <span
                               style={{
@@ -1498,6 +1572,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                 background: 'rgba(168, 85, 247, 0.15)',
                                 color: '#c084fc',
                                 border: '1px solid rgba(168, 85, 247, 0.3)',
+                                textDecoration: isDone ? 'line-through' : 'none',
                               }}
                             >
                               Col {colVal}
@@ -1506,7 +1581,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'rgba(239, 68, 68, 0.75)' }}>
                           {seatNum ? (
                             <span
                               style={{
@@ -1518,6 +1593,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                 background: 'rgba(16, 185, 129, 0.15)',
                                 color: '#34d399',
                                 border: '1px solid rgba(16, 185, 129, 0.3)',
+                                textDecoration: isDone ? 'line-through' : 'none',
                               }}
                             >
                               #{seatNum}
@@ -1525,6 +1601,26 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                           ) : (
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
+                        </td>
+                        <td style={{ textAlign: 'center' }} className="no-strike">
+                          <button
+                            type="button"
+                            onClick={() => toggleExamCompleted(examKey, isDone)}
+                            className={`status-badge ${isDone ? 'success' : 'info'}`}
+                            style={{
+                              cursor: 'pointer',
+                              border: isDone ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(59, 130, 246, 0.4)',
+                              background: isDone ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                              color: isDone ? '#34d399' : '#60a5fa',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title={isDone ? 'Mark as upcoming' : 'Mark as completed'}
+                          >
+                            {isDone ? 'Done ✓' : 'Upcoming'}
+                          </button>
                         </td>
                       </tr>
                     );

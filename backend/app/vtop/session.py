@@ -216,7 +216,12 @@ class VTOPSession:
             logger.info("[VTOP] Landing page, submitting prelogin/setup (try %d)", attempt + 1)
             resp = self._submit_prelogin(response.text)
             if self._is_login_page(resp.text):
-                response = resp
+                self.captcha_kind = self._detect_captcha_kind(resp.text)
+                self._login_page_html = resp.text
+                logger.info(
+                    "[VTOP] Reached login form (captcha kind: %s)", self.captcha_kind
+                )
+                return
             else:
                 response = self._get(C.LOGIN_PAGE)
 
@@ -349,14 +354,19 @@ class VTOPSession:
         """
         reg_no = username.strip().upper()
         self.username = reg_no
-        clean_captcha = (captcha or "").strip()
+        clean_captcha = (captcha or "").strip().upper()
+
+        # VTOP built-in image captcha requires captchaStr, with gResponse left empty ("").
+        # If gResponse is populated with the image captcha text, VTOP attempts Google reCAPTCHA
+        # server-side validation against Google's API, which fails and causes false "Invalid Captcha" rejections.
+        g_response = clean_captcha if self.captcha_kind == "grecaptcha" else ""
 
         fields: List[Tuple[str, str]] = [
             ("_csrf", self.csrf or ""),
             ("username", reg_no),
             ("password", password),
             ("captchaStr", clean_captcha),
-            ("gResponse", clean_captcha),
+            ("gResponse", g_response),
         ]
 
         logger.info("[VTOP] Submitting credentials for %s", reg_no)

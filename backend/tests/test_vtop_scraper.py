@@ -549,3 +549,55 @@ class TestFullVTOPModulesSync:
         assert res["student"]["cgpa"] == 8.85
         assert res["student"]["creditsEarned"] == 84.0
 
+
+class TestVtopLoginPayloadAndVerification:
+    def test_login_payload_built_in_captcha_empty_gresponse(self, monkeypatch):
+        from app.vtop.session import VTOPSession, VTOPAuthError
+        session = VTOPSession()
+        session.csrf = "test-csrf-123"
+        session.captcha_kind = "default"
+
+        posted_fields = []
+        def fake_post(path, data, **kwargs):
+            nonlocal posted_fields
+            posted_fields = data
+            class FakeResp:
+                text = "<html><body><strong> Invalid  Username/Password</strong></body></html>"
+                status_code = 200
+            return FakeResp()
+
+        monkeypatch.setattr(session, "_post", fake_post)
+
+        with pytest.raises(VTOPAuthError) as exc_info:
+            session.login("21bce1234", "MySecretPass", "abc123")
+
+        field_dict = dict(posted_fields)
+        assert field_dict["username"] == "21BCE1234"
+        assert field_dict["captchaStr"] == "ABC123"
+        assert field_dict["gResponse"] == ""  # Built-in captcha requires empty gResponse
+        assert exc_info.value.code == 2  # Incorrect credentials, not captcha
+
+    def test_login_payload_grecaptcha_includes_gresponse(self, monkeypatch):
+        from app.vtop.session import VTOPSession, VTOPAuthError
+        session = VTOPSession()
+        session.csrf = "test-csrf-456"
+        session.captcha_kind = "grecaptcha"
+
+        posted_fields = []
+        def fake_post(path, data, **kwargs):
+            nonlocal posted_fields
+            posted_fields = data
+            class FakeResp:
+                text = "<html><body><strong> Invalid Captcha </strong></body></html>"
+                status_code = 200
+            return FakeResp()
+
+        monkeypatch.setattr(session, "_post", fake_post)
+
+        with pytest.raises(VTOPAuthError) as exc_info:
+            session.login("21BCE1234", "MySecretPass", "recaptcha-token")
+
+        field_dict = dict(posted_fields)
+        assert field_dict["gResponse"] == "RECAPTCHA-TOKEN"
+        assert exc_info.value.code == 1
+

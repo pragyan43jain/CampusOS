@@ -26,7 +26,7 @@ import { LMSLoginModal } from './components/LMSLoginModal';
 import { AdminAnalyticsModal } from './components/AdminAnalyticsModal';
 import { CampusAnalytics } from './services/analytics';
 import { DashboardView } from './views/DashboardView';
-import { AcademicsView } from './views/AcademicsView';
+import { AcademicsView, AcademicsSubTab } from './views/AcademicsView';
 import { AssignmentsView } from './views/AssignmentsView';
 import { FeesView } from './views/FeesView';
 import { PlacementsView } from './views/PlacementsView';
@@ -41,6 +41,7 @@ interface RouteInfo {
   isLogin: boolean;
   isAdmin: boolean;
   view: NavView;
+  academicsSubTab?: AcademicsSubTab;
 }
 
 const getRouteFromPath = (path: string): RouteInfo => {
@@ -74,7 +75,22 @@ const getRouteFromPath = (path: string): RouteInfo => {
     clean === '/grades' ||
     clean === '/predictor'
   ) {
-    return { isLanding: false, isLogin: false, isAdmin: false, view: 'academics' };
+    let subTab: AcademicsSubTab = 'profile';
+    if (clean.startsWith('/academics/')) {
+      const part = clean.replace('/academics/', '').split('/')[0] as AcademicsSubTab;
+      if (['profile', 'attendance', 'calendar', 'timetable', 'marks', 'exams', 'grades', 'faculty', 'courses'].includes(part)) {
+        subTab = part;
+      }
+    } else if (clean === '/attendance') subTab = 'attendance';
+    else if (clean === '/calendar') subTab = 'calendar';
+    else if (clean === '/timetable') subTab = 'timetable';
+    else if (clean === '/marks') subTab = 'marks';
+    else if (clean === '/exams') subTab = 'exams';
+    else if (clean === '/grades' || clean === '/predictor') subTab = 'grades';
+    else if (clean === '/faculty') subTab = 'faculty';
+    else if (clean === '/courses') subTab = 'courses';
+
+    return { isLanding: false, isLogin: false, isAdmin: false, view: 'academics', academicsSubTab: subTab };
   }
   if (clean === '/assignments' || clean === '/tasks') {
     return { isLanding: false, isLogin: false, isAdmin: false, view: 'assignments' };
@@ -151,6 +167,7 @@ export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [showLanding, setShowLanding] = useState<boolean>(true);
   const [activeView, setActiveView] = useState<NavView>('dashboard');
+  const [academicsSubTab, setAcademicsSubTab] = useState<AcademicsSubTab>('profile');
   const [showVtopModal, setShowVtopModal] = useState<boolean>(false);
   const [vtopModalNotice, setVtopModalNotice] = useState<string>('');
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
@@ -282,9 +299,17 @@ export const App: React.FC = () => {
         (teamsDirectStatus?.connected && teamsDirectStatus?.email)
       );
 
+      const isLmsExpired = Boolean(
+        statusData?.lms?.status === 'expired' ||
+        lmsDirectStatus?.status === 'expired' ||
+        statusData?.lms?.expired ||
+        lmsDirectStatus?.expired
+      );
+
       const isLmsConn = Boolean(
-        (statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName)) ||
-        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName))
+        !isLmsExpired &&
+        ((statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName)) ||
+        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName)))
       );
 
       setTeamsAccount((prev: any) => ({
@@ -300,7 +325,7 @@ export const App: React.FC = () => {
         ...(statusData?.lms || {}),
         ...(lmsDirectStatus || {}),
         connected: isLmsConn,
-        status: isLmsConn ? 'connected' : (prev.status === 'failed' ? 'failed' : 'disconnected'),
+        status: isLmsConn ? 'connected' : (isLmsExpired ? 'expired' : (prev.status === 'failed' ? 'failed' : 'disconnected')),
       }));
     } catch (e) {
       console.warn('Failed to load academic accounts status:', e);
@@ -529,6 +554,9 @@ export const App: React.FC = () => {
     if (authed) {
       setShowLanding(false);
       setActiveView(route.view);
+      if (route.academicsSubTab) {
+        setAcademicsSubTab(route.academicsSubTab);
+      }
       const clean = (path || '').toLowerCase().replace(/\/+$/, '');
       if (clean === '/vtop-sync' || clean === '/vtop' || clean === '/sync') {
         if (typeof window !== 'undefined') {
@@ -546,6 +574,14 @@ export const App: React.FC = () => {
       }
     }
   }, [isAuthenticated]);
+
+  const handleSelectAcademicsSubTab = (subTab: AcademicsSubTab) => {
+    setActiveView('academics');
+    setAcademicsSubTab(subTab);
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', `/academics/${subTab}`);
+    }
+  };
 
   // Initial Auth & Route Detection
   useEffect(() => {
@@ -753,6 +789,8 @@ export const App: React.FC = () => {
   };
 
   const handleLoginSuccess = async (data?: any) => {
+    const payload = (data as any)?.data || data;
+
     // 1. Instantly reset all previous academic state to guarantee zero cross-user leakage
     setCourses([]);
     setTimetable([]);
@@ -769,7 +807,7 @@ export const App: React.FC = () => {
     setShowVtopModal(false);
     setIsAuthenticated(true);
 
-    const studentObj = data?.student || (data?.regNo ? data : null);
+    const studentObj = payload?.student || (payload?.regNo ? payload : null);
     if (studentObj) {
       CampusAPI.setActiveStudent(studentObj);
       setStudent(studentObj);
@@ -777,25 +815,25 @@ export const App: React.FC = () => {
       CampusAnalytics.trackEvent('login_success', '/dashboard');
       if (typeof window !== 'undefined' && studentObj.regNo) {
         window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
-        if (data) {
-          window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(data));
+        if (payload) {
+          window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(payload));
         }
       }
     }
 
-    if (data && data.courses && data.courses.length > 0) setCourses(data.courses);
-    if (data && data.timetable && data.timetable.length > 0) setTimetable(data.timetable);
-    if (data && data.attendance && data.attendance.length > 0) setAttendance(data.attendance);
-    if (data && data.marks && data.marks.length > 0) setMarks(data.marks);
-    if (data && data.exams && Object.keys(data.exams).length > 0) setExams(data.exams);
-    if (data && data.faculty && data.faculty.length > 0) setFaculty(data.faculty);
-    if (data && data.assignments && data.assignments.length > 0) {
-      setAssignments(applyManualStatusOverrides(data.assignments, data.student?.regNo || student?.regNo));
+    if (payload && payload.courses && payload.courses.length > 0) setCourses(payload.courses);
+    if (payload && payload.timetable && payload.timetable.length > 0) setTimetable(payload.timetable);
+    if (payload && payload.attendance && payload.attendance.length > 0) setAttendance(payload.attendance);
+    if (payload && payload.marks && payload.marks.length > 0) setMarks(payload.marks);
+    if (payload && payload.exams && (Array.isArray(payload.exams) ? payload.exams.length > 0 : Object.keys(payload.exams).length > 0)) setExams(payload.exams);
+    if (payload && payload.faculty && payload.faculty.length > 0) setFaculty(payload.faculty);
+    if (payload && payload.assignments && payload.assignments.length > 0) {
+      setAssignments(applyManualStatusOverrides(payload.assignments, payload.student?.regNo || studentObj?.regNo));
     }
-    if (data && data.fees && data.fees.length > 0) setFees(data.fees);
-    if (data && data.placements && data.placements.length > 0) setPlacements(data.placements);
-    if (data && data.dsaTopics && data.dsaTopics.length > 0) setDsaTopics(data.dsaTopics);
-    if (data && data.aiTasks && data.aiTasks.length > 0) setAiTasks(data.aiTasks);
+    if (payload && payload.fees && payload.fees.length > 0) setFees(payload.fees);
+    if (payload && payload.placements && payload.placements.length > 0) setPlacements(payload.placements);
+    if (payload && payload.dsaTopics && payload.dsaTopics.length > 0) setDsaTopics(payload.dsaTopics);
+    if (payload && payload.aiTasks && payload.aiTasks.length > 0) setAiTasks(payload.aiTasks);
 
     await loadAllData();
     triggerSyncToast('Synced Successfully');
@@ -1002,10 +1040,16 @@ export const App: React.FC = () => {
         activeView={activeView}
         onSelectView={(view) => {
           setActiveView(view);
-          if (typeof window !== 'undefined') {
+          if (view === 'academics') {
+            if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', `/academics/${academicsSubTab}`);
+            }
+          } else if (typeof window !== 'undefined') {
             window.history.pushState(null, '', `/${view}`);
           }
         }}
+        academicsSubTab={academicsSubTab}
+        onSelectAcademicsSubTab={handleSelectAcademicsSubTab}
         pendingAssignmentsCount={pendingAssignmentsCount}
         criticalAttendanceCount={criticalAttendanceCount}
         onLogout={handleSignOut}
@@ -1068,6 +1112,7 @@ export const App: React.FC = () => {
             faculty={faculty}
             onForceSync={handleHeaderSync}
             syncing={syncing}
+            initialSubTab={academicsSubTab}
           />
         )}
 

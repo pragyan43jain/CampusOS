@@ -1151,6 +1151,12 @@ def sync_all_academic_accounts(
         except HTTPException as he:
             logger.warning("LMS HTTP error during sync-all: %s", he.detail)
             errors.append(f"VIT LMS: {he.detail}")
+            if he.status_code == 401 or "expired" in str(he.detail).lower() or "session" in str(he.detail).lower():
+                store["lmsConnected"] = False
+                if "lmsAccount" in store and isinstance(store["lmsAccount"], dict):
+                    store["lmsAccount"]["status"] = "expired"
+                    store["lmsAccount"]["connected"] = False
+                save_store(store, reg)
         except Exception as e:
             logger.warning("LMS sync error during sync-all: %s", e)
             errors.append(f"VIT LMS: {e}")

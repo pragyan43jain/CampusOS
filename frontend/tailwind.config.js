@@ -9,6 +9,10 @@ export default {
   },
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Absans', 'Space Grotesk', 'sans-serif'],
+        heading: ['Absans', 'Space Grotesk', 'sans-serif'],
+      },
       colors: {
         card: {
           DEFAULT: "var(--surface-primary, #10121C)",

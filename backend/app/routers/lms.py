@@ -1345,8 +1345,9 @@ def get_lms_status(
         authorization=authorization,
     )
     store = load_store(reg)
-    is_connected = bool(store.get("lmsConnected"))
     account = store.get("lmsAccount") or {}
+    account_status = account.get("status")
+    is_connected = bool(store.get("lmsConnected")) and account_status != "expired"
     assignments = store.get("assignments") or []
     lms_assignments = [a for a in assignments if a.get("source") == "LMS" or "LMS" in (a.get("source") or "")]
 
@@ -1369,7 +1370,7 @@ def get_lms_status(
         "matchedCount": account.get("matchedCount") or 0,
         "totalCoursesCount": account.get("totalCoursesCount") or 0,
         "courseMatches": account.get("courseMatches") or [],
-        "status": "connected" if is_connected else "disconnected",
+        "status": "connected" if is_connected else (account_status or "disconnected"),
     }
 
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   GraduationCap,
@@ -10,7 +10,16 @@ import {
   LogOut,
   ShieldCheck,
   Layers,
+  ChevronDown,
+  User,
+  Percent,
+  CalendarDays,
+  Calendar,
+  Award,
+  FileText,
+  BookOpen,
 } from 'lucide-react';
+import { AcademicsSubTab } from '../views/AcademicsView';
 
 export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
 
@@ -19,6 +28,8 @@ interface SidebarProps {
   onSelectView: (view: NavView) => void;
   pendingAssignmentsCount: number;
   criticalAttendanceCount: number;
+  academicsSubTab?: AcademicsSubTab;
+  onSelectAcademicsSubTab?: (subTab: AcademicsSubTab) => void;
   onLogout?: () => void;
   onOpenAdmin?: () => void;
   onOpenFeatures?: () => void;
@@ -29,10 +40,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectView,
   pendingAssignmentsCount,
   criticalAttendanceCount,
+  academicsSubTab = 'profile',
+  onSelectAcademicsSubTab,
   onLogout,
   onOpenAdmin,
   onOpenFeatures,
 }) => {
+  const [isAcademicsOpen, setIsAcademicsOpen] = useState<boolean>(activeView === 'academics');
+
+  useEffect(() => {
+    if (activeView === 'academics') {
+      setIsAcademicsOpen(true);
+    }
+  }, [activeView]);
 
   const mainNavItems = [
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
@@ -54,6 +74,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const intelligenceNavItems = [
     { id: 'ai-planner' as NavView, label: 'AI Study Planner', icon: BrainCircuit, badge: { count: 'AI', alert: false } },
+  ];
+
+  const academicsSubItems: { id: AcademicsSubTab; label: string; icon: any }[] = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'attendance', label: 'Attendance', icon: Percent },
+    { id: 'calendar', label: 'Academic Calendar', icon: CalendarDays },
+    { id: 'timetable', label: 'Timetable', icon: Calendar },
+    { id: 'marks', label: 'Marks', icon: Award },
+    { id: 'exams', label: 'Exams', icon: FileText },
+    { id: 'grades', label: 'All Grades & CGPA', icon: BookOpen },
   ];
 
   return (
@@ -82,6 +112,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {mainNavItems.map((item) => {
           const isActive = activeView === item.id;
           const Icon = item.icon;
+
+          if (item.id === 'academics') {
+            return (
+              <div key={item.id} className="sidebar-nav-group">
+                <button
+                  className={`nav-item-btn ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    if (activeView !== 'academics') {
+                      onSelectView('academics');
+                      setIsAcademicsOpen(true);
+                    } else {
+                      setIsAcademicsOpen(!isAcademicsOpen);
+                    }
+                  }}
+                  title="Academics"
+                >
+                  <div className="nav-item-left">
+                    <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
+                    <span>{item.label}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {item.badge && (
+                      <span className={`nav-badge-pill ${item.badge.alert ? 'alert' : ''}`}>
+                        {item.badge.count}
+                      </span>
+                    )}
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        transform: isAcademicsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s ease',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                      }}
+                    />
+                  </div>
+                </button>
+                {isAcademicsOpen && (
+                  <div className="sidebar-subnav-list">
+                    {academicsSubItems.map((sub) => {
+                      const isSubActive = activeView === 'academics' && academicsSubTab === sub.id;
+                      const SubIcon = sub.icon;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          className={`nav-subitem-btn ${isSubActive ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeView !== 'academics') {
+                              onSelectView('academics');
+                            }
+                            onSelectAcademicsSubTab?.(sub.id);
+                          }}
+                        >
+                          <SubIcon size={14} strokeWidth={isSubActive ? 2.2 : 1.7} />
+                          <span>{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <button
               key={item.id}

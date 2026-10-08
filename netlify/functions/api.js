@@ -170,11 +170,11 @@ class NodeVTOPSession {
       ['_csrf', this.csrf || ''],
       ['username', this.username],
       ['password', password],
-      ['captchaStr', captcha || ''],
-      ['gResponse', captcha || ''],
+      ['captchaStr', (captcha || '').trim().toUpperCase()],
+      ['gResponse', ''],
       ['uname', this.username],
       ['passwd', password],
-      ['captchaCheck', captcha || ''],
+      ['captchaCheck', (captcha || '').trim().toUpperCase()],
     ]);
 
     const res = await this.request('login', {

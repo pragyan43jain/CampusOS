@@ -52,7 +52,10 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
 
+  const activeFetchIdRef = useRef<number>(0);
+
   const loadCaptcha = async (clearCurrent = false, preserveError = false) => {
+    const fetchId = ++activeFetchIdRef.current;
     try {
       setLoadingCaptcha(true);
       if (!preserveError) {
@@ -63,6 +66,9 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       }
 
       const data = await CampusAPI.getVtopCaptcha('chennai');
+      if (fetchId !== activeFetchIdRef.current) {
+        return;
+      }
       if (data && data.captchaImage && data.captchaImage.length > 50) {
         setSessionId(data.sessionId || '');
         setCaptchaImage(data.captchaImage);
@@ -70,6 +76,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         throw new Error((data as any)?.message || 'VTOP did not return a valid captcha image.');
       }
     } catch (e: any) {
+      if (fetchId !== activeFetchIdRef.current) return;
       setCaptchaImage('');
       setSessionId('');
       const msg = e?.message || '';
@@ -81,7 +88,9 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         );
       }
     } finally {
-      setLoadingCaptcha(false);
+      if (fetchId === activeFetchIdRef.current) {
+        setLoadingCaptcha(false);
+      }
     }
   };
 
@@ -159,7 +168,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         }
 
         setTimeout(() => {
-          onLoginSuccess(response.data);
+          onLoginSuccess((response as any)?.data || response);
           onClose();
         }, 400);
       } else {
@@ -167,7 +176,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
         const msg = response?.message || '';
         const isCaptchaError = /captcha/i.test(msg) || (response as any)?.code === 1;
         const displayError = isCaptchaError
-          ? '❌ Invalid CAPTCHA entered. The VTOP portal rejected the characters. Note: CAPTCHA characters are case-sensitive — a fresh CAPTCHA has been loaded below, please verify exact casing (uppercase/lowercase) and try again.'
+          ? '❌ Invalid CAPTCHA entered. The VTOP portal rejected the characters. A fresh CAPTCHA has been loaded below, please try again.'
           : (msg || 'Authentication failed. Please check your username or VTOP nickname and password.');
 
         setErrorMsg(displayError);
@@ -183,7 +192,7 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
       const errMsg = err?.message || '';
       const isCaptchaError = /captcha/i.test(errMsg);
       const displayError = isCaptchaError
-        ? '❌ Invalid CAPTCHA entered. A fresh CAPTCHA has been loaded below. Please verify exact casing.'
+        ? '❌ Invalid CAPTCHA entered. A fresh CAPTCHA has been loaded below. Please try again.'
         : (errMsg || 'Network error communicating with VTOP portal.');
 
       setErrorMsg(displayError);
@@ -436,19 +445,19 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 ref={captchaInputRef}
                 type="text"
                 value={captcha}
-                onChange={(e) => setCaptcha(e.target.value.slice(0, 6))}
+                onChange={(e) => setCaptcha(e.target.value.toUpperCase().slice(0, 6))}
                 maxLength={6}
-                autoCapitalize="none"
+                autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck="false"
-                placeholder="Enter 6-char CAPTCHA (case-sensitive)"
+                placeholder="Enter 6-character CAPTCHA"
                 className="input-field"
                 style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', letterSpacing: '1px' }}
                 autoComplete="off"
               />
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Characters are case-sensitive. Match uppercase and lowercase exactly as shown.
+              Enter the 6 characters shown in the CAPTCHA image above.
             </div>
           </div>
 

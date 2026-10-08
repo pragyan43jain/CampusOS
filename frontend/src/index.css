@@ -1,3 +1,13 @@
+@font-face {
+  font-family: 'Absans';
+  src: url('/fonts/Absans-Regular.woff2') format('woff2'),
+       url('/fonts/Absans-Regular.woff') format('woff'),
+       url('/fonts/Absans-Regular.otf') format('opentype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind components;
 @tailwind utilities;
 
@@ -10,8 +20,8 @@
 [data-theme="midnight-slate"],
 [data-theme="chaingpt-cyber"] {
   /* Fonts */
-  --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-heading: 'Space Grotesk', -apple-system, sans-serif;
+  --font-sans: 'Absans', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Absans', 'Space Grotesk', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
   /* Standard shadcn variables */
@@ -862,6 +872,54 @@ a {
 .nav-badge-pill.alert {
   background: rgba(244, 63, 94, 0.15);
   color: var(--accent-crimson);
+}
+
+.sidebar-nav-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.sidebar-subnav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 8px 14px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nav-subitem-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent !important;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.81rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.nav-subitem-btn:hover {
+  background: var(--surface-hover) !important;
+  color: var(--text-primary);
+}
+
+.nav-subitem-btn.active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: var(--accent-emerald) !important;
+  font-weight: 600;
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.nav-subitem-btn.active svg {
+  color: var(--accent-emerald);
 }
 
 .sidebar-footer-block {
@@ -1810,6 +1868,22 @@ a {
 
 .academic-data-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.academic-data-table.table-exams tr.exam-row-completed {
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.academic-data-table.table-exams tr.exam-row-completed td:not(.no-strike) {
+  text-decoration: line-through !important;
+  text-decoration-color: rgba(244, 63, 94, 0.8) !important;
+  color: var(--text-muted) !important;
+}
+
+.academic-data-table.table-exams tr.exam-row-completed td .status-badge,
+.academic-data-table.table-exams tr.exam-row-completed td button {
+  text-decoration: none !important;
 }
 
 /* ==========================================================================

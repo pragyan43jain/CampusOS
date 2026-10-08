@@ -417,17 +417,19 @@ export function CalendarView({
 
               const hasHoliday = events.some(isHolidayEvent);
               const hasInstructional = events.some(isInstructionalEvent);
-              const isEmpty = events.length === 0;
               const isToday = isCurrentMonth && dateObj.getDate() === today.getDate();
               const hasSemiHoliday = events.some(isSemiHolidayEvent);
 
-              let dayType = "other";
+              const isSunday = dateObj.getDay() === 0;
+              let dayType = "regular";
               if (hasSemiHoliday) dayType = "semiholiday";
-              else if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) dayType = "holiday";
+              else if (hasHoliday || isSunday) dayType = "holiday";
               else if (hasInstructional) dayType = "instructional";
+              else if (events.length > 0) dayType = "other";
+              else dayType = "regular";
 
               // Determine specific badge label
-              let badgeLabel = "Other";
+              let badgeLabel = "";
               if (dayType === "holiday") badgeLabel = "Holiday";
               else if (dayType === "instructional") badgeLabel = "Working";
               else if (dayType === "semiholiday") {
@@ -442,6 +444,8 @@ export function CalendarView({
                 else if (isFat) badgeLabel = "FAT";
                 else if (isFest) badgeLabel = "Fest";
                 else badgeLabel = "On Campus";
+              } else if (dayType === "other") {
+                badgeLabel = "Event";
               }
 
               const bgClass =
@@ -453,7 +457,9 @@ export function CalendarView({
                   ? (badgeLabel === "CAT" || badgeLabel === "FAT"
                       ? "bg-purple-50 dark:bg-purple-900/30"
                       : "bg-yellow-50 dark:bg-yellow-900/30")
-                  : "bg-gray-50 dark:bg-gray-900/30";
+                  : dayType === "other"
+                  ? "bg-blue-50/50 dark:bg-blue-900/20"
+                  : "bg-white dark:bg-gray-950";
 
               const badgeColorClass =
                 dayType === "holiday"
@@ -464,7 +470,9 @@ export function CalendarView({
                   ? (badgeLabel === "CAT" || badgeLabel === "FAT"
                       ? "bg-purple-200 text-purple-800 dark:bg-purple-700 dark:text-purple-100"
                       : "bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100")
-                  : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
+                  : dayType === "other"
+                  ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
+                  : "hidden";
 
               // Events to display in day cell: preserve UniCC events.slice(1) logic, but don't hide sole milestone
               const displayEvents = events.filter((e: any, idx: number) => {
@@ -486,9 +494,11 @@ export function CalendarView({
                     <div className="text-lg font-bold text-left text-gray-800 dark:text-gray-100">
                       {date}
                     </div>
-                    <div className={`text-xs font-semibold px-2 py-0.5 rounded ${badgeColorClass}`}>
-                      {badgeLabel}
-                    </div>
+                    {badgeLabel ? (
+                      <div className={`text-xs font-semibold px-2 py-0.5 rounded ${badgeColorClass}`}>
+                        {badgeLabel}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="mt-2 w-full text-left overflow-y-auto max-h-28">
