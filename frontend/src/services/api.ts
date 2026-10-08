@@ -721,6 +721,19 @@ export const CampusAPI = {
     });
   },
 
+  refreshOD: async (): Promise<ODResponse> => {
+    return fetchJson<ODResponse>('/od/fetch', { method: 'POST' }, {
+      hasValidData: false,
+      usedHours: 0,
+      approvedHours: 0,
+      pendingHours: 0,
+      rejectedHours: 0,
+      maxHours: 40,
+      maxOdHours: 40,
+      records: [],
+    });
+  },
+
   // 10. VTOP Auth & Synchronization Endpoints
   getVtopCaptcha: async (campus: string = 'chennai') => {
     const data = await fetchJson<{ sessionId: string; captchaImage: string; solvedCaptcha: string; campus: string }>(

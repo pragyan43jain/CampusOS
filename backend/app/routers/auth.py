@@ -584,6 +584,22 @@ def get_vtop_od(
         for a in store.get("attendance") or []:
             c_code = a.get("courseCode") or a.get("code") or ""
             c_title = a.get("courseTitle") or a.get("title") or c_code
+            od_cnt = a.get("odAttended") or a.get("odHours") or 0
+            if od_cnt > 0 and not any(x.get("courseCode") == c_code for x in extracted):
+                extracted.append({
+                    "id": f"od_{c_code}_att",
+                    "courseCode": c_code,
+                    "courseTitle": c_title,
+                    "date": "Active Semester",
+                    "fromDate": "Active Semester",
+                    "toDate": "Active Semester",
+                    "slot": a.get("slot") or a.get("slotName") or "",
+                    "hours": int(od_cnt),
+                    "status": "Approved",
+                    "reason": f"Class Attendance On-Duty ({c_code})",
+                    "category": "Academic / Event OD",
+                    "approvedBy": a.get("facultyName") or "Academic Office",
+                })
             recs = a.get("records") or []
             if isinstance(recs, list):
                 for entry in recs:
@@ -603,6 +619,26 @@ def get_vtop_od(
                                     "reason": f"Class Attendance On-Duty ({c_code})",
                                     "category": "Academic / Event OD",
                                 })
+        # Also check courses for course-level OD hours
+        for c in store.get("courses") or []:
+            c_code = c.get("code") or c.get("courseCode") or ""
+            c_title = c.get("title") or c.get("courseTitle") or c_code
+            od_cnt = c.get("odHours") or c.get("odAttended") or 0
+            if od_cnt > 0 and not any(x.get("courseCode") == c_code for x in extracted):
+                extracted.append({
+                    "id": f"od_{c_code}_course",
+                    "courseCode": c_code,
+                    "courseTitle": c_title,
+                    "date": "Active Semester",
+                    "fromDate": "Active Semester",
+                    "toDate": "Active Semester",
+                    "slot": c.get("slot") or "",
+                    "hours": int(od_cnt),
+                    "status": "Approved",
+                    "reason": f"Course On-Duty Sanction ({c_code})",
+                    "category": "Academic / Event OD",
+                    "approvedBy": c.get("faculty") or "Academic Office",
+                })
         if extracted:
             records = extracted
 
@@ -672,6 +708,45 @@ def get_vtop_od(
             else ("No sanctioned On-Duty leave records found on VTOP for this semester." if has_valid else "Sign in to VTOP to view On-Duty hours.")
         ),
     }
+
+
+@router.post("/od/fetch")
+@router.post("/od/refresh")
+def refresh_vtop_od(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+) -> Dict[str, Any]:
+    """
+    Actively fetch fresh On-Duty (OD) records directly from VTOP using the active session.
+    """
+    from app.vtop.client import client_manager
+    from app.vtop import scraper
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    token = x_session_id or sessionId or authorization
+    handle = client_manager._get(token) if token else None
+
+    if handle and getattr(handle.session, "is_authenticated", False):
+        try:
+            store = load_store(reg)
+            semester = store.get("selectedSemester") or {}
+            sem_id = semester.get("id")
+            od_fresh = scraper.fetch_od(
+                handle.session,
+                semester_id=sem_id,
+                attendance_rows=store.get("attendance"),
+                fast_mode=False,
+            )
+            if od_fresh:
+                store["od"] = od_fresh
+                save_store(store, reg_no=reg)
+                return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+        except Exception as exc:
+            logger.warning("[VTOP OD] Direct OD refresh exception: %s", exc)
+
+    return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
 
 
 

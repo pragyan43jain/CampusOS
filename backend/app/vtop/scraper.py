@@ -383,7 +383,10 @@ def fetch_od(
         (C.OD, "menu", True),
     ]
 
-    for endpoint, req_type, csrf_first in candidates:
+    # In fast mode, probe only top candidates to avoid serverless timeouts
+    active_candidates = candidates[:2] if fast_mode else candidates
+
+    for endpoint, req_type, csrf_first in active_candidates:
         try:
             html: Optional[str] = None
             if req_type == "semester" and semester_id:
@@ -409,6 +412,31 @@ def fetch_od(
                         selected_ep = endpoint
         except Exception as e:
             logger.debug("[VTOP OD] Probe '%s' exception: %s", endpoint, e)
+
+    # If no records found in the standalone OD module, extract OD records from attendance table & logs
+    att_od_records = P.extract_attendance_od_records(attendance_html or "", attendance_rows)
+    has_module_records = best_result is not None and bool(best_result.get("records") or best_result.get("odRecords"))
+
+    if not has_module_records and att_od_records:
+        total_hours = sum(r.get("hours", 0) for r in att_od_records)
+        return {
+            "state": "success_with_records",
+            "hasValidData": True,
+            "usedHours": total_hours,
+            "odHours": total_hours,
+            "totalOdHours": total_hours,
+            "approvedHours": total_hours,
+            "pendingHours": 0,
+            "rejectedHours": 0,
+            "maxHours": C.OD_MAX_HOURS,
+            "maxOdHours": C.OD_MAX_HOURS,
+            "remainingHours": max(0, C.OD_MAX_HOURS - total_hours),
+            "percentageUsed": round((total_hours / float(C.OD_MAX_HOURS)) * 100.0, 1),
+            "records": att_od_records,
+            "odRecords": att_od_records,
+            "message": f"{total_hours} On-Duty hours credited across academic courses.",
+            "diagnostics": {"selectedEndpoint": selected_ep or "attendance_table"},
+        }
 
     if best_result is None:
         best_result = {

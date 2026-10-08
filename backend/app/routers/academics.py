@@ -26,7 +26,7 @@ from pydantic import BaseModel
 
 from app.storage import empty_store, load_store, save_store
 from app.vtop.hostel import fetch_laundry_schedule, fetch_mess_menu
-from app.routers.auth import normalize_marks_item, normalize_faculty_item, resolve_student_reg, get_vtop_od
+from app.routers.auth import normalize_marks_item, normalize_faculty_item, resolve_student_reg, get_vtop_od, refresh_vtop_od
 
 logger = logging.getLogger("vtop.routes.academics")
 
@@ -150,6 +150,18 @@ def get_od(
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+
+
+@router.post("/od/fetch")
+@router.post("/od/refresh")
+def refresh_od(
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    sessionId: Optional[str] = Query(None),
+    regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+) -> Dict[str, Any]:
+    return refresh_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
 
 
 @router.get("/faculty")

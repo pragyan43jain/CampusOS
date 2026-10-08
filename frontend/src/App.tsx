@@ -14,6 +14,7 @@ import {
   Exam,
   Faculty,
   SubjectAssignmentGroup,
+  ODResponse,
 } from './types';
 import { CampusAPI } from './services/api';
 import { Header, ThemeType } from './components/Header';
@@ -24,6 +25,7 @@ import { VtopLoginModal } from './components/VtopLoginModal';
 import { TeamsLoginModal } from './components/TeamsLoginModal';
 import { LMSLoginModal } from './components/LMSLoginModal';
 import { AdminAnalyticsModal } from './components/AdminAnalyticsModal';
+import { ODHoursModal } from './components/ODHoursModal';
 import { CampusAnalytics } from './services/analytics';
 import { DashboardView } from './views/DashboardView';
 import { AcademicsView, AcademicsSubTab } from './views/AcademicsView';
@@ -173,6 +175,8 @@ export const App: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [showMobileMore, setShowMobileMore] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [showODModal, setShowODModal] = useState<boolean>(false);
+  const [odData, setOdData] = useState<ODResponse | null>(null);
   const [isFeatureModalOpen, setIsFeatureModalOpen] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -374,6 +378,7 @@ export const App: React.FC = () => {
         placementsData,
         dsaData,
         aiData,
+        odResult,
       ] = await Promise.all([
         CampusAPI.getStudentProfile(),
         CampusAPI.getCourses(),
@@ -387,6 +392,7 @@ export const App: React.FC = () => {
         CampusAPI.getPlacementDrives(),
         CampusAPI.getDSATracker(),
         CampusAPI.getAIStudyTasks(),
+        CampusAPI.getOD(),
       ]);
 
       const isAuthed = Boolean(
@@ -409,6 +415,7 @@ export const App: React.FC = () => {
         if (placementsData && placementsData.length > 0) setPlacements(placementsData);
         if (dsaData && dsaData.length > 0) setDsaTopics(dsaData);
         if (aiData && aiData.length > 0) setAiTasks(aiData);
+        if (odResult) setOdData(odResult);
         setIsAuthenticated(true);
       } else {
         if (!isAuthenticated) {
@@ -524,6 +531,7 @@ export const App: React.FC = () => {
         if (d.placements && d.placements.length > 0) setPlacements(d.placements);
         if (d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
         if (d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
+        if (d.od) setOdData(d.od);
       }
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
@@ -776,6 +784,7 @@ export const App: React.FC = () => {
       setPlacements([]);
       setDsaTopics([]);
       setAiTasks([]);
+      setOdData(null);
 
       // 3. Clear all cached browser credentials and user-scoped storage
       if (typeof window !== 'undefined') {
@@ -816,6 +825,7 @@ export const App: React.FC = () => {
     setPlacements([]);
     setDsaTopics([]);
     setAiTasks([]);
+    setOdData(null);
 
     setShowVtopModal(false);
     setIsAuthenticated(true);
@@ -848,6 +858,7 @@ export const App: React.FC = () => {
     if (d && d.placements && d.placements.length > 0) setPlacements(d.placements);
     if (d && d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
     if (d && d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
+    if (d && d.od) setOdData(d.od);
 
     await loadAllData();
     triggerSyncToast('Synced Successfully');
@@ -1073,6 +1084,7 @@ export const App: React.FC = () => {
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenLMS={() => setIsLMSModalOpen(true)}
         onOpenTeams={() => setIsTeamsModalOpen(true)}
+        onOpenOD={() => setShowODModal(true)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => {
           const next = !isSidebarCollapsed;
@@ -1124,6 +1136,8 @@ export const App: React.FC = () => {
             placements={placements}
             dsaTopics={dsaTopics}
             aiTasks={aiTasks}
+            odData={odData}
+            onOpenODModal={() => setShowODModal(true)}
             onSelectView={setActiveView}
             onSelectAcademicsSubTab={handleSelectAcademicsSubTab}
             onToggleAssignment={handleToggleAssignment}
@@ -1328,6 +1342,12 @@ export const App: React.FC = () => {
           await loadAcademicAccountsStatus();
           await loadAllData();
         }}
+      />
+
+      {/* On-Duty (OD) Hours Breakdown Modal */}
+      <ODHoursModal
+        isOpen={showODModal}
+        onClose={() => setShowODModal(false)}
       />
 
       {/* Feature Availability & System Readiness Modal */}

@@ -27,6 +27,7 @@ import {
   PlacementDrive,
   DSACategory,
   AIStudyTask,
+  ODResponse,
 } from '../types';
 import { NavView } from '../components/Sidebar';
 import { AcademicsSubTab } from './AcademicsView';
@@ -44,6 +45,8 @@ interface DashboardViewProps {
   placements?: PlacementDrive[];
   dsaTopics?: DSACategory[];
   aiTasks?: AIStudyTask[];
+  odData?: ODResponse | null;
+  onOpenODModal?: () => void;
   onSync?: () => void;
   syncing?: boolean;
   onOpenSyncModal?: () => void;
@@ -71,6 +74,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   placements: _placements = [],
   dsaTopics: _dsaTopics = [],
   aiTasks: _aiTasks = [],
+  odData,
+  onOpenODModal,
   onSync: _onSync,
   syncing: _syncing = false,
   teamsAccount,
@@ -210,6 +215,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return assignments.filter((a) => !isAssignmentDone(a, student?.regNo));
   }, [assignments, student?.regNo]);
 
+  // On-Duty (OD) Hours metrics calculation
+  const approvedOdHours = useMemo(() => {
+    if (odData && typeof odData.approvedHours === 'number') return odData.approvedHours;
+    if (odData && typeof odData.usedHours === 'number') return odData.usedHours;
+    if (odData && typeof odData.odHours === 'number') return odData.odHours;
+    let totalOd = 0;
+    courses.forEach((c) => {
+      const cAny = c as any;
+      if (typeof cAny.odHours === 'number') totalOd += cAny.odHours;
+      else if (typeof cAny.odAttended === 'number') totalOd += cAny.odAttended;
+    });
+    if (totalOd > 0) return totalOd;
+    attendance.forEach((a) => {
+      if (typeof (a as any).odAttended === 'number') totalOd += (a as any).odAttended;
+    });
+    return totalOd;
+  }, [odData, courses, attendance]);
+
+  const maxOdHours = odData?.maxHours || odData?.maxOdHours || 40;
+  const remainingOdHours = Math.max(0, maxOdHours - approvedOdHours);
+
   return (
     <div className="campusos-dashboard-container space-y-6">
       {/* =========================================================================
@@ -290,21 +316,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Metric 4: OD & Leave Hours */}
         <div
           className="saas-metric-card cursor-pointer"
-          onClick={() => navigateToAcademics('attendance')}
-          title="View approved On-Duty and attendance buffer"
+          onClick={onOpenODModal || (() => navigateToAcademics('attendance'))}
+          title="Click to view official On-Duty leave records & ledger"
         >
           <div className="saas-metric-header">
             <span className="saas-metric-label">ON-DUTY BUFFER</span>
             <Clock size={15} className="text-muted-foreground" />
           </div>
           <div className="saas-metric-value-row">
-            <span className="saas-metric-value">0 / 40 <span className="text-sm font-normal text-muted-foreground">Hrs</span></span>
+            <span className="saas-metric-value">{approvedOdHours} / {maxOdHours} <span className="text-sm font-normal text-muted-foreground">Hrs</span></span>
           </div>
           <div className="saas-metric-footer">
-            <span className="saas-trend-pill neutral">
-              40 Hrs Available
+            <span className={`saas-trend-pill ${approvedOdHours > 0 ? 'positive' : 'neutral'}`}>
+              {remainingOdHours} Hrs Available
             </span>
-            <span className="saas-metric-meta">Approved OD</span>
+            <span className="saas-metric-meta">{approvedOdHours > 0 ? `${approvedOdHours} Sanctioned` : 'Approved OD'}</span>
           </div>
         </div>
       </div>
@@ -643,6 +669,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="saas-quick-sub">
               {teamsAccount?.connected ? 'Connected • Class Channels Synced' : 'Connect Teams Account'}
             </span>
+          </div>
+        </button>
+
+        {/* Quick Action Pill 4: View OD Hours */}
+        <button
+          type="button"
+          onClick={onOpenODModal || (() => navigateToAcademics('attendance'))}
+          className="saas-quick-action-card"
+        >
+          <div className="saas-quick-icon-wrap bg-emerald-500/10 text-emerald-500">
+            <Clock size={16} />
+          </div>
+          <div className="text-left">
+            <span className="saas-quick-title">OD & Duty Leaves</span>
+            <span className="saas-quick-sub">{approvedOdHours} hrs sanctioned • Quota ledger</span>
           </div>
         </button>
       </div>

@@ -16,10 +16,11 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
-  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   Zap,
+  Clock,
+  ChevronDown,
 } from 'lucide-react';
 import { AcademicsSubTab } from '../views/AcademicsView';
 import { StudentProfile } from '../types';
@@ -40,6 +41,7 @@ interface SidebarProps {
   onOpenProfile?: () => void;
   onOpenLMS?: () => void;
   onOpenTeams?: () => void;
+  onOpenOD?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -58,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenProfile,
   onOpenLMS,
   onOpenTeams,
+  onOpenOD,
   isCollapsed: externalIsCollapsed,
   onToggleCollapse: externalToggleCollapse,
 }) => {
@@ -313,6 +316,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="nav-item-left">
               <CalendarDays size={17} strokeWidth={1.8} />
               {!isCollapsed && <span>Events & Calendar</span>}
+            </div>
+          </button>
+
+          {/* OD / Leave Records */}
+          <button
+            type="button"
+            className="nav-item-btn"
+            onClick={onOpenOD || (() => onSelectView('academics'))}
+            title={isCollapsed ? 'On-Duty (OD) & Leave Quota' : undefined}
+          >
+            <div className="nav-item-left">
+              <Clock size={17} strokeWidth={1.8} />
+              {!isCollapsed && <span>OD / Leave</span>}
             </div>
           </button>
 
