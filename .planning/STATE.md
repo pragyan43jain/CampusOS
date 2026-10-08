@@ -65,6 +65,7 @@ Recent decisions affecting current work:
 |------|------|--------|
 | `261006-us2-strict-lms-and-teams-sync-with-professor` | 2026-10-06 | Complete ✓ |
 | `261008-aerukart-ui-replica` | 2026-10-08 | Complete ✓ |
+| `261008-fix-vtop-sync-fresh-data` | 2026-10-08 | Complete ✓ |
 
 ### Pending Todos
 

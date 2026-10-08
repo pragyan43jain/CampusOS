@@ -2673,7 +2673,63 @@ em {
   font-size: 12px;
 }
 
-/* Aerukart RollText Micro-Animation */
+/* Aerukart Cascading Wave RollText */
+.RollText-module__root {
+  vertical-align: baseline;
+  display: inline-grid;
+  line-height: 1.2;
+}
+.RollText-module__label,
+.RollText-module__track {
+  grid-area: 1 / 1;
+}
+.RollText-module__track {
+  display: none;
+}
+@media (min-width: 801px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .RollText-module__label {
+    opacity: 0;
+  }
+  .RollText-module__track {
+    white-space: pre;
+    pointer-events: none;
+    margin-block: -0.15em;
+    padding-block: 0.15em;
+    display: block;
+    overflow: hidden;
+  }
+  .RollText-module__letter {
+    transition: transform 0.52s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: var(--roll-delay, 0ms);
+    display: inline-block;
+    position: relative;
+  }
+  .RollText-module__letter:after {
+    content: attr(data-letter);
+    position: absolute;
+    top: calc(100% + 0.3em);
+    left: 0;
+    color: var(--aeruk-cyan, #17c1fe);
+  }
+  :is(a, button):not(:disabled):not([aria-disabled="true"]):is(:hover, :focus-visible) .RollText-module__letter {
+    transform: translateY(calc(-100% - 0.3em));
+  }
+}
+
+/* Aerukart Floating Chrome Visualizer */
+@keyframes aerukChromeFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(1.2deg);
+  }
+}
+.chrome-float {
+  animation: aerukChromeFloat 6.5s ease-in-out infinite;
+}
+
+/* Aerukart Fallback RollText Micro-Animation */
 .roll-text {
   display: inline-flex;
   overflow: hidden;

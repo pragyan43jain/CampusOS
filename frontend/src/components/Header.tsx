@@ -10,6 +10,7 @@ import {
 import { StudentProfile } from '../types';
 import { ThemeSwitcher, THEMES, ThemeType, ThemeOption } from './ThemeSwitcher';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { RollText } from './ui/RollText';
 
 export { THEMES, ThemeSwitcher };
 export type { ThemeType, ThemeOption };
@@ -130,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
             title={syncing ? "Synchronizing academic data..." : "Sync latest grades, attendance, timetable & assignments directly"}
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            <span className="sync-btn-label">{syncing ? 'Syncing...' : 'Sync'}</span>
+            <span className="sync-btn-label"><RollText text={syncing ? 'Syncing...' : 'Sync'} /></span>
           </button>
 
 

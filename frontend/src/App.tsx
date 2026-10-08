@@ -496,22 +496,28 @@ export const App: React.FC = () => {
 
       // If fresh data was returned directly in vtopResult, update local state immediately
       if (vtopResult && vtopResult.success) {
-        const studentObj: StudentProfile | null = (vtopResult.student as unknown as StudentProfile) || (vtopResult.data?.student as StudentProfile) || null;
+        const d = (vtopResult as any)?.data || vtopResult;
+        const studentObj: StudentProfile | null = (d.student as StudentProfile) || null;
         if (studentObj && studentObj.regNo) {
           CampusAPI.setActiveStudent(studentObj);
           setStudent(studentObj);
           CampusAnalytics.syncProfile(studentObj);
           if (typeof window !== 'undefined') {
             window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
-            window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(vtopResult));
+            window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(d));
           }
         }
-        if (vtopResult.courses && vtopResult.courses.length > 0) setCourses(vtopResult.courses);
-        if (vtopResult.timetable && vtopResult.timetable.length > 0) setTimetable(vtopResult.timetable);
-        if (vtopResult.attendance && vtopResult.attendance.length > 0) setAttendance(vtopResult.attendance);
-        if (vtopResult.marks && vtopResult.marks.length > 0) setMarks(vtopResult.marks);
-        if (vtopResult.exams && Object.keys(vtopResult.exams).length > 0) setExams(vtopResult.exams as any);
-        if (vtopResult.faculty && vtopResult.faculty.length > 0) setFaculty(vtopResult.faculty);
+        if (d.courses && d.courses.length > 0) setCourses(d.courses);
+        if (d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
+        if (d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
+        if (d.marks && d.marks.length > 0) setMarks(d.marks);
+        if (d.exams && (Array.isArray(d.exams) ? d.exams.length > 0 : Object.keys(d.exams).length > 0)) setExams(d.exams as any);
+        if (d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
+        if (d.assignments && d.assignments.length > 0) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
+        if (d.fees && d.fees.length > 0) setFees(d.fees);
+        if (d.placements && d.placements.length > 0) setPlacements(d.placements);
+        if (d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
+        if (d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
       }
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
@@ -622,13 +628,14 @@ export const App: React.FC = () => {
             window.localStorage.setItem('campus_current_reg_no', studentProfile.regNo);
           }
           if (cachedUserData && isMounted) {
+            const cd = (cachedUserData as any)?.data || cachedUserData;
             setStudent(studentProfile);
-            if (cachedUserData.courses?.length > 0) setCourses(cachedUserData.courses);
-            if (cachedUserData.timetable?.length > 0) setTimetable(cachedUserData.timetable);
-            if (cachedUserData.attendance?.length > 0) setAttendance(cachedUserData.attendance);
-            if (cachedUserData.marks?.length > 0) setMarks(cachedUserData.marks);
-            if (cachedUserData.exams && Object.keys(cachedUserData.exams).length > 0) setExams(cachedUserData.exams);
-            if (cachedUserData.faculty?.length > 0) setFaculty(cachedUserData.faculty);
+            if (cd.courses?.length > 0) setCourses(cd.courses);
+            if (cd.timetable?.length > 0) setTimetable(cd.timetable);
+            if (cd.attendance?.length > 0) setAttendance(cd.attendance);
+            if (cd.marks?.length > 0) setMarks(cd.marks);
+            if (cd.exams && Object.keys(cd.exams).length > 0) setExams(cd.exams);
+            if (cd.faculty?.length > 0) setFaculty(cd.faculty);
           }
         } else {
           authed = false;
@@ -807,7 +814,8 @@ export const App: React.FC = () => {
     setShowVtopModal(false);
     setIsAuthenticated(true);
 
-    const studentObj = payload?.student || (payload?.regNo ? payload : null);
+    const d = (payload as any)?.data || payload;
+    const studentObj = d?.student || (d?.regNo ? d : null);
     if (studentObj) {
       CampusAPI.setActiveStudent(studentObj);
       setStudent(studentObj);
@@ -815,25 +823,25 @@ export const App: React.FC = () => {
       CampusAnalytics.trackEvent('login_success', '/dashboard');
       if (typeof window !== 'undefined' && studentObj.regNo) {
         window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
-        if (payload) {
-          window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(payload));
+        if (d) {
+          window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(d));
         }
       }
     }
 
-    if (payload && payload.courses && payload.courses.length > 0) setCourses(payload.courses);
-    if (payload && payload.timetable && payload.timetable.length > 0) setTimetable(payload.timetable);
-    if (payload && payload.attendance && payload.attendance.length > 0) setAttendance(payload.attendance);
-    if (payload && payload.marks && payload.marks.length > 0) setMarks(payload.marks);
-    if (payload && payload.exams && (Array.isArray(payload.exams) ? payload.exams.length > 0 : Object.keys(payload.exams).length > 0)) setExams(payload.exams);
-    if (payload && payload.faculty && payload.faculty.length > 0) setFaculty(payload.faculty);
-    if (payload && payload.assignments && payload.assignments.length > 0) {
-      setAssignments(applyManualStatusOverrides(payload.assignments, payload.student?.regNo || studentObj?.regNo));
+    if (d && d.courses && d.courses.length > 0) setCourses(d.courses);
+    if (d && d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
+    if (d && d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
+    if (d && d.marks && d.marks.length > 0) setMarks(d.marks);
+    if (d && d.exams && (Array.isArray(d.exams) ? d.exams.length > 0 : Object.keys(d.exams).length > 0)) setExams(d.exams);
+    if (d && d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
+    if (d && d.assignments && d.assignments.length > 0) {
+      setAssignments(applyManualStatusOverrides(d.assignments, d.student?.regNo || studentObj?.regNo));
     }
-    if (payload && payload.fees && payload.fees.length > 0) setFees(payload.fees);
-    if (payload && payload.placements && payload.placements.length > 0) setPlacements(payload.placements);
-    if (payload && payload.dsaTopics && payload.dsaTopics.length > 0) setDsaTopics(payload.dsaTopics);
-    if (payload && payload.aiTasks && payload.aiTasks.length > 0) setAiTasks(payload.aiTasks);
+    if (d && d.fees && d.fees.length > 0) setFees(d.fees);
+    if (d && d.placements && d.placements.length > 0) setPlacements(d.placements);
+    if (d && d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
+    if (d && d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
 
     await loadAllData();
     triggerSyncToast('Synced Successfully');

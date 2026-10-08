@@ -34,7 +34,7 @@ from . import parser as P
 from .calendar import fetch_vtop_academic_calendar, get_fallback_calendar
 from .math_engine import calculate_attendance_metrics, calculate_od_metrics
 from .registry import CourseRegistry, build_registry
-from .session import VTOPSession
+from .session import VTOPAuthError, VTOPSession
 
 logger = logging.getLogger("vtop.scraper")
 
@@ -133,6 +133,8 @@ def _step(
     """
     try:
         result = fetch()
+    except VTOPAuthError:
+        raise
     except Exception as exc:  # noqa: BLE001 - module isolation is the point
         logger.exception("[SYNC] Module '%s' failed", name)
         report.record(name, FAILED, message=f"{type(exc).__name__}: {exc}")
@@ -1181,6 +1183,13 @@ def sync(
         fast_mode = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
     report = SyncReport()
+
+    if isinstance(session, VTOPSession) and (not getattr(session, "is_authenticated", False) or not getattr(session, "authorized_id", None)):
+        raise VTOPAuthError(
+            "Your VTOP session has expired. Sign in again to sync.",
+            code=111,
+            retryable=True,
+        )
 
     semesters = _step(report, "semesters", lambda: fetch_semesters(session)) or []
     semester = choose_semester(semesters, semester_id, report)

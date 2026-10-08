@@ -304,6 +304,12 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                                 merged_data[key] = existing[key]
                         if "assignments" not in merged_data and existing.get("assignments"):
                             merged_data["assignments"] = existing["assignments"]
+                        existing_student = existing.get("student") or {}
+                        merged_student = merged_data.get("student") or {}
+                        for skey, sval in existing_student.items():
+                            if sval is not None and merged_student.get(skey) is None:
+                                merged_student[skey] = sval
+                        merged_data["student"] = merged_student
                 except Exception as ex_read:
                     logger.debug("[Storage] Notice reading existing store for merge: %s", ex_read)
 

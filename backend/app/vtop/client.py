@@ -150,7 +150,7 @@ class VTOPClientManager:
                         payload_b64 += "=" * padding
                     payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8"))
                     state = payload.get("ext", {}).get("state")
-                    if state:
+                    if state and state.get("is_authenticated") and state.get("authorized_id"):
                         session = VTOPSession()
                         session.restore_state(state)
                         handle = _Handle(session)
@@ -158,13 +158,8 @@ class VTOPClientManager:
                         self._sessions[clean_sid] = handle
                         return handle
                     else:
-                        session = VTOPSession()
-                        session.is_authenticated = True
-                        session.username = verified_reg
-                        handle = _Handle(session)
-                        handle.reg_no = verified_reg
-                        self._sessions[clean_sid] = handle
-                        return handle
+                        logger.info("[VTOP] Token %s has no active live session state", clean_sid[:12])
+                        return None
                 except Exception as exc:
                     logger.warning("[VTOP] Failed restoring cos_ session: %s", exc)
                     return None
@@ -493,6 +488,14 @@ class VTOPClientManager:
             logger.debug("[VTOP] Background Supabase telemetry sync notice: %s", s_exc)
 
         failed: List[str] = list(report.get("failed") or [])
+        if "semesters" in failed and not payload.get("courses"):
+            self._drop(session_id)
+            return self._error(
+                "Your VTOP session has expired. Sign in again to sync.",
+                CODE_SESSION_EXPIRED,
+                retryable=True,
+            )
+
         logger.info(
             "[VTOP] Sync complete for %s (%d failed module(s))",
             handle.reg_no or "unknown",

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import {
   ShieldCheck,
   Award,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ThemeType } from '../components/ThemeSwitcher';
 import HeroAscii from '../components/ui/hero-ascii';
+import { RollText } from '../components/ui/RollText';
 
 interface LandingPageViewProps {
   onOpenLogin?: () => void;
@@ -60,7 +62,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
   return (
     <div className="relative min-h-screen flex flex-col bg-black text-[#f5f5f2] selection:bg-[#17c1fe] selection:text-black">
-      {/* 1. Aerukart Hero Stage Component */}
+      {/* 1. Aerukart Hero Stage Component with 3D Chrome Sculpture & RollText */}
       <HeroAscii
         onGetStarted={isLoggedIn ? handleEnter : handleLogin}
         onLearnMore={handleLearnMore}
@@ -93,9 +95,15 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* 3. Aerukart Showcase Matrix (Core Subsystems) */}
       <section id="features" className="section-pad max-w-[1440px] w-full mx-auto px-6 lg:px-16 relative">
         {/* Subtle Section Glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-[#17c1fe]/[0.04] blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-[#17c1fe]/[0.05] blur-3xl pointer-events-none rounded-full" />
 
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center max-w-3xl mx-auto mb-16"
+        >
           <p className="eyebrow">
             002 // CORE SUBSYSTEMS
           </p>
@@ -105,12 +113,18 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <p className="text-base sm:text-lg text-[#afb1b6] leading-relaxed max-w-2xl mx-auto">
             Consolidated university intelligence eliminating the friction of manual portal logins, missed deadlines, and attendance surprises.
           </p>
-        </div>
+        </motion.div>
 
         {/* Aerukart Media Format Grid: Row 1 */}
         <div className="media-format-row">
           {/* Card 1: 75% Attendance Defense */}
-          <div className="media-format-cell col-span-10 lg:col-span-5">
+          <motion.div 
+            initial={{ opacity: 0, y: 35 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="media-format-cell col-span-10 lg:col-span-5"
+          >
             <div className="project-card group">
               <div className="project-image">
                 <ul className="project-tags">
@@ -141,10 +155,17 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 2: Unified Multi-Platform Deadlines */}
-          <div className="media-format-cell col-span-10 lg:col-span-5" id="integrations">
+          <motion.div 
+            initial={{ opacity: 0, y: 35 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="media-format-cell col-span-10 lg:col-span-5" 
+            id="integrations"
+          >
             <div className="project-card group">
               <div className="project-image">
                 <ul className="project-tags">
@@ -183,13 +204,20 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Aerukart Media Format Grid: Row 2 */}
         <div className="media-format-row">
           {/* Card 3: Adaptive Recovery & Exam Planner */}
-          <div className="media-format-cell col-span-10 lg:col-span-5" id="baby-ai">
+          <motion.div 
+            initial={{ opacity: 0, y: 35 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="media-format-cell col-span-10 lg:col-span-5" 
+            id="baby-ai"
+          >
             <div className="project-card group">
               <div className="project-image">
                 <ul className="project-tags">
@@ -225,10 +253,16 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 4: Placement Readiness & Coding Radar */}
-          <div className="media-format-cell col-span-10 lg:col-span-5">
+          <motion.div 
+            initial={{ opacity: 0, y: 35 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="media-format-cell col-span-10 lg:col-span-5"
+          >
             <div className="project-card group">
               <div className="project-image">
                 <ul className="project-tags">
@@ -264,7 +298,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -295,7 +329,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               className="button button-sm text-xs font-mono"
             >
               <ArrowUp size={12} />
-              <span>TOP</span>
+              <RollText text="TOP" />
             </button>
 
             <button
@@ -303,7 +337,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               type="button"
               className="button button-blue button-sm text-xs font-mono font-semibold"
             >
-              <span>{isLoggedIn ? 'ENTER DASHBOARD' : 'SIGN IN (VTOP)'}</span>
+              <RollText text={isLoggedIn ? 'ENTER DASHBOARD' : 'SIGN IN (VTOP)'} />
               <ArrowUpRight size={14} className="arrow-icon" />
             </button>
           </div>

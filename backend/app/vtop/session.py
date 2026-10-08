@@ -451,6 +451,16 @@ class VTOPSession:
             raise VTOPAuthError("Not signed in to VTOP.", code=100)
         return self.csrf or "", self.authorized_id
 
+    def _check_authenticated_response(self, text: str) -> None:
+        """Verify VTOP did not silently drop the session and redirect back to the login page."""
+        if self._is_login_page(text):
+            self.is_authenticated = False
+            raise VTOPAuthError(
+                "Your VTOP session has expired. Sign in again to sync.",
+                code=111,
+                retryable=True,
+            )
+
     def post_menu(self, path: str, with_win_image: bool = False) -> str:
         """
         Request a top-level menu page.
@@ -468,7 +478,9 @@ class VTOPSession:
                 ("nocache", C.NOCACHE_LITERAL),
             ]
         )
-        return self._post(path, fields).text
+        res_text = self._post(path, fields).text
+        self._check_authenticated_response(res_text)
+        return res_text
 
     def post_semester(self, path: str, semester_id: str, csrf_first: bool = True) -> str:
         """
@@ -490,15 +502,19 @@ class VTOPSession:
                 ("authorizedID", authorized_id),
                 ("_csrf", csrf),
             ]
-        return self._post(path, fields).text
+        res_text = self._post(path, fields).text
+        self._check_authenticated_response(res_text)
+        return res_text
 
     def post_simple(self, path: str) -> str:
         """Body shape: _csrf & authorizedID & x= (used by the spotlight/home call)."""
         csrf, authorized_id = self._require_auth()
-        return self._post(
+        res_text = self._post(
             path,
             [("_csrf", csrf), ("authorizedID", authorized_id), ("x", "")],
         ).text
+        self._check_authenticated_response(res_text)
+        return res_text
 
     def post_od(self, path: str, semester_id: Optional[str] = None) -> str:
         """
@@ -513,7 +529,9 @@ class VTOPSession:
         ]
         if semester_id:
             fields.insert(1, ("semesterSubId", semester_id))
-        return self._post(path, fields).text
+        res_text = self._post(path, fields).text
+        self._check_authenticated_response(res_text)
+        return res_text
 
     def post_calendar(
         self,

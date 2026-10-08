@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { RollText } from './RollText';
 
 export interface HeroAsciiProps {
   onGetStarted?: () => void;
@@ -59,7 +61,7 @@ export default function Home({
       className="hero relative min-h-screen overflow-hidden bg-black text-white select-none flex flex-col justify-between"
       aria-labelledby="hero-title"
     >
-      {/* Aerukart Atmospheric Lighting */}
+      {/* Aerukart Atmospheric Ambient Lighting */}
       <div aria-hidden="true" className="home-glow"></div>
       <div aria-hidden="true" className="story-light"></div>
 
@@ -96,44 +98,19 @@ export default function Home({
         {/* Center: Aerukart Floating Frosted Nav Capsule */}
         <nav className="main-nav hidden md:inline-flex" aria-label="Main Navigation">
           <a href="#features" onClick={(e) => { e.preventDefault(); handleLearn(); }}>
-            <span className="roll-text">
-              <span className="roll-text-track">
-                <span className="roll-text-item">Subsystems</span>
-                <span className="roll-text-item roll-hover">Subsystems</span>
-              </span>
-            </span>
+            <RollText text="Subsystems" />
           </a>
           <a href="#features" onClick={(e) => { e.preventDefault(); handleLearn(); }}>
-            <span className="roll-text">
-              <span className="roll-text-track">
-                <span className="roll-text-item">Attendance 75%</span>
-                <span className="roll-text-item roll-hover">Attendance 75%</span>
-              </span>
-            </span>
+            <RollText text="Attendance 75%" />
           </a>
           <a href="#features" onClick={(e) => { e.preventDefault(); handleLearn(); }}>
-            <span className="roll-text">
-              <span className="roll-text-track">
-                <span className="roll-text-item">Deadlines</span>
-                <span className="roll-text-item roll-hover">Deadlines</span>
-              </span>
-            </span>
+            <RollText text="Deadlines" />
           </a>
           <a href="#features" onClick={(e) => { e.preventDefault(); handleLearn(); }}>
-            <span className="roll-text">
-              <span className="roll-text-track">
-                <span className="roll-text-item">Placements</span>
-                <span className="roll-text-item roll-hover">Placements</span>
-              </span>
-            </span>
+            <RollText text="Placements" />
           </a>
-          <a href="#security">
-            <span className="roll-text">
-              <span className="roll-text-track">
-                <span className="roll-text-item">Security</span>
-                <span className="roll-text-item roll-hover">Security</span>
-              </span>
-            </span>
+          <a href="#features" onClick={(e) => { e.preventDefault(); handleLearn(); }}>
+            <RollText text="Security" />
           </a>
         </nav>
 
@@ -150,12 +127,7 @@ export default function Home({
             type="button"
             className="button button-blue button-sm header-cta"
           >
-            <span className="roll-text">
-              <span className="roll-text-track">
-                <span className="roll-text-item">{buttonLabel}</span>
-                <span className="roll-text-item roll-hover">{buttonLabel}</span>
-              </span>
-            </span>
+            <RollText text={buttonLabel} />
             <svg
               className="arrow-icon"
               viewBox="0 0 24 24"
@@ -178,43 +150,58 @@ export default function Home({
           {/* Left Hero Copy */}
           <div className="lg:col-span-6 flex flex-col gap-6 text-left">
             {/* Aerukart Eyebrow */}
-            <div className="flex items-center gap-3">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-3"
+            >
               <span className="eyebrow" style={{ margin: 0 }}>
                 001 // CONNECTED CAMPUS
               </span>
               <div className="h-px w-12 bg-white/20"></div>
-            </div>
+            </motion.div>
 
             {/* Aerukart Headline with Serif Italic em */}
-            <h1
-              id="hero-title"
-              className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.05]"
-              style={{ fontFamily: 'var(--font-sans)' }}
-            >
-              <span className="block font-mono tracking-wider">CONNECTED</span>
-              <span className="block mt-1 font-mono tracking-wider">
-                <em>CAMPUS</em>
-              </span>
-            </h1>
+            <div className="overflow-hidden">
+              <motion.h1
+                id="hero-title"
+                initial={{ y: 55, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.85, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.05]"
+                style={{ fontFamily: 'var(--font-sans)' }}
+              >
+                <span className="block font-mono tracking-wider">CONNECTED</span>
+                <span className="block mt-1 font-mono tracking-wider">
+                  <em>CAMPUS</em>
+                </span>
+              </motion.h1>
+            </div>
 
             {/* Subtitle strictly maintaining user text */}
-            <p className="text-base sm:text-lg text-[#afb1b6] max-w-lg leading-relaxed font-mono opacity-90">
+            <motion.p
+              initial={{ y: 25, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.75, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="text-base sm:text-lg text-[#afb1b6] max-w-lg leading-relaxed font-mono opacity-90"
+            >
               A unified platform for VTOP, Teams, and LMS.
-            </p>
+            </motion.p>
 
             {/* Aerukart Action Pill Buttons */}
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.7, delay: 0.34, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-wrap items-center gap-4 pt-2"
+            >
               <button
                 onClick={handleStart}
                 type="button"
                 className="button button-blue"
               >
-                <span className="roll-text">
-                  <span className="roll-text-track">
-                    <span className="roll-text-item">{buttonLabel}</span>
-                    <span className="roll-text-item roll-hover">{buttonLabel}</span>
-                  </span>
-                </span>
+                <RollText text={buttonLabel} />
                 <svg
                   className="arrow-icon"
                   viewBox="0 0 24 24"
@@ -225,7 +212,7 @@ export default function Home({
                   strokeWidth="2"
                   aria-hidden="true"
                 >
-                  <path d="M7 17L17 7M17 7H7M17 7V17" />
+                  <path d="M7 17L17 7H7M17 7V17" />
                 </svg>
               </button>
 
@@ -234,42 +221,83 @@ export default function Home({
                 type="button"
                 className="button"
               >
-                <span className="roll-text">
-                  <span className="roll-text-track">
-                    <span className="roll-text-item">DISCOVER MORE</span>
-                    <span className="roll-text-item roll-hover">DISCOVER MORE</span>
-                  </span>
-                </span>
+                <RollText text="DISCOVER MORE" />
               </button>
-            </div>
+            </motion.div>
 
             {/* Technical Sub-line */}
-            <div className="flex items-center gap-3 pt-2 text-white/40 text-xs font-mono">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.46 }}
+              className="flex items-center gap-3 pt-2 text-white/40 text-xs font-mono"
+            >
               <span>00</span>
               <div className="w-8 h-px bg-white/30"></div>
               <span>CAMPUSOS.SYSTEM // ZERO CLOUD CREDENTIALS</span>
-            </div>
+            </motion.div>
           </div>
 
-          {/* Right Visualizer Stage (Campus Architectural Blueprint) */}
+          {/* Right Visualizer Stage (Authentic Aerukart Chrome 3D Sculpture & Holographic Telemetry) */}
           <div className="lg:col-span-6 flex items-center justify-center relative">
-            <div
-              className="relative w-full max-w-[620px] aspect-[1.35/1] flex items-center justify-center transition-transform duration-200 ease-out"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.88 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.1, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-[620px] aspect-[1.25/1] flex items-center justify-center"
               style={{
-                transform: `perspective(1000px) rotateY(${mouseOffset.x * 4}deg) rotateX(${-mouseOffset.y * 4}deg) translate3d(${mouseOffset.x * 8}px, ${mouseOffset.y * 8}px, 0)`,
+                perspective: '1200px',
               }}
             >
-              {/* Aerukart Chrome Ambient Radial Backlight */}
-              <div className="absolute w-80 h-80 rounded-full bg-[#17c1fe]/[0.09] blur-3xl pointer-events-none"></div>
-
-              {/* Campus Blueprint Graphic */}
-              <img
-                src="/assets/campus-hero-blueprint.png"
-                alt="CampusOS Architectural Blueprint"
-                className="w-full h-full object-contain pointer-events-none select-none mix-blend-screen opacity-95 filter drop-shadow-[0_0_35px_rgba(23,193,254,0.18)]"
-                draggable={false}
+              {/* Aerukart Ambient Radial Light Behind Chrome Object */}
+              <div 
+                className="absolute w-[440px] h-[440px] rounded-full pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at 50% 50%, rgba(23, 193, 254, 0.24) 0%, rgba(12, 71, 127, 0.14) 45%, transparent 75%)',
+                  filter: 'blur(35px)',
+                }}
               />
-            </div>
+
+              {/* Holographic Subtle Telemetry Outer Ring */}
+              <svg 
+                className="absolute w-[460px] h-[460px] pointer-events-none opacity-30 animate-[spin_80s_linear_infinite]"
+                viewBox="0 0 460 460"
+                fill="none"
+              >
+                <circle cx="230" cy="230" r="220" stroke="#17c1fe" strokeWidth="1" strokeDasharray="4 8" />
+                <circle cx="230" cy="230" r="190" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" />
+                <circle cx="230" cy="230" r="160" stroke="#17c1fe" strokeWidth="1" strokeDasharray="2 12" />
+                <line x1="230" y1="0" x2="230" y2="460" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+                <line x1="0" y1="230" x2="460" y2="230" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+              </svg>
+
+              {/* 3D Interactive Tilting Chrome Object */}
+              <div
+                className="relative w-full h-full flex items-center justify-center transition-transform duration-200 ease-out chrome-float"
+                style={{
+                  transform: `rotateY(${mouseOffset.x * 9}deg) rotateX(${-mouseOffset.y * 9}deg) translate3d(${mouseOffset.x * 14}px, ${mouseOffset.y * 14}px, 0)`,
+                  transformStyle: 'preserve-3d',
+                }}
+              >
+                {/* Authentic Aerukart Chrome Sculpture (100% Alpha Transparent, No Black Box) */}
+                <img
+                  src="/assets/chrome.png"
+                  alt="CampusOS Chrome Sculpture"
+                  className="w-[92%] h-[92%] object-contain pointer-events-none select-none filter drop-shadow-[0_20px_50px_rgba(23,193,254,0.22)]"
+                  draggable={false}
+                />
+              </div>
+
+              {/* Floating Technical HUD Chips */}
+              <div className="absolute bottom-4 left-6 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-md text-[10px] font-mono text-white/70 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#17c1fe] animate-pulse"></span>
+                <span>SEC // 001 • CAMPUS.ARCH</span>
+              </div>
+
+              <div className="absolute top-6 right-6 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-md text-[10px] font-mono text-[#17c1fe] flex items-center gap-1.5">
+                <span>COORD // 12.8406° N</span>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
