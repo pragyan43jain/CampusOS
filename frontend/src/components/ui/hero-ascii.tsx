@@ -238,64 +238,44 @@ export default function Home({
             </motion.div>
           </div>
 
-          {/* Right Visualizer Stage (Authentic Aerukart Chrome 3D Sculpture & Holographic Telemetry) */}
+          {/* Right Visualizer Stage (CampusOS Crystalline University Architecture Sculpture & Telemetry) */}
           <div className="lg:col-span-6 flex items-center justify-center relative">
             <motion.div
-              initial={{ opacity: 0, scale: 0.88 }}
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.1, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-[620px] aspect-[1.25/1] flex items-center justify-center"
+              className="relative w-full max-w-[620px] aspect-square flex items-center justify-center"
               style={{
                 perspective: '1200px',
               }}
             >
-              {/* Aerukart Ambient Radial Light Behind Chrome Object */}
+              {/* Luminous Ambient Radial Light Behind Crystal Sculpture */}
               <div 
-                className="absolute w-[440px] h-[440px] rounded-full pointer-events-none"
+                className="absolute w-[500px] h-[500px] rounded-full pointer-events-none"
                 style={{
-                  background: 'radial-gradient(circle at 50% 50%, rgba(23, 193, 254, 0.24) 0%, rgba(12, 71, 127, 0.14) 45%, transparent 75%)',
-                  filter: 'blur(35px)',
+                  background: 'radial-gradient(circle at 50% 50%, rgba(23, 193, 254, 0.28) 0%, rgba(12, 71, 127, 0.16) 45%, transparent 75%)',
+                  filter: 'blur(45px)',
                 }}
               />
 
-              {/* Holographic Subtle Telemetry Outer Ring */}
-              <svg 
-                className="absolute w-[460px] h-[460px] pointer-events-none opacity-30 animate-[spin_80s_linear_infinite]"
-                viewBox="0 0 460 460"
-                fill="none"
-              >
-                <circle cx="230" cy="230" r="220" stroke="#17c1fe" strokeWidth="1" strokeDasharray="4 8" />
-                <circle cx="230" cy="230" r="190" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" />
-                <circle cx="230" cy="230" r="160" stroke="#17c1fe" strokeWidth="1" strokeDasharray="2 12" />
-                <line x1="230" y1="0" x2="230" y2="460" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
-                <line x1="0" y1="230" x2="460" y2="230" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
-              </svg>
-
-              {/* 3D Interactive Tilting Chrome Object */}
+              {/* 3D Interactive Tilting Crystal Campus Mortarboard Sculpture */}
               <div
                 className="relative w-full h-full flex items-center justify-center transition-transform duration-200 ease-out chrome-float"
                 style={{
-                  transform: `rotateY(${mouseOffset.x * 9}deg) rotateX(${-mouseOffset.y * 9}deg) translate3d(${mouseOffset.x * 14}px, ${mouseOffset.y * 14}px, 0)`,
+                  transform: `rotateY(${mouseOffset.x * 7}deg) rotateX(${-mouseOffset.y * 7}deg) translate3d(${mouseOffset.x * 12}px, ${mouseOffset.y * 12}px, 0)`,
                   transformStyle: 'preserve-3d',
                 }}
               >
-                {/* Authentic Aerukart Chrome Sculpture (100% Alpha Transparent, No Black Box) */}
-                <img
-                  src="/assets/chrome.png"
-                  alt="CampusOS Chrome Sculpture"
-                  className="w-[92%] h-[92%] object-contain pointer-events-none select-none filter drop-shadow-[0_20px_50px_rgba(23,193,254,0.22)]"
-                  draggable={false}
-                />
-              </div>
-
-              {/* Floating Technical HUD Chips */}
-              <div className="absolute bottom-4 left-6 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-md text-[10px] font-mono text-white/70 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#17c1fe] animate-pulse"></span>
-                <span>SEC // 001 • CAMPUS.ARCH</span>
-              </div>
-
-              <div className="absolute top-6 right-6 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-md text-[10px] font-mono text-[#17c1fe] flex items-center gap-1.5">
-                <span>COORD // 12.8406° N</span>
+                {/* Modern CampusOS Crystal Architecture Sculpture */}
+                <picture className="w-full h-full flex items-center justify-center">
+                  <source srcSet="/assets/campus-crystal-cap.webp" type="image/webp" />
+                  <img
+                    src="/assets/campus-crystal-cap.png"
+                    alt="CampusOS Crystalline University Architecture"
+                    className="w-full h-full object-contain pointer-events-none select-none filter drop-shadow-[0_20px_60px_rgba(23,193,254,0.30)]"
+                    draggable={false}
+                  />
+                </picture>
               </div>
             </motion.div>
           </div>
