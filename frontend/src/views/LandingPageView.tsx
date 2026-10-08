@@ -7,10 +7,10 @@ import {
   Percent,
   CheckCircle2,
   ArrowUp,
+  ArrowUpRight,
 } from 'lucide-react';
 import { ThemeType } from '../components/ThemeSwitcher';
 import HeroAscii from '../components/ui/hero-ascii';
-import { Spotlight } from '../components/ui/spotlight';
 
 interface LandingPageViewProps {
   onOpenLogin?: () => void;
@@ -59,8 +59,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000000', color: '#ffffff' }}>
-      {/* 1. Fullscreen Hero Ascii Component (Vitruvian Man 3D Animation & Technical UI) */}
+    <div className="relative min-h-screen flex flex-col bg-black text-[#f5f5f2] selection:bg-[#17c1fe] selection:text-black">
+      {/* 1. Aerukart Hero Stage Component */}
       <HeroAscii
         onGetStarted={isLoggedIn ? handleEnter : handleLogin}
         onLearnMore={handleLearnMore}
@@ -70,189 +70,241 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         onSelectTheme={onSelectTheme}
       />
 
-      {/* 2. Infinite Marquee Ticker Ribbon */}
-      <div className="caide-marquee-wrap" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.15)', borderBottom: '1px solid rgba(255, 255, 255, 0.15)', background: '#050505' }}>
-        <div className="caide-marquee-track">
+      {/* 2. Aerukart Infinite Marquee Ticker Ribbon */}
+      <div 
+        className="caide-marquee-wrap relative z-10" 
+        style={{ 
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)', 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)', 
+          background: '#04060a' 
+        }}
+      >
+        <div className="caide-marquee-track py-3">
           {[...marqueeItems, ...marqueeItems].map((text, idx) => (
-            <div key={idx} className="caide-marquee-item" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-              <CheckCircle2 size={16} />
+            <div key={idx} className="caide-marquee-item flex items-center gap-2 text-white/70 font-mono text-xs tracking-wider">
+              <CheckCircle2 size={14} className="text-[#17c1fe]" />
               <span>{text}</span>
-              <div className="caide-marquee-dot"></div>
+              <div className="caide-marquee-dot bg-white/30 w-1.5 h-1.5 rounded-full mx-3"></div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 3. Bento Capability Matrix */}
-      <section id="features" style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '80px 32px 60px 32px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 14px', borderRadius: '9999px', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.2)', marginBottom: '16px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#ffffff', fontFamily: 'var(--font-mono, monospace)' }}>
-              002 // CORE SUBSYSTEMS
-            </span>
-          </div>
-          <h2 style={{ fontSize: '2.6rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.5px', fontFamily: 'var(--font-heading, sans-serif)' }}>
-            Engineered for Academic Mastery
+      {/* 3. Aerukart Showcase Matrix (Core Subsystems) */}
+      <section id="features" className="section-pad max-w-[1440px] w-full mx-auto px-6 lg:px-16 relative">
+        {/* Subtle Section Glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-[#17c1fe]/[0.04] blur-3xl pointer-events-none rounded-full" />
+
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <p className="eyebrow">
+            002 // CORE SUBSYSTEMS
+          </p>
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-4">
+            Engineered for <em>Academic Mastery</em>
           </h2>
-          <p style={{ fontSize: '1.05rem', color: 'rgba(255, 255, 255, 0.7)', maxWidth: '640px', margin: '12px auto 0 auto', lineHeight: 1.6 }}>
+          <p className="text-base sm:text-lg text-[#afb1b6] leading-relaxed max-w-2xl mx-auto">
             Consolidated university intelligence eliminating the friction of manual portal logins, missed deadlines, and attendance surprises.
           </p>
         </div>
 
-        {/* Bento Grid (4 Architectural Blocks with Spotlight hover animation) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '24px' }}>
+        {/* Aerukart Media Format Grid: Row 1 */}
+        <div className="media-format-row">
           {/* Card 1: 75% Attendance Defense */}
-          <div className="caide-layer-card-wrap">
-            <Spotlight asChild color="#10B981" size={320}>
-              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-emerald)' }}>
-                    <Percent size={20} />
+          <div className="media-format-cell col-span-10 lg:col-span-5">
+            <div className="project-card group">
+              <div className="project-image">
+                <ul className="project-tags">
+                  <li>75% Defended</li>
+                  <li>VTOP Verified</li>
+                </ul>
+
+                <div className="w-full flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-[#10b981]/15 border border-[#10b981]/30 flex items-center justify-center text-[#10b981] mb-4 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                    <Percent size={28} />
                   </div>
-                  <span className="status-badge safe">75% Defended</span>
+                  <div className="w-full max-w-sm px-4 py-2.5 rounded-lg bg-black/60 border border-white/10 text-xs font-mono text-[#17c1fe] tracking-wide">
+                    formula: Math.floor((attended - 0.75 * conducted) / 0.75)
+                  </div>
                 </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                  Mathematical Attendance Defense
-                </h3>
-                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+              </div>
+
+              <div className="project-meta">
+                <div className="project-meta-header">
+                  <h3>
+                    Mathematical Attendance Defense
+                    <ArrowUpRight size={18} className="arrow-icon text-white/50 group-hover:text-[#17c1fe]" />
+                  </h3>
+                  <span className="text-xs font-mono text-[#10b981] font-semibold">SAFE MARGIN</span>
+                </div>
+                <p>
                   Automated projection of safe leaves, recovery quotas, and debarment warnings calculated dynamically from verified VTOP attendance counts.
                 </p>
-                <div style={{ padding: '12px 14px', borderRadius: '6px', background: '#121212', border: '1px solid #282828', fontSize: '0.80rem', fontFamily: 'var(--font-mono, monospace)', color: 'var(--accent-cyan)' }}>
-                  formula: Math.floor((attended - 0.75 * conducted) / 0.75)
-                </div>
               </div>
-            </Spotlight>
-            <div className="caide-layer-back"></div>
+            </div>
           </div>
 
-          {/* Card 2: Unified Teams & LMS Coursework */}
-          <div className="caide-layer-card-wrap" id="integrations">
-            <Spotlight asChild color="#4C8DFF" size={320}>
-              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-blue)' }}>
-                    <Layers size={20} />
+          {/* Card 2: Unified Multi-Platform Deadlines */}
+          <div className="media-format-cell col-span-10 lg:col-span-5" id="integrations">
+            <div className="project-card group">
+              <div className="project-image">
+                <ul className="project-tags">
+                  <li>Multi-Portal</li>
+                  <li>Real-Time Sync</li>
+                </ul>
+
+                <div className="w-full flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-[#4C8DFF]/15 border border-[#4C8DFF]/30 flex items-center justify-center text-[#4C8DFF] mb-4 shadow-[0_0_30px_rgba(76,141,255,0.2)]">
+                    <Layers size={28} />
                   </div>
-                  <span className="status-badge info">Multi-Portal</span>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/15 text-[11px] font-mono text-white/80">
+                      Teams Channels
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/15 text-[11px] font-mono text-white/80">
+                      Moodle Dropboxes
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/15 text-[11px] font-mono text-white/80">
+                      Digital DA1/DA2
+                    </span>
+                  </div>
                 </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                  Unified Multi-Platform Deadlines
-                </h3>
-                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+              </div>
+
+              <div className="project-meta">
+                <div className="project-meta-header">
+                  <h3>
+                    Unified Multi-Platform Deadlines
+                    <ArrowUpRight size={18} className="arrow-icon text-white/50 group-hover:text-[#17c1fe]" />
+                  </h3>
+                  <span className="text-xs font-mono text-[#4C8DFF] font-semibold">AUTOMATED</span>
+                </div>
+                <p>
                   Single-button global synchronization that aggregates Microsoft Teams assignments, Moodle quizzes, and digital submissions.
                 </p>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span className="status-badge neutral">Teams Channels</span>
-                  <span className="status-badge neutral">Moodle Dropboxes</span>
-                  <span className="status-badge neutral">Digital DA1/DA2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Aerukart Media Format Grid: Row 2 */}
+        <div className="media-format-row">
+          {/* Card 3: Adaptive Recovery & Exam Planner */}
+          <div className="media-format-cell col-span-10 lg:col-span-5" id="baby-ai">
+            <div className="project-card group">
+              <div className="project-image">
+                <ul className="project-tags">
+                  <li>BABY AI</li>
+                  <li>Adaptive Schedule</li>
+                </ul>
+
+                <div className="w-full flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-[#B575FF]/15 border border-[#B575FF]/30 flex items-center justify-center text-[#B575FF] mb-4 shadow-[0_0_30px_rgba(181,117,255,0.2)]">
+                    <BrainCircuit size={28} />
+                  </div>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <span className="px-3 py-1 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-[11px] font-mono text-[#10b981]">
+                      High Priority Recovery
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/15 text-[11px] font-mono text-white/80">
+                      Exam Schedule Sync
+                    </span>
+                  </div>
                 </div>
               </div>
-            </Spotlight>
-            <div className="caide-layer-back"></div>
-          </div>
 
-          {/* Card 3: AI Adaptive Study Planner */}
-          <div className="caide-layer-card-wrap" id="baby-ai">
-            <Spotlight asChild color="#B575FF" size={320}>
-              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-purple)' }}>
-                    <BrainCircuit size={20} />
-                  </div>
-                  <span className="status-badge ai">BABY AI</span>
+              <div className="project-meta">
+                <div className="project-meta-header">
+                  <h3>
+                    Adaptive Recovery &amp; Exam Planner
+                    <ArrowUpRight size={18} className="arrow-icon text-white/50 group-hover:text-[#17c1fe]" />
+                  </h3>
+                  <span className="text-xs font-mono text-[#B575FF] font-semibold">CAT 1 &amp; FAT</span>
                 </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                  Adaptive Recovery &amp; Exam Planner
-                </h3>
-                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
+                <p>
                   AI-generated revision schedules calibrated against your impending CAT 1, CAT 2, and FAT exam dates and internal marks scores.
                 </p>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span className="status-badge safe">High Priority Recovery</span>
-                  <span className="status-badge neutral">Exam Schedule Sync</span>
-                </div>
               </div>
-            </Spotlight>
-            <div className="caide-layer-back"></div>
+            </div>
           </div>
 
-          {/* Card 4: Placements & DSA Tracker */}
-          <div className="caide-layer-card-wrap">
-            <Spotlight asChild color="#FF7849" size={320}>
-              <div className="caide-card-main" style={{ background: '#0a0a0a', borderColor: '#222' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div className="stat-card-icon-wrap" style={{ color: 'var(--accent-orange)' }}>
-                    <Award size={20} />
+          {/* Card 4: Placement Readiness & Coding Radar */}
+          <div className="media-format-cell col-span-10 lg:col-span-5">
+            <div className="project-card group">
+              <div className="project-image">
+                <ul className="project-tags">
+                  <li>Super Dream</li>
+                  <li>LeetCode Sync</li>
+                </ul>
+
+                <div className="w-full flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-[#FF7849]/15 border border-[#FF7849]/30 flex items-center justify-center text-[#FF7849] mb-4 shadow-[0_0_30px_rgba(255,120,73,0.2)]">
+                    <Award size={28} />
                   </div>
-                  <span className="status-badge warning">Super Dream</span>
-                </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
-                  Placement Readiness &amp; Coding Radar
-                </h3>
-                <p style={{ fontSize: '0.90rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: '16px' }}>
-                  Instant qualification status across Super Dream (≥8.00 CGPA) and Dream company cutoffs combined with active LeetCode tracking.
-                </p>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <span className="status-badge safe">0 Active Arrears</span>
-                  <span className="status-badge info">LeetCode Sync</span>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <span className="px-3 py-1 rounded-full bg-[#10b981]/15 border border-[#10b981]/30 text-[11px] font-mono text-[#10b981]">
+                      0 Active Arrears
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-[#17c1fe]/15 border border-[#17c1fe]/30 text-[11px] font-mono text-[#17c1fe]">
+                      ≥8.00 CGPA
+                    </span>
+                  </div>
                 </div>
               </div>
-            </Spotlight>
-            <div className="caide-layer-back"></div>
+
+              <div className="project-meta">
+                <div className="project-meta-header">
+                  <h3>
+                    Placement Readiness &amp; Coding Radar
+                    <ArrowUpRight size={18} className="arrow-icon text-white/50 group-hover:text-[#17c1fe]" />
+                  </h3>
+                  <span className="text-xs font-mono text-[#FF7849] font-semibold">TIER RADAR</span>
+                </div>
+                <p>
+                  Instant qualification status across Super Dream (≥8.00 CGPA) and Dream company cutoffs combined with active LeetCode tracking.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 4. Bottom Footer with Back-to-Top and VTOP Sign-in */}
+      {/* 4. Aerukart Minimalist Footer */}
       <footer
         id="security"
-        style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.15)',
-          backgroundColor: '#050505',
-          padding: '40px 32px 32px 32px',
-          marginTop: 'auto',
-        }}
+        className="relative z-10 border-t border-white/10 bg-black py-12 px-6 lg:px-16 mt-auto"
       >
-        <div
-          style={{
-            maxWidth: '1440px',
-            margin: '0 auto',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '20px',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div className="brand-icon-box" style={{ width: '28px', height: '28px' }}>
+        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex flex-col gap-2 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center text-[#17c1fe]">
                 <ShieldCheck size={16} />
               </div>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
-                Campus<span className="brand-title-os">OS</span>
+              <span className="font-mono text-lg font-bold tracking-wider text-white italic transform -skew-x-12">
+                CampusOS
               </span>
             </div>
-            <p style={{ fontSize: '0.80rem', color: 'rgba(255, 255, 255, 0.5)', margin: 0, fontFamily: 'var(--font-mono, monospace)' }}>
+            <p className="text-xs font-mono text-white/50 max-w-md">
               Autonomous Academic Operating System // Zero Cloud Credential Storage
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <div className="flex items-center gap-4">
             <button
               onClick={scrollToTop}
               type="button"
-              className="px-4 py-2 text-xs font-mono border border-white/20 hover:border-white text-white/80 hover:text-white rounded transition-colors flex items-center gap-1.5"
+              className="button button-sm text-xs font-mono"
             >
               <ArrowUp size={12} />
               <span>TOP</span>
             </button>
+
             <button
               onClick={isLoggedIn ? handleEnter : handleLogin}
               type="button"
-              className="px-5 py-2 text-xs font-mono font-bold bg-white text-black hover:bg-neutral-200 transition-colors"
+              className="button button-blue button-sm text-xs font-mono font-semibold"
             >
-              {isLoggedIn ? 'ENTER DASHBOARD' : 'SIGN IN (VTOP)'}
+              <span>{isLoggedIn ? 'ENTER DASHBOARD' : 'SIGN IN (VTOP)'}</span>
+              <ArrowUpRight size={14} className="arrow-icon" />
             </button>
           </div>
         </div>

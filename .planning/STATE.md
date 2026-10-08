@@ -59,6 +59,13 @@ Recent decisions affecting current work:
 - [Init]: Persist real data in `localStorage` with a visible "Sync VTOP" refresh control.
 - [Init]: Zero mock data fallback in production — display clean empty states instead of fabricated values.
 
+### Quick Tasks Completed
+
+| Task | Date | Status |
+|------|------|--------|
+| `261006-us2-strict-lms-and-teams-sync-with-professor` | 2026-10-06 | Complete ✓ |
+| `261008-aerukart-ui-replica` | 2026-10-08 | Complete ✓ |
+
 ### Pending Todos
 
 None yet.

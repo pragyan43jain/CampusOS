@@ -124,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="header-right-actions">
           {/* Direct Live Sync Button */}
           <button
-            className="btn btn-primary header-sync-btn"
+            className="button button-blue button-sm header-sync-btn"
             onClick={onSync || onOpenVtopModal}
             disabled={syncing}
             title={syncing ? "Synchronizing academic data..." : "Sync latest grades, attendance, timetable & assignments directly"}

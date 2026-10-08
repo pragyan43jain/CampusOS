@@ -22,32 +22,52 @@
   /* Fonts */
   --font-sans: 'Absans', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: 'Absans', 'Space Grotesk', -apple-system, sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+
+  --sans: var(--font-sans);
+  --serif: var(--font-serif);
+
+  /* Aerukart Design System Tokens */
+  --aeruk-bg: #000000;
+  --aeruk-white: #f5f5f2;
+  --aeruk-muted: #afb1b6;
+  --aeruk-blue: #0c477f;
+  --aeruk-cyan: #17c1fe;
+  --aeruk-glow-ramp: var(--aeruk-cyan) 0%, var(--aeruk-blue) 50%, #000 100%;
+  --aeruk-line: #ffffff0b;
+  --aeruk-margin: clamp(20px, 3.3333vw, 80px);
+  --aeruk-grid-columns: 12;
+  --aeruk-content-columns: 10;
+  --aeruk-header-height: 90px;
+  --aeruk-button-height: 40px;
+  --aeruk-surface: #080d14;
+  --aeruk-surface-card: #0c1721;
 
   /* Standard shadcn variables */
   --foreground: #ffffff;
-  --background: #0b0b0b;
-  --card: #141414;
+  --background: #000000;
+  --card: #080d14;
   --card-foreground: #ffffff;
-  --muted-foreground: #94A3B8;
+  --muted-foreground: #afb1b6;
 
-  /* Surfaces & Backgrounds - Classy Jet Black System matching Screenshot_20261001_201016.png */
-  --bg-primary: #0b0b0b;
-  --bg-secondary: #0e0e0e;
-  --surface-primary: #141414;
-  --surface-secondary: #181818;
-  --surface-elevated: #1f1f1f;
-  --surface-input: #121212;
-  --surface-hover: rgba(255, 255, 255, 0.05);
-  --surface-active: rgba(255, 255, 255, 0.09);
-  --surface-header: rgba(11, 11, 11, 0.95);
-  --surface-sidebar: #090909;
+  /* Surfaces & Backgrounds - Aerukart Obsidian Theme */
+  --bg-primary: #000000;
+  --bg-secondary: #050609;
+  --surface-primary: #080d14;
+  --surface-secondary: #0c1721;
+  --surface-elevated: #101c29;
+  --surface-input: #060a0f;
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(23, 193, 254, 0.12);
+  --surface-header: rgba(0, 0, 0, 0.85);
+  --surface-sidebar: #04060a;
 
   /* Hairline Borders */
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-card: #222222;
-  --border-medium: #2a2a2a;
-  --border-highlight: rgba(0, 242, 254, 0.40);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-card: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --border-highlight: rgba(23, 193, 254, 0.40);
 
   /* Typography Colors (High Contrast) */
   --text-primary: #FFFFFF;
@@ -2536,6 +2556,396 @@ body.modal-open .modal-content-glass {
   background-repeat: repeat;
   background-size: 200px 200px;
 }
+
+/* ==========================================================================
+   AERUKART UI DESIGN SYSTEM (https://aerukart.com/ REPLICA)
+   ========================================================================== */
+
+/* Editorial serif italic accent */
+em {
+  font-family: var(--font-serif, 'Cormorant Garamond', Georgia, serif);
+  letter-spacing: -0.025em;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Aerukart 12-column backdrop grid */
+.site-grid {
+  z-index: 0;
+  inset: 0 var(--aeruk-margin);
+  grid-template-columns: repeat(var(--aeruk-grid-columns), minmax(0, 1fr));
+  pointer-events: none;
+  display: grid;
+  position: absolute;
+}
+.site-grid i {
+  border-left: 1px solid var(--aeruk-line);
+  height: 100%;
+  display: block;
+}
+.site-grid i:last-child {
+  position: absolute;
+  inset: 0 auto 0 100%;
+  border-left: 1px solid var(--aeruk-line);
+}
+@media (max-width: 800px) {
+  .site-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .site-grid i:nth-child(n+5):not(:last-child) {
+    display: none;
+  }
+}
+
+/* Aerukart Glowing Atmospheres */
+.home-glow {
+  z-index: 0;
+  background: linear-gradient(239deg, #000 0%, var(--aeruk-blue) 50%, var(--aeruk-cyan) 100%);
+  pointer-events: none;
+  height: 1400px;
+  position: absolute;
+  inset: -100px 0 auto;
+  -webkit-mask-image: linear-gradient(90deg, #000, #0000 80%), linear-gradient(#000 35%, #000e 48%, #0006 65%, #0000 88%);
+  mask-image: linear-gradient(90deg, #000, #0000 80%), linear-gradient(#000 35%, #000e 48%, #0006 65%, #0000 88%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  opacity: 0.85;
+}
+
+.story-light {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1000px, 90vw);
+  height: 520px;
+  background: radial-gradient(ellipse at center, rgba(23, 193, 254, 0.16) 0%, rgba(12, 71, 127, 0.08) 50%, transparent 80%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(50px);
+}
+
+/* Aerukart Pill Buttons */
+.button {
+  height: var(--aeruk-button-height);
+  min-height: var(--aeruk-button-height);
+  color: var(--aeruk-white);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  padding: 0 26px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background 0.3s cubic-bezier(0.2, 0.65, 0.3, 1), box-shadow 0.3s, transform 0.25s, border-color 0.25s;
+  display: inline-flex;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  user-select: none;
+}
+.button:not(.button-blue):hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(23, 193, 254, 0.22);
+}
+.button-blue {
+  isolation: isolate;
+  background: linear-gradient(197deg, var(--aeruk-blue), var(--aeruk-cyan));
+  border: none !important;
+  color: #ffffff !important;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(23, 193, 254, 0.28);
+}
+.button-blue:hover {
+  box-shadow: 0 0 35px rgba(23, 193, 254, 0.65);
+  transform: translateY(-2px);
+}
+.button-sm {
+  height: 34px;
+  min-height: 34px;
+  padding: 0 18px;
+  font-size: 12px;
+}
+
+/* Aerukart RollText Micro-Animation */
+.roll-text {
+  display: inline-flex;
+  overflow: hidden;
+  position: relative;
+  line-height: 1.2;
+  height: 1.2em;
+}
+.roll-text-track {
+  display: inline-flex;
+  flex-direction: column;
+  transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+:is(a, button):hover .roll-text-track {
+  transform: translateY(-50%);
+}
+.roll-text-item {
+  display: block;
+  white-space: nowrap;
+  height: 1.2em;
+  line-height: 1.2em;
+}
+.roll-text-item.roll-hover {
+  color: var(--aeruk-cyan);
+}
+
+/* Aerukart Header & Navigation */
+.site-header {
+  height: var(--aeruk-header-height);
+  padding: 16px var(--aeruk-margin);
+  z-index: 50;
+  border-bottom: 1px solid var(--aeruk-line);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  display: grid;
+  position: sticky;
+  top: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.main-nav {
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  gap: 20px;
+}
+.main-nav a, .main-nav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--aeruk-muted);
+  transition: color 0.2s ease;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.main-nav a:hover, .main-nav button:hover, .main-nav .active {
+  color: #ffffff;
+}
+
+/* Aerukart Hero Architecture */
+.hero-stage {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 40px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: #000000;
+}
+.hero-copy {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 620px;
+  position: relative;
+  z-index: 10;
+}
+.hero-copy h1 {
+  font-size: clamp(42px, 5.2vw, 68px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: #ffffff;
+  font-family: var(--font-sans);
+}
+.hero-copy h1 em {
+  font-size: 1.2em;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+  color: #ffffff;
+  display: inline-block;
+}
+.hero-copy p {
+  font-size: clamp(15px, 1.2vw, 17px);
+  color: var(--aeruk-muted);
+  line-height: 1.6;
+  max-width: 480px;
+}
+.hero-chrome {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 54vw;
+  max-width: 860px;
+  aspect-ratio: 1.35 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+@media (max-width: 1024px) {
+  .hero-stage {
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 100px;
+  }
+  .hero-copy {
+    text-align: center;
+    align-items: center;
+    margin: 0 auto;
+  }
+  .hero-copy p {
+    margin: 0 auto;
+  }
+  .hero-chrome {
+    position: relative;
+    right: auto;
+    top: auto;
+    transform: none;
+    width: 90vw;
+    margin-top: 40px;
+  }
+}
+
+/* Aerukart Showcase Media Format Grid */
+.section-pad {
+  padding-top: 100px;
+  padding-bottom: 100px;
+  position: relative;
+}
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--aeruk-cyan);
+  font-family: var(--font-mono, monospace);
+  margin-bottom: 16px;
+  display: inline-block;
+}
+.media-format-row {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  align-items: stretch;
+  display: grid;
+  gap: 28px;
+  margin-top: 48px;
+}
+@media (max-width: 900px) {
+  .media-format-row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+.media-format-cell {
+  min-width: 0;
+}
+.project-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: var(--aeruk-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  transition: border-color 0.35s ease, transform 0.35s cubic-bezier(0.2, 0.65, 0.3, 1), box-shadow 0.35s ease;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+.project-card:hover {
+  border-color: rgba(23, 193, 254, 0.35);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7), 0 0 35px rgba(23, 193, 254, 0.12);
+}
+.project-image {
+  aspect-ratio: 16 / 9;
+  background: var(--aeruk-surface-card);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.project-tags {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  z-index: 2;
+}
+.project-tags li {
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--aeruk-white);
+  letter-spacing: 0.02em;
+}
+.project-meta {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.project-meta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.project-meta h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.arrow-icon {
+  display: inline-block;
+  vertical-align: middle;
+  transition: transform 0.3s cubic-bezier(0.2, 0.65, 0.3, 1);
+}
+.project-card:hover .arrow-icon {
+  transform: translate(2px, -2px);
+  color: var(--aeruk-cyan);
+}
+.project-meta p {
+  font-size: 0.88rem;
+  color: var(--aeruk-muted);
+  line-height: 1.6;
+}
+
 
 
 

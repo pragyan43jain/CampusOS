@@ -280,11 +280,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button
               onClick={onSync || onOpenSyncModal}
               disabled={syncing}
-              className="btn btn-primary"
+              className="button button-blue button-sm"
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               title="Sync latest academic data directly from VTOP and connected platforms"
             >
-              <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
               <span>{syncing ? 'Syncing...' : 'Sync VTOP Hub'}</span>
             </button>
           </div>
