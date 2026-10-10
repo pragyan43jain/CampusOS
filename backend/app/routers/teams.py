@@ -1108,11 +1108,16 @@ def _process_single_team(
             if sa_fac and normalize_faculty_name(sa_fac) != "" and matched_rec.facultyName not in ("Faculty unassigned", "Instructor", "Teams Instructor"):
                 if not match_faculty_names(matched_rec.facultyName, sa_fac) and sa_fac.upper() not in matched_rec.facultyName.upper() and matched_rec.facultyName.upper() not in sa_fac.upper():
                     logger.warning(
-                        "[Teams Assignment] Dropping assignment '%s': faculty '%s' does not match enrolled VTOP faculty '%s'",
+                        "[Teams Assignment] Flagging assignment '%s': faculty '%s' does not match enrolled VTOP faculty '%s'",
                         sa.get("title"),
                         sa_fac,
                         matched_rec.facultyName,
                     )
+                    sa["flagged"] = True
+                    sa["isUnmatched"] = True
+                    sa["unmatchedReason"] = f"Teams instructor '{sa_fac}' differs from enrolled VTOP faculty '{matched_rec.facultyName}'"
+                    sa["verified"] = False
+                    verified_subject_assignments.append(sa)
                     continue
 
             sa["verifiedCourseMatchId"] = f"match-teams-{team_id}"
@@ -1213,28 +1218,42 @@ def fetch_microsoft_teams_coursework(
     except Exception as exc:
         logger.warning("Graph API /me query failed: %s", exc)
 
-    # 2. Query all joined class teams from Microsoft Teams
+    # 2. Query all joined class teams from Microsoft Teams with full @odata.nextLink pagination
     teams_dict: Dict[str, Dict[str, Any]] = {}
-    try:
-        r_teams = s.get("https://graph.microsoft.com/v1.0/me/joinedTeams", headers=headers, timeout=REQUEST_TIMEOUT)
-        if r_teams.status_code == 200:
-            for t in r_teams.json().get("value", []):
-                t_id = t.get("id")
-                if t_id:
-                    teams_dict[t_id] = t
-    except Exception as exc:
-        logger.warning("Graph API joinedTeams query failed: %s", exc)
+    url_teams: Optional[str] = "https://graph.microsoft.com/v1.0/me/joinedTeams"
+    while url_teams:
+        try:
+            r_teams = s.get(url_teams, headers=headers, timeout=REQUEST_TIMEOUT)
+            if r_teams.status_code == 200:
+                t_json = r_teams.json()
+                for t in t_json.get("value", []):
+                    t_id = t.get("id")
+                    if t_id:
+                        teams_dict[t_id] = t
+                url_teams = t_json.get("@odata.nextLink") or t_json.get("nextLink")
+            else:
+                break
+        except Exception as exc:
+            logger.warning("Graph API joinedTeams query failed: %s", exc)
+            break
 
-    # Also query education classes if available
-    try:
-        r_edu_classes = s.get("https://graph.microsoft.com/v1.0/education/classes", headers=headers, timeout=REQUEST_TIMEOUT)
-        if r_edu_classes.status_code == 200:
-            for c in r_edu_classes.json().get("value", []):
-                c_id = c.get("id")
-                if c_id and c_id not in teams_dict:
-                    teams_dict[c_id] = c
-    except Exception as exc:
-        logger.debug("Education classes query: %s", exc)
+    # Also query education classes if available with @odata.nextLink pagination
+    url_edu: Optional[str] = "https://graph.microsoft.com/v1.0/education/classes"
+    while url_edu:
+        try:
+            r_edu_classes = s.get(url_edu, headers=headers, timeout=REQUEST_TIMEOUT)
+            if r_edu_classes.status_code == 200:
+                edu_json = r_edu_classes.json()
+                for c in edu_json.get("value", []):
+                    c_id = c.get("id")
+                    if c_id and c_id not in teams_dict:
+                        teams_dict[c_id] = c
+                url_edu = edu_json.get("@odata.nextLink") or edu_json.get("nextLink")
+            else:
+                break
+        except Exception as exc:
+            logger.debug("Education classes query: %s", exc)
+            break
 
     teams_list = list(teams_dict.values())
     user_info["teamsCount"] = len(teams_list)
@@ -1288,93 +1307,100 @@ def fetch_microsoft_teams_coursework(
                     team_item = future_to_team[future]
                     logger.warning("Error processing team %s: %s", team_item.get("displayName"), exc)
 
-    # 4. Also query general /education/me/assignments for any assignments already published
-    try:
-        r_all_edu = s.get("https://graph.microsoft.com/v1.0/education/me/assignments", headers=headers, timeout=REQUEST_TIMEOUT)
-        if r_all_edu.status_code == 200:
-            existing_ids = {a.get("id") for a in all_assignments}
-            for item in r_all_edu.json().get("value", []):
-                assign_id = f"teams-{item.get('id')}"
-                if assign_id in existing_ids:
-                    continue
+    # 4. Also query general /education/me/assignments for any assignments already published with @odata.nextLink pagination
+    url_all_edu: Optional[str] = "https://graph.microsoft.com/v1.0/education/me/assignments"
+    while url_all_edu:
+        try:
+            r_all_edu = s.get(url_all_edu, headers=headers, timeout=REQUEST_TIMEOUT)
+            if r_all_edu.status_code == 200:
+                all_edu_json = r_all_edu.json()
+                existing_ids = {a.get("id") for a in all_assignments}
+                for item in all_edu_json.get("value", []):
+                    assign_id = f"teams-{item.get('id')}"
+                    if assign_id in existing_ids:
+                        continue
 
-                class_id = item.get("classId") or ""
-                class_name = item.get("classDisplayName") or ""
-                # Verify course and faculty
-                is_v, matched_c, _ = verify_external_course(
-                    enrolled_records=verified_enrolled,
-                    source="Teams",
-                    source_id=class_id,
-                    source_name=f"{class_id} {class_name}",
-                    source_professors=[class_name],
-                )
-                if not is_v or not matched_c:
-                    continue
-
-                due_dt = item.get("dueDateTime") or ""
-                due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
-                due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
-                status_raw = str(item.get("status") or item.get("state") or "").lower().strip()
-                is_sub = (
-                    status_raw in ("submitted", "turnedin", "turned in", "turned_in", "completed", "returned", "released", "done", "graded")
-                    or ("turn" in status_raw and "not" not in status_raw and "unturn" not in status_raw)
-                    or ("submit" in status_raw and "not" not in status_raw and "unsubmit" not in status_raw)
-                )
-
-                sub_meta = None
-                if not is_sub and class_id and item.get("id"):
-                    sub_rec, _ = fetch_student_teams_submission(
-                        class_id,
-                        item.get("id"),
-                        headers=headers,
-                        authenticated_user_id=authenticated_user_id,
-                        session=s,
+                    class_id = item.get("classId") or ""
+                    class_name = item.get("classDisplayName") or ""
+                    # Verify course and faculty
+                    is_v, matched_c, _ = verify_external_course(
+                        enrolled_records=verified_enrolled,
+                        source="Teams",
+                        source_id=class_id,
+                        source_name=f"{class_id} {class_name}",
+                        source_professors=[class_name],
                     )
-                    if sub_rec:
-                        sub_meta = map_teams_submission_status(sub_rec, due_datetime_iso=due_dt)
-                        is_sub = sub_meta["isDone"]
+                    if not is_v or not matched_c:
+                        continue
 
-                if not sub_meta:
-                    sub_meta = map_teams_submission_status(
-                        {"status": "submitted" if is_sub else status_raw} if (is_sub or status_raw) else None,
-                        due_datetime_iso=due_dt,
+                    due_dt = item.get("dueDateTime") or ""
+                    due_date_str = due_dt.split("T")[0] if "T" in due_dt else "TBA"
+                    due_time_str = due_dt.split("T")[1][:5] if "T" in due_dt else "23:59"
+                    status_raw = str(item.get("status") or item.get("state") or "").lower().strip()
+                    is_sub = (
+                        status_raw in ("submitted", "turnedin", "turned in", "turned_in", "completed", "returned", "released", "done", "graded")
+                        or ("turn" in status_raw and "not" not in status_raw and "unturn" not in status_raw)
+                        or ("submit" in status_raw and "not" not in status_raw and "unsubmit" not in status_raw)
                     )
 
-                instr_obj = item.get("instructions")
-                clean_instr = clean_html_instructions(instr_obj.get("content") if isinstance(instr_obj, dict) else "")
+                    sub_meta = None
+                    if not is_sub and class_id and item.get("id"):
+                        sub_rec, _ = fetch_student_teams_submission(
+                            class_id,
+                            item.get("id"),
+                            headers=headers,
+                            authenticated_user_id=authenticated_user_id,
+                            session=s,
+                        )
+                        if sub_rec:
+                            sub_meta = map_teams_submission_status(sub_rec, due_datetime_iso=due_dt)
+                            is_sub = sub_meta["isDone"]
 
-                all_assignments.append({
-                    "id": assign_id,
-                    "verifiedCourseMatchId": f"match-teams-{class_id}",
-                    "subjectId": matched_c.courseCode,
-                    "title": item.get("displayName") or "Teams Assignment",
-                    "courseCode": matched_c.courseCode,
-                    "courseTitle": matched_c.courseName,
-                    "faculty": matched_c.facultyName,
-                    "source": "Teams",
-                    "platformName": "Microsoft Teams",
-                    "platformUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
-                    "submissionUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
-                    "webUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
-                    "dueDate": due_date_str,
-                    "dueTime": due_time_str,
-                    "status": "Submitted" if is_sub else sub_meta["applicationStatus"],
-                    "applicationStatus": "DONE" if is_sub else sub_meta["applicationStatus"],
-                    "displayStatus": "DONE" if is_sub else sub_meta["applicationStatus"],
-                    "teamsSubmissionState": sub_meta["teamsSubmissionState"],
-                    "submissionStatus": sub_meta["teamsSubmissionState"],
-                    "submittedAt": sub_meta["submittedAt"],
-                    "returnedAt": sub_meta["returnedAt"],
-                    "submissionId": sub_meta["submissionId"],
-                    "isDone": is_sub,
-                    "isSubmitted": is_sub,
-                    "isLate": sub_meta["isLate"],
-                    "priority": "Critical" if (sub_meta["isOverdue"] and not is_sub) else "Medium",
-                    "weightage": 10,
-                    "instructions": clean_instr,
-                })
-    except Exception as exc:
-        logger.debug("Global education assignments query: %s", exc)
+                    if not sub_meta:
+                        sub_meta = map_teams_submission_status(
+                            {"status": "submitted" if is_sub else status_raw} if (is_sub or status_raw) else None,
+                            due_datetime_iso=due_dt,
+                        )
+
+                    instr_obj = item.get("instructions")
+                    clean_instr = clean_html_instructions(instr_obj.get("content") if isinstance(instr_obj, dict) else "")
+
+                    all_assignments.append({
+                        "id": assign_id,
+                        "verifiedCourseMatchId": f"match-teams-{class_id}",
+                        "subjectId": matched_c.courseCode,
+                        "title": item.get("displayName") or "Teams Assignment",
+                        "courseCode": matched_c.courseCode,
+                        "courseTitle": matched_c.courseName,
+                        "faculty": matched_c.facultyName,
+                        "source": "Teams",
+                        "platformName": "Microsoft Teams",
+                        "platformUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
+                        "submissionUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
+                        "webUrl": item.get("webUrl") or TEAMS_PORTAL_URL,
+                        "dueDate": due_date_str,
+                        "dueTime": due_time_str,
+                        "status": "Submitted" if is_sub else sub_meta["applicationStatus"],
+                        "applicationStatus": "DONE" if is_sub else sub_meta["applicationStatus"],
+                        "displayStatus": "DONE" if is_sub else sub_meta["applicationStatus"],
+                        "teamsSubmissionState": sub_meta["teamsSubmissionState"],
+                        "submissionStatus": sub_meta["teamsSubmissionState"],
+                        "submittedAt": sub_meta["submittedAt"],
+                        "returnedAt": sub_meta["returnedAt"],
+                        "submissionId": sub_meta["submissionId"],
+                        "isDone": is_sub,
+                        "isSubmitted": is_sub,
+                        "isLate": sub_meta["isLate"],
+                        "priority": "Critical" if (sub_meta["isOverdue"] and not is_sub) else "Medium",
+                        "weightage": 10,
+                        "instructions": clean_instr,
+                    })
+                url_all_edu = all_edu_json.get("@odata.nextLink") or all_edu_json.get("nextLink")
+            else:
+                break
+        except Exception as exc:
+            logger.debug("Global education assignments query: %s", exc)
+            break
 
     return user_info, all_assignments, matched_subjects, course_matches
 
@@ -1729,6 +1755,17 @@ def sync_teams(
         existing_assignments = store.get("assignments") or []
         existing_teams_map = {a.get("id"): a for a in existing_assignments if a.get("source") == "Teams"}
         other_assignments = [a for a in existing_assignments if a.get("source") != "Teams"]
+        existing_teams = list(existing_teams_map.values())
+
+        is_stale_fallback = False
+        # Preserve verified existing Teams assignments if live fetch returned empty
+        if not teams_assignments and existing_teams:
+            teams_assignments = existing_teams
+            is_stale_fallback = True
+            if not matched_subjects and account.get("matchedSubjects"):
+                matched_subjects = account.get("matchedSubjects")
+            if not course_matches and account.get("courseMatches"):
+                course_matches = account.get("courseMatches")
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in teams_assignments:
@@ -1769,15 +1806,20 @@ def sync_teams(
         account["matchedCount"] = len(matched_subjects)
         account["totalTeamsCount"] = user_info.get("teamsCount", 0)
         account["courseMatches"] = course_matches
+        account["recordsFetched"] = len(teams_assignments)
+        account["status"] = "stale" if is_stale_fallback else "connected"
+        account["syncStatus"] = "STALE" if is_stale_fallback else "SUCCESS"
         store["teamsAccount"] = account
 
         save_store(store, reg)
 
         return {
             "success": True,
+            "status": "STALE" if is_stale_fallback else "SUCCESS",
             "message": (
                 f"Synchronized Microsoft Teams coursework. "
                 f"Matched {len(matched_subjects)} VTOP subjects. {len(teams_assignments)} authentic assignments loaded."
+                + (" (Serving verified cached coursework as live fetch returned no records)" if is_stale_fallback else "")
             ),
             "assignments": all_assignments,
             "matchedSubjects": matched_subjects,
@@ -1788,12 +1830,22 @@ def sync_teams(
         raise
     except requests.exceptions.Timeout as exc:
         logger.warning("Microsoft Teams sync timed out: %s", exc)
+        if "teamsAccount" in store and isinstance(store["teamsAccount"], dict):
+            store["teamsAccount"]["status"] = "stale"
+            store["teamsAccount"]["syncStatus"] = "FAILED"
+            store["teamsAccount"]["lastError"] = "Connection timed out"
+            save_store(store, reg)
         raise HTTPException(
             status_code=504,
             detail="Request to Microsoft Teams timed out during sync. Please try again.",
         )
     except requests.exceptions.RequestException as exc:
         logger.error("Microsoft Teams sync network error: %s", exc)
+        if "teamsAccount" in store and isinstance(store["teamsAccount"], dict):
+            store["teamsAccount"]["status"] = "stale"
+            store["teamsAccount"]["syncStatus"] = "FAILED"
+            store["teamsAccount"]["lastError"] = "Network connectivity error"
+            save_store(store, reg)
         raise HTTPException(
             status_code=502,
             detail="Unable to connect to Microsoft Teams for sync. Please check network connection.",

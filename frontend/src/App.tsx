@@ -404,17 +404,17 @@ export const App: React.FC = () => {
 
       if (isAuthed) {
         setStudent(studentData);
-        if (coursesData && coursesData.length > 0) setCourses(coursesData);
-        if (timetableData && timetableData.length > 0) setTimetable(timetableData);
-        if (attendanceData && attendanceData.length > 0) setAttendance(attendanceData);
-        if (marksData && marksData.length > 0) setMarks(marksData);
-        if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
-        if (facultyData && facultyData.length > 0) setFaculty(facultyData);
-        if (assignmentsData && assignmentsData.length > 0) setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
-        if (feesData && feesData.length > 0) setFees(feesData);
-        if (placementsData && placementsData.length > 0) setPlacements(placementsData);
-        if (dsaData && dsaData.length > 0) setDsaTopics(dsaData);
-        if (aiData && aiData.length > 0) setAiTasks(aiData);
+        if (Array.isArray(coursesData)) setCourses(coursesData);
+        if (Array.isArray(timetableData)) setTimetable(timetableData);
+        if (Array.isArray(attendanceData)) setAttendance(attendanceData);
+        if (Array.isArray(marksData)) setMarks(marksData);
+        if (examsData) setExams(examsData as any);
+        if (Array.isArray(facultyData)) setFaculty(facultyData);
+        if (Array.isArray(assignmentsData)) setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
+        if (Array.isArray(feesData)) setFees(feesData);
+        if (Array.isArray(placementsData)) setPlacements(placementsData);
+        if (Array.isArray(dsaData)) setDsaTopics(dsaData);
+        if (Array.isArray(aiData)) setAiTasks(aiData);
         if (odResult) setOdData(odResult);
         setIsAuthenticated(true);
       } else {
@@ -455,12 +455,10 @@ export const App: React.FC = () => {
         if (res.dashboard.unmatchedAssignments) {
           flatList.push(...res.dashboard.unmatchedAssignments);
         }
-        if (flatList.length > 0) {
-          setAssignments(applyManualStatusOverrides(flatList, student?.regNo));
-        }
+        setAssignments(applyManualStatusOverrides(flatList, student?.regNo));
       } else {
         const freshAssignments = await CampusAPI.getAssignments();
-        if (freshAssignments) {
+        if (Array.isArray(freshAssignments)) {
           setAssignments(applyManualStatusOverrides(freshAssignments, student?.regNo));
         }
       }
@@ -520,21 +518,21 @@ export const App: React.FC = () => {
             window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(d));
           }
         }
-        if (d.courses && d.courses.length > 0) setCourses(d.courses);
-        if (d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
-        if (d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
+        if (Array.isArray(d.courses)) setCourses(d.courses);
+        if (Array.isArray(d.timetable)) setTimetable(d.timetable);
+        if (Array.isArray(d.attendance)) setAttendance(d.attendance);
         const freshExams: Exam[] = d.examsList && Array.isArray(d.examsList)
           ? d.examsList
           : Array.isArray(d.exams)
           ? d.exams
           : (d.exams && typeof d.exams === 'object' ? Object.values(d.exams).flat() as Exam[] : []);
-        if (freshExams.length > 0) setExams(freshExams);
-        if (d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
-        if (d.assignments && d.assignments.length > 0) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
-        if (d.fees && d.fees.length > 0) setFees(d.fees);
-        if (d.placements && d.placements.length > 0) setPlacements(d.placements);
-        if (d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
-        if (d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
+        if (freshExams) setExams(freshExams);
+        if (Array.isArray(d.faculty)) setFaculty(d.faculty);
+        if (Array.isArray(d.assignments)) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
+        if (Array.isArray(d.fees)) setFees(d.fees);
+        if (Array.isArray(d.placements)) setPlacements(d.placements);
+        if (Array.isArray(d.dsaTopics)) setDsaTopics(d.dsaTopics);
+        if (Array.isArray(d.aiTasks)) setAiTasks(d.aiTasks);
         if (d.od) setOdData(d.od);
       }
 

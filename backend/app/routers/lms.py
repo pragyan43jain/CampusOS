@@ -684,43 +684,57 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
     # Step 2: Use Moodle WebService AJAX API if sesskey is available
     if sesskey:
         try:
-            ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
-            payload = [
-                {
-                    "index": 0,
-                    "methodname": "core_course_get_enrolled_courses_by_timeline_classification",
-                    "args": {
-                        "classification": "all",
-                        "limit": 0,
-                        "offset": 0,
-                        "sort": "fullname",
-                    },
-                }
-            ]
-            r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-            if r_ajax.status_code == 200:
-                data = r_ajax.json()
-                if isinstance(data, list) and len(data) > 0:
-                    course_list = data[0].get("data", {}).get("courses", [])
-                    for c in course_list:
-                        c_id = str(c.get("id"))
-                        c_title = c.get("fullname") or c.get("shortname") or ""
-                        contacts = c.get("contacts") or []
-                        teachers = [ct.get("fullname") for ct in contacts if ct.get("fullname")]
-                        if not teachers:
-                            t_from_title = extract_teacher_from_lms_title(c_title)
-                            if t_from_title:
-                                teachers.append(t_from_title)
-                        if c_id and c_id not in seen_ids and c_id != "1":
-                            seen_ids.add(c_id)
-                            courses.append({
-                                "id": c_id,
-                                "title": c_title,
-                                "shortname": c.get("shortname", ""),
-                                "teachers": teachers,
-                                "url": f"{LMS_BASE_URL}/course/view.php?id={c_id}",
-                            })
-                    logger.info("Retrieved %d courses via Moodle AJAX service.", len(courses))
+            offset = 0
+            while True:
+                ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
+                payload = [
+                    {
+                        "index": 0,
+                        "methodname": "core_course_get_enrolled_courses_by_timeline_classification",
+                        "args": {
+                            "classification": "all",
+                            "limit": 0,
+                            "offset": offset,
+                            "sort": "fullname",
+                        },
+                    }
+                ]
+                r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+                if r_ajax.status_code == 200:
+                    data = r_ajax.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        res_data = data[0].get("data", {})
+                        course_list = res_data.get("courses", [])
+                        if not course_list:
+                            break
+                        for c in course_list:
+                            c_id = str(c.get("id"))
+                            c_title = c.get("fullname") or c.get("shortname") or ""
+                            contacts = c.get("contacts") or []
+                            teachers = [ct.get("fullname") for ct in contacts if ct.get("fullname")]
+                            if not teachers:
+                                t_from_title = extract_teacher_from_lms_title(c_title)
+                                if t_from_title:
+                                    teachers.append(t_from_title)
+                            if c_id and c_id not in seen_ids and c_id != "1":
+                                seen_ids.add(c_id)
+                                courses.append({
+                                    "id": c_id,
+                                    "title": c_title,
+                                    "shortname": c.get("shortname", ""),
+                                    "teachers": teachers,
+                                    "url": f"{LMS_BASE_URL}/course/view.php?id={c_id}",
+                                })
+                        next_offset = res_data.get("nextoffset", 0)
+                        if next_offset and next_offset > offset:
+                            offset = next_offset
+                        else:
+                            break
+                    else:
+                        break
+                else:
+                    break
+            logger.info("Retrieved %d courses via Moodle AJAX service.", len(courses))
         except Exception as exc:
             logger.warning("Moodle AJAX service query failed: %s", exc)
 
@@ -917,6 +931,62 @@ def fetch_assignments_for_lms_course(
                     "topic_name": topic_name,
                     "row_text": row.get_text(),
                 })
+
+        # Also scrape Moodle Quizzes index (/mod/quiz/index.php?id={course_id})
+        try:
+            quiz_index_url = f"{LMS_BASE_URL}/mod/quiz/index.php?id={course_id}"
+            r_q = session.get(quiz_index_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+            if r_q.status_code == 200 and "/login" not in r_q.url:
+                soup_q = BeautifulSoup(r_q.text, "html.parser")
+                q_table = soup_q.find("table", class_=lambda x: x and ("mod_index" in x or "generaltable" in x))
+                if q_table:
+                    q_trs = q_table.find("tbody").find_all("tr") if q_table.find("tbody") else q_table.find_all("tr")
+                    for q_row in q_trs:
+                        q_cols = q_row.find_all(["td", "th"])
+                        if len(q_cols) < 2:
+                            continue
+                        q_link = q_row.find("a", href=re.compile(r"/mod/quiz/view\.php")) or q_row.find("a")
+                        if not q_link:
+                            continue
+                        q_title = q_link.get_text().strip()
+                        q_href = q_link.get("href") or ""
+                        m_q_id = re.search(r"id=(\d+)", q_href)
+                        if not m_q_id:
+                            continue
+                        q_act_id = m_q_id.group(1)
+                        q_assign_id = f"lms-{course_id}-{q_act_id}"
+                        if any(c["assign_id"] == q_assign_id or c.get("activity_id") == q_act_id for c in parsed_candidates):
+                            continue
+
+                        q_due_raw = ""
+                        q_status_raw = ""
+                        for q_col in q_cols:
+                            txt = q_col.get_text().strip()
+                            if any(m in txt.lower() for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
+                                if not q_due_raw:
+                                    q_due_raw = txt
+                            elif any(st in txt.lower() for st in ["submitted", "attempt", "graded", "done", "complete", "closed"]):
+                                if not q_status_raw:
+                                    q_status_raw = txt
+
+                        q_due_date, q_due_time = parse_moodle_date(q_due_raw)
+                        q_is_sub = any(kw in q_status_raw.lower() for kw in ["submitted", "graded", "attempt"]) and "no attempt" not in q_status_raw.lower()
+
+                        parsed_candidates.append({
+                            "assign_id": q_assign_id,
+                            "activity_id": q_act_id,
+                            "title": q_title,
+                            "assign_url": q_href if q_href.startswith("http") else f"{LMS_BASE_URL}{q_href}",
+                            "due_date_str": q_due_date,
+                            "due_time_str": q_due_time,
+                            "is_submitted": q_is_sub,
+                            "is_pending": not q_is_sub,
+                            "row_faculty": "",
+                            "topic_name": "Online Quiz",
+                            "row_text": q_row.get_text(),
+                        })
+        except Exception as exc:
+            logger.debug("Could not scrape quiz index for %s: %s", course_id, exc)
 
         # Also scrape activities directly from course view page (/course/view.php?id={course_id})
         # to capture quizzes, Turnitin assignments, workshops, and section activities that do not appear on mod/assign/index
@@ -1690,9 +1760,11 @@ def sync_lms(
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
         existing_lms = [a for a in existing_assignments if a.get("source") == "LMS"]
 
+        is_stale_fallback = False
         # Preserve verified existing LMS assignments if live fetch returned empty
         if not assignments and existing_lms:
             assignments = existing_lms
+            is_stale_fallback = True
             if not matched_subjects and (store.get("lmsAccount") or {}).get("matchedSubjects"):
                 matched_subjects = store["lmsAccount"]["matchedSubjects"]
             if not course_matches and (store.get("lmsAccount") or {}).get("courseMatches"):
@@ -1725,14 +1797,20 @@ def sync_lms(
         account["matchedCount"] = len(matched_subjects)
         account["totalCoursesCount"] = total_courses
         account["courseMatches"] = course_matches
-        account["status"] = "connected"
+        account["recordsFetched"] = len(assignments)
+        account["status"] = "stale" if is_stale_fallback else "connected"
+        account["syncStatus"] = "STALE" if is_stale_fallback else "SUCCESS"
         store["lmsAccount"] = account
 
         save_store(store, reg)
 
         return {
             "success": True,
-            "message": f"Synchronized VIT LMS coursework. Matched {len(matched_subjects)} subjects.",
+            "status": "STALE" if is_stale_fallback else "SUCCESS",
+            "message": (
+                f"Synchronized VIT LMS coursework. Matched {len(matched_subjects)} subjects."
+                + (" (Serving verified cached coursework as live fetch returned no records)" if is_stale_fallback else "")
+            ),
             "assignments": all_assignments,
             "matchedSubjects": matched_subjects,
             "matchedCount": len(matched_subjects),
@@ -1742,12 +1820,22 @@ def sync_lms(
         raise
     except requests.exceptions.Timeout as exc:
         logger.warning("LMS sync timed out: %s", exc)
+        if "lmsAccount" in store and isinstance(store["lmsAccount"], dict):
+            store["lmsAccount"]["status"] = "stale"
+            store["lmsAccount"]["syncStatus"] = "FAILED"
+            store["lmsAccount"]["lastError"] = "Connection timed out"
+            save_store(store, reg)
         raise HTTPException(
             status_code=504,
             detail="Request to VIT LMS timed out during sync. Please try again.",
         )
     except requests.exceptions.RequestException as exc:
         logger.error("LMS sync network error: %s", exc)
+        if "lmsAccount" in store and isinstance(store["lmsAccount"], dict):
+            store["lmsAccount"]["status"] = "stale"
+            store["lmsAccount"]["syncStatus"] = "FAILED"
+            store["lmsAccount"]["lastError"] = "Network connectivity error"
+            save_store(store, reg)
         raise HTTPException(
             status_code=502,
             detail="Unable to connect to VIT LMS for sync. Please check network connection.",

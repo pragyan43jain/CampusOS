@@ -657,8 +657,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                     "[FACULTY MATCHING] REJECTED/UNMATCHED:\n"
                     "  Assignment: '%s' (ID: %s)\n"
                     "  Faculty: '%s'\n"
-                    "  Reason: Faculty does not match any enrolled VTOP faculty for this student.\n"
-                    "  Result: EXCLUDED / DROPPED from CampusOS.",
+                    "  Reason: Faculty does not match any enrolled VTOP faculty for this student.\n",
                     a.get("title"),
                     a.get("id"),
                     lms_faculty,
@@ -839,6 +838,10 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     unmatched_assignments: List[Dict[str, Any]] = []
 
     for a in enriched_assignments:
+        if a.get("isUnmatched") or a.get("flagged"):
+            unmatched_assignments.append(a)
+            continue
+
         c_code = canonicalize_course_code(a.get("courseCode"))
         matched_sub = subject_map.get(c_code) if c_code else None
 
@@ -1050,6 +1053,8 @@ def get_academic_accounts_status(
         "teams": {
             "connected": teams_connected,
             "status": "connected" if teams_connected else "disconnected",
+            "syncStatus": teams_acc.get("syncStatus") or ("SUCCESS" if teams_connected else "DISCONNECTED"),
+            "recordsFetched": teams_acc.get("recordsFetched", 0),
             "email": teams_acc.get("email"),
             "displayName": teams_acc.get("displayName"),
             "lastSynced": teams_acc.get("lastSynced"),
@@ -1059,6 +1064,8 @@ def get_academic_accounts_status(
         "lms": {
             "connected": lms_connected,
             "status": "connected" if lms_connected else "disconnected",
+            "syncStatus": lms_acc.get("syncStatus") or ("SUCCESS" if lms_connected else "DISCONNECTED"),
+            "recordsFetched": lms_acc.get("recordsFetched", 0),
             "username": lms_acc.get("username"),
             "displayName": lms_acc.get("displayName"),
             "lastSynced": lms_acc.get("lastSynced"),
@@ -1168,12 +1175,42 @@ def sync_all_academic_accounts(
     if errors:
         msg += f" Note: {'; '.join(errors)}"
 
-    overall_success = (len(synced_sources) > 0) or (len(errors) == 0)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    overall_status = "SUCCESS"
+    if errors and synced_sources:
+        overall_status = "PARTIAL"
+    elif errors and not synced_sources:
+        overall_status = "FAILED"
+    elif not synced_sources and not errors:
+        overall_status = "DISCONNECTED"
+
+    overall_success = (overall_status == "SUCCESS") or (overall_status == "PARTIAL")
+
+    teams_acc = updated_store.get("teamsAccount") or {}
+    lms_acc = updated_store.get("lmsAccount") or {}
 
     return {
         "success": overall_success,
+        "status": overall_status,
         "message": msg,
         "dashboard": dashboard,
+        "syncedSources": synced_sources,
+        "errors": errors,
+        "lastSynced": now_iso,
+        "sourceDetails": {
+            "teams": {
+                "connected": bool(updated_store.get("teamsConnected")),
+                "status": teams_acc.get("syncStatus") or ("SUCCESS" if "Microsoft Teams" in synced_sources else "DISCONNECTED"),
+                "recordsFetched": teams_acc.get("recordsFetched", 0),
+                "lastSynced": teams_acc.get("lastSynced"),
+            },
+            "lms": {
+                "connected": bool(updated_store.get("lmsConnected")),
+                "status": lms_acc.get("syncStatus") or ("SUCCESS" if "VIT LMS" in synced_sources else "DISCONNECTED"),
+                "recordsFetched": lms_acc.get("recordsFetched", 0),
+                "lastSynced": lms_acc.get("lastSynced"),
+            },
+        },
     }
 
 

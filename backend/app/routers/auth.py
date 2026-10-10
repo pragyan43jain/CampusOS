@@ -569,89 +569,7 @@ def get_vtop_od(
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = list(od.get("records") or od.get("odRecords") or [])
 
-    if not records:
-        # Extract all On-Duty class attendances from courses / attendance breakdown
-        extracted: List[Dict[str, Any]] = []
-        for c in store.get("courses") or []:
-            c_code = c.get("code") or c.get("courseCode") or ""
-            c_title = c.get("title") or c.get("courseTitle") or c_code
-            vl = c.get("viewLink") or c.get("attendanceRecords") or c.get("attendanceDetails")
-            if isinstance(vl, list):
-                for entry in vl:
-                    if isinstance(entry, dict):
-                        st = (entry.get("status") or "").strip().lower()
-                        if any(kw in st for kw in ("duty", "od")):
-                            extracted.append({
-                                "id": f"od_{c_code}_{entry.get('date', '')}_{len(extracted)}",
-                                "courseCode": c_code,
-                                "courseTitle": c_title,
-                                "date": entry.get("date", ""),
-                                "slot": entry.get("slot") or entry.get("dayTime") or "",
-                                "hours": 1,
-                                "status": "Approved",
-                                "reason": f"Class Attendance On-Duty ({c_code})",
-                                "category": "Academic / Event OD",
-                            })
-        for a in store.get("attendance") or []:
-            c_code = a.get("courseCode") or a.get("code") or ""
-            c_title = a.get("courseTitle") or a.get("title") or c_code
-            od_cnt = a.get("odAttended") or a.get("odHours") or 0
-            if od_cnt > 0 and not any(x.get("courseCode") == c_code for x in extracted):
-                extracted.append({
-                    "id": f"od_{c_code}_att",
-                    "courseCode": c_code,
-                    "courseTitle": c_title,
-                    "date": "Active Semester",
-                    "fromDate": "Active Semester",
-                    "toDate": "Active Semester",
-                    "slot": a.get("slot") or a.get("slotName") or "",
-                    "hours": int(od_cnt),
-                    "status": "Approved",
-                    "reason": f"Class Attendance On-Duty ({c_code})",
-                    "category": "Academic / Event OD",
-                    "approvedBy": a.get("facultyName") or "Academic Office",
-                })
-            recs = a.get("records") or []
-            if isinstance(recs, list):
-                for entry in recs:
-                    if isinstance(entry, dict):
-                        st = (entry.get("status") or "").strip().lower()
-                        if any(kw in st for kw in ("duty", "od")):
-                            d = entry.get("date", "")
-                            if not any(x.get("courseCode") == c_code and x.get("date") == d for x in extracted):
-                                extracted.append({
-                                    "id": f"od_{c_code}_{d}_{len(extracted)}",
-                                    "courseCode": c_code,
-                                    "courseTitle": c_title,
-                                    "date": d,
-                                    "slot": entry.get("slot") or "",
-                                    "hours": 1,
-                                    "status": "Approved",
-                                    "reason": f"Class Attendance On-Duty ({c_code})",
-                                    "category": "Academic / Event OD",
-                                })
-        # Also check courses for course-level OD hours
-        for c in store.get("courses") or []:
-            c_code = c.get("code") or c.get("courseCode") or ""
-            c_title = c.get("title") or c.get("courseTitle") or c_code
-            od_cnt = c.get("odHours") or c.get("odAttended") or 0
-            if od_cnt > 0 and not any(x.get("courseCode") == c_code for x in extracted):
-                extracted.append({
-                    "id": f"od_{c_code}_course",
-                    "courseCode": c_code,
-                    "courseTitle": c_title,
-                    "date": "Active Semester",
-                    "fromDate": "Active Semester",
-                    "toDate": "Active Semester",
-                    "slot": c.get("slot") or "",
-                    "hours": int(od_cnt),
-                    "status": "Approved",
-                    "reason": f"Course On-Duty Sanction ({c_code})",
-                    "category": "Academic / Event OD",
-                    "approvedBy": c.get("faculty") or "Academic Office",
-                })
-        if extracted:
-            records = extracted
+
 
     def _parse_od_date(d_val: Any) -> datetime:
         if not d_val or not isinstance(d_val, str):
@@ -688,14 +606,39 @@ def get_vtop_od(
     if records:
         records.sort(key=lambda r: _parse_od_date(r.get("date") or r.get("fromDate")), reverse=True)
 
-    used = od.get("usedHours")
-    if used is None or (used == 0 and len(records) > 0):
-        used = sum(r.get("hours", 0) for r in records) if records else (0 if has_valid else None)
+    approved_h = 0
+    pending_h = 0
+    rejected_h = 0
+    for r in records:
+        st = (r.get("status") or "").lower()
+        h = int(r.get("hours") or 1)
+        if any(w in st for w in ("reject", "decline", "cancel", "disapprove", "not approve", "denied")):
+            rejected_h += h
+        elif any(w in st for w in ("pending", "wait", "applied", "under review")):
+            pending_h += h
+        else:
+            approved_h += h
 
-    approved = used if used is not None else (0 if has_valid else None)
-    remaining = max(0, max_h - approved) if approved is not None else None
-    pct = round((approved / float(max_h)) * 100.0, 1) if approved is not None else None
-    state = "success_with_records" if records else ("success_with_no_records" if has_valid else "source_unavailable")
+    if not has_valid:
+        approved = None
+        pending = None
+        rejected = None
+        remaining = None
+        pct = None
+        state = "source_unavailable"
+    else:
+        if records:
+            approved = approved_h
+            pending = pending_h
+            rejected = rejected_h
+        else:
+            approved = od.get("approvedHours") if od.get("approvedHours") is not None else 0
+            pending = od.get("pendingHours") if od.get("pendingHours") is not None else 0
+            rejected = od.get("rejectedHours") if od.get("rejectedHours") is not None else 0
+
+        remaining = max(0, max_h - (approved or 0))
+        pct = round(((approved or 0) / float(max_h)) * 100.0, 1)
+        state = "success_with_records" if records else "success_with_no_records"
 
     return {
         **od,
@@ -704,9 +647,9 @@ def get_vtop_od(
         "usedHours": approved,
         "odHours": approved,
         "totalOdHours": approved,
-        "approvedHours": approved if approved is not None else 0,
-        "pendingHours": od.get("pendingHours", 0),
-        "rejectedHours": od.get("rejectedHours", 0),
+        "approvedHours": approved,
+        "pendingHours": pending,
+        "rejectedHours": rejected,
         "maxHours": max_h,
         "maxOdHours": max_h,
         "remainingHours": remaining,

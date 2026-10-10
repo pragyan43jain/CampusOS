@@ -179,19 +179,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const { activeNextClass, nextClassStatus, nextClassDayLabel } = useMemo(() => {
     const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
 
-    // 1. If user explicitly selected a different day, display the first class of that day
-    if (selectedDay !== todayDay) {
-      if (filteredSlots.length > 0) {
-        return {
-          activeNextClass: filteredSlots[0],
-          nextClassStatus: 'scheduled' as const,
-          nextClassDayLabel: selectedDay,
-        };
-      }
-      return { activeNextClass: null, nextClassStatus: 'none' as const, nextClassDayLabel: selectedDay };
-    }
-
-    // 2. User is on today's schedule: look for ongoing or upcoming class today
+    // 1. Look for ongoing or upcoming class today
     const todaySlots = timetable
       .filter((s) => s.day === todayDay)
       .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
@@ -205,7 +193,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return {
           activeNextClass: slot,
           nextClassStatus: 'live' as const,
-          nextClassDayLabel: 'Today',
+          nextClassDayLabel: 'Live Now',
         };
       }
 
@@ -219,7 +207,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       }
     }
 
-    // 3. All classes today are finished (or today has no classes): search upcoming days of the week
+    // 2. All classes today are finished (or today has no classes): search upcoming days of the week
     const daySequence: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     const todayIdx = daySequence.indexOf(todayDay);
 
@@ -253,7 +241,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       nextClassStatus: 'fallback' as const,
       nextClassDayLabel: 'Scheduled',
     };
-  }, [timetable, selectedDay, todayDay, filteredSlots, currentTime]);
+  }, [timetable, todayDay, filteredSlots, currentTime]);
 
   const nextClass = activeNextClass;
 
@@ -392,8 +380,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const attBufferMargin = Math.round((overallPct - 75.0) * 10) / 10;
   const criticalCount = attendance.filter((a) => {
-    const p = a.percentage !== undefined ? a.percentage : (a.attendancePercentage !== undefined ? a.attendancePercentage : 100);
-    return p < 75;
+    let p = a.percentage !== undefined ? a.percentage : a.attendancePercentage;
+    if (p === undefined && (a.total || a.classesConducted || 0) > 0) {
+      p = Math.round(((a.attended || a.classesAttended || 0) / (a.total || a.classesConducted)) * 1000) / 10;
+    }
+    return p !== undefined && p < 75;
   }).length;
 
   // CGPA calculation
@@ -565,7 +556,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="my-2 flex items-baseline gap-2">
             <span className="font-metric-display text-3xl font-semibold text-on-surface font-tabular-data">
-              {courses.length > 0 ? courses.length : 12}
+              {courses.length}
             </span>
             <span className="font-label-md text-xs text-on-surface-variant">Courses</span>
           </div>
@@ -647,8 +638,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         ? `Live Now • Slot ${nextClass.slot || 'Active Session'}`
                         : nextClassStatus === 'next_day'
                         ? `Next Up (${nextClassDayLabel}) • Slot ${nextClass.slot || 'Upcoming'}`
-                        : nextClassStatus === 'scheduled'
-                        ? `Scheduled (${nextClassDayLabel}) • Slot ${nextClass.slot || 'Session'}`
                         : `Next Up • Slot ${nextClass.slot || 'Active Session'}`}
                     </span>
                     <span className="font-label-md text-xs text-primary-fixed font-tabular-data">
