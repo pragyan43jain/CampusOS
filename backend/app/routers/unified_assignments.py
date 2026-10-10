@@ -512,16 +512,17 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
                 fac_matches = True
             elif not norm_assign_fac and not norm_poster:
                 # No specific faculty was specified on the assignment, rely on course-level verified match
-                has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId"))
+                has_verified_match = bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId") or a.get("source") in ("VTOP Portal", "Portal"))
                 if has_verified_match:
                     fac_matches = True
             elif enrolled_fac in ("Faculty unassigned", "LMS Instructor", "Instructor", "LMS Teacher", "Teams Instructor") or normalize_faculty_name(enrolled_fac) == "":
                 # Enrolled course has placeholder faculty name; trust verified course match
-                if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId")):
+                if bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId") or a.get("source") in ("VTOP Portal", "Portal")):
                     fac_matches = True
+            elif bool(a.get("verifiedCourseMatchId") or a.get("lmsCourseId") or a.get("teamsCourseId") or a.get("source") in ("VTOP Portal", "Portal")):
+                # Legitimate course-coordinator / department assignment for student's enrolled course
+                fac_matches = True
             else:
-                # A specific faculty was specified, but it DOES NOT match enrolled VTOP faculty!
-                # Strictly reject: assignment must belong to the student and faculty matched.
                 fac_matches = False
 
             if not fac_matches:

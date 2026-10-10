@@ -1123,7 +1123,12 @@ def build_assignments(
             m_title = m.get("title") or ""
             m_lower = m_title.lower()
             if any(term in m_lower for term in ("da", "assignment", "project", "quiz", "assessment", "review", "exercise", "case study", "seminar", "task")):
-                if any(exam_kw in m_lower for exam_kw in ("cat-1", "cat 1", "cat1", "cat-2", "cat 2", "cat2", "fat theory", "fat exam")) and not any(term in m_lower for term in ("da", "assignment", "quiz")):
+                exam_keywords = (
+                    "cat-1", "cat 1", "cat1", "cat-2", "cat 2", "cat2",
+                    "continuous assessment test", "continuous assessment",
+                    "final assessment test", "fat theory", "fat exam",
+                )
+                if any(exam_kw in m_lower for exam_kw in exam_keywords) and not any(term in m_lower for term in ("da", "digital assignment", "quiz")):
                     continue
                 is_submitted = (m.get("status") or "").lower() == "present" or (m.get("scored") is not None)
                 weight = m.get("maxWeightage") or m.get("weightage") or 10.0

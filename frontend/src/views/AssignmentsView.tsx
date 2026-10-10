@@ -48,12 +48,12 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   courses = [],
   onToggleStatus,
   onAssignmentsUpdated,
-  onLinkTeams: _onLinkTeams,
-  onLinkLMS: _onLinkLMS,
+  onLinkTeams,
+  onLinkLMS,
   onSyncAll,
   syncingAll: externalSyncingAll,
-  teamsAccount: _teamsAccount,
-  lmsAccount: _lmsAccount,
+  teamsAccount,
+  lmsAccount,
   studentEmail,
   studentRegNo,
 }) => {
@@ -67,7 +67,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS'>('ALL');
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS' | 'VTOP'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'SUBMITTED'>('ALL');
   const [sortOrder, setSortOrder] = useState<'LATEST' | 'PENDING_FIRST' | 'DUE_SOON' | 'COURSE'>('LATEST');
 
@@ -347,6 +347,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         const srcUpper = (a.source || '').toUpperCase();
         if (sourceFilter === 'TEAMS' && !srcUpper.includes('TEAMS')) return false;
         if (sourceFilter === 'LMS' && !srcUpper.includes('LMS')) return false;
+        if (sourceFilter === 'VTOP' && !srcUpper.includes('VTOP') && !srcUpper.includes('PORTAL')) return false;
 
         const isDone = isAssignmentDone(a, studentRegNo);
         if (statusFilter === 'PENDING' && isDone) return false;
@@ -423,6 +424,10 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     return allAssignments.filter((a) => isAssignmentDone(a, studentRegNo)).length;
   }, [allAssignments, studentRegNo]);
 
+  const isTeamsConnected = Boolean(teamsAccount?.connected ?? dashboard?.connectedAccounts?.teams?.connected);
+  const isLmsConnected = Boolean(lmsAccount?.connected ?? dashboard?.connectedAccounts?.lms?.connected);
+  const isLmsExpired = Boolean((lmsAccount?.status === 'expired' || dashboard?.connectedAccounts?.lms?.status === 'expired') && !isLmsConnected);
+
   return (
     <div className="page-container">
       {/* 1. Header Banner */}
@@ -442,6 +447,34 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Teams Connection Button */}
+            <button
+              onClick={() => {
+                if (onLinkTeams) onLinkTeams();
+                else setIsTeamsModalOpen(true);
+              }}
+              className={`btn btn-sm ${isTeamsConnected ? 'btn-secondary' : 'btn-outline'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              title={isTeamsConnected ? 'Microsoft Teams is Connected' : 'Connect Microsoft Teams'}
+            >
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isTeamsConnected ? 'var(--accent-emerald)' : 'var(--text-muted)' }} />
+              <span>{isTeamsConnected ? 'Teams Connected' : 'Connect Teams'}</span>
+            </button>
+
+            {/* LMS Connection Button */}
+            <button
+              onClick={() => {
+                if (onLinkLMS) onLinkLMS();
+                else setIsLMSModalOpen(true);
+              }}
+              className={`btn btn-sm ${isLmsConnected ? 'btn-secondary' : isLmsExpired ? 'btn-warning' : 'btn-outline'}`}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              title={isLmsConnected ? 'Moodle LMS is Connected' : isLmsExpired ? 'Moodle LMS session expired — click to re-authenticate' : 'Connect Moodle LMS'}
+            >
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isLmsConnected ? 'var(--accent-emerald)' : isLmsExpired ? 'var(--accent-amber)' : 'var(--text-muted)' }} />
+              <span>{isLmsConnected ? 'LMS Connected' : isLmsExpired ? 'Re-link LMS' : 'Connect LMS'}</span>
+            </button>
+
             <button
               onClick={handleRefreshAll}
               disabled={isSyncing}
@@ -454,6 +487,40 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* LMS Expired Session Alert Banner */}
+      {isLmsExpired && (
+        <div
+          style={{
+            padding: '14px 20px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'rgba(255, 179, 0, 0.12)',
+            border: '1px solid rgba(255, 179, 0, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertCircle size={18} color="var(--accent-amber)" />
+            <span style={{ fontSize: '0.88rem', color: 'var(--text-main)', fontWeight: 500 }}>
+              Moodle LMS session has expired. Re-authenticate to fetch the latest assignments and coursework deadlines.
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              if (onLinkLMS) onLinkLMS();
+              else setIsLMSModalOpen(true);
+            }}
+            className="btn btn-sm btn-primary"
+            style={{ fontSize: '0.80rem' }}
+          >
+            Re-link Moodle LMS
+          </button>
+        </div>
+      )}
 
       {/* 2. Summary Metrics Grid */}
       <div className="metrics-stat-grid">
@@ -502,13 +569,13 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
           {/* Platform Source Tabs */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(['ALL', 'TEAMS', 'LMS'] as const).map((src) => (
+            {(['ALL', 'TEAMS', 'LMS', 'VTOP'] as const).map((src) => (
               <button
                 key={src}
                 className={`btn btn-sm ${sourceFilter === src ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => setSourceFilter(src)}
               >
-                {src === 'ALL' ? 'All Platforms' : src === 'TEAMS' ? 'Teams' : 'Moodle LMS'}
+                {src === 'ALL' ? 'All Platforms' : src === 'TEAMS' ? 'Teams' : src === 'LMS' ? 'Moodle LMS' : 'VTOP Portal'}
               </button>
             ))}
           </div>
@@ -635,9 +702,13 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                         <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
                           {a.courseCode || 'COURSE'}
                         </span>
-                        <span className={`status-badge ${a.source?.toUpperCase().includes('TEAMS') ? 'info' : 'warning'}`}>
-                          {a.source?.toUpperCase().includes('TEAMS') ? 'Teams' : 'Moodle LMS'}
-                        </span>
+                        {(() => {
+                          const isTeams = a.source?.toUpperCase().includes('TEAMS');
+                          const isLms = a.source?.toUpperCase().includes('LMS');
+                          const sourceLabel = isTeams ? 'Teams' : isLms ? 'Moodle LMS' : 'VTOP Portal';
+                          const badgeClass = isTeams ? 'info' : isLms ? 'warning' : 'success';
+                          return <span className={`status-badge ${badgeClass}`}>{sourceLabel}</span>;
+                        })()}
                         {a.facultyName && a.facultyName !== 'Faculty unassigned' && (
                           <span
                             style={{

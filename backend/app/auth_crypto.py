@@ -197,16 +197,16 @@ def extract_token_from_request(
     """
     Extract the session token from Authorization header (Bearer), X-Session-ID, or sessionId query param.
     """
-    if authorization and authorization.strip():
+    if isinstance(authorization, str) and authorization.strip():
         auth_val = authorization.strip()
         if auth_val.lower().startswith("bearer "):
             return auth_val[7:].strip()
         return auth_val
 
-    if x_session_id and x_session_id.strip():
+    if isinstance(x_session_id, str) and x_session_id.strip():
         return x_session_id.strip()
 
-    if session_id and session_id.strip():
+    if isinstance(session_id, str) and session_id.strip():
         return session_id.strip()
 
     return None
