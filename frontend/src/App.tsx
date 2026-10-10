@@ -37,6 +37,7 @@ import { LandingPageView } from './views/LandingPageView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { isAssignmentDone, isTeamsAssignment } from './utils/assignmentUtils';
+import { computeUniccODFromAttendance } from './utils/odUtils';
 
 interface RouteInfo {
   isLanding: boolean;
@@ -415,7 +416,27 @@ export const App: React.FC = () => {
         if (Array.isArray(placementsData)) setPlacements(placementsData);
         if (Array.isArray(dsaData)) setDsaTopics(dsaData);
         if (Array.isArray(aiData)) setAiTasks(aiData);
-        if (odResult) setOdData(odResult);
+        let finalOd = odResult;
+        if ((!finalOd || !finalOd.records || finalOd.records.length === 0) && Array.isArray(attendanceData)) {
+          const uniccOd = computeUniccODFromAttendance(attendanceData);
+          if (uniccOd.length > 0) {
+            const totalH = uniccOd.reduce((sum, r) => sum + (r.hours || 0), 0);
+            finalOd = {
+              state: 'success_with_records',
+              hasValidData: true,
+              usedHours: totalH,
+              odHours: totalH,
+              totalOdHours: totalH,
+              approvedHours: totalH,
+              pendingHours: 0,
+              rejectedHours: 0,
+              maxHours: 40,
+              maxOdHours: 40,
+              records: uniccOd,
+            };
+          }
+        }
+        if (finalOd) setOdData(finalOd);
         setIsAuthenticated(true);
       } else {
         if (!isAuthenticated) {
@@ -532,8 +553,27 @@ export const App: React.FC = () => {
         if (Array.isArray(d.fees)) setFees(d.fees);
         if (Array.isArray(d.placements)) setPlacements(d.placements);
         if (Array.isArray(d.dsaTopics)) setDsaTopics(d.dsaTopics);
-        if (Array.isArray(d.aiTasks)) setAiTasks(d.aiTasks);
-        if (d.od) setOdData(d.od);
+        let finalOd = d.od;
+        if ((!finalOd || !finalOd.records || finalOd.records.length === 0) && Array.isArray(d.attendance)) {
+          const uniccOd = computeUniccODFromAttendance(d.attendance);
+          if (uniccOd.length > 0) {
+            const totalH = uniccOd.reduce((sum, r) => sum + (r.hours || 0), 0);
+            finalOd = {
+              state: 'success_with_records',
+              hasValidData: true,
+              usedHours: totalH,
+              odHours: totalH,
+              totalOdHours: totalH,
+              approvedHours: totalH,
+              pendingHours: 0,
+              rejectedHours: 0,
+              maxHours: 40,
+              maxOdHours: 40,
+              records: uniccOd,
+            };
+          }
+        }
+        if (finalOd) setOdData(finalOd);
       }
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
@@ -1436,6 +1476,7 @@ export const App: React.FC = () => {
       <ODHoursModal
         isOpen={showODModal}
         onClose={() => setShowODModal(false)}
+        attendance={attendance}
       />
 
       {/* Feature Availability & System Readiness Modal */}

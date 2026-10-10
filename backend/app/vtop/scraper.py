@@ -370,6 +370,68 @@ def fetch_course_attendance_detail(
     return [], []
 
 
+def extract_unicc_od_from_attendance(attendance_rows: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    """
+    Extract authoritative On-Duty (OD) records directly from course attendance detail punch logs.
+    Follows UniCC's proven VTOP algorithm:
+    - Scans every course's viewLink attendance punch history for classes marked "On Duty".
+    - Lab sessions (slotName starting with 'L' or course code ending in 'P') are credited as 2 hours.
+    - Theory sessions are credited as 1 hour.
+    """
+    if not attendance_rows:
+        return []
+    records: List[Dict[str, Any]] = []
+    seen = set()
+    for course in attendance_rows:
+        code = (course.get("courseCode") or course.get("code") or "").strip()
+        title = (course.get("courseTitle") or course.get("title") or code).strip()
+        slot = (course.get("slotName") or course.get("slot") or "").strip()
+        faculty = (course.get("facultyName") or course.get("faculty") or "Course Faculty").strip()
+        is_lab = slot.upper().startswith("L") or code.upper().endswith("P") or "LAB" in str(course.get("courseType") or "").upper()
+        hours = 2 if is_lab else 1
+        od_type = "LAB" if is_lab else "TH"
+
+        logs = course.get("viewLink") or course.get("attendanceLog") or []
+        if not isinstance(logs, list):
+            continue
+
+        for log in logs:
+            if not isinstance(log, dict):
+                continue
+            status = (log.get("status") or "").strip().lower()
+            if status in ("on duty", "od", "duty") or "on duty" in status:
+                raw_date = (log.get("date") or log.get("attendanceDate") or "").strip()
+                if not raw_date:
+                    continue
+                dedup_key = (code, raw_date, slot)
+                if dedup_key in seen:
+                    continue
+                seen.add(dedup_key)
+
+                records.append({
+                    "id": f"od-class-{code}-{raw_date}-{slot}".replace(" ", "_"),
+                    "date": raw_date,
+                    "fromDate": raw_date,
+                    "toDate": raw_date,
+                    "fromTime": None,
+                    "toTime": None,
+                    "timeRange": None,
+                    "subjectCode": code,
+                    "courseCode": code,
+                    "subjectTitle": title,
+                    "courseTitle": title,
+                    "hours": hours,
+                    "days": 1,
+                    "slot": slot,
+                    "type": od_type,
+                    "reason": f"Sanctioned Class On-Duty ({code})",
+                    "status": "Approved",
+                    "isApproved": True,
+                    "approvedBy": faculty or "Course Faculty / VTOP",
+                })
+    return records
+
+
 def fetch_od(
     session: VTOPSession,
     semester_id: Optional[str] = None,
@@ -457,6 +519,30 @@ def fetch_od(
                         selected_ep = endpoint
         except Exception as e:
             logger.debug("[VTOP OD] Probe '%s' exception: %s", endpoint, e)
+
+    existing_records = (best_result.get("records") or best_result.get("odRecords") or []) if best_result else []
+    if not existing_records and attendance_rows:
+        att_recs = extract_unicc_od_from_attendance(attendance_rows)
+        if att_recs:
+            total_h = sum(r.get("hours", 1) for r in att_recs)
+            best_result = {
+                "state": "success_with_records",
+                "hasValidData": True,
+                "usedHours": total_h,
+                "odHours": total_h,
+                "totalOdHours": total_h,
+                "approvedHours": total_h,
+                "pendingHours": 0,
+                "rejectedHours": 0,
+                "maxHours": C.OD_MAX_HOURS,
+                "maxOdHours": C.OD_MAX_HOURS,
+                "remainingHours": max(0, C.OD_MAX_HOURS - total_h),
+                "percentageUsed": round((total_h / float(C.OD_MAX_HOURS)) * 100.0, 1),
+                "records": att_recs,
+                "odRecords": att_recs,
+                "message": f"{total_h} On-Duty hours credited across course attendance details.",
+                "diagnostics": {"selectedEndpoint": selected_ep or "processViewAttendanceDetail (UniCC algorithm)"},
+            }
 
     if best_result is None:
         best_result = {

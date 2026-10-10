@@ -569,6 +569,13 @@ def get_vtop_od(
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = list(od.get("records") or od.get("odRecords") or [])
 
+    if (has_valid or is_auth) and not records:
+        from app.vtop.scraper import extract_unicc_od_from_attendance
+        att_source = store.get("attendance") or store.get("courses") or []
+        records = extract_unicc_od_from_attendance(att_source)
+        if records:
+            has_valid = True
+
 
 
     def _parse_od_date(d_val: Any) -> datetime:
@@ -640,7 +647,7 @@ def get_vtop_od(
         pct = round(((approved or 0) / float(max_h)) * 100.0, 1)
         state = "success_with_records" if records else "success_with_no_records"
 
-    return {
+    res_od = {
         **od,
         "state": state,
         "hasValidData": has_valid,
@@ -662,6 +669,12 @@ def get_vtop_od(
             else ("No sanctioned On-Duty leave records found on VTOP for this semester." if has_valid else "Sign in to VTOP to view On-Duty hours.")
         ),
     }
+
+    if has_valid and records and not (od.get("records") or od.get("odRecords")) and reg:
+        store["od"] = res_od
+        save_store(store, reg_no=reg)
+
+    return res_od
 
 
 @router.post("/od/fetch")

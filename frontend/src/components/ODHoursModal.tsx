@@ -3,6 +3,7 @@ import { X, Clock, CheckCircle2, FileText, Calendar, RefreshCw } from 'lucide-re
 import { CampusAPI } from '../services/api';
 import { ODResponse, Attendance } from '../types';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { computeUniccODFromAttendance } from '../utils/odUtils';
 
 interface ODHoursModalProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ interface ODHoursModalProps {
   attendance?: Attendance[];
 }
 
-export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) => {
+export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, attendance }) => {
   useLockBodyScroll(isOpen);
   const [odData, setOdData] = useState<ODResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +59,9 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
 
   if (!isOpen) return null;
 
-  const records = odData?.records || [];
+  const records = (odData?.records && odData.records.length > 0)
+    ? odData.records
+    : (attendance ? computeUniccODFromAttendance(attendance) : []);
   const approvedHours = odData?.approvedHours ?? odData?.usedHours ?? (records.reduce((sum, r) => sum + (r.hours || 0), 0));
   const maxHours = odData?.maxHours || 40;
 

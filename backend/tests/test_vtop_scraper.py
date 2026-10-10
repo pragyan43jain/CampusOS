@@ -461,6 +461,41 @@ class TestOnDutyIsAuthoritative:
         assert result["od"]["records"] == []
         assert result["od"]["odRecords"] == []
 
+    def test_od_extracts_from_attendance_punch_logs_when_unicc_pattern_present(self):
+        from app.vtop.scraper import extract_unicc_od_from_attendance
+        attendance_mock = [
+            {
+                "courseCode": "BCSE302L",
+                "courseTitle": "Database Systems",
+                "slotName": "F2+TF2",
+                "facultyName": "RISHIKESHAN C A",
+                "viewLink": [
+                    {"date": "05-Oct-2026", "status": "On Duty"},
+                    {"date": "21-Sep-2026", "status": "Present"},
+                    {"date": "02-Sep-2026", "status": "On Duty"},
+                ],
+            },
+            {
+                "courseCode": "BCSE302P",
+                "courseTitle": "Database Systems Lab",
+                "slotName": "L21+L22",
+                "facultyName": "RISHIKESHAN C A",
+                "viewLink": [
+                    {"date": "15-Sep-2026", "status": "On Duty"},
+                ],
+            },
+        ]
+        recs = extract_unicc_od_from_attendance(attendance_mock)
+        assert len(recs) == 3
+        theory_recs = [r for r in recs if r["type"] == "TH"]
+        lab_recs = [r for r in recs if r["type"] == "LAB"]
+        assert len(theory_recs) == 2
+        assert all(r["hours"] == 1 for r in theory_recs)
+        assert len(lab_recs) == 1
+        assert lab_recs[0]["hours"] == 2
+        total_hours = sum(r["hours"] for r in recs)
+        assert total_hours == 4
+
 
 
 class TestNoFabricatedValues:
