@@ -397,9 +397,13 @@ def fetch_od(
         ("students/viewStudentODDetails", "semester", True),
         ("academics/common/StudentODDetailsChn", "semester", True),
         ("academics/common/StudentODViewChn", "semester", True),
+        ("academics/common/StudentODDetailsChn", "menu", True),
+        ("processViewStudentODDetailsChn", "semester", True),
+        ("leave/viewStudentODDetails", "menu", True),
+        ("leave/viewStudentODDetails", "semester", True),
     ]
 
-    active_candidates = candidates if not fast_mode else candidates[:6]
+    active_candidates = candidates if not fast_mode else candidates[:8]
 
     for endpoint, req_type, csrf_first in active_candidates:
         try:
@@ -410,6 +414,32 @@ def fetch_od(
                 html = session.post_od(endpoint, semester_id)
             elif req_type == "menu":
                 html = session.post_menu(endpoint, with_win_image=True)
+                # If menu page served an HTML form or AJAX with a process target, submit semester to that target
+                if html and semester_id and not P.body_says(html, "not authorized", "http status 404", "session expired"):
+                    parsed_menu = P.parse_od(html)
+                    m_recs = parsed_menu.get("records") or parsed_menu.get("odRecords") or []
+                    if parsed_menu.get("state") == "success_with_records" and m_recs:
+                        best_result = parsed_menu
+                        selected_ep = endpoint
+                        break
+                    # Find potential action endpoints inside the menu html
+                    action_targets = re.findall(r"(?:action|url)\s*[:=]\s*['\"]([^'\"]*(?:processView|StudentOD|doStudentOD)[^'\"]*)['\"]", html, re.I)
+                    for target in action_targets:
+                        try:
+                            clean_target = target.strip().lstrip("/")
+                            if clean_target and clean_target != endpoint:
+                                sub_html = session.post_semester(clean_target, semester_id, csrf_first=True)
+                                if sub_html and not P.body_says(sub_html, "not authorized", "http status 404"):
+                                    sub_parsed = P.parse_od(sub_html)
+                                    s_recs = sub_parsed.get("records") or sub_parsed.get("odRecords") or []
+                                    if sub_parsed.get("state") == "success_with_records" and s_recs:
+                                        best_result = sub_parsed
+                                        selected_ep = clean_target
+                                        break
+                        except Exception as sub_e:
+                            logger.debug("[VTOP OD] Sub-action '%s' exception: %s", target, sub_e)
+                    if best_result and best_result.get("state") == "success_with_records":
+                        break
             else:
                 html = session.post_simple(endpoint)
 
@@ -565,8 +595,32 @@ def build_attendance(
                 "attendancePercentage": metrics.get("percentage"),
                 "attendanceStatus": metrics.get("status"),
                 "reportedPercentage": reported,
-                "odAttended": row.get("odAttended") or 0,
-                "odHours": row.get("odAttended") or 0,
+                "odAttended": (
+                    row.get("odAttended")
+                    if row.get("odAttended")
+                    else (
+                        sum(
+                            1
+                            for log in (row.get("viewLink") or [])
+                            if (log.get("status") or "").strip().lower() in ("on duty", "od", "duty")
+                        )
+                        if isinstance(row.get("viewLink"), list)
+                        else 0
+                    )
+                ),
+                "odHours": (
+                    (row.get("odAttended") or 0)
+                    if row.get("odAttended")
+                    else (
+                        sum(
+                            1
+                            for log in (row.get("viewLink") or [])
+                            if (log.get("status") or "").strip().lower() in ("on duty", "od", "duty")
+                        ) * (2 if (_TYPE_LABELS.get(row.get("type")) == "Lab" or (identity["code"] or "").endswith("P")) else 1)
+                        if isinstance(row.get("viewLink"), list)
+                        else 0
+                    )
+                ),
                 "classId": row.get("classId"),
                 "slotName": row.get("slotName") or row.get("slot"),
                 "viewLink": row.get("viewLink") or [],
@@ -944,8 +998,19 @@ def build_student(
 
     branch = profile.get("branch")
     school = profile.get("school") or (proctor.get("school") if proctor else None)
+
+    if branch and any(kw in branch.lower() for kw in P._HIGH_SCHOOL_KEYWORDS):
+        branch = None
+    if school and any(kw in school.lower() for kw in P._HIGH_SCHOOL_KEYWORDS):
+        school = None
+
+    if not branch:
+        branch = P.infer_branch_from_reg_no(profile.get("regNo") or getattr(session, "username", None))
+    if not school and proctor and proctor.get("school"):
+        school = proctor.get("school")
     if not branch and school:
         branch = school
+
 
     block_name = profile.get("blockName")
     room_no = profile.get("roomNo")
@@ -1348,11 +1413,11 @@ def sync(
 
         attendance_rows = _step(report, "attendance", _get_attendance) or []
         if not fast_mode and sem_id and getattr(session, "is_authenticated", False) and attendance_rows:
-            # Query top courses attendance detail sequentially and safely without breaking main sync
-            for row in attendance_rows[:4]:
+            # Query all enrolled courses attendance detail sequentially and safely without breaking main sync
+            for row in attendance_rows:
                 cid = row.get("classId")
-                sname = row.get("slotName") or row.get("slot") or ""
-                if cid and sname:
+                sname = row.get("slotName") or row.get("slot") or row.get("slots") or ""
+                if cid:
                     try:
                         logs, _ = fetch_course_attendance_detail(
                             session, sem_id, cid, slot_name=sname,

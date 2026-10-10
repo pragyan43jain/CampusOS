@@ -3,9 +3,9 @@
     "name": "PRAGYAN JAIN",
     "regNo": "24BLC1100",
     "email": "pragyan43jain@gmail.com",
-    "program": "UG",
-    "branch": "SARDAR PATEL PUBLIC SCHOOL",
-    "school": "SARDAR PATEL PUBLIC SCHOOL",
+    "program": "B.Tech",
+    "branch": "B.Tech Electronics and Communication Engineering",
+    "school": "School of Electronics Engineering (SENSE)",
     "semester": "Fall Semester 2026-27",
     "semesterId": "CH20262701",
     "batch": null,
@@ -50,7 +50,7 @@
     "blockName": null,
     "roomNo": null,
     "messInfo": null,
-    "lastSynced": "2026-10-02T19:10:27.606271+00:00"
+    "lastSynced": "2026-10-10T11:04:53.576945+00:00"
   },
   "semesters": [
     {
@@ -7574,8 +7574,8 @@
       "attendancePercentage": 96.4,
       "attendanceStatus": "Safe",
       "reportedPercentage": 97.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 4,
+      "odHours": 4,
       "classId": "CH2026270102451",
       "slotName": "F2+TF2",
       "viewLink": [
@@ -7724,8 +7724,8 @@
       "attendancePercentage": 100.0,
       "attendanceStatus": "Safe",
       "reportedPercentage": 100.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 1,
+      "odHours": 2,
       "classId": "CH2026270102456",
       "slotName": "L21+L22",
       "viewLink": [
@@ -7802,8 +7802,8 @@
       "attendancePercentage": 96.4,
       "attendanceStatus": "Safe",
       "reportedPercentage": 97.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 4,
+      "odHours": 4,
       "classId": "CH2026270102487",
       "slotName": "A2+TA2",
       "viewLink": [
@@ -7952,8 +7952,8 @@
       "attendancePercentage": 100.0,
       "attendanceStatus": "Safe",
       "reportedPercentage": 100.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 1,
+      "odHours": 2,
       "classId": "CH2026270102496",
       "slotName": "L9+L10",
       "viewLink": [
@@ -8030,8 +8030,8 @@
       "attendancePercentage": 93.1,
       "attendanceStatus": "Safe",
       "reportedPercentage": 94.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 4,
+      "odHours": 4,
       "classId": "CH2026270102749",
       "slotName": "B2+TB2",
       "viewLink": [
@@ -8184,8 +8184,8 @@
       "attendancePercentage": 100.0,
       "attendanceStatus": "Safe",
       "reportedPercentage": 100.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 1,
+      "odHours": 2,
       "classId": "CH2026270102757",
       "slotName": "L15+L16",
       "viewLink": [
@@ -8262,8 +8262,8 @@
       "attendancePercentage": 96.8,
       "attendanceStatus": "Safe",
       "reportedPercentage": 97.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 4,
+      "odHours": 4,
       "classId": "CH2026270102366",
       "slotName": "G2+TG2",
       "viewLink": [
@@ -8424,8 +8424,8 @@
       "attendancePercentage": 93.3,
       "attendanceStatus": "Safe",
       "reportedPercentage": 94.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 3,
+      "odHours": 3,
       "classId": "CH2026270102413",
       "slotName": "C2+TC2",
       "viewLink": [
@@ -8582,8 +8582,8 @@
       "attendancePercentage": 90.0,
       "attendanceStatus": "Safe",
       "reportedPercentage": 90.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 3,
+      "odHours": 3,
       "classId": "CH2026270100258",
       "slotName": "E2+TE2",
       "viewLink": [
@@ -8740,8 +8740,8 @@
       "attendancePercentage": 100.0,
       "attendanceStatus": "Safe",
       "reportedPercentage": 100.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 1,
+      "odHours": 2,
       "classId": "CH2026270102716",
       "slotName": "L19+L20",
       "viewLink": [
@@ -8818,8 +8818,8 @@
       "attendancePercentage": 93.1,
       "attendanceStatus": "Safe",
       "reportedPercentage": 94.0,
-      "odAttended": 0,
-      "odHours": 0,
+      "odAttended": 4,
+      "odHours": 8,
       "classId": "CH2026270100091",
       "slotName": "D2+TD2",
       "viewLink": [
@@ -13951,7 +13951,7 @@
   },
   "authenticated": true,
   "message": "Synced with VTOP.",
-  "lastSynced": "2026-10-02T19:10:27.606271+00:00",
+  "lastSynced": "2026-10-10T11:04:53.576945+00:00",
   "teamsConnected": true,
   "teamsAccount": {
     "email": "pragyan.jain2024@vitstudent.ac.in",

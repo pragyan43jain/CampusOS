@@ -217,8 +217,12 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       timetable.forEach((t) => {
         const day = (t.day || '').toUpperCase() as 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
         if (day && map[day]) {
-          const matchingAtt = attendance.find(
-            (a) => a.courseCode === t.courseCode || a.courseTitle === t.courseTitle
+          const matchingAtt = attendance.find((a) =>
+            (a.courseCode && t.courseCode && a.courseCode.trim().toUpperCase() === t.courseCode.trim().toUpperCase())
+          ) || attendance.find((a) =>
+            (a.slot && t.slot && (a.slot === t.slot || a.slots?.includes(t.slot)))
+          ) || attendance.find((a) =>
+            a.courseTitle && t.courseTitle && a.courseTitle.trim().toLowerCase() === t.courseTitle.trim().toLowerCase()
           );
           const pct = matchingAtt?.percentage ?? matchingAtt?.attendancePercentage ?? 0;
           const cls = pct < 75 ? 'low' : pct < 85 ? 'medium' : 'high';
@@ -1519,7 +1523,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
       {/* === 3.4 MARKS SUB-TAB (STITCH REDESIGN) === */}
       {activeTab === 'marks' && (() => {
-        const currentCgpa = student.cgpa ? Number(student.cgpa) : 8.81;
+        const currentCgpa = student.cgpa !== null && student.cgpa !== undefined && !isNaN(Number(student.cgpa)) ? Number(student.cgpa) : 0;
         const targetGpa = targetGpaInput || 9.00;
         const gpaDelta = Math.max(0, Math.round((targetGpa - currentCgpa) * 100) / 100);
 
@@ -1538,6 +1542,25 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
           }
         });
         const evaluatedPct = totalAssessments > 0 ? Math.round((evaluatedCount / totalAssessments) * 1000) / 10 : 50.0;
+
+        let totalScoredWeightage = 0;
+        let totalGradedWeightage = 0;
+        marks.forEach((m) => {
+          if (m.components && m.components.length > 0) {
+            m.components.forEach((c) => {
+              if (c.scored !== null && c.scored !== undefined && c.weightage !== undefined && c.weightage !== null) {
+                totalScoredWeightage += c.weightage;
+                totalGradedWeightage += c.maxWeightage || c.max || 15;
+              }
+            });
+          } else if (m.weightageScored !== undefined && m.weightageScored !== null) {
+            totalScoredWeightage += m.weightageScored;
+            totalGradedWeightage += m.weightageGraded || m.weightageTotal || 15;
+          } else if (m.cat1?.scored !== null && m.cat1?.scored !== undefined) {
+            totalScoredWeightage += m.cat1.weightage || ((m.cat1.scored / (m.cat1.max || 50)) * 15);
+            totalGradedWeightage += 15;
+          }
+        });
 
         // Find top performing course
         const topCourse = marks.reduce((best, cur) => {
@@ -1658,7 +1681,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       {topCourse?.courseTitle || topCourse?.courseName || 'Adv. Cloud Computing'}
                     </span>
                     <span className="font-tabular-data text-tabular-data text-on-surface-variant mt-0.5">
-                      {topCourse?.courseCode || 'BECE355L'} • 4 Credits
+                      {topCourse?.courseCode || '--'} • {topCourse?.courseTitle || 'All Courses'}
                     </span>
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-secondary-container/40 flex items-center justify-center text-on-secondary-container">
@@ -1666,23 +1689,25 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   </div>
                 </div>
                 <div className="mt-4 pt-3 bg-surface-container-low -mx-space-md -mb-space-md px-space-md py-2 flex items-center justify-between border-t border-outline-variant/10">
-                  <span className="font-label-sm text-label-sm text-secondary font-semibold">
-                    {topCourse?.cat1?.scored ? `${topCourse.cat1.scored} / ${topCourse.cat1.max} Marks` : '46 / 50 Marks'}
+                  <span className="font-label-sm text-label-sm text-secondary font-semibold font-tabular-data">
+                    {topCourse?.weightageScored !== undefined && topCourse?.weightageScored !== null ? `${topCourse.weightageScored.toFixed(1)} / ${(topCourse.weightageGraded || 15).toFixed(1)} Pts` : 'Recorded'}
                   </span>
                   <span className="font-label-sm text-label-sm bg-secondary-container/40 text-on-secondary-container px-1.5 py-0.5 rounded font-semibold">
-                    Top 5% Cohort
+                    Top Assessment
                   </span>
                 </div>
               </div>
 
-              {/* Class Cohort Delta */}
+              {/* Assessment Score Average */}
               <div className="bg-surface-container-lowest p-space-md rounded-xl border border-outline-variant/20 shadow-sm flex flex-col justify-between">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col">
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Class Average Delta</span>
+                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Internal Score Average</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-metric-display text-metric-display text-primary font-tabular-data font-bold">+8.4%</span>
-                      <span className="font-label-md text-label-md text-outline">Median Base</span>
+                      <span className="font-metric-display text-metric-display text-primary font-tabular-data font-bold">
+                        {totalGradedWeightage > 0 ? `${((totalScoredWeightage / totalGradedWeightage) * 100).toFixed(1)}%` : '--'}
+                      </span>
+                      <span className="font-label-md text-label-md text-outline">Recorded</span>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-primary-fixed/40 flex items-center justify-center text-primary">
@@ -1690,8 +1715,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   </div>
                 </div>
                 <div className="mt-4 pt-3 bg-surface-container-low -mx-space-md -mb-space-md px-space-md py-2 flex items-center justify-between border-t border-outline-variant/10">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">Relative Bell Curve</span>
-                  <span className="font-label-sm text-label-sm text-primary font-semibold">Decile 1 Standing</span>
+                  <span className="font-label-sm text-label-sm text-on-surface-variant">Continuous Assessment Weight</span>
+                  <span className="font-label-sm text-label-sm text-primary font-semibold font-tabular-data">
+                    {totalScoredWeightage.toFixed(1)} / {totalGradedWeightage.toFixed(1)} pts
+                  </span>
                 </div>
               </div>
             </div>
@@ -1707,7 +1734,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                         Target CGPA &amp; Final Assessment Theory (FAT) Goal Planner
                       </h2>
                       <span className="font-label-sm text-label-sm text-outline">
-                        Calibrated against Fall 2026-27 Relative Curve Benchmarks
+                        Calibrated against Target CGPA Requirements
                       </span>
                     </div>
                   </div>
@@ -1738,17 +1765,18 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <label className="font-label-md text-label-md text-on-surface-variant font-medium">Estimated Cohort Difficulty Multiplier</label>
+                    <label className="font-label-md text-label-md text-on-surface-variant font-medium">Target Letter Grade Tier</label>
                     <select
                       value={cohortCurveMultiplier}
                       onChange={(e) => setCohortCurveMultiplier(e.target.value)}
-                      className="bg-surface-container text-on-surface px-3 py-3 rounded-lg font-label-md text-label-md focus:outline-none border border-outline-variant/20"
+                      className="bg-surface-container text-on-surface px-3 py-3 rounded-lg font-label-md text-label-md focus:outline-none border border-outline-variant/20 cursor-pointer"
                     >
-                      <option value="Standard Distribution (Mean 58%)">Standard Distribution (Mean 58%)</option>
-                      <option value="Rigorous Curve (Mean 52% - CSE Specialization)">Rigorous Curve (Mean 52% - CSE Specialization)</option>
-                      <option value="Moderate Assessment Cycle (Mean 64%)">Moderate Assessment Cycle (Mean 64%)</option>
+                      <option value="S Grade (10.0 GP • Outstanding)">S Grade (10.0 GP • Outstanding)</option>
+                      <option value="A Grade (9.0 GP • Excellent)">A Grade (9.0 GP • Excellent)</option>
+                      <option value="B Grade (8.0 GP • Very Good)">B Grade (8.0 GP • Very Good)</option>
+                      <option value="C Grade (7.0 GP • Good)">C Grade (7.0 GP • Good)</option>
                     </select>
-                    <span className="font-body-sm text-body-sm text-outline">Shifts relative S-Grade cutoffs across theoretical exams.</span>
+                    <span className="font-body-sm text-body-sm text-outline">Standard VIT 10-point academic grading scale.</span>
                   </div>
 
                   <div className="bg-surface-container p-space-md rounded-xl border border-outline-variant/20 flex flex-col justify-between">
@@ -1880,22 +1908,24 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     <tbody className="divide-y divide-outline-variant/10 text-on-surface font-body-md text-body-md">
                       {filteredMarks.map((courseMark, idx) => {
                         const isLab = (courseMark.courseCode || '').endsWith('P');
-                        const cat1Comp = courseMark.components?.find((c) => {
-                          const t = (c.title || '').toUpperCase();
-                          return t.includes('CAT 1') || t.includes('CAT-1') || t.includes('TEST - I') || t.includes('TEST 1');
-                        });
-                        const cat1Scored = cat1Comp?.scored ?? courseMark.cat1?.scored ?? null;
-                        const cat1Max = cat1Comp?.max ?? courseMark.cat1?.max ?? 50.0;
-                        const cat1Wt = cat1Comp?.weightage ?? (cat1Scored !== null ? Math.round(((cat1Scored / cat1Max) * 15) * 10) / 10 : null);
+                        const components = (courseMark.components && courseMark.components.length > 0)
+                          ? courseMark.components
+                          : (courseMark.cat1 ? [{
+                              title: 'Continuous Assessment Test - I',
+                              scored: courseMark.cat1.scored,
+                              max: courseMark.cat1.max || 50.0,
+                              weightage: courseMark.cat1.weightage,
+                              maxWeightage: 15.0,
+                              average: null,
+                              status: 'Published',
+                            }] : []);
 
-                        const daComponents = courseMark.components?.filter((c) => {
-                          const t = (c.title || '').toUpperCase();
-                          return t.includes('DA') || t.includes('ASSIGNMENT') || t.includes('QUIZ');
-                        }) || [];
+                        const firstComp = components[0] || null;
+                        const subComponents = components.slice(1);
 
                         return (
                           <React.Fragment key={courseMark.id || courseMark.courseCode || idx}>
-                            {/* Course Primary Row (CAT-1 or Main Test) */}
+                            {/* Course Primary Row (First Assessment Component or Summary) */}
                             <tr className="hover:bg-surface-container-low transition-colors group">
                               <td className="py-3 px-space-md font-medium">
                                 <div className="flex items-center gap-2">
@@ -1923,77 +1953,101 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
                               <td className="py-3 px-space-md">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="font-label-md text-label-md font-semibold">Continuous Assessment Test 1</span>
-                                  <span className="font-label-sm text-label-sm text-outline">(CAT-1)</span>
+                                  <span className="font-label-md text-label-md font-semibold">
+                                    {firstComp ? firstComp.title : 'Continuous Assessment'}
+                                  </span>
                                 </div>
                               </td>
 
                               <td className="py-3 px-space-md text-right font-tabular-data text-outline">
-                                {cat1Max.toFixed(1)}
+                                {firstComp?.max !== undefined && firstComp?.max !== null ? firstComp.max.toFixed(1) : '-'}
                               </td>
 
                               <td className="py-3 px-space-md text-right font-tabular-data font-semibold text-on-surface">
-                                {cat1Scored !== null ? cat1Scored.toFixed(1) : '-'}
+                                {firstComp?.scored !== null && firstComp?.scored !== undefined ? firstComp.scored.toFixed(1) : '-'}
                               </td>
 
                               <td className="py-3 px-space-md text-right font-tabular-data">
-                                <span className="text-primary font-semibold">
-                                  {cat1Wt !== null ? cat1Wt.toFixed(1) : '-'}
-                                </span>
-                                <span className="text-outline text-label-sm font-label-sm"> / 15.0</span>
+                                {firstComp?.weightage !== undefined && firstComp?.weightage !== null ? (
+                                  <>
+                                    <span className="text-primary font-semibold">
+                                      {firstComp.weightage.toFixed(1)}
+                                    </span>
+                                    <span className="text-outline text-label-sm font-label-sm">
+                                      {' '}/ {(firstComp.maxWeightage || firstComp.max || 15).toFixed(1)}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-outline">-</span>
+                                )}
                               </td>
 
                               <td className="py-3 px-space-md">
-                                <div className="flex items-center gap-2 font-tabular-data text-body-sm">
-                                  <span className="text-secondary font-medium">Class Avg: 34.8</span>
-                                  <span className="text-label-sm text-label-sm bg-secondary-container/40 text-on-secondary-container px-1.5 py-0.2 rounded font-semibold">
-                                    +18%
-                                  </span>
-                                </div>
+                                {firstComp?.average !== null && firstComp?.average !== undefined ? (
+                                  <div className="flex items-center gap-2 font-tabular-data text-body-sm">
+                                    <span className="text-secondary font-medium">Class Avg: {firstComp.average.toFixed(1)}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-outline text-body-sm font-tabular-data">-</span>
+                                )}
                               </td>
 
                               <td className="py-3 px-space-md text-center">
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-primary-fixed/40 text-on-primary-fixed font-label-sm text-label-sm font-medium">
                                   <CheckCircle2 size={13} className="shrink-0" />
-                                  Published
+                                  {firstComp?.status || 'Published'}
                                 </span>
                               </td>
                             </tr>
 
-                            {/* Sub-rows for Digital Assignments or Quizzes */}
-                            {daComponents.map((da, dIdx) => (
-                              <tr key={dIdx} className="hover:bg-surface-container-low transition-colors bg-surface-container-lowest/50">
+                            {/* Sub-rows for Remaining Components (DAs, Quizzes, Other Assessments) */}
+                            {subComponents.map((comp, sIdx) => (
+                              <tr key={sIdx} className="hover:bg-surface-container-low transition-colors bg-surface-container-lowest/50">
                                 <td className="py-2 px-space-md pl-10 text-outline font-label-sm text-label-sm">
                                   └ Assessment item
                                 </td>
                                 <td className="py-2 px-space-md text-outline font-label-sm text-label-sm">
-                                  Digital Component
+                                  Evaluation Component
                                 </td>
                                 <td className="py-2 px-space-md text-on-surface-variant font-label-md text-label-md">
-                                  {courseMark.faculty || courseMark.facultyName}
+                                  {courseMark.faculty || courseMark.facultyName || '--'}
                                 </td>
                                 <td className="py-2 px-space-md">
-                                  <span className="font-label-md text-label-md">{da.title}</span>
+                                  <span className="font-label-md text-label-md">{comp.title}</span>
                                 </td>
                                 <td className="py-2 px-space-md text-right font-tabular-data text-outline">
-                                  {(da.max || 10).toFixed(1)}
+                                  {comp.max !== undefined && comp.max !== null ? comp.max.toFixed(1) : '-'}
                                 </td>
                                 <td className="py-2 px-space-md text-right font-tabular-data font-semibold text-primary">
-                                  {da.scored !== null ? da.scored.toFixed(1) : '-'}
+                                  {comp.scored !== null && comp.scored !== undefined ? comp.scored.toFixed(1) : '-'}
                                 </td>
                                 <td className="py-2 px-space-md text-right font-tabular-data">
-                                  <span className="text-primary font-semibold">
-                                    {da.weightage !== undefined ? da.weightage.toFixed(1) : (da.scored !== null ? da.scored.toFixed(1) : '-')}
-                                  </span>
-                                  <span className="text-outline text-label-sm font-label-sm"> / {(da.maxWeightage || 10).toFixed(1)}</span>
+                                  {comp.weightage !== undefined && comp.weightage !== null ? (
+                                    <>
+                                      <span className="text-primary font-semibold">
+                                        {comp.weightage.toFixed(1)}
+                                      </span>
+                                      <span className="text-outline text-label-sm font-label-sm">
+                                        {' '}/ {(comp.maxWeightage || comp.max || 10).toFixed(1)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-outline">-</span>
+                                  )}
                                 </td>
                                 <td className="py-2 px-space-md">
-                                  <span className="font-tabular-data text-body-sm text-on-surface-variant">Cohort Median: 8.5</span>
+                                  {comp.average !== null && comp.average !== undefined ? (
+                                    <span className="font-tabular-data text-body-sm text-secondary font-medium">
+                                      Class Avg: {comp.average.toFixed(1)}
+                                    </span>
+                                  ) : (
+                                    <span className="font-tabular-data text-body-sm text-outline">-</span>
+                                  )}
                                 </td>
                                 <td className="py-2 px-space-md text-center">
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-primary-fixed/40 text-on-primary-fixed font-label-sm text-label-sm font-medium">
                                     <ShieldCheck size={13} className="shrink-0" />
-                                    Verified
+                                    {comp.status || 'Verified'}
                                   </span>
                                 </td>
                               </tr>
@@ -2009,8 +2063,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                   {courseMark.weightageScored.toFixed(1)}{' '}
                                   <span className="text-outline font-normal">/ {(courseMark.weightageGraded || courseMark.weightageTotal || 15).toFixed(1)}</span>
                                 </td>
-                                <td className="py-2.5 px-space-md text-left font-label-sm text-label-sm text-secondary" colSpan={2}>
-                                  Progress Velocity • High Distinction Track
+                                <td className="py-2.5 px-space-md text-left font-label-sm text-label-sm text-on-surface-variant" colSpan={2}>
+                                  {courseMark.weightageGraded && courseMark.weightageGraded > 0
+                                    ? `${((courseMark.weightageScored / courseMark.weightageGraded) * 100).toFixed(1)}% scored of evaluated weight`
+                                    : 'Recorded in active ledger'}
                                 </td>
                               </tr>
                             )}

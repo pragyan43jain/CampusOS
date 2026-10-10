@@ -207,11 +207,13 @@ def sync_data(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     x_auth_pass: Optional[str] = Header(None, alias="X-Auth-Pass"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Re-scrape using the existing signed-in session or silently auto-reauthenticate in background.
     """
-    resolved_sid = sessionId or x_session_id
+    bearer_token = authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else authorization
+    resolved_sid = sessionId or x_session_id or bearer_token
     res = client_manager.resync_or_reauth(
         session_id=resolved_sid,
         semester_id=semesterId,
@@ -220,10 +222,11 @@ def sync_data(
     )
     try:
         from app.supabase_client import track_event, upsert_profile
-        clean_user = x_auth_user.strip().upper() if x_auth_user else None
+        payload_data = res.get("data") or {}
+        student = payload_data.get("student") or res.get("student") or {}
+        clean_user = (student.get("regNo") or x_auth_user or "").strip().upper() or None
         if res.get("success"):
             track_event(clean_user, "sync_completed", "/vtop/sync")
-            student = res.get("student") or {}
             if student:
                 upsert_profile(student)
         else:
@@ -352,11 +355,12 @@ def get_vtop_cgpa(
 def get_vtop_attendance(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     return store.get("attendance") or []
 
@@ -1042,7 +1046,7 @@ def get_status(
     report = store.get("syncReport") or {}
 
     # Check if there is an active session strictly for this student (M21)
-    req_sid = x_session_id or sessionId
+    req_sid = x_session_id or sessionId or (authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else authorization)
     live_sessions = client_manager.status()["liveSessions"]
     session_live = False
     if req_sid:

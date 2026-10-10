@@ -209,6 +209,46 @@ _EXAM_STREAM_VALUES = {
     "vocational", "medical", "non-medical", "general", "science stream"
 }
 
+_HIGH_SCHOOL_KEYWORDS = (
+    "public school", "high school", "higher secondary", "vidyalaya", "vidyapeeth",
+    "academy", "matriculation", "convent", "senior secondary", "secondary school",
+    "cbse", "icse", "state board", "inter college", "junior college", "school details",
+    "school name", "10th", "12th", "previous school", "institution name"
+)
+
+_BRANCH_MAP_BY_CODE: Dict[str, str] = {
+    "BLC": "B.Tech Electronics and Communication Engineering (VLSI)",
+    "BCE": "B.Tech Computer Science and Engineering",
+    "BCN": "B.Tech Computer Science and Engineering (Information Security)",
+    "BAI": "B.Tech Computer Science and Engineering (AI and Machine Learning)",
+    "BDS": "B.Tech Computer Science and Engineering (Data Science)",
+    "BIT": "B.Tech Information Technology",
+    "BEC": "B.Tech Electronics and Communication Engineering",
+    "BEE": "B.Tech Electrical and Electronics Engineering",
+    "BME": "B.Tech Mechanical Engineering",
+    "BCV": "B.Tech Civil Engineering",
+    "BCH": "B.Tech Chemical Engineering",
+    "BBM": "B.Tech Biomedical Engineering",
+    "BBS": "B.Tech Computer Science and Business Systems",
+}
+
+
+def infer_branch_from_reg_no(reg_no: Optional[str]) -> Optional[str]:
+    """
+    Infer official university program & branch from VIT registration number.
+    e.g. 24BLC1100 -> B.Tech Electronics and Communication Engineering (VLSI)
+    """
+    if not reg_no:
+        return None
+    reg = reg_no.strip().upper()
+    m = re.search(r"^\d{2}([A-Z]{3})\d+", reg)
+    if m:
+        code = m.group(1)
+        if code in _BRANCH_MAP_BY_CODE:
+            return _BRANCH_MAP_BY_CODE[code]
+    return None
+
+
 _PROFILE_LABELS: List[Tuple[str, Tuple[str, ...]]] = [
     # (output field, all substrings that must appear in the label cell)
     ("name", ("student", "name")),
@@ -269,6 +309,18 @@ def parse_profile(html: str) -> Dict[str, Any]:
     soup = soup_of(html)
     profile: Dict[str, Any] = {}
 
+    def is_invalid_school_or_branch(field_name: str, label_text: str, val_text: str) -> bool:
+        low_label = label_text.lower()
+        low_val = val_text.lower()
+        clean_v = low_val.replace(" ", "")
+        if any(h in low_label for h in ("10th", "12th", "previous", "intermediate", "sslc", "hsc", "secondary", "board")):
+            return True
+        if any(h in low_val for h in _HIGH_SCHOOL_KEYWORDS):
+            return True
+        if field_name == "branch" and (clean_v in _EXAM_STREAM_VALUES or clean_v.startswith("science(") or clean_v in ("pcm", "pcb")):
+            return True
+        return False
+
     # 1. Primary: Pair cells within each row (supports both <td> and <th> label cells)
     for row in soup.find_all("tr"):
         cols = row.find_all(["td", "th"])
@@ -282,8 +334,7 @@ def parse_profile(html: str) -> Dict[str, Any]:
                 if all(needle in label for needle in needles):
                     value = to_text(cols[i + 1])
                     if value:
-                        clean_val = value.lower().replace(" ", "")
-                        if field == "branch" and (clean_val in _EXAM_STREAM_VALUES or clean_val.startswith("science(") or clean_val in ("pcm", "pcb")):
+                        if field in ("school", "branch") and is_invalid_school_or_branch(field, label, value):
                             continue
                         profile[field] = value
                     break
@@ -303,8 +354,7 @@ def parse_profile(html: str) -> Dict[str, Any]:
             if all(needle in label for needle in needles):
                 value = to_text(cells[index + 1])
                 if value:
-                    clean_val = value.lower().replace(" ", "")
-                    if field == "branch" and (clean_val in _EXAM_STREAM_VALUES or clean_val.startswith("science(") or clean_val in ("pcm", "pcb")):
+                    if field in ("school", "branch") and is_invalid_school_or_branch(field, label, value):
                         continue
                     profile[field] = value
                 break
@@ -336,7 +386,22 @@ def parse_profile(html: str) -> Dict[str, Any]:
     if "program" in profile and " - " in profile["program"] and "branch" not in profile:
         parts = profile["program"].split(" - ", 1)
         profile["program"] = parts[0].strip()
-        profile["branch"] = parts[1].strip()
+        candidate_branch = parts[1].strip()
+        if not any(h in candidate_branch.lower() for h in _HIGH_SCHOOL_KEYWORDS):
+            profile["branch"] = candidate_branch
+
+    # Purge any accidental high school strings in branch or school
+    if profile.get("branch") and any(h in profile["branch"].lower() for h in _HIGH_SCHOOL_KEYWORDS):
+        profile["branch"] = None
+
+    if profile.get("school") and any(h in profile["school"].lower() for h in _HIGH_SCHOOL_KEYWORDS):
+        profile["school"] = None
+
+    # Infer branch from registration number if not present
+    if not profile.get("branch") and profile.get("regNo"):
+        inferred = infer_branch_from_reg_no(profile["regNo"])
+        if inferred:
+            profile["branch"] = inferred
 
     if "email" in profile:
         profile["email"] = profile["email"].lower()
@@ -652,8 +717,16 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
 
     soup = soup_of(html)
     table = soup.find(id="getStudentDetails")
+    if table is None or getattr(table, "name", None) != "table":
+        # Robust fallback: find any table containing attendance headers
+        for candidate in soup.find_all("table"):
+            c_text = candidate.get_text().lower()
+            if ("attended" in c_text or "present" in c_text) and ("total" in c_text or "conducted" in c_text or "course" in c_text):
+                table = candidate
+                break
+
     if table is None:
-        logger.warning("[VTOP] No #getStudentDetails attendance table")
+        logger.warning("[VTOP] No attendance table found in page")
         return []
 
     headings, offset, stride = header_layout(table)
@@ -698,7 +771,7 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
             }
         )
 
-    # Attach classId and slotName from onclick handlers if available in HTML
+    # Attach classId and slotName from onclick handlers or input fields if available in HTML
     for tr in table.find_all("tr"):
         tr_text = tr.get_text(separator=" ")
         c_m = re.search(r"\b([A-Z]{3,4}\d{3,4}[A-Z]?)\b", tr_text)
@@ -707,17 +780,28 @@ def parse_attendance(html: str) -> List[Dict[str, Any]]:
         code_found = c_m.group(1).upper()
         for el in tr.find_all(["a", "button", "input"]):
             onclick = el.get("onclick") or el.get("href") or ""
+            val = el.get("value") or ""
             detail_m = re.search(
-                r"processViewAttendanceDetail\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)",
+                r"processViewAttendanceDetail\(\s*['\"]([^'\"]+)['\"]\s*(?:,\s*['\"]([^'\"]*)['\"])?\s*\)",
                 onclick,
             )
+            cid = None
+            sname = None
             if detail_m:
                 cid = detail_m.group(1).strip()
-                sname = detail_m.group(2).strip()
+                if detail_m.group(2):
+                    sname = detail_m.group(2).strip()
+            elif val and len(val) >= 4 and any(c.isdigit() for c in val):
+                cid = val.strip()
+
+            if cid:
                 for rec in records:
                     if rec.get("courseCode") == code_found:
                         rec["classId"] = cid
-                        rec["slotName"] = sname
+                        if sname:
+                            rec["slotName"] = sname
+                        elif not rec.get("slotName"):
+                            rec["slotName"] = rec.get("slot") or rec.get("slots") or ""
                         rec["viewLinkOnclick"] = onclick
                 break
 

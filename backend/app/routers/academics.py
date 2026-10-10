@@ -83,11 +83,12 @@ def get_timetable(
 def get_attendance(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     return store.get("attendance") or []
 
