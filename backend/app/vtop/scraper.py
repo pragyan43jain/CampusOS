@@ -338,7 +338,7 @@ def fetch_course_attendance_detail(
             if html and ("<table" in html.lower() or "present" in html.lower() or "absent" in html.lower() or "duty" in html.lower() or "od" in html.lower()):
                 logs = P.parse_attendance_detail_logs(html)
                 od_records = P.parse_subject_attendance_details(html, course_code, course_title, faculty_name)
-                is_lab = slot_name.upper().startswith("L") or course_code.upper().endswith("P")
+                is_lab = slot_name.strip().upper().startswith("L")
                 hours = 2 if is_lab else 1
                 for log in logs:
                     st = (log.get("status") or "").strip().lower()
@@ -387,7 +387,7 @@ def extract_unicc_od_from_attendance(attendance_rows: Optional[List[Dict[str, An
         title = (course.get("courseTitle") or course.get("title") or code).strip()
         slot = (course.get("slotName") or course.get("slot") or "").strip()
         faculty = (course.get("facultyName") or course.get("faculty") or "Course Faculty").strip()
-        is_lab = slot.upper().startswith("L") or code.upper().endswith("P") or "LAB" in str(course.get("courseType") or "").upper()
+        is_lab = slot.strip().upper().startswith("L")
         hours = 2 if is_lab else 1
         od_type = "LAB" if is_lab else "TH"
 

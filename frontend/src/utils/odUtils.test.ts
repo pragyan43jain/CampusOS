@@ -82,4 +82,22 @@ describe('UniCC OD Extraction Algorithm', () => {
     const records = computeUniccODFromAttendance(attendanceData);
     assert.strictEqual(records.length, 0);
   });
+
+  test('courses with P code but non-L slots are strictly counted as 1 hour', () => {
+    const attendanceData = [
+      {
+        courseCode: 'BSTS301P',
+        courseTitle: 'Advanced Competitive Coding - I',
+        slotName: 'D2+TD2',
+        viewLink: [
+          { date: '05-Oct-2026', status: 'On Duty' },
+        ],
+      },
+    ];
+
+    const records = computeUniccODFromAttendance(attendanceData);
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].hours, 1);
+    assert.strictEqual(records[0].type, 'TH');
+  });
 });

@@ -484,17 +484,27 @@ class TestOnDutyIsAuthoritative:
                     {"date": "15-Sep-2026", "status": "On Duty"},
                 ],
             },
+            {
+                "courseCode": "BSTS301P",
+                "courseTitle": "Advanced Competitive Coding - I",
+                "slotName": "D2+TD2",
+                "facultyName": "TRAINER",
+                "viewLink": [
+                    {"date": "22-Aug-2026", "status": "On Duty"},
+                ],
+            },
         ]
         recs = extract_unicc_od_from_attendance(attendance_mock)
-        assert len(recs) == 3
+        assert len(recs) == 4
         theory_recs = [r for r in recs if r["type"] == "TH"]
         lab_recs = [r for r in recs if r["type"] == "LAB"]
-        assert len(theory_recs) == 2
+        # Non-L slot (D2+TD2) is strictly 1h theory, even though code ends in P
+        assert len(theory_recs) == 3
         assert all(r["hours"] == 1 for r in theory_recs)
         assert len(lab_recs) == 1
         assert lab_recs[0]["hours"] == 2
         total_hours = sum(r["hours"] for r in recs)
-        assert total_hours == 4
+        assert total_hours == 5
 
 
 

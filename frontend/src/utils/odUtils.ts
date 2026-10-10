@@ -18,10 +18,7 @@ export function computeUniccODFromAttendance(attendanceList: (AttendanceRecord |
     const title = (course.courseTitle || course.title || code).trim();
     const slot = (course.slotName || course.slot || '').trim();
     const faculty = (course.facultyName || course.faculty || 'Course Faculty').trim();
-    const isLab =
-      slot.toUpperCase().startsWith('L') ||
-      code.toUpperCase().endsWith('P') ||
-      String(course.courseType || '').toUpperCase().includes('LAB');
+    const isLab = slot.trim().toUpperCase().startsWith('L');
     const hours = isLab ? 2 : 1;
     const odType: 'LAB' | 'TH' = isLab ? 'LAB' : 'TH';
 
