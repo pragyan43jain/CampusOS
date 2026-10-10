@@ -94,7 +94,7 @@ const getRouteFromPath = (path: string): RouteInfo => {
 
     return { isLanding: false, isLogin: false, isAdmin: false, view: 'academics', academicsSubTab: subTab };
   }
-  if (clean === '/assignments' || clean === '/tasks') {
+  if (clean === '/assignments' || clean === '/tasks' || clean === '/deadlines') {
     return { isLanding: false, isLogin: false, isAdmin: false, view: 'assignments' };
   }
   if (clean === '/fees' || clean === '/receipts' || clean === '/dues') {
@@ -163,7 +163,7 @@ export const App: React.FC = () => {
       const saved = localStorage.getItem('campusos_theme');
       if (saved) return saved as ThemeType;
     }
-    return 'cyber-dark';
+    return 'editorial-dark';
   });
   const [authInitializing, setAuthInitializing] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -543,6 +543,12 @@ export const App: React.FC = () => {
 
       // 3. Reload all student data into React state
       await loadAllData();
+      if (typeof window !== 'undefined') {
+        const nowMs = Date.now();
+        const syncKey = student?.regNo ? `campus_last_sync_timestamp_${student.regNo}` : 'campus_last_sync_timestamp';
+        window.localStorage.setItem(syncKey, String(nowMs));
+        window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
+      }
       triggerSyncToast('Synced Successfully');
       CampusAnalytics.trackEvent('sync_completed', '/sync');
     } catch (err: any) {
@@ -679,6 +685,9 @@ export const App: React.FC = () => {
           if (!initialRoute.isLanding) {
             setShowLanding(false);
             setActiveView(initialRoute.view);
+            if (initialRoute.academicsSubTab) {
+              setAcademicsSubTab(initialRoute.academicsSubTab);
+            }
           } else {
             setShowLanding(true);
             if (initialRoute.isLogin) {
@@ -861,6 +870,13 @@ export const App: React.FC = () => {
     if (d && d.od) setOdData(d.od);
 
     await loadAllData();
+    if (typeof window !== 'undefined') {
+      const nowMs = Date.now();
+      const regToUse = studentObj?.regNo || d?.student?.regNo;
+      const syncKey = regToUse ? `campus_last_sync_timestamp_${regToUse}` : 'campus_last_sync_timestamp';
+      window.localStorage.setItem(syncKey, String(nowMs));
+      window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
+    }
     triggerSyncToast('Synced Successfully');
     setShowLanding(false);
     setActiveView('dashboard');
@@ -928,41 +944,101 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1-Hour Background Auto-Sync
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await CampusAPI.syncAllAcademicAccounts();
-        if (res.dashboard) {
-          const flatList: Assignment[] = [];
-          if (res.dashboard.subjects) {
-            res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
-              if (s.assignments) flatList.push(...s.assignments);
-            });
-          }
-          if (res.dashboard.unmatchedAssignments) {
-            flatList.push(...res.dashboard.unmatchedAssignments);
-          }
-          if (flatList.length > 0) {
-            setAssignments((prev) => {
-              const merged = [...flatList];
-              prev.forEach((old) => {
-                if (!merged.find((m) => m.id === old.id)) {
-                  merged.push(old);
-                }
-              });
-              return applyManualStatusOverrides(merged, student?.regNo);
-            });
+  // 6-Hour Background Auto-Sync Engine (Refreshes full VTOP, Teams & LMS records)
+  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+  const performAutoSync = useCallback(async (isSilent = true) => {
+    if (!isAuthenticated || syncing) return;
+    try {
+      console.info('[CampusOS Auto-Sync] Automatically triggering 6-hour sync refresh...');
+      if (!isSilent) setSyncing(true);
+      const vtopResult = await CampusAPI.syncVtop();
+      if (vtopResult && vtopResult.success) {
+        const d = (vtopResult as any)?.data || vtopResult;
+        const studentObj: StudentProfile | null = (d.student as StudentProfile) || null;
+        if (studentObj && studentObj.regNo) {
+          CampusAPI.setActiveStudent(studentObj);
+          setStudent(studentObj);
+          CampusAnalytics.syncProfile(studentObj);
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('campus_current_reg_no', studentObj.regNo);
+            window.localStorage.setItem('campus_user_data_' + studentObj.regNo, JSON.stringify(d));
           }
         }
-      } catch (e) {
-        console.debug('Background auto-sync failed silently:', e);
+        if (d.courses && d.courses.length > 0) setCourses(d.courses);
+        if (d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
+        if (d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
+        if (d.marks && d.marks.length > 0) setMarks(d.marks);
+        if (d.exams) setExams(d.exams as any);
+        if (d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
+        if (d.assignments && d.assignments.length > 0) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
+        if (d.fees && d.fees.length > 0) setFees(d.fees);
+        if (d.placements && d.placements.length > 0) setPlacements(d.placements);
+        if (d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
+        if (d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
+        if (d.od) setOdData(d.od);
       }
-    }, 60 * 60 * 1000);
+      try {
+        await CampusAPI.syncAllAcademicAccounts();
+      } catch (accErr) {
+        console.debug('[CampusOS Auto-Sync] Academic accounts sync notice:', accErr);
+      }
+      await loadAllData();
+
+      const nowMs = Date.now();
+      if (typeof window !== 'undefined') {
+        const syncKey = student?.regNo ? `campus_last_sync_timestamp_${student.regNo}` : 'campus_last_sync_timestamp';
+        window.localStorage.setItem(syncKey, String(nowMs));
+        window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
+      }
+      triggerSyncToast('Auto-synced latest academic records (6h refresh)');
+      console.info('[CampusOS Auto-Sync] 6-hour automated sync completed successfully.');
+    } catch (err) {
+      console.debug('[CampusOS Auto-Sync] 6-hour background auto-sync notice:', err);
+    } finally {
+      if (!isSilent) setSyncing(false);
+    }
+  }, [isAuthenticated, syncing, student, loadAllData, triggerSyncToast]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkAndTriggerAutoSync = () => {
+      if (typeof window === 'undefined') return;
+      const syncKey = student?.regNo ? `campus_last_sync_timestamp_${student.regNo}` : 'campus_last_sync_timestamp';
+      const lastSyncRaw = window.localStorage.getItem(syncKey) || window.localStorage.getItem('campus_last_sync_timestamp');
+      let lastSyncTime = lastSyncRaw ? Number(lastSyncRaw) : 0;
+
+      // Fallback to student.lastSynced ISO string if local timestamp not set
+      if (!lastSyncTime && student?.lastSynced) {
+        const parsed = new Date(student.lastSynced).getTime();
+        if (!isNaN(parsed)) lastSyncTime = parsed;
+      }
+
+      // If never recorded before, initialize current timestamp
+      if (!lastSyncTime) {
+        window.localStorage.setItem(syncKey, String(Date.now()));
+        window.localStorage.setItem('campus_last_sync_timestamp', String(Date.now()));
+        return;
+      }
+
+      const elapsed = Date.now() - lastSyncTime;
+      if (elapsed >= SIX_HOURS_MS) {
+        console.info(`[CampusOS Auto-Sync] ${Math.round(elapsed / (60 * 60 * 1000))}h elapsed since last sync (>= 6h). Auto-syncing now...`);
+        performAutoSync(true);
+      }
+    };
+
+    // Check immediately on load/mount
+    checkAndTriggerAutoSync();
+
+    // Check periodically every minute for 6-hour boundary crossing
+    const interval = setInterval(() => {
+      checkAndTriggerAutoSync();
+    }, 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, student]);
+  }, [isAuthenticated, student, performAutoSync]);
 
   if (authInitializing) {
     return (
@@ -1095,7 +1171,7 @@ export const App: React.FC = () => {
         }}
       />
 
-      <div className="main-viewport">
+      <div className={`main-viewport flex flex-col flex-1 min-h-screen ${isSidebarCollapsed ? 'lg:ml-20 lg:w-[calc(100%-80px)]' : 'lg:ml-64 lg:w-[calc(100%-256px)]'} transition-all duration-200`}>
         <Header
           student={student}
           activeView={activeView}
@@ -1110,6 +1186,7 @@ export const App: React.FC = () => {
           syncing={syncing}
           pendingAssignmentsCount={pendingAssignmentsCount}
           criticalAttendanceCount={criticalAttendanceCount}
+          isCollapsed={isSidebarCollapsed}
           onNavigate={(view, subTab) => {
             setActiveView(view as NavView);
             if (subTab) {
@@ -1123,6 +1200,7 @@ export const App: React.FC = () => {
           }}
         />
 
+        <main className="flex-1 w-full px-4 md:px-6 lg:px-8 pt-20 pb-12 max-w-[1600px] mx-auto min-w-0">
         {activeView === 'dashboard' && (
           <DashboardView
             student={student}
@@ -1213,6 +1291,7 @@ export const App: React.FC = () => {
             exams={exams}
           />
         )}
+        </main>
       </div>
 
       {/* VTOP Auth & Sync Modal */}

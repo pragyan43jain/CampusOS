@@ -11,53 +11,119 @@
 @tailwind components;
 @tailwind utilities;
 
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined', sans-serif !important;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
 /* ==========================================================================
    CAMPUSOS MASTER DESIGN SYSTEM (DARK THEME)
    ========================================================================== */
 
 :root,
 [data-theme="cyber-dark"],
+[data-theme="editorial-dark"],
 [data-theme="midnight-slate"],
 [data-theme="chaingpt-cyber"] {
   /* Fonts */
-  --font-sans: 'Absans', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-heading: 'Absans', 'Space Grotesk', -apple-system, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Geist', sans-serif;
   --font-serif: 'Cormorant Garamond', Georgia, serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
 
   --sans: var(--font-sans);
   --serif: var(--font-serif);
 
-  /* Aerukart Design System Tokens */
-  --aeruk-bg: #000000;
-  --aeruk-white: #f5f5f2;
-  --aeruk-muted: #afb1b6;
-  --aeruk-blue: #0c477f;
-  --aeruk-cyan: #17c1fe;
-  --aeruk-glow-ramp: var(--aeruk-cyan) 0%, var(--aeruk-blue) 50%, #000 100%;
-  --aeruk-line: #ffffff0b;
-  --aeruk-margin: clamp(20px, 3.3333vw, 80px);
-  --aeruk-grid-columns: 12;
-  --aeruk-content-columns: 10;
-  --aeruk-header-height: 90px;
-  --aeruk-button-height: 40px;
-  --aeruk-surface: #080d14;
-  --aeruk-surface-card: #0c1721;
+  /* Stitch Academic Editorial Tokens - Dark Mode */
+  --bg-background: #10141c;
+  --surface: #10141c;
+  --surface-dim: #0c0f15;
+  --surface-bright: #171d28;
+  --surface-container-lowest: #171d28;
+  --surface-container-low: #1b2230;
+  --surface-container: #1f2736;
+  --surface-container-high: #242d3e;
+  --surface-container-highest: #2b3548;
+  --on-surface: #ecf0ff;
+  --on-surface-variant: #a6b0c3;
+  --inverse-surface: #f9f9ff;
+  --inverse-on-surface: #171c26;
+  --outline: #8c93a4;
+  --outline-variant: #2a3444;
+  --surface-tint: #91acf5;
+  --primary: #91acf5;
+  --on-primary: #10141c;
+  --primary-container: #2b4c99;
+  --on-primary-container: #dae2ff;
+  --inverse-primary: #0a3481;
+  --secondary: #8fa3be;
+  --on-secondary: #10141c;
+  --secondary-container: #26354a;
+  --on-secondary-container: #b2d1ff;
+  --tertiary: #f0a068;
+  --on-tertiary: #10141c;
+  --tertiary-container: #5a2702;
+  --on-tertiary-container: #ffdbc9;
+  --error: #f87171;
+  --on-error: #10141c;
+  --error-container: #7f1d1d;
+  --on-error-container: #fecaca;
+  --primary-fixed: #23345e;
+  --primary-fixed-dim: #1b2746;
+  --on-primary-fixed: #dae2ff;
+  --on-primary-fixed-variant: #91acf5;
+  --secondary-fixed: #1e2d44;
+  --secondary-fixed-dim: #162234;
+  --on-secondary-fixed: #d3e3ff;
+  --on-secondary-fixed-variant: #8fa3be;
+  --tertiary-fixed: #3d2214;
+  --tertiary-fixed-dim: #2f190e;
+  --on-tertiary-fixed: #ffdbc9;
+  --on-tertiary-fixed-variant: #f0a068;
+  --on-background: #ecf0ff;
+  --surface-variant: #242d3e;
 
-  /* Standard shadcn variables */
-  --foreground: #ffffff;
-  --background: #000000;
-  --card: #080d14;
-  --card-foreground: #ffffff;
-  --muted-foreground: #afb1b6;
+  /* Surfaces & Backgrounds - Aerukart / Academic Editorial Harmonized */
+  --bg-primary: #10141c;
+  --bg-secondary: #171d28;
+  --surface-primary: #171d28;
+  --surface-secondary: #1f2736;
+  --surface-elevated: #242d3e;
+  --surface-input: #171d28;
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-active: rgba(145, 172, 245, 0.12);
+  --surface-header: rgba(16, 20, 28, 0.88);
+  --surface-sidebar: #171d28;
 
-  /* Surfaces & Backgrounds - Aerukart Obsidian Theme */
-  --bg-primary: #000000;
-  --bg-secondary: #050609;
-  --surface-primary: #080d14;
-  --surface-secondary: #0c1721;
-  --surface-elevated: #101c29;
-  --surface-input: #060a0f;
+  /* Hairline Borders */
+  --border-subtle: #2a3444;
+  --border-card: #2a3444;
+  --border-medium: #3a475d;
+  --border-highlight: #91acf5;
+
+  /* Typography Colors */
+  --text-primary: #ecf0ff;
+  --text-secondary: #a6b0c3;
+  --text-muted: #8c93a4;
+  --text-inverse: #10141c;
+
+  /* Accent Colors */
+  --accent-cyan: #91acf5;
+  --accent-blue: #2b4c99;
+  --accent-purple: #b575ff;
+  --accent-orange: #f0a068;
+  --accent-yellow: #fbbf24;
+  --accent-emerald: #4ade80;
+  --accent-crimson: #f87171;
   --surface-hover: rgba(255, 255, 255, 0.06);
   --surface-active: rgba(23, 193, 254, 0.12);
   --surface-header: rgba(0, 0, 0, 0.85);
@@ -276,54 +342,104 @@
 }
 
 /* ==========================================================================
-   THEME: BABY PINK (Outfit & Sakura Blush on Midnight Rose Velvet)
+   THEME: BABY PINK (Pastel Sakura Blush & Bubblegum on Soft Rose Canvas)
+   Authentic light baby pink aesthetic with high-contrast berry plum text
    ========================================================================== */
 [data-theme="baby-pink"],
 [data-theme="babypink"] {
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-heading: 'Outfit', -apple-system, sans-serif;
 
-  --bg-primary: #140A15;
-  --bg-secondary: #1B0E1E;
-  --surface-primary: #241228;
-  --surface-secondary: #2F1734;
-  --surface-elevated: #3A1D40;
-  --surface-input: #1B0D1E;
-  --surface-hover: rgba(244, 114, 182, 0.10);
-  --surface-active: rgba(244, 114, 182, 0.18);
-  --surface-header: rgba(20, 10, 21, 0.92);
-  --surface-sidebar: #170B19;
+  /* Stitch Academic Editorial Tokens - Baby Pink Mode */
+  --bg-background: #FFF0F5;
+  --surface: #FFF0F5;
+  --surface-dim: #FCE7F3;
+  --surface-bright: #FFFFFF;
+  --surface-container-lowest: #FFFFFF;
+  --surface-container-low: #FFF5F8;
+  --surface-container: #FCE7F3;
+  --surface-container-high: #FBCFE8;
+  --surface-container-highest: #F9A8D4;
+  --on-surface: #4A1528;
+  --on-surface-variant: #833B58;
+  --inverse-surface: #4A1528;
+  --inverse-on-surface: #FFF0F5;
+  --outline: #D47FA6;
+  --outline-variant: #F9C5D5;
+  --surface-tint: #EC4899;
+  --primary: #EC4899;
+  --on-primary: #FFFFFF;
+  --primary-container: #F472B6;
+  --on-primary-container: #FFFFFF;
+  --inverse-primary: #F472B6;
+  --secondary: #DB2777;
+  --on-secondary: #FFFFFF;
+  --secondary-container: #FCE7F3;
+  --on-secondary-container: #831843;
+  --tertiary: #BE185D;
+  --on-tertiary: #FFFFFF;
+  --tertiary-container: #FDF2F8;
+  --on-tertiary-container: #9D174D;
+  --error: #E11D48;
+  --on-error: #FFFFFF;
+  --error-container: #FFE4E6;
+  --on-error-container: #9F1239;
+  --primary-fixed: #FCE7F3;
+  --primary-fixed-dim: #FBCFE8;
+  --on-primary-fixed: #831843;
+  --on-primary-fixed-variant: #BE185D;
+  --secondary-fixed: #FDF2F8;
+  --secondary-fixed-dim: #FCE7F3;
+  --on-secondary-fixed: #9D174D;
+  --on-secondary-fixed-variant: #DB2777;
+  --tertiary-fixed: #FFF1F2;
+  --tertiary-fixed-dim: #FFE4E6;
+  --on-tertiary-fixed: #881337;
+  --on-background: #4A1528;
+  --surface-variant: #FCE7F3;
 
-  --border-subtle: rgba(244, 114, 182, 0.12);
-  --border-card: rgba(244, 114, 182, 0.18);
-  --border-medium: rgba(244, 114, 182, 0.28);
-  --border-highlight: rgba(244, 114, 182, 0.55);
+  /* Legacy Design System Tokens - Pastel Baby Pink */
+  --bg-primary: #FFF0F5;
+  --bg-secondary: #FFF5F8;
+  --surface-primary: #FFFFFF;
+  --surface-secondary: #FFF0F5;
+  --surface-elevated: #FFFFFF;
+  --surface-input: #FFFFFF;
+  --surface-hover: rgba(236, 72, 153, 0.08);
+  --surface-active: rgba(236, 72, 153, 0.15);
+  --surface-header: rgba(255, 240, 245, 0.95);
+  --surface-sidebar: #FFF5F8;
 
-  --text-primary: #FFF0F5;
-  --text-secondary: #FBCFE8;
-  --text-muted: #D4A3BE;
-  --text-inverse: #140A15;
+  --border-subtle: rgba(236, 72, 153, 0.18);
+  --border-card: rgba(236, 72, 153, 0.25);
+  --border-medium: rgba(236, 72, 153, 0.38);
+  --border-highlight: rgba(236, 72, 153, 0.65);
 
-  --accent-cyan: #F472B6;
-  --accent-blue: #FB7185;
-  --accent-purple: #E879F9;
-  --accent-orange: #FDA4AF;
-  --accent-yellow: #FDE047;
-  --accent-emerald: #34D399;
-  --accent-crimson: #F43F5E;
+  --text-primary: #4A1528;
+  --text-secondary: #833B58;
+  --text-muted: #9D5C75;
+  --text-inverse: #FFFFFF;
 
-  --brand-color: #F472B6;
-  --brand-bg: rgba(244, 114, 182, 0.12);
+  --accent-cyan: #EC4899;
+  --accent-blue: #F472B6;
+  --accent-purple: #C084FC;
+  --accent-orange: #FB7185;
+  --accent-yellow: #F59E0B;
+  --accent-emerald: #10B981;
+  --accent-crimson: #E11D48;
 
-  --gradient-primary: linear-gradient(135deg, #F472B6 0%, #FB7185 50%, #FDA4AF 100%);
-  --gradient-hero: linear-gradient(180deg, rgba(36, 18, 40, 0.92) 0%, rgba(27, 14, 30, 0.96) 100%);
-  --gradient-purple: linear-gradient(135deg, rgba(232, 121, 249, 0.20) 0%, rgba(244, 114, 182, 0.20) 100%);
-  --gradient-orange: linear-gradient(135deg, rgba(251, 113, 133, 0.20) 0%, rgba(253, 164, 175, 0.20) 100%);
+  --brand-color: #EC4899;
+  --brand-bg: rgba(236, 72, 153, 0.12);
 
-  --shadow-default: 0 4px 20px rgba(10, 3, 11, 0.55);
-  --shadow-elevated: 0 12px 36px rgba(10, 3, 11, 0.75);
-  --shadow-glow-cyan: 0 0 26px rgba(244, 114, 182, 0.38);
-  --shadow-glow-purple: 0 0 26px rgba(232, 121, 249, 0.32);
+  --gradient-primary: linear-gradient(135deg, #EC4899 0%, #F472B6 50%, #FDA4AF 100%);
+  --gradient-hero: linear-gradient(180deg, rgba(255, 240, 245, 0.96) 0%, rgba(253, 232, 240, 0.94) 100%);
+  --gradient-purple: linear-gradient(135deg, rgba(236, 72, 153, 0.18) 0%, rgba(192, 132, 252, 0.18) 100%);
+  --gradient-orange: linear-gradient(135deg, rgba(251, 113, 133, 0.18) 0%, rgba(253, 164, 175, 0.18) 100%);
+
+  --shadow-default: 0 4px 20px rgba(236, 72, 153, 0.08);
+  --shadow-elevated: 0 12px 36px rgba(236, 72, 153, 0.12);
+  --shadow-glow-cyan: 0 0 24px rgba(236, 72, 153, 0.25);
+  --shadow-glow-purple: 0 0 24px rgba(192, 132, 252, 0.20);
 }
 
 /* ==========================================================================
@@ -377,39 +493,89 @@
    THEME: SOBER WARM PAPER (Plus Jakarta Sans & Warm Linen Off-White)
    High-contrast, zero eye-strain editorial paper mode with deep charcoal ink
    ========================================================================== */
-[data-theme="paper-light"] {
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-heading: 'Plus Jakarta Sans', -apple-system, sans-serif;
+[data-theme="paper-light"],
+[data-theme="editorial-light"],
+[data-theme="light"] {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Geist', sans-serif;
 
-  --bg-primary: #F5F3ED;
-  --bg-secondary: #ECE9E1;
-  --surface-primary: #FFFFFF;
-  --surface-secondary: #F6F4EE;
-  --surface-elevated: #E6E2D8;
-  --surface-input: #FFFFFF;
-  --surface-hover: rgba(28, 25, 23, 0.05);
-  --surface-active: rgba(2, 132, 199, 0.10);
-  --surface-header: rgba(245, 243, 237, 0.94);
-  --surface-sidebar: #ECE9E1;
+  /* Stitch Academic Editorial Tokens - Light Mode */
+  --bg-background: #f9f9ff;
+  --surface: #f9f9ff;
+  --surface-dim: #d6dae8;
+  --surface-bright: #f9f9ff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f1f3ff;
+  --surface-container: #e9edfc;
+  --surface-container-high: #e4e8f6;
+  --surface-container-highest: #dee2f1;
+  --on-surface: #171c26;
+  --on-surface-variant: #444651;
+  --inverse-surface: #2b303b;
+  --inverse-on-surface: #ecf0ff;
+  --outline: #747782;
+  --outline-variant: #c4c6d3;
+  --surface-tint: #3b5ba9;
+  --primary: #0a3481;
+  --on-primary: #ffffff;
+  --primary-container: #2b4c99;
+  --on-primary-container: #acc1ff;
+  --inverse-primary: #b2c5ff;
+  --secondary: #416088;
+  --on-secondary: #ffffff;
+  --secondary-container: #b2d1ff;
+  --on-secondary-container: #3a5981;
+  --tertiary: #d97736;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #833b00;
+  --on-tertiary-container: #ffb082;
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+  --primary-fixed: #dae2ff;
+  --primary-fixed-dim: #b2c5ff;
+  --on-primary-fixed: #001848;
+  --on-primary-fixed-variant: #20428f;
+  --secondary-fixed: #d3e3ff;
+  --secondary-fixed-dim: #a9c9f7;
+  --on-secondary-fixed: #001c38;
+  --on-secondary-fixed-variant: #28486f;
+  --tertiary-fixed: #ffdbc9;
+  --tertiary-fixed-dim: #ffb68c;
+  --on-tertiary-fixed: #321200;
+  --on-tertiary-fixed-variant: #753400;
+  --on-background: #171c26;
+  --surface-variant: #dee2f1;
 
-  --border-subtle: rgba(28, 25, 23, 0.09);
-  --border-card: rgba(28, 25, 23, 0.14);
-  --border-medium: rgba(28, 25, 23, 0.22);
-  --border-highlight: rgba(2, 132, 199, 0.50);
+  --bg-primary: #f9f9ff;
+  --bg-secondary: #f1f3ff;
+  --surface-primary: #ffffff;
+  --surface-secondary: #f1f3ff;
+  --surface-elevated: #e9edfc;
+  --surface-input: #ffffff;
+  --surface-hover: rgba(43, 76, 153, 0.05);
+  --surface-active: rgba(43, 76, 153, 0.12);
+  --surface-header: rgba(249, 249, 255, 0.94);
+  --surface-sidebar: #ffffff;
 
-  /* Deep High-Contrast Charcoal Ink — Never Faint */
-  --text-primary: #1C1917;
-  --text-secondary: #44403C;
-  --text-muted: #57534E;
-  --text-inverse: #FFFFFF;
+  --border-subtle: #e2e7ef;
+  --border-card: #e2e7ef;
+  --border-medium: #c4c6d3;
+  --border-highlight: #2b4c99;
 
-  --accent-cyan: #0284C7;
-  --accent-blue: #2563EB;
-  --accent-purple: #7C3AED;
-  --accent-orange: #D97706;
-  --accent-yellow: #B45309;
-  --accent-emerald: #059669;
-  --accent-crimson: #DC2626;
+  --text-primary: #171c26;
+  --text-secondary: #444651;
+  --text-muted: #747782;
+  --text-inverse: #ffffff;
+
+  --accent-cyan: #2b4c99;
+  --accent-blue: #0a3481;
+  --accent-purple: #416088;
+  --accent-orange: #d97736;
+  --accent-yellow: #b45309;
+  --accent-emerald: #1e7e53;
+  --accent-crimson: #ba1a1a;
 
   /* Component Aliases for Paper Light */
   --bg-surface: #FFFFFF;
@@ -490,10 +656,21 @@ body {
 
 [data-theme="baby-pink"] body,
 [data-theme="babypink"] body {
+  background-color: #FFF0F5;
   background-image:
-    radial-gradient(circle at 18% 12%, rgba(244, 114, 182, 0.09), transparent 45%),
-    radial-gradient(circle at 82% 28%, rgba(232, 121, 249, 0.07), transparent 45%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='85' height='85' viewBox='0 0 85 85' style='color: rgba(244, 114, 182, 0.03)' fill='none'%3E%3Cpath d='M-1 27.4453L1087 27.4454' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 55.8887L1087 55.8888' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 84.334L1087 84.3341' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M27.4453 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M55.8906 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M84.332 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3C/svg%3E");
+    radial-gradient(circle at 18% 12%, rgba(244, 114, 182, 0.16), transparent 45%),
+    radial-gradient(circle at 82% 28%, rgba(251, 207, 232, 0.45), transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='85' height='85' viewBox='0 0 85 85' style='color: rgba(236, 72, 153, 0.07)' fill='none'%3E%3Cpath d='M-1 27.4453L1087 27.4454' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 55.8887L1087 55.8888' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M-1 84.334L1087 84.3341' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M27.4453 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M55.8906 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3Cpath d='M84.332 -1V1407' stroke='currentColor' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+
+[data-theme="baby-pink"] ::-webkit-scrollbar-thumb,
+[data-theme="babypink"] ::-webkit-scrollbar-thumb {
+  background: #F9A8D4;
+}
+
+[data-theme="baby-pink"] ::-webkit-scrollbar-thumb:hover,
+[data-theme="babypink"] ::-webkit-scrollbar-thumb:hover {
+  background: #F472B6;
 }
 
 [data-theme="nordic-frost"] body {
@@ -709,17 +886,29 @@ a {
   overflow-x: hidden;
 }
 
-/* Main Viewport fills available width after 260px sidebar */
+/* Main Viewport fills available width after sidebar on desktop */
 .main-viewport, .app-main-content-wrap {
   flex: 1 1 0%;
   min-width: 0;
-  width: calc(100% - 260px);
-  margin-left: 260px;
+  width: 100%;
+  margin-left: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+@media (min-width: 1024px) {
+  .main-viewport, .app-main-content-wrap {
+    width: calc(100% - 256px);
+    margin-left: 256px;
+  }
+  .app-shell.sidebar-collapsed .main-viewport,
+  .app-shell.sidebar-collapsed .app-main-content-wrap {
+    width: calc(100% - 80px);
+    margin-left: 80px;
+  }
 }
 
 /* Sidebar Rail (Width: 260px Fixed SaaS Rail) */
@@ -1464,11 +1653,11 @@ a {
 
 /* Hero Banner Card */
 .hero-card {
-  background: var(--gradient-hero);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-hero);
-  padding: 32px 36px;
-  box-shadow: var(--shadow-default);
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 24px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
@@ -1965,57 +2154,60 @@ a {
 .academic-nav-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--surface-primary);
-  border: 1px solid var(--border-card);
-  padding: 8px;
-  border-radius: var(--radius-card);
+  gap: 6px;
+  background: var(--surface-container-lowest);
+  border: 1px solid var(--outline-variant);
+  padding: 6px;
+  border-radius: 8px;
   overflow-x: auto;
 }
 
 .academic-nav-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 18px;
-  border-radius: var(--radius-btn);
-  color: var(--text-secondary);
-  font-weight: 550;
-  font-size: 0.92rem;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  color: var(--on-surface-variant);
+  font-weight: 500;
+  font-size: 0.88rem;
+  font-family: 'Geist', sans-serif;
   white-space: nowrap;
-  transition: all var(--transition-fast);
+  transition: all 0.15s ease;
   border: 1px solid transparent;
+  background: transparent;
 }
 
 .academic-nav-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
 }
 
 .academic-nav-btn.active {
-  background: var(--surface-secondary);
-  color: var(--text-primary);
-  font-weight: 700;
-  border-color: rgba(45, 231, 211, 0.25);
+  background: var(--primary-container);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .academic-nav-btn.active svg {
-  color: var(--accent-cyan);
+  color: #ffffff;
 }
 
 .academic-nav-badge {
-  font-size: 0.74rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: 'Geist', monospace;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
 }
 
 .academic-nav-btn.active .academic-nav-badge {
-  background: rgba(45, 231, 211, 0.15);
-  color: var(--accent-cyan);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }
 
 /* ==========================================================================

@@ -254,10 +254,11 @@ def logout(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """End the VTOP session(s) and clear the local store for the authenticated student."""
-    resolved_sid = sessionId or x_session_id
-    resolved_reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    resolved_sid = sessionId or x_session_id or (authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else authorization)
+    resolved_reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
 
     if resolved_sid:
         result = client_manager.logout(resolved_sid)
@@ -302,8 +303,9 @@ def get_vtop_profile(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     return store.get("student") or empty_store()["student"]
 
@@ -314,6 +316,7 @@ def get_vtop_cgpa(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Cumulative academic standing.
@@ -327,7 +330,7 @@ def get_vtop_cgpa(
     That is a programme-dependent figure nobody had checked, and it fed a progress
     bar that therefore meant nothing.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     student = load_store(reg).get("student") or {}
     return {
         "currentCgpa": student.get("cgpa"),
@@ -351,8 +354,9 @@ def get_vtop_attendance(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     return store.get("attendance") or []
 
@@ -478,8 +482,9 @@ def get_vtop_marks(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
@@ -492,9 +497,10 @@ def get_vtop_marks_summary(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     """Returns continuous marks status for all enrolled courses."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
@@ -532,9 +538,10 @@ def get_vtop_courses(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     """Registered courses with their attendance and marks attached."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("courses") or []
 
 
@@ -806,8 +813,9 @@ def get_vtop_timetable(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("timetable") or []
 
 
@@ -817,11 +825,12 @@ def get_vtop_faculty(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     """
     The student's faculty, projected from the registered-course table and university staff records.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_fac = store.get("faculty") or []
@@ -916,8 +925,9 @@ def get_vtop_spotlight(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("spotlight") or []
 
 
@@ -927,8 +937,9 @@ def get_vtop_proctor(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Optional[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("proctor")
 
 
@@ -938,8 +949,9 @@ def get_vtop_dean_hod(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("deanHod") or []
 
 
@@ -949,8 +961,9 @@ def get_vtop_assignments(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     return load_store(reg).get("assignments") or []
 
 
@@ -960,9 +973,10 @@ def get_semesters(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """The semester dropdown, and which one the stored data belongs to."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     return {
         "semesters": store.get("semesters") or [],
@@ -976,11 +990,12 @@ def get_sync_report(
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Per-module outcome of the last sync.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
     store = load_store(reg)
     return {
         "syncReport": store.get("syncReport"),

@@ -27,3 +27,5 @@ smoke_report*.json
 supabase/.temp/
 .vercel/
 scratch/
+.agents/
+

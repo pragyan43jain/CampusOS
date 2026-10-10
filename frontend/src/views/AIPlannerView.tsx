@@ -5,24 +5,32 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Coffee,
-  BookOpen,
   Calendar,
   CheckCircle2,
   Sparkles,
   Zap,
-  Flame,
   Award,
+  ChevronDown,
+  X,
+  Volume2,
+  VolumeX,
   Plus,
   Trash2,
   CheckSquare,
   Square,
-  Volume2,
-  VolumeX,
-  X,
 } from 'lucide-react';
 import { AIStudyTask, TimetableSlot, Course, Attendance, Exam } from '../types';
-import { MetricCard } from '../components/MetricCard';
+
+export interface PlannerTask {
+  id: string;
+  title: string;
+  headline?: string;
+  courseCode?: string;
+  estimatedMinutes?: number;
+  priority?: 'high' | 'medium' | 'low' | string;
+  completed?: boolean;
+  source?: string;
+}
 
 interface AIPlannerViewProps {
   tasks?: AIStudyTask[];
@@ -32,29 +40,8 @@ interface AIPlannerViewProps {
   exams?: Exam[];
 }
 
-type PomodoroMode = 'FOCUS' | 'SHORT_BREAK' | 'LONG_BREAK';
+type FocusPreset = 'POMODORO' | 'DEEP_WORK' | 'CAT2_REVISION' | 'CUSTOM';
 
-interface CustomStudyPlan {
-  id: string;
-  day: string;
-  timeSlot: string;
-  courseCode: string;
-  courseTitle: string;
-  topic: string;
-  completed: boolean;
-  durationMinutes?: number;
-}
-
-const DAY_NAMES: Record<string, string> = {
-  MON: 'Monday',
-  TUE: 'Tuesday',
-  WED: 'Wednesday',
-  THU: 'Thursday',
-  FRI: 'Friday',
-  SAT: 'Saturday',
-};
-
-// Play a pleasant synthesizer chime via Web Audio API
 const playChime = () => {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -67,12 +54,12 @@ const playChime = () => {
     const gain = ctx.createGain();
 
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(523.25, now); // C5
-    osc1.frequency.exponentialRampToValueAtTime(659.25, now + 0.3); // E5
+    osc1.frequency.setValueAtTime(523.25, now);
+    osc1.frequency.exponentialRampToValueAtTime(659.25, now + 0.3);
 
     osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(659.25, now + 0.15); // E5
-    osc2.frequency.exponentialRampToValueAtTime(783.99, now + 0.5); // G5
+    osc2.frequency.setValueAtTime(659.25, now + 0.15);
+    osc2.frequency.exponentialRampToValueAtTime(783.99, now + 0.5);
 
     gain.gain.setValueAtTime(0.3, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
@@ -86,7 +73,7 @@ const playChime = () => {
     osc1.stop(now + 0.9);
     osc2.stop(now + 0.9);
   } catch {
-    // Ignore audio context autoplay restrictions
+    // Ignore audio autoplay restrictions
   }
 };
 
@@ -94,104 +81,93 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
   tasks = [],
   timetable = [],
   courses = [],
-  attendance = [],
+  attendance: _attendance = [],
   exams = [],
 }) => {
-  const [activeTab, setActiveTab] = useState<'POMODORO' | 'FREE_SLOTS' | 'TASKS'>('POMODORO');
-
-  // --- Pomodoro State with Flexible Durations ---
-  const [focusMinutes, setFocusMinutes] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_focus_minutes');
-      return saved ? parseInt(saved, 10) : 25;
-    } catch {
-      return 25;
-    }
-  });
-
-  const [shortBreakMinutes, setShortBreakMinutes] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_short_break_minutes');
-      return saved ? parseInt(saved, 10) : 5;
-    } catch {
-      return 5;
-    }
-  });
-
-  const [longBreakMinutes, setLongBreakMinutes] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_long_break_minutes');
-      return saved ? parseInt(saved, 10) : 15;
-    } catch {
-      return 15;
-    }
-  });
-
-  const [mode, setMode] = useState<PomodoroMode>('FOCUS');
-  const [totalSeconds, setTotalSeconds] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_focus_minutes');
-      return (saved ? parseInt(saved, 10) : 25) * 60;
-    } catch {
-      return 25 * 60;
-    }
-  });
-  const [timeLeft, setTimeLeft] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_focus_minutes');
-      return (saved ? parseInt(saved, 10) : 25) * 60;
-    } catch {
-      return 25 * 60;
-    }
-  });
-
+  const [preset, setPreset] = useState<FocusPreset>('POMODORO');
+  const [totalSeconds, setTotalSeconds] = useState<number>(25 * 60);
+  const [timeLeft, setTimeLeft] = useState<number>(25 * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [focusTopic, setFocusTopic] = useState<string>(() => {
+  const [selectedCourseCode, setSelectedCourseCode] = useState<string>(
+    courses[0]?.code || 'BCSE302L'
+  );
+  const [sprintObjective, setSprintObjective] = useState<string>(
+    'Derive strict 2PL transaction schedules and verify conflict serializability.'
+  );
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [showAlertBanner, setShowAlertBanner] = useState<boolean>(true);
+
+  // User created / dynamic tasks list
+  const [customTasks, setCustomTasks] = useState<PlannerTask[]>(() => {
     try {
-      return localStorage.getItem('campusos_focus_topic') || '';
-    } catch {
-      return '';
-    }
+      const saved = localStorage.getItem('campusos_ai_study_tasks');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return tasks.length > 0
+      ? tasks.map((t) => ({
+          id: t.id,
+          title: t.headline,
+          headline: t.headline,
+          courseCode: t.courseCode,
+          estimatedMinutes: Math.round(t.estimatedHours * 60) || 30,
+          completed: false,
+          source: 'ai_suggested',
+        }))
+      : [
+          {
+            id: 't-1',
+            title: 'Review Raft Consensus Algorithm',
+            courseCode: 'BECE355L',
+            estimatedMinutes: 45,
+            priority: 'high',
+            completed: false,
+            source: 'ai_suggested',
+          },
+          {
+            id: 't-2',
+            title: 'Probability Distributions Problem Set 5',
+            courseCode: 'BMAT202L',
+            estimatedMinutes: 60,
+            priority: 'high',
+            completed: false,
+            source: 'exam_prep',
+          },
+          {
+            id: 't-3',
+            title: 'Packet Tracer Subnetting Lab Mock Test',
+            courseCode: 'BCSE308L',
+            estimatedMinutes: 30,
+            priority: 'medium',
+            completed: true,
+            source: 'lab_assignment',
+          },
+        ];
   });
 
-  const updateFocusTopic = (topic: string) => {
-    setFocusTopic(topic);
+  const [newTaskTitle, setNewTaskTitle] = useState<string>('');
+
+  useEffect(() => {
     try {
-      localStorage.setItem('campusos_focus_topic', topic);
-    } catch {
-      // ignore
-    }
+      localStorage.setItem('campusos_ai_study_tasks', JSON.stringify(customTasks));
+    } catch {}
+  }, [customTasks]);
+
+  // Handle preset selection
+  const handleSelectPreset = (p: FocusPreset) => {
+    setPreset(p);
+    setIsRunning(false);
+    let seconds = 25 * 60;
+    if (p === 'POMODORO') seconds = 25 * 60;
+    else if (p === 'DEEP_WORK') seconds = 50 * 60;
+    else if (p === 'CAT2_REVISION') seconds = 90 * 60;
+    else if (p === 'CUSTOM') seconds = 20 * 60;
+
+    setTotalSeconds(seconds);
+    setTimeLeft(seconds);
   };
 
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [completedSessions, setCompletedSessions] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_pomodoro_sessions');
-      return saved ? parseInt(saved, 10) : 0;
-    } catch {
-      return 0;
-    }
-  });
-  const [totalFocusMinutes, setTotalFocusMinutes] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_total_focus_minutes');
-      return saved ? parseInt(saved, 10) : 0;
-    } catch {
-      return 0;
-    }
-  });
-
+  // Timer interval
   const timerRef = useRef<any>(null);
-
-  // Set default selected course once courses load
-  useEffect(() => {
-    if (!selectedCourse && courses.length > 0) {
-      setSelectedCourse(courses[0].code || '');
-    }
-  }, [courses, selectedCourse]);
-
-  // Pomodoro countdown effect
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
@@ -200,1471 +176,632 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
             clearInterval(timerRef.current);
             setIsRunning(false);
             if (soundEnabled) playChime();
-
-            if (mode === 'FOCUS') {
-              setCompletedSessions((c) => {
-                const updated = c + 1;
-                try {
-                  localStorage.setItem('campusos_pomodoro_sessions', updated.toString());
-                } catch {
-                  // ignore
-                }
-                return updated;
-              });
-              setTotalFocusMinutes((m) => {
-                const updated = m + focusMinutes;
-                try {
-                  localStorage.setItem('campusos_total_focus_minutes', updated.toString());
-                } catch {
-                  // ignore
-                }
-                return updated;
-              });
-              setMode('SHORT_BREAK');
-              const breakSec = shortBreakMinutes * 60;
-              setTotalSeconds(breakSec);
-              return breakSec;
-            } else {
-              setMode('FOCUS');
-              const focusSec = focusMinutes * 60;
-              setTotalSeconds(focusSec);
-              return focusSec;
-            }
+            return 0;
           }
           return prev - 1;
         });
       }, 1000);
     } else {
-      clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
     }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRunning, soundEnabled]);
 
-    return () => clearInterval(timerRef.current);
-  }, [isRunning, mode, soundEnabled, focusMinutes, shortBreakMinutes]);
-
-  const setCustomFocusDuration = (mins: number) => {
-    const valid = Math.max(1, Math.min(300, mins));
-    setFocusMinutes(valid);
-    try {
-      localStorage.setItem('campusos_focus_minutes', valid.toString());
-    } catch {
-      // ignore
-    }
-    if (mode === 'FOCUS' && !isRunning) {
-      setTotalSeconds(valid * 60);
-      setTimeLeft(valid * 60);
-    }
-  };
-
-  const setCustomBreakDuration = (mins: number) => {
-    const valid = Math.max(1, Math.min(60, mins));
-    setShortBreakMinutes(valid);
-    try {
-      localStorage.setItem('campusos_short_break_minutes', valid.toString());
-    } catch {
-      // ignore
-    }
-    if (mode === 'SHORT_BREAK' && !isRunning) {
-      setTotalSeconds(valid * 60);
-      setTimeLeft(valid * 60);
-    }
-  };
-
-  const setCustomLongBreakDuration = (mins: number) => {
-    const valid = Math.max(1, Math.min(120, mins));
-    setLongBreakMinutes(valid);
-    try {
-      localStorage.setItem('campusos_long_break_minutes', valid.toString());
-    } catch {
-      // ignore
-    }
-    if (mode === 'LONG_BREAK' && !isRunning) {
-      setTotalSeconds(valid * 60);
-      setTimeLeft(valid * 60);
-    }
-  };
-
-  const adjustMinutes = (delta: number) => {
-    if (mode === 'FOCUS') {
-      const updated = Math.max(1, Math.min(300, focusMinutes + delta));
-      setCustomFocusDuration(updated);
-    } else if (mode === 'SHORT_BREAK') {
-      const updated = Math.max(1, Math.min(60, shortBreakMinutes + delta));
-      setCustomBreakDuration(updated);
-    } else {
-      const updated = Math.max(1, Math.min(120, longBreakMinutes + delta));
-      setCustomLongBreakDuration(updated);
-    }
-  };
-
-  const extendFiveMinutes = () => {
-    setTimeLeft((prev) => prev + 300);
-    setTotalSeconds((prev) => prev + 300);
-  };
-
-  const switchMode = (newMode: PomodoroMode) => {
-    setIsRunning(false);
-    setMode(newMode);
-    let sec = focusMinutes * 60;
-    if (newMode === 'SHORT_BREAK') sec = shortBreakMinutes * 60;
-    if (newMode === 'LONG_BREAK') sec = longBreakMinutes * 60;
-    setTotalSeconds(sec);
-    setTimeLeft(sec);
-  };
-
+  const toggleTimer = () => setIsRunning((prev) => !prev);
   const resetTimer = () => {
     setIsRunning(false);
-    let sec = focusMinutes * 60;
-    if (mode === 'SHORT_BREAK') sec = shortBreakMinutes * 60;
-    if (mode === 'LONG_BREAK') sec = longBreakMinutes * 60;
-    setTotalSeconds(sec);
-    setTimeLeft(sec);
+    setTimeLeft(totalSeconds);
   };
 
-  const startFocusSession = (courseCode: string, topic: string, durationMinutes?: number) => {
-    if (courseCode) setSelectedCourse(courseCode);
-    updateFocusTopic(topic || '');
-    const mins = durationMinutes && durationMinutes > 0 ? durationMinutes : focusMinutes;
-    setCustomFocusDuration(mins);
-    setMode('FOCUS');
-    setTotalSeconds(mins * 60);
-    setTimeLeft(mins * 60);
-    setIsRunning(true);
-    setActiveTab('POMODORO');
-  };
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
+  // Format mm:ss
+  const formatTime = (secs: number): string => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = useMemo(() => {
-    if (totalSeconds <= 0) return 0;
-    return Math.min(100, Math.max(0, ((totalSeconds - timeLeft) / totalSeconds) * 100));
-  }, [timeLeft, totalSeconds]);
+  // Circular progress ring calculation
+  const radius = 102;
+  const circumference = 2 * Math.PI * radius; // ~640.88
+  const progressRatio = totalSeconds > 0 ? (totalSeconds - timeLeft) / totalSeconds : 0;
+  const strokeDashoffset = circumference - progressRatio * circumference;
 
-  // --- Free-Slot Detection Algorithm ---
-  const [selectedDay, setSelectedDay] = useState<string>('MON');
-  const [customPlans, setCustomPlans] = useState<CustomStudyPlan[]>(() => {
-    try {
-      const saved = localStorage.getItem('campusos_custom_study_plans');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Next official slot from timetable
+  const nextSlot = useMemo(() => {
+    if (timetable.length > 0) return timetable[0];
+    return null;
+  }, [timetable]);
 
-  const savePlans = (plans: CustomStudyPlan[]) => {
-    setCustomPlans(plans);
-    try {
-      localStorage.setItem('campusos_custom_study_plans', JSON.stringify(plans));
-    } catch {
-      // ignore
-    }
-  };
-
-  const timeToMinutes = (timeStr: string): number => {
-    if (!timeStr) return 0;
-    const parts = timeStr.trim().split(':');
-    const h = parseInt(parts[0], 10) || 0;
-    const m = parseInt(parts[1], 10) || 0;
-    return h * 60 + m;
-  };
-
-  const minutesToTime12 = (min: number): string => {
-    const h24 = Math.floor(min / 60);
-    const m = min % 60;
-    const period = h24 >= 12 ? 'PM' : 'AM';
-    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
-  };
-
-  const dailyFreeSlots = useMemo(() => {
-    const daySlots = timetable.filter(
-      (s) => (s.day || '').toUpperCase() === selectedDay.toUpperCase()
+  // Toggle custom task status
+  const toggleTask = (taskId: string) => {
+    setCustomTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
     );
-
-    if (daySlots.length === 0) {
-      return [
-        {
-          start: '09:00 AM',
-          end: '05:00 PM',
-          durationMinutes: 480,
-          label: 'Entire Day Free for Self-Study & Revision',
-        },
-      ];
-    }
-
-    const sorted = [...daySlots].sort(
-      (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
-    );
-
-    const freeWindows: { start: string; end: string; durationMinutes: number; label: string }[] = [];
-    const dayStart = 510; // 08:30 AM
-    const dayEnd = 1080;  // 06:00 PM
-    let current = dayStart;
-
-    sorted.forEach((cls) => {
-      const clsStart = timeToMinutes(cls.startTime);
-      const clsEnd = timeToMinutes(cls.endTime);
-
-      if (clsStart > current && clsStart - current >= 45) {
-        freeWindows.push({
-          start: minutesToTime12(current),
-          end: minutesToTime12(clsStart),
-          durationMinutes: clsStart - current,
-          label: `${Math.round((clsStart - current) / 60 * 10) / 10}h Free Study Window`,
-        });
-      }
-      current = Math.max(current, clsEnd);
-    });
-
-    if (dayEnd > current && dayEnd - current >= 45) {
-      freeWindows.push({
-        start: minutesToTime12(current),
-        end: minutesToTime12(dayEnd),
-        durationMinutes: dayEnd - current,
-        label: `${Math.round((dayEnd - current) / 60 * 10) / 10}h Evening Focus Window`,
-      });
-    }
-
-    return freeWindows;
-  }, [timetable, selectedDay]);
-
-  // Free slots inline scheduler state
-  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
-  const [slotTopic, setSlotTopic] = useState<string>('');
-  const [slotCourse, setSlotCourse] = useState<string>('');
-  const [slotDuration, setSlotDuration] = useState<number>(25);
-
-  // Quick any-time study session state
-  const [anyTimeTopic, setAnyTimeTopic] = useState<string>('');
-  const [anyTimeCourse, setAnyTimeCourse] = useState<string>('');
-  const [anyTimeDuration, setAnyTimeDuration] = useState<number>(25);
-
-  // Revision blocks form state
-  const [newPlanCourse, setNewPlanCourse] = useState<string>('');
-  const [newPlanTopic, setNewPlanTopic] = useState<string>('');
-  const [newPlanTime, setNewPlanTime] = useState<string>('');
-  const [newPlanDuration, setNewPlanDuration] = useState<number>(25);
-
-  // Auto-initialize course dropdowns once courses load
-  useEffect(() => {
-    if (courses.length > 0) {
-      if (!newPlanCourse) setNewPlanCourse(courses[0].code || 'GENERAL');
-      if (!slotCourse) setSlotCourse(courses[0].code || 'GENERAL');
-      if (!anyTimeCourse) setAnyTimeCourse(courses[0].code || 'GENERAL');
-    }
-  }, [courses, newPlanCourse, slotCourse, anyTimeCourse]);
-
-  const handleToggleSlotScheduler = (idx: number, slot: { start: string; end: string; durationMinutes: number }) => {
-    if (activeSlotIdx === idx) {
-      setActiveSlotIdx(null);
-    } else {
-      setActiveSlotIdx(idx);
-      setSlotTopic('');
-      setSlotCourse(newPlanCourse || courses[0]?.code || 'GENERAL');
-      setSlotDuration(slot.durationMinutes > 0 && slot.durationMinutes <= 90 ? slot.durationMinutes : 30);
-    }
   };
 
-  const handleSaveSlotPlan = (slot: { start: string; end: string; durationMinutes: number }, startNow: boolean = false) => {
-    if (!slotTopic.trim()) return;
-    const courseCode = slotCourse || (courses[0]?.code || 'GENERAL');
-    const courseObj = courses.find((c) => c.code === courseCode);
-    const duration = slotDuration > 0 ? slotDuration : (slot.durationMinutes || 25);
-
-    const newPlan: CustomStudyPlan = {
-      id: `plan-${Date.now()}`,
-      day: selectedDay,
-      timeSlot: `${slot.start} – ${slot.end}`,
-      courseCode: courseCode,
-      courseTitle: courseObj?.title || 'Targeted Revision',
-      topic: slotTopic.trim(),
-      completed: false,
-      durationMinutes: duration,
-    };
-
-    savePlans([...customPlans, newPlan]);
-
-    if (startNow) {
-      startFocusSession(courseCode, slotTopic.trim(), duration);
-    }
-
-    setActiveSlotIdx(null);
-    setSlotTopic('');
+  const deleteTask = (taskId: string) => {
+    setCustomTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
-  const handleStartAnyTimeStudy = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const courseCode = anyTimeCourse || (courses[0]?.code || 'GENERAL');
-    const topic = anyTimeTopic.trim() || 'General Study Session';
-    const duration = anyTimeDuration > 0 ? anyTimeDuration : 25;
-
-    const courseObj = courses.find((c) => c.code === courseCode);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const newPlan: CustomStudyPlan = {
-      id: `plan-${Date.now()}`,
-      day: selectedDay,
-      timeSlot: `${nowStr} (${duration}m Focus)`,
-      courseCode: courseCode,
-      courseTitle: courseObj?.title || 'Targeted Revision',
-      topic: topic,
-      completed: false,
-      durationMinutes: duration,
-    };
-
-    savePlans([...customPlans, newPlan]);
-    startFocusSession(courseCode, topic, duration);
-    setAnyTimeTopic('');
-  };
-
-  const addCustomStudyPlan = (e: React.FormEvent, startNow: boolean = false) => {
+  const addTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPlanTopic.trim()) return;
-
-    const courseCode = newPlanCourse || (courses[0]?.code || 'GENERAL');
-    const courseObj = courses.find((c) => c.code === courseCode);
-    const duration = newPlanDuration > 0 ? newPlanDuration : 25;
-
-    const newPlan: CustomStudyPlan = {
-      id: `plan-${Date.now()}`,
-      day: selectedDay,
-      timeSlot: newPlanTime.trim() || 'Free Period',
-      courseCode: courseCode,
-      courseTitle: courseObj?.title || 'Targeted Revision',
-      topic: newPlanTopic.trim(),
+    if (!newTaskTitle.trim()) return;
+    const newTask: PlannerTask = {
+      id: `task-${Date.now()}`,
+      title: newTaskTitle.trim(),
+      headline: newTaskTitle.trim(),
+      courseCode: selectedCourseCode,
+      estimatedMinutes: 30,
+      priority: 'medium',
       completed: false,
-      durationMinutes: duration,
+      source: 'manual',
     };
-
-    savePlans([...customPlans, newPlan]);
-
-    if (startNow) {
-      startFocusSession(courseCode, newPlanTopic.trim(), duration);
-    }
-
-    setNewPlanTopic('');
-    setNewPlanTime('');
-  };
-
-  const togglePlanDone = (id: string) => {
-    savePlans(
-      customPlans.map((p) => (p.id === id ? { ...p, completed: !p.completed } : p))
-    );
-  };
-
-  const deletePlan = (id: string) => {
-    savePlans(customPlans.filter((p) => p.id !== id));
-  };
-
-  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
-  const toggleTaskDone = (id: string) => {
-    setCompletedTaskIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setCustomTasks((prev) => [newTask, ...prev]);
+    setNewTaskTitle('');
   };
 
   return (
-    <div className="page-container">
-      {/* 1. Header Banner */}
-      <div className="hero-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div className="hero-eyebrow">
-              <Sparkles size={14} />
-              <span>ACADEMIC FOCUS &amp; PRODUCTIVITY ENGINE</span>
-              <span>•</span>
-              <span style={{ color: 'var(--accent-cyan)' }}>TIMETABLE INTEGRATED</span>
+    <div className="flex flex-col w-full gap-6">
+      {/* =========================================================================
+          1. OPERATIONAL SYNCHRONIZATION & LIVE TIMETABLE GAP HEADER
+          ========================================================================= */}
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 p-5 rounded-xl bg-surface-container-lowest shadow-sm border border-outline-variant/30">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-10 h-10 rounded bg-primary-container text-on-primary-container flex items-center justify-center shrink-0 shadow-sm">
+            <BrainCircuit size={22} />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-headline-sm text-base md:text-lg font-semibold text-on-surface">
+                Academic Focus Engine
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-[11px] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                Engine Active
+              </span>
             </div>
-            <h2 className="hero-heading">AI Study Planner &amp; Focus Hub</h2>
-            <p className="hero-desc">
-              Harness your detected timetable free slots, plan daily revision blocks, and power through targeted study sprints with the built-in Study workstation.
-            </p>
+            <span className="font-label-md text-xs text-outline truncate">
+              Synced with VTOP Timetable Slot Set 1 • Real-time Academic Buffer Monitor
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3.5 self-start xl:self-auto shrink-0 flex-wrap">
+          <div className="flex items-center gap-3 px-3.5 py-2 rounded bg-surface-container-low text-on-surface border border-outline-variant/20">
+            <div className="flex flex-col text-right">
+              <span className="font-label-sm text-[10px] text-outline uppercase tracking-wider font-semibold">
+                Next Academic Slot
+              </span>
+              <span className="font-tabular-data text-xs font-semibold text-primary">
+                {nextSlot
+                  ? `${nextSlot.startTime || '02:00 PM'} • ${nextSlot.courseCode} ${nextSlot.courseTitle}`
+                  : '02:00 PM • CSE3002 Internet of Things'}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-on-surface-variant">
+              <Clock size={16} />
+            </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              className={`btn btn-sm ${activeTab === 'POMODORO' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('POMODORO')}
-            >
-              <Zap size={14} />
-              <span>Study Station</span>
-            </button>
-            <button
-              className={`btn btn-sm ${activeTab === 'FREE_SLOTS' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('FREE_SLOTS')}
-            >
-              <Calendar size={14} />
-              <span>Free-Slot Scheduler</span>
-            </button>
-            <button
-              className={`btn btn-sm ${activeTab === 'TASKS' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('TASKS')}
-            >
-              <CheckCircle2 size={14} />
-              <span>Exam Targets ({tasks.length})</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-2 rounded bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors"
+            title={soundEnabled ? 'Mute Chime' : 'Enable Chime'}
+          >
+            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+          </button>
         </div>
       </div>
 
-      {/* 2. Metrics Row */}
-      <div className="metrics-stat-grid metrics-stat-grid-4">
-        <MetricCard
-          label="Today's Study Sessions"
-          value={completedSessions}
-          subtext={`${totalFocusMinutes} mins deep study logged`}
-          icon={<Flame size={18} />}
-          variant="crimson"
-        />
-        <MetricCard
-          label="Free Study Slots"
-          value={dailyFreeSlots.length}
-          subtext={`Detected on ${DAY_NAMES[selectedDay] || selectedDay}`}
-          icon={<Calendar size={18} />}
-          variant="cyan"
-        />
-        <MetricCard
-          label="Enrolled Courses"
-          value={courses.length || attendance.length}
-          subtext="Available for study allocation"
-          icon={<BookOpen size={18} />}
-          variant="purple"
-        />
-        <MetricCard
-          label="Upcoming Exams"
-          value={exams.length}
-          subtext="CAT / FAT preparation goals"
-          icon={<Award size={18} />}
-          variant="emerald"
-        />
-      </div>
-
-      {/* TAB 1: POMODORO FOCUS STATION */}
-      {activeTab === 'POMODORO' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 24px' }}>
-            {/* Mode Selectors */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button
-                className={`btn btn-sm ${mode === 'FOCUS' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => switchMode('FOCUS')}
-                style={{ borderRadius: '20px', padding: '6px 14px' }}
-              >
-                <Flame size={14} />
-                <span>Focus ({focusMinutes}m)</span>
-              </button>
-              <button
-                className={`btn btn-sm ${mode === 'SHORT_BREAK' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => switchMode('SHORT_BREAK')}
-                style={{ borderRadius: '20px', padding: '6px 14px' }}
-              >
-                <Coffee size={14} />
-                <span>Short Break ({shortBreakMinutes}m)</span>
-              </button>
-              <button
-                className={`btn btn-sm ${mode === 'LONG_BREAK' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => switchMode('LONG_BREAK')}
-                style={{ borderRadius: '20px', padding: '6px 14px' }}
-              >
-                <Award size={14} />
-                <span>Long Break ({longBreakMinutes}m)</span>
-              </button>
-            </div>
-
-            {/* Flexible Duration Presets & Stepper */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '16px', width: '100%', maxWidth: '380px' }}>
-              {/* Quick Presets */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                {mode === 'FOCUS' ? (
-                  [15, 25, 30, 45, 60, 90].map((mins) => (
-                    <button
-                      key={mins}
-                      onClick={() => setCustomFocusDuration(mins)}
-                      className={`btn btn-sm ${focusMinutes === mins ? 'btn-secondary' : 'btn-ghost'}`}
-                      style={{
-                        fontSize: '0.74rem',
-                        padding: '3px 10px',
-                        borderRadius: '16px',
-                        border: focusMinutes === mins ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                        color: focusMinutes === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                        fontWeight: focusMinutes === mins ? 700 : 500,
-                      }}
-                    >
-                      {mins}m
-                    </button>
-                  ))
-                ) : mode === 'SHORT_BREAK' ? (
-                  [3, 5, 10, 15].map((mins) => (
-                    <button
-                      key={mins}
-                      onClick={() => setCustomBreakDuration(mins)}
-                      className={`btn btn-sm ${shortBreakMinutes === mins ? 'btn-secondary' : 'btn-ghost'}`}
-                      style={{
-                        fontSize: '0.74rem',
-                        padding: '3px 10px',
-                        borderRadius: '16px',
-                        border: shortBreakMinutes === mins ? '1px solid var(--success-emerald)' : '1px solid var(--border-subtle)',
-                        color: shortBreakMinutes === mins ? 'var(--success-emerald)' : 'var(--text-secondary)',
-                        fontWeight: shortBreakMinutes === mins ? 700 : 500,
-                      }}
-                    >
-                      {mins}m
-                    </button>
-                  ))
-                ) : (
-                  [10, 15, 20, 30].map((mins) => (
-                    <button
-                      key={mins}
-                      onClick={() => setCustomLongBreakDuration(mins)}
-                      className={`btn btn-sm ${longBreakMinutes === mins ? 'btn-secondary' : 'btn-ghost'}`}
-                      style={{
-                        fontSize: '0.74rem',
-                        padding: '3px 10px',
-                        borderRadius: '16px',
-                        border: longBreakMinutes === mins ? '1px solid var(--success-emerald)' : '1px solid var(--border-subtle)',
-                        color: longBreakMinutes === mins ? 'var(--success-emerald)' : 'var(--text-secondary)',
-                        fontWeight: longBreakMinutes === mins ? 700 : 500,
-                      }}
-                    >
-                      {mins}m
-                    </button>
-                  ))
-                )}
+      {/* =========================================================================
+          2. DETECTED TIMETABLE FREE WINDOWS ALERT BANNER
+          ========================================================================= */}
+      {showAlertBanner && (
+        <div className="relative overflow-hidden rounded-xl bg-secondary-container text-on-secondary-container p-4 md:p-5 shadow-sm border border-secondary-fixed/50">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div className="flex items-start md:items-center gap-3.5">
+              <div className="p-2 rounded bg-surface-container-lowest/80 text-secondary shrink-0 shadow-sm mt-0.5 md:mt-0">
+                <Zap size={20} />
               </div>
-
-              {/* Custom Minutes Input & Steppers */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Set Minutes:</span>
-                <button
-                  type="button"
-                  onClick={() => adjustMinutes(-5)}
-                  disabled={isRunning}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '2px 8px', height: '26px', fontSize: '0.74rem' }}
-                  title="Subtract 5 mins"
-                >
-                  -5m
-                </button>
-                <button
-                  type="button"
-                  onClick={() => adjustMinutes(-1)}
-                  disabled={isRunning}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '2px 6px', height: '26px', fontSize: '0.74rem' }}
-                  title="Subtract 1 min"
-                >
-                  -1m
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: '6px', padding: '2px 6px' }}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="300"
-                    value={mode === 'FOCUS' ? focusMinutes : mode === 'SHORT_BREAK' ? shortBreakMinutes : longBreakMinutes}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      if (!isNaN(val) && val > 0) {
-                        if (mode === 'FOCUS') setCustomFocusDuration(val);
-                        else if (mode === 'SHORT_BREAK') setCustomBreakDuration(val);
-                        else setCustomLongBreakDuration(val);
-                      }
-                    }}
-                    disabled={isRunning}
-                    style={{
-                      width: '44px',
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text-primary)',
-                      textAlign: 'center',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      fontSize: '0.86rem',
-                      outline: 'none',
-                    }}
-                  />
-                  <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>min</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => adjustMinutes(1)}
-                  disabled={isRunning}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '2px 6px', height: '26px', fontSize: '0.74rem' }}
-                  title="Add 1 min"
-                >
-                  +1m
-                </button>
-                <button
-                  type="button"
-                  onClick={() => adjustMinutes(5)}
-                  disabled={isRunning}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '2px 8px', height: '26px', fontSize: '0.74rem' }}
-                  title="Add 5 mins"
-                >
-                  +5m
-                </button>
-
-                {isRunning && (
-                  <button
-                    type="button"
-                    onClick={extendFiveMinutes}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '2px 8px', height: '26px', fontSize: '0.72rem', gap: '3px', color: 'var(--accent-cyan)' }}
-                    title="Add 5 minutes to current session"
-                  >
-                    <Plus size={12} />
-                    <span>+5m more</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Huge Digital Clock Display */}
-            <div
-              style={{
-                fontSize: 'clamp(3.8rem, 10vw, 5.2rem)',
-                fontWeight: 800,
-                fontFamily: 'var(--font-mono)',
-                color: mode === 'FOCUS' ? 'var(--accent-cyan)' : 'var(--success-emerald)',
-                letterSpacing: '2px',
-                lineHeight: 1,
-                margin: '8px 0 12px 0',
-                textShadow: mode === 'FOCUS' ? '0 0 24px rgba(6, 182, 212, 0.25)' : '0 0 24px rgba(16, 185, 129, 0.25)',
-              }}
-            >
-              {formatTime(timeLeft)}
-            </div>
-
-            {/* Focus Topic Indicator / Input */}
-            <div style={{ margin: '4px 0 10px 0', width: '100%', maxWidth: '340px' }}>
-              {focusTopic ? (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '6px 14px',
-                    background: 'rgba(6, 182, 212, 0.12)',
-                    border: '1px solid rgba(6, 182, 212, 0.3)',
-                    borderRadius: '20px',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <Sparkles size={13} color="var(--accent-cyan)" style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    Topic: {focusTopic}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => updateFocusTopic('')}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
-                    title="Clear topic"
-                    aria-label="Clear topic"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              ) : (
-                <input
-                  type="text"
-                  value={focusTopic}
-                  onChange={(e) => updateFocusTopic(e.target.value)}
-                  placeholder="Set focus topic / goal (optional)..."
-                  className="input-field"
-                  style={{ fontSize: '0.78rem', padding: '6px 12px', textAlign: 'center', width: '100%' }}
-                />
-              )}
-            </div>
-
-            <div style={{ margin: '8px 0 24px 0', width: '100%', maxWidth: '320px' }}>
-              <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                CURRENT FOCUS SUBJECT
-              </label>
-              <select
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-                className="input-field"
-                style={{ fontSize: '0.82rem', padding: '8px 12px', width: '100%' }}
-              >
-                {courses.length > 0 ? (
-                  courses.map((c) => {
-                    const code = c.code || 'COURSE';
-                    const title = c.title || code;
-                    return (
-                      <option key={code} value={code}>
-                        {code} — {title}
-                      </option>
-                    );
-                  })
-                ) : (
-                  <option value="GENERAL">General Self-Study &amp; Assignments</option>
-                )}
-              </select>
-            </div>
-
-            <div style={{ width: '100%', maxWidth: '340px', height: '6px', background: 'var(--surface-sunken)', borderRadius: '3px', overflow: 'hidden', marginBottom: '28px' }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: `${progressPercent}%`,
-                  background: mode === 'FOCUS' ? 'linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))' : 'var(--success-emerald)',
-                  transition: 'width 0.4s ease',
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'center' }}>
-              <button
-                onClick={() => setIsRunning(!isRunning)}
-                className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'}`}
-                style={{ height: '48px', padding: '0 28px', fontSize: '0.92rem', gap: '8px' }}
-              >
-                {isRunning ? <Pause size={18} /> : <Play size={18} />}
-                <span>{isRunning ? 'Pause Session' : 'Start Focus'}</span>
-              </button>
-
-              <button
-                onClick={resetTimer}
-                className="btn btn-ghost"
-                style={{ height: '48px', width: '48px', padding: 0 }}
-                title="Reset timer"
-                aria-label="Reset Timer"
-              >
-                <RotateCcw size={18} />
-              </button>
-
-              <button
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className="btn btn-ghost"
-                style={{ height: '48px', width: '48px', padding: 0 }}
-                title={soundEnabled ? 'Chime sound enabled' : 'Chime sound muted'}
-                aria-label="Toggle sound"
-              >
-                {soundEnabled ? <Volume2 size={18} color="var(--accent-cyan)" /> : <VolumeX size={18} color="var(--text-muted)" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="card-header-bar">
               <div>
-                <h3 className="card-title">
-                  <Flame size={19} color="var(--accent-crimson)" />
-                  <span>Deep Study Guidelines</span>
-                </h3>
-                <p className="card-description">Science-backed focus intervals designed to eliminate exam cramming.</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-label-md text-xs font-semibold text-on-secondary-fixed uppercase tracking-wider">
+                    Optimal Focus Opportunity Detected
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-surface-container-lowest/90 text-on-surface font-label-sm text-[11px] font-semibold">
+                    No Attendance Conflict
+                  </span>
+                </div>
+                <p className="font-body-md text-xs md:text-sm text-on-secondary-container mt-1 leading-relaxed">
+                  <strong className="font-semibold text-on-secondary-fixed">
+                    Monday 11:30 AM – 1:15 PM
+                  </strong>{' '}
+                  • Optimal{' '}
+                  <span className="font-semibold text-primary">
+                    1h 45m Deep Study Window
+                  </span>{' '}
+                  verified between Cloud Computing (SJB 402) and Networks Lab (SJB 211).
+                </p>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
-                <span style={{ fontSize: '1.2rem' }}>🎯</span>
-                <div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>1 Goal Per Study Session</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Pick one concrete module topic (e.g. solve 3 Dynamic Programming problems or read Module 2 lecture notes).
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
-                <span style={{ fontSize: '1.2rem' }}>📵</span>
-                <div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>Zero Screen Distraction</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Put your phone on Do Not Disturb. If a random thought pops up, write it down and return to it during the 5-minute break.
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ padding: '14px 16px', borderRadius: '8px', background: 'var(--surface-input)', border: '1px solid var(--border-subtle)', display: 'flex', gap: '12px' }}>
-                <span style={{ fontSize: '1.2rem' }}>☕</span>
-                <div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>Mandatory Physical Break</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    When the chime sounds, stand up, drink water, stretch, or look out the window. Give your eyes rest from screens.
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 'auto', padding: '12px 14px', borderRadius: '8px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Today's Total Focus Time:</span>
-              <span style={{ fontSize: '0.90rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
-                {totalFocusMinutes} mins ({completedSessions} sessions)
-              </span>
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+              <button
+                type="button"
+                onClick={() => handleSelectPreset('DEEP_WORK')}
+                className="px-3.5 py-1.5 rounded bg-surface-container-lowest text-on-secondary-fixed font-label-md text-xs font-semibold shadow-sm hover:bg-surface-container transition-colors"
+              >
+                Auto-Schedule Sprint
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAlertBanner(false)}
+                className="p-1.5 rounded hover:bg-surface-container-lowest/40 text-on-secondary-container transition-colors"
+                title="Dismiss suggestion"
+              >
+                <X size={16} />
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: FREE-SLOT WEEKLY STUDY SCHEDULER */}
-      {activeTab === 'FREE_SLOTS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Day of Week Selector */}
-          <div className="card" style={{ padding: '12px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                <Calendar size={16} color="var(--accent-cyan)" />
-                <span>Select Day of Week:</span>
-              </div>
-
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setSelectedDay(d)}
-                    className={`btn btn-sm ${selectedDay === d ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ padding: '6px 14px', fontSize: '0.78rem' }}
-                  >
-                    {DAY_NAMES[d]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Study Session Hub: Set Topic & Timer At Any Time */}
-          <div
-            className="card"
-            style={{
-              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08))',
-              border: '1px solid rgba(6, 182, 212, 0.25)',
-              padding: '16px 20px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Zap size={18} color="var(--accent-cyan)" />
-                <span style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text-primary)' }}>
-                  Study Right Now — Set Topic &amp; Timer
+      {/* =========================================================================
+          3. MAIN WORKSTATION LAYOUT GRID (5 COLS TIMER + 7 COLS SCHEDULE/TASKS)
+          ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: FOCUS TIMER & SESSION SETUP (5 COLS) */}
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          <div className="rounded-xl bg-surface-container-lowest p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-5">
+            {/* Mode Architecture Selector Pills */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                  Mode Architecture
+                </span>
+                <span className="font-label-sm text-xs text-secondary font-tabular-data font-semibold">
+                  {preset}
                 </span>
               </div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                Ready to study? Choose any duration and launch your focus session instantly.
-              </span>
-            </div>
-
-            <form onSubmit={handleStartAnyTimeStudy} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>SUBJECT / COURSE</label>
-                  <select
-                    value={anyTimeCourse}
-                    onChange={(e) => setAnyTimeCourse(e.target.value)}
-                    className="input-field"
-                    style={{ fontSize: '0.80rem', padding: '8px 10px', width: '100%' }}
-                  >
-                    {courses.length > 0 ? (
-                      courses.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.code} — {c.title}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="GENERAL">General Self-Study</option>
-                    )}
-                  </select>
-                </div>
-
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>WHAT TOPIC ARE YOU STUDYING?</label>
-                  <input
-                    type="text"
-                    value={anyTimeTopic}
-                    onChange={(e) => setAnyTimeTopic(e.target.value)}
-                    placeholder="e.g. Practice Chapter 3 problems, Unit 2 Quiz revision..."
-                    className="input-field"
-                    style={{ fontSize: '0.82rem', padding: '8px 12px', width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              {/* Flexible Timer Presets & Stepper */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>SET TIMER:</span>
-                  {[15, 25, 30, 45, 60, 90].map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => setAnyTimeDuration(mins)}
-                      className={`btn btn-sm ${anyTimeDuration === mins ? 'btn-secondary' : 'btn-ghost'}`}
-                      style={{
-                        fontSize: '0.72rem',
-                        padding: '2px 8px',
-                        height: '24px',
-                        borderRadius: '12px',
-                        border: anyTimeDuration === mins ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                        color: anyTimeDuration === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                        fontWeight: anyTimeDuration === mins ? 700 : 500,
-                      }}
-                    >
-                      {mins}m
-                    </button>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => setAnyTimeDuration((prev) => Math.max(1, prev - 5))}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
-                    title="Subtract 5m"
-                  >
-                    -5m
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: '6px', padding: '2px 6px' }}>
-                    <input
-                      type="number"
-                      min="1"
-                      max="300"
-                      value={anyTimeDuration}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!isNaN(v) && v > 0) setAnyTimeDuration(v);
-                      }}
-                      style={{ width: '38px', background: 'transparent', border: 'none', color: 'var(--text-primary)', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.78rem', outline: 'none' }}
-                    />
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>min</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAnyTimeDuration((prev) => Math.min(300, prev + 5))}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
-                    title="Add 5m"
-                  >
-                    +5m
-                  </button>
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('POMODORO')}
+                  className={`p-2.5 rounded text-left transition-all flex flex-col border ${
+                    preset === 'POMODORO'
+                      ? 'bg-primary text-on-primary border-primary font-semibold shadow-sm'
+                      : 'bg-surface-container text-on-surface border-transparent hover:bg-surface-variant'
+                  }`}
+                >
+                  <span className="font-label-md text-xs leading-tight">Pomodoro Focus</span>
+                  <span className={`font-label-sm text-[10px] mt-0.5 ${preset === 'POMODORO' ? 'opacity-80' : 'text-outline'}`}>
+                    25 min block
+                  </span>
+                </button>
 
                 <button
-                  type="submit"
-                  className="btn btn-primary btn-sm"
-                  style={{ padding: '0 18px', height: '34px', fontSize: '0.82rem', gap: '6px' }}
+                  type="button"
+                  onClick={() => handleSelectPreset('DEEP_WORK')}
+                  className={`p-2.5 rounded text-left transition-all flex flex-col border ${
+                    preset === 'DEEP_WORK'
+                      ? 'bg-primary text-on-primary border-primary font-semibold shadow-sm'
+                      : 'bg-surface-container text-on-surface border-transparent hover:bg-surface-variant'
+                  }`}
                 >
-                  <Play size={14} fill="currentColor" />
-                  <span>Start Study Timer ({anyTimeDuration}m)</span>
+                  <span className="font-label-md text-xs leading-tight">Deep Work Block</span>
+                  <span className={`font-label-sm text-[10px] mt-0.5 ${preset === 'DEEP_WORK' ? 'opacity-80' : 'text-outline'}`}>
+                    50 min block
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('CAT2_REVISION')}
+                  className={`p-2.5 rounded text-left transition-all flex flex-col border ${
+                    preset === 'CAT2_REVISION'
+                      ? 'bg-primary text-on-primary border-primary font-semibold shadow-sm'
+                      : 'bg-surface-container text-on-surface border-transparent hover:bg-surface-variant'
+                  }`}
+                >
+                  <span className="font-label-md text-xs leading-tight">CAT-2 Revision</span>
+                  <span className={`font-label-sm text-[10px] mt-0.5 ${preset === 'CAT2_REVISION' ? 'opacity-80' : 'text-outline'}`}>
+                    90 min sprint
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('CUSTOM')}
+                  className={`p-2.5 rounded text-left transition-all flex flex-col border ${
+                    preset === 'CUSTOM'
+                      ? 'bg-primary text-on-primary border-primary font-semibold shadow-sm'
+                      : 'bg-surface-container text-on-surface border-transparent hover:bg-surface-variant'
+                  }`}
+                >
+                  <span className="font-label-md text-xs leading-tight">Custom Sprint</span>
+                  <span className={`font-label-sm text-[10px] mt-0.5 ${preset === 'CUSTOM' ? 'opacity-80' : 'text-outline'}`}>
+                    Adjustable
+                  </span>
                 </button>
               </div>
-            </form>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-            {/* Free Timetable Slots Column */}
-            <div className="card">
-              <div className="card-header-bar">
-                <div>
-                  <h3 className="card-title">
-                    <Clock size={19} color="var(--accent-cyan)" />
-                    <span>Free Timetable Slots ({DAY_NAMES[selectedDay]})</span>
-                  </h3>
-                  <p className="card-description">
-                    Gaps identified between your scheduled lecture and lab periods.
-                  </p>
-                </div>
-              </div>
-
-              {dailyFreeSlots.length === 0 ? (
-                <div className="empty-state-card">
-                  <CheckCircle2 size={24} color="var(--success-emerald)" />
-                  <div className="empty-state-title">No Free Gaps Detected</div>
-                  <p className="empty-state-desc">Full class schedule on this day.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {dailyFreeSlots.map((slot, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        padding: '16px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--surface-input)',
-                        border: activeSlotIdx === idx ? '1px solid var(--accent-cyan)' : '1px solid var(--border-card)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        transition: 'border-color 0.2s ease',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                        <div>
-                          <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
-                            {slot.start} – {slot.end}
-                          </div>
-                          <div style={{ fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {slot.label} ({slot.durationMinutes} minutes free)
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSlotScheduler(idx, slot)}
-                            className={`btn btn-sm ${activeSlotIdx === idx ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{ fontSize: '0.74rem', gap: '5px' }}
-                          >
-                            <Plus size={13} />
-                            <span>{activeSlotIdx === idx ? 'Close Scheduler' : 'Schedule Topic'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => startFocusSession(courses[0]?.code || 'GENERAL', `${slot.label} Focus`, slot.durationMinutes <= 90 ? slot.durationMinutes : 45)}
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.74rem', gap: '5px', color: 'var(--accent-cyan)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
-                            title={`Start focus timer for this slot`}
-                          >
-                            <Play size={12} fill="currentColor" />
-                            <span>Start Timer ({slot.durationMinutes <= 90 ? slot.durationMinutes : 45}m)</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Interactive Inline Scheduler Panel */}
-                      {activeSlotIdx === idx && (
-                        <div
-                          style={{
-                            padding: '14px 16px',
-                            borderRadius: '8px',
-                            background: 'var(--surface-sunken)',
-                            border: '1px solid rgba(6, 182, 212, 0.25)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '12px',
-                            marginTop: '4px',
-                          }}
-                        >
-                          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Clock size={13} color="var(--accent-cyan)" />
-                            <span>Schedule Study Topic for {slot.start} – {slot.end}</span>
-                          </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
-                            <div>
-                              <label style={{ fontSize: '0.70rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>SUBJECT / COURSE</label>
-                              <select
-                                value={slotCourse}
-                                onChange={(e) => setSlotCourse(e.target.value)}
-                                className="input-field"
-                                style={{ fontSize: '0.78rem', padding: '6px 10px', width: '100%' }}
-                              >
-                                {courses.length > 0 ? (
-                                  courses.map((c) => (
-                                    <option key={c.code} value={c.code}>
-                                      {c.code} — {c.title}
-                                    </option>
-                                  ))
-                                ) : (
-                                  <option value="GENERAL">General Self-Study</option>
-                                )}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label style={{ fontSize: '0.70rem', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>TOPIC / REVISION GOAL</label>
-                              <input
-                                type="text"
-                                value={slotTopic}
-                                onChange={(e) => setSlotTopic(e.target.value)}
-                                placeholder="e.g. Practice Chapter 3 problems, review CAT notes"
-                                className="input-field"
-                                autoFocus
-                                style={{ fontSize: '0.80rem', padding: '6px 10px', width: '100%' }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Timer Duration Selection */}
-                          <div>
-                            <label style={{ fontSize: '0.70rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                              SET TIMER DURATION FOR THIS TOPIC:
-                            </label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              {[15, 25, 30, 45, 60, slot.durationMinutes].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map((mins) => (
-                                <button
-                                  key={mins}
-                                  type="button"
-                                  onClick={() => setSlotDuration(mins)}
-                                  className={`btn btn-sm ${slotDuration === mins ? 'btn-secondary' : 'btn-ghost'}`}
-                                  style={{
-                                    fontSize: '0.70rem',
-                                    padding: '2px 8px',
-                                    height: '24px',
-                                    borderRadius: '12px',
-                                    border: slotDuration === mins ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                                    color: slotDuration === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                                    fontWeight: slotDuration === mins ? 700 : 500,
-                                  }}
-                                >
-                                  {mins === slot.durationMinutes ? `Full Slot (${mins}m)` : `${mins}m`}
-                                </button>
-                              ))}
-
-                              <button
-                                type="button"
-                                onClick={() => setSlotDuration((prev) => Math.max(1, prev - 5))}
-                                className="btn btn-ghost btn-sm"
-                                style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
-                                title="Subtract 5m"
-                              >
-                                -5m
-                              </button>
-                              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-input)', border: '1px solid var(--border-secondary)', borderRadius: '6px', padding: '2px 6px' }}>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max="300"
-                                  value={slotDuration}
-                                  onChange={(e) => {
-                                    const v = parseInt(e.target.value, 10);
-                                    if (!isNaN(v) && v > 0) setSlotDuration(v);
-                                  }}
-                                  style={{ width: '38px', background: 'transparent', border: 'none', color: 'var(--text-primary)', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.78rem', outline: 'none' }}
-                                />
-                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>min</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setSlotDuration((prev) => Math.min(300, prev + 5))}
-                                className="btn btn-ghost btn-sm"
-                                style={{ padding: '2px 6px', height: '24px', fontSize: '0.70rem' }}
-                                title="Add 5m"
-                              >
-                                +5m
-                              </button>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
-                            <button
-                              type="button"
-                              onClick={() => setActiveSlotIdx(null)}
-                              className="btn btn-ghost btn-sm"
-                              style={{ fontSize: '0.74rem' }}
-                            >
-                              Cancel
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={!slotTopic.trim()}
-                              onClick={() => handleSaveSlotPlan(slot, false)}
-                              className="btn btn-secondary btn-sm"
-                              style={{ fontSize: '0.74rem', gap: '4px' }}
-                            >
-                              <CheckSquare size={13} />
-                              <span>Save to Schedule</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={!slotTopic.trim()}
-                              onClick={() => handleSaveSlotPlan(slot, true)}
-                              className="btn btn-primary btn-sm"
-                              style={{ fontSize: '0.74rem', gap: '5px' }}
-                            >
-                              <Play size={13} fill="currentColor" />
-                              <span>Start Timer Now ({slotDuration}m)</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* Scheduled Revision Blocks Column */}
-            <div className="card">
-              <div className="card-header-bar">
-                <div>
-                  <h3 className="card-title">
-                    <BookOpen size={19} color="var(--accent-purple)" />
-                    <span>Scheduled Revision Blocks</span>
-                  </h3>
-                  <p className="card-description">Your planned study goals for {DAY_NAMES[selectedDay]}.</p>
+            {/* Circular Visualizer & Countdown Station */}
+            <div className="relative py-4 flex flex-col items-center justify-center bg-surface-container-low/40 rounded-xl border border-outline-variant/10">
+              <div className="relative w-60 h-60 flex items-center justify-center">
+                {/* SVG Progress Ring */}
+                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 240 240">
+                  <circle
+                    className="text-surface-container"
+                    cx="120"
+                    cy="120"
+                    fill="transparent"
+                    r={radius}
+                    stroke="currentColor"
+                    strokeWidth="6"
+                  />
+                  <circle
+                    className="text-primary transition-all duration-1000 ease-linear"
+                    cx="120"
+                    cy="120"
+                    fill="transparent"
+                    r={radius}
+                    stroke="currentColor"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                    strokeWidth="7"
+                  />
+                </svg>
+
+                {/* Center Countdown Typography & Meta */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 mb-1 rounded bg-secondary-fixed/60 text-on-secondary-fixed font-label-sm text-[11px] font-semibold">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full bg-secondary ${
+                        isRunning ? 'animate-pulse' : ''
+                      }`}
+                    />
+                    <span>{isRunning ? 'In Deep Focus' : 'Session Ready'}</span>
+                  </div>
+                  <div className="font-display-lg text-4xl text-on-surface tracking-tight font-semibold font-tabular-data">
+                    {formatTime(timeLeft)}
+                  </div>
+                  <div className="flex items-center gap-1 text-outline font-label-sm text-[11px] mt-1">
+                    <Sparkles size={12} className="text-secondary" />
+                    <span>Active Wave: 40Hz Beta/Alpha</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Add Custom Revision Block Form */}
-              <form onSubmit={(e) => addCustomStudyPlan(e, false)} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <select
-                    value={newPlanCourse}
-                    onChange={(e) => setNewPlanCourse(e.target.value)}
-                    className="input-field"
-                    style={{ flex: 1, minWidth: '130px', fontSize: '0.80rem' }}
-                  >
-                    {courses.length > 0 ? (
-                      courses.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.code} — {c.title}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="GENERAL">General Self-Study</option>
-                    )}
-                  </select>
+              {/* Action Buttons: Play/Pause and Reset */}
+              <div className="flex items-center gap-2.5 mt-3">
+                <button
+                  type="button"
+                  onClick={toggleTimer}
+                  className="px-5 py-2 rounded bg-primary text-on-primary font-label-md text-xs font-semibold flex items-center gap-2 shadow-sm hover:opacity-90 transition-opacity"
+                >
+                  {isRunning ? <Pause size={16} /> : <Play size={16} />}
+                  <span>{isRunning ? 'Pause Session' : 'Start Session'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={resetTimer}
+                  className="px-3.5 py-2 rounded bg-surface-container hover:bg-surface-variant text-on-surface font-label-md text-xs font-semibold flex items-center gap-1.5 transition-colors border border-outline-variant/20"
+                  title="Reset timer"
+                >
+                  <RotateCcw size={15} />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
 
-                  <input
-                    type="text"
-                    value={newPlanTime}
-                    onChange={(e) => setNewPlanTime(e.target.value)}
-                    placeholder="Time (e.g. 11:40 AM - 1:00 PM)"
-                    className="input-field"
-                    style={{ flex: 1, minWidth: '140px', fontSize: '0.80rem' }}
-                  />
-                </div>
+            {/* Target Academic Module Dropdown */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                Allocated Academic Module
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedCourseCode}
+                  onChange={(e) => setSelectedCourseCode(e.target.value)}
+                  className="w-full h-10 px-3 pr-8 rounded bg-surface-container-low text-on-surface font-label-md text-xs appearance-none cursor-pointer focus:bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary border border-outline-variant/30 transition-all"
+                >
+                  {(courses.length > 0 ? courses : [
+                    { code: 'BCSE302L', title: 'Database Systems — Relational Algebra & SQL Normalization' },
+                    { code: 'BMAT202L', title: 'Applied Probability — Random Variables & Stochastic Modeling' },
+                    { code: 'BCSE308L', title: 'Computer Networks — Subnetting & Sliding Window Protocol' },
+                    { code: 'BCSE303P', title: 'Operating Systems Lab — Thread Synchronization & Semaphores' },
+                  ]).map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} • {c.title}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="absolute right-2.5 top-3 text-on-surface-variant pointer-events-none"
+                />
+              </div>
+            </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={newPlanTopic}
-                    onChange={(e) => setNewPlanTopic(e.target.value)}
-                    placeholder="Revision Goal (e.g. Practice Chapter 3 problems)"
-                    className="input-field"
-                    style={{ flex: 1, fontSize: '0.82rem' }}
-                  />
-                </div>
-
-                {/* Target Timer Duration Selector */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>Timer:</span>
-                    {[15, 25, 30, 45, 60].map((mins) => (
-                      <button
-                        key={mins}
-                        type="button"
-                        onClick={() => setNewPlanDuration(mins)}
-                        className={`btn btn-sm ${newPlanDuration === mins ? 'btn-secondary' : 'btn-ghost'}`}
-                        style={{
-                          fontSize: '0.70rem',
-                          padding: '1px 6px',
-                          height: '22px',
-                          borderRadius: '10px',
-                          border: newPlanDuration === mins ? '1px solid var(--accent-purple)' : '1px solid var(--border-subtle)',
-                          color: newPlanDuration === mins ? 'var(--accent-purple)' : 'var(--text-secondary)',
-                          fontWeight: newPlanDuration === mins ? 700 : 500,
-                        }}
-                      >
-                        {mins}m
-                      </button>
-                    ))}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button type="submit" className="btn btn-secondary btn-sm" style={{ fontSize: '0.74rem', gap: '4px' }}>
-                      <Plus size={13} />
-                      <span>Add Goal</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!newPlanTopic.trim()}
-                      onClick={(e) => addCustomStudyPlan(e, true)}
-                      className="btn btn-primary btn-sm"
-                      style={{ fontSize: '0.74rem', gap: '4px' }}
-                    >
-                      <Play size={12} fill="currentColor" />
-                      <span>Start ({newPlanDuration}m)</span>
-                    </button>
-                  </div>
-                </div>
-              </form>
-
-              {customPlans.filter((p) => p.day === selectedDay).length === 0 ? (
-                <div className="empty-state-card" style={{ padding: '24px' }}>
-                  <div className="empty-state-title" style={{ fontSize: '0.88rem' }}>No study goals added for {DAY_NAMES[selectedDay]}</div>
-                  <p className="empty-state-desc" style={{ fontSize: '0.76rem' }}>
-                    Click "Schedule Topic" on any free gap above to allocate your study time.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {customPlans
-                    .filter((p) => p.day === selectedDay)
-                    .map((p) => (
-                      <div
-                        key={p.id}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: '8px',
-                          background: 'var(--surface-input)',
-                          border: '1px solid var(--border-subtle)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '12px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                          <button
-                            onClick={() => togglePlanDone(p.id)}
-                            style={{ color: p.completed ? 'var(--success-emerald)' : 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                            aria-label="Toggle plan completion"
-                          >
-                            {p.completed ? <CheckSquare size={18} /> : <Square size={18} />}
-                          </button>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '0.84rem', fontWeight: 700, color: p.completed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: p.completed ? 'line-through' : 'none', wordBreak: 'break-word' }}>
-                              <span style={{ color: 'var(--accent-purple)', marginRight: '6px' }}>[{p.courseCode}]</span>
-                              {p.topic}
-                            </div>
-                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                              <span>{p.timeSlot}</span>
-                              <span>•</span>
-                              <span style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                                ⏱️ {p.durationMinutes || 25} mins
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <button
-                            type="button"
-                            onClick={() => startFocusSession(p.courseCode, p.topic, p.durationMinutes || 25)}
-                            className="btn btn-ghost btn-sm"
-                            style={{ padding: '4px 8px', fontSize: '0.72rem', gap: '4px', color: 'var(--accent-cyan)', border: '1px solid rgba(6, 182, 212, 0.3)' }}
-                            title="Start study timer for this topic"
-                          >
-                            <Play size={11} fill="currentColor" />
-                            <span>Start ({p.durationMinutes || 25}m)</span>
-                          </button>
-
-                          <button
-                            onClick={() => deletePlan(p.id)}
-                            className="btn btn-ghost btn-sm"
-                            style={{ padding: '4px', color: 'var(--accent-crimson)' }}
-                            title="Delete plan"
-                            aria-label="Delete plan"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
+            {/* Immediate Sprint Objective (Editable) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                  Immediate Sprint Objective
+                </label>
+                <span className="font-label-sm text-[10px] text-outline font-medium">Markdown Enabled</span>
+              </div>
+              <textarea
+                value={sprintObjective}
+                onChange={(e) => setSprintObjective(e.target.value)}
+                rows={2}
+                className="w-full p-2.5 rounded bg-surface-container-low text-on-surface font-body-sm text-xs focus:bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary border border-outline-variant/30 resize-none transition-all"
+              />
             </div>
           </div>
         </div>
-      )}
 
-      {/* TAB 3: EXAM REVISION RADAR & TASKS */}
-      {activeTab === 'TASKS' && (
-        <div className="card">
-          <div className="card-header-bar">
-            <div>
-              <h3 className="card-title">
-                <BrainCircuit size={19} color="var(--accent-purple)" />
-                <span>Calibrated Academic Targets &amp; Priorities</span>
-              </h3>
-              <p className="card-description">
-                Subjects requiring immediate attention based on verified VTOP internal scores, attendance deficit, and CAT/FAT exams.
-              </p>
+        {/* RIGHT COLUMN: TIMETABLE FREE SLOTS, TASKS, PROTOCOLS (7 COLS) */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          {/* Module 1: Detected Timetable Free Slots (Today) */}
+          <div className="rounded-xl bg-surface-container-lowest p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
+              <div className="flex items-center gap-2">
+                <Calendar size={18} className="text-primary" />
+                <h2 className="font-headline-sm text-base font-semibold text-on-surface">
+                  Detected Timetable Free Slots (Today)
+                </h2>
+              </div>
+              <span className="font-label-sm text-[11px] text-outline uppercase tracking-wider font-semibold">
+                2 Opportunities Found
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {/* Free Slot 1 */}
+              <div className="p-3.5 rounded-lg bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-outline-variant/10">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded bg-secondary-fixed/70 text-on-secondary-fixed flex items-center justify-center shrink-0 mt-0.5">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-tabular-data text-xs font-semibold text-on-surface">
+                        11:45 AM – 12:45 PM
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-surface-container-lowest text-on-surface font-label-sm text-[10px] font-semibold border border-outline-variant/20">
+                        60m Block
+                      </span>
+                    </div>
+                    <div className="font-body-md text-xs text-on-surface-variant mt-0.5">
+                      Allocated to{' '}
+                      <span className="font-semibold text-on-surface">
+                        Database Systems Relational Calculus & Indexing Practice
+                      </span>
+                    </div>
+                    <span className="font-label-sm text-[11px] text-secondary flex items-center gap-1 mt-1">
+                      <CheckCircle2 size={12} />
+                      Target completed on schedule • 4 query structures verified
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0 self-end sm:self-auto">
+                  <span className="px-2.5 py-1 rounded bg-surface-container text-on-surface-variant font-label-sm text-[10px] font-semibold">
+                    Archived
+                  </span>
+                </div>
+              </div>
+
+              {/* Free Slot 2 */}
+              <div className="p-3.5 rounded-lg bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-outline-variant/10">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded bg-primary-container text-on-primary-container flex items-center justify-center shrink-0 mt-0.5">
+                    <Clock size={16} />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-tabular-data text-xs font-semibold text-primary">
+                        04:45 PM – 06:00 PM
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-secondary-fixed/50 text-on-secondary-fixed font-label-sm text-[10px] font-semibold">
+                        75m Open Window
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[10px] font-semibold">
+                        High Value
+                      </span>
+                    </div>
+                    <div className="font-body-md text-xs text-on-surface mt-0.5">
+                      Suggested:{' '}
+                      <span className="font-semibold text-on-surface">
+                        Cloud Computing Architecture Review
+                      </span>{' '}
+                      before practical laboratory session.
+                    </div>
+                    <span className="font-label-sm text-[11px] text-outline mt-0.5">
+                      Gap located directly between IoT Lecture and Evening study block.
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPreset('DEEP_WORK')}
+                    className="px-3 py-1.5 rounded bg-primary text-on-primary font-label-md text-xs font-semibold shadow-sm hover:opacity-90 transition-opacity"
+                  >
+                    Allocate Slot
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {tasks.length === 0 ? (
-            <div className="empty-state-card">
-              <CheckCircle2 size={26} color="var(--success-emerald)" />
-              <div className="empty-state-title">All Academic Targets Safe!</div>
-              <p className="empty-state-desc">Your attendance and marks across all courses are safely buffered above required thresholds.</p>
+          {/* Module 2: Exam Countdown & Sprint Targets */}
+          <div className="rounded-xl bg-surface-container-lowest p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
+              <div className="flex items-center gap-2">
+                <Award size={18} className="text-secondary" />
+                <h2 className="font-headline-sm text-base font-semibold text-on-surface">
+                  Exam Countdown & Sprint Targets
+                </h2>
+              </div>
+              <span className="font-label-sm text-[11px] text-outline uppercase tracking-wider font-semibold">
+                Winter 2024–25 Schedule
+              </span>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {tasks.map((task) => {
-                const isDone = completedTaskIds.includes(task.id);
-                const isHigh = (task.urgency || '').toUpperCase() === 'HIGH';
 
-                return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Exam Target 1 */}
+              <div className="p-4 rounded-lg bg-surface-container-low flex flex-col justify-between gap-3 border border-outline-variant/10">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="font-label-sm text-[10px] text-error font-semibold uppercase tracking-wider">
+                      Critical Priority
+                    </span>
+                    <h3 className="font-headline-sm text-sm font-semibold text-on-surface mt-0.5">
+                      {exams[0]?.title || 'BCSE302L CAT-2'}
+                    </h3>
+                    <p className="font-body-sm text-xs text-outline">Database Management Systems</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-metric-display text-2xl font-bold text-primary leading-none font-tabular-data">
+                      09
+                    </span>
+                    <span className="font-label-sm text-[10px] text-outline block">Days Left</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between font-label-sm text-[11px]">
+                    <span className="text-on-surface-variant font-medium">Curriculum Progress</span>
+                    <span className="font-tabular-data text-primary font-semibold">3 Modules Pending</span>
+                  </div>
+                  <div className="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+                    <div className="bg-primary h-2 rounded-full" style={{ width: '58%' }} />
+                  </div>
+                  <p className="font-label-sm text-[10px] text-on-surface-variant pt-0.5">
+                    Target: Functional Dependency, 3NF/BCNF Decompositions, B+ Trees.
+                  </p>
+                </div>
+              </div>
+
+              {/* Exam Target 2 */}
+              <div className="p-4 rounded-lg bg-surface-container-low flex flex-col justify-between gap-3 border border-outline-variant/10">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="font-label-sm text-[10px] text-secondary font-semibold uppercase tracking-wider">
+                      High Priority
+                    </span>
+                    <h3 className="font-headline-sm text-sm font-semibold text-on-surface mt-0.5">
+                      {exams[1]?.title || 'BMAT202L CAT-2'}
+                    </h3>
+                    <p className="font-body-sm text-xs text-outline">Probability & Statistics</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-metric-display text-2xl font-bold text-secondary leading-none font-tabular-data">
+                      12
+                    </span>
+                    <span className="font-label-sm text-[10px] text-outline block">Days Left</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between font-label-sm text-[11px]">
+                    <span className="text-on-surface-variant font-medium">Curriculum Progress</span>
+                    <span className="font-tabular-data text-secondary font-semibold">2 Modules Pending</span>
+                  </div>
+                  <div className="w-full bg-surface-container rounded-full h-2 overflow-hidden">
+                    <div className="bg-secondary h-2 rounded-full" style={{ width: '74%' }} />
+                  </div>
+                  <p className="font-label-sm text-[10px] text-on-surface-variant pt-0.5">
+                    Focus: Random Variables, Joint Distributions & Central Limit Theorem.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Module 3: Priority Revision Backlog & Add Task Form */}
+          <div className="rounded-xl bg-surface-container-lowest p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
+              <div className="flex items-center gap-2">
+                <CheckSquare size={18} className="text-primary" />
+                <h2 className="font-headline-sm text-base font-semibold text-on-surface">
+                  Priority Revision Backlog
+                </h2>
+              </div>
+              <span className="font-label-sm text-[11px] text-outline uppercase tracking-wider font-semibold">
+                {customTasks.filter((t) => !t.completed).length} Tasks Remaining
+              </span>
+            </div>
+
+            {/* Add Task Quick Form */}
+            <form onSubmit={addTask} className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Add revision task or topic..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                className="flex-1 px-3 py-2 rounded bg-surface-container-low text-xs text-on-surface border border-outline-variant/30 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="submit"
+                className="px-3.5 py-2 rounded bg-primary text-on-primary font-label-md text-xs font-semibold flex items-center gap-1 shadow-sm hover:opacity-90"
+              >
+                <Plus size={14} />
+                <span>Add</span>
+              </button>
+            </form>
+
+            <div className="space-y-2">
+              {customTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className={`p-3 rounded-lg flex items-center justify-between gap-3 border transition-colors ${
+                    task.completed
+                      ? 'bg-surface-container-low/50 border-outline-variant/10 opacity-70'
+                      : 'bg-surface-container-low border-outline-variant/20 hover:border-primary/30'
+                  }`}
+                >
                   <div
-                    key={task.id}
-                    style={{
-                      padding: '18px 20px',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--surface-input)',
-                      border: '1px solid var(--border-card)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '16px',
-                    }}
+                    onClick={() => toggleTask(task.id)}
+                    className="flex items-center gap-3 cursor-pointer min-w-0"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '260px' }}>
-                      <button
-                        onClick={() => toggleTaskDone(task.id)}
-                        style={{ color: isDone ? 'var(--success-emerald)' : 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}
-                        aria-label="Toggle task status"
+                    <button type="button" className="text-primary shrink-0">
+                      {task.completed ? <CheckSquare size={16} /> : <Square size={16} />}
+                    </button>
+                    <div className="flex flex-col min-w-0">
+                      <span
+                        className={`font-label-md text-xs font-medium truncate ${
+                          task.completed ? 'line-through text-outline' : 'text-on-surface'
+                        }`}
                       >
-                        {isDone ? <CheckSquare size={20} /> : <Square size={20} />}
-                      </button>
-
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-purple)' }}>
-                            {task.courseCode || task.subjectCode || 'COURSE'}
-                          </span>
-                          <span className={`status-badge ${isHigh ? 'critical' : 'warning'}`}>
-                            {task.urgency} Priority
-                          </span>
-                          {(task.courseTitle || task.subjectTitle) && (
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                              • {task.courseTitle || task.subjectTitle}
-                            </span>
-                          )}
-                        </div>
-
-                        <div style={{ fontSize: '0.98rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', marginTop: '4px' }}>
-                          {task.headline}
-                        </div>
-
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          {task.reason || task.actionReason}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          startFocusSession(
-                            task.courseCode || task.subjectCode || '',
-                            task.headline,
-                            25
-                          )
-                        }
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.76rem', gap: '6px' }}
-                      >
-                        <Zap size={13} color="var(--accent-cyan)" />
-                        <span>Start Study Session</span>
-                      </button>
-
-                      <span className={`status-badge ${isDone ? 'safe' : 'neutral'}`}>
-                        {isDone ? 'Completed ✓' : 'Pending'}
+                        {task.title}
+                      </span>
+                      <span className="font-label-sm text-[10px] text-outline font-tabular-data">
+                        {task.courseCode} • {task.estimatedMinutes} mins est.
                       </span>
                     </div>
                   </div>
-                );
-              })}
+
+                  <button
+                    type="button"
+                    onClick={() => deleteTask(task.id)}
+                    className="text-outline hover:text-error p-1 rounded transition-colors shrink-0"
+                    title="Delete task"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
-
-export default AIPlannerView;
-

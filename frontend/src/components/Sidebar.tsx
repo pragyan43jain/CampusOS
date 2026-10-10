@@ -5,12 +5,10 @@ import {
   Award,
   BookOpen,
   Calendar,
-  Users,
   Layers,
   MessageSquare,
   CalendarDays,
   Briefcase,
-  Code2,
   BrainCircuit,
   CreditCard,
   ShieldCheck,
@@ -18,9 +16,10 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  Zap,
+  RefreshCw,
   Clock,
   ChevronDown,
+  FileText,
 } from 'lucide-react';
 import { AcademicsSubTab } from '../views/AcademicsView';
 import { StudentProfile } from '../types';
@@ -116,345 +115,456 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`app-sidebar ${isCollapsed ? 'collapsed' : ''}`}
+      className={`hidden lg:flex fixed left-0 top-0 h-full ${
+        isCollapsed ? 'w-20' : 'w-64'
+      } bg-surface-container-lowest border-r border-outline-variant/30 z-50 flex-col justify-between transition-all duration-200 select-none`}
       aria-label="Application Sidebar"
     >
-      {/* Brand Header */}
-      <div className="sidebar-brand-block">
-        <div
-          className="brand-clickable"
-          onClick={() => onSelectView('dashboard')}
-          title={isCollapsed ? 'CampusOS Dashboard' : undefined}
-        >
-          <div className="brand-icon-box">
-            <Zap size={18} strokeWidth={2.2} />
-          </div>
-          {!isCollapsed && (
-            <div className="brand-info">
-              <span className="brand-title">
-                Campus<span className="brand-title-os">OS</span>
-              </span>
-              <span className="brand-subtitle">Academic Operating System</span>
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={handleToggleCollapse}
-          className="sidebar-collapse-toggle-btn"
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
-      </div>
-
-      {/* Navigation Groups */}
-      <nav className="sidebar-nav-list" aria-label="Main Navigation">
-        {/* SECTION: OVERVIEW */}
-        <div className="sidebar-group-block">
-          {!isCollapsed && <div className="sidebar-section-header">OVERVIEW</div>}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'dashboard' ? 'active' : ''}`}
+      <div className="flex flex-col flex-1 min-h-0">
+        {/* Top Brand Header */}
+        <div className="h-16 px-4 border-b border-outline-variant/20 flex items-center justify-between shrink-0">
+          <div
+            className="flex items-center gap-2.5 cursor-pointer min-w-0"
             onClick={() => onSelectView('dashboard')}
-            title={isCollapsed ? 'Dashboard' : undefined}
+            title="CampusOS Dashboard"
           >
-            <div className="nav-item-left">
-              <LayoutDashboard size={17} strokeWidth={activeView === 'dashboard' ? 2.2 : 1.8} />
-              {!isCollapsed && <span>Dashboard</span>}
-            </div>
-          </button>
-        </div>
-
-        {/* SECTION: ACADEMICS */}
-        <div className="sidebar-group-block">
-          {!isCollapsed && (
-            <div
-              className="sidebar-section-header clickable flex items-center justify-between"
-              onClick={() => setIsAcademicsExpanded(!isAcademicsExpanded)}
-            >
-              <span>ACADEMICS</span>
-              <ChevronDown
-                size={12}
-                className={`transition-transform duration-200 ${isAcademicsExpanded ? '' : '-rotate-90'}`}
+            {isCollapsed ? (
+              <img
+                src="/campusos-emblem.png"
+                alt="CampusOS Emblem"
+                className="w-8 h-8 object-contain shrink-0"
               />
-            </div>
-          )}
+            ) : (
+              <img
+                src="/logo.png"
+                alt="CampusOS - Unified platform"
+                className="h-9 w-auto object-contain max-w-[170px]"
+              />
+            )}
+          </div>
 
-          {(!isCollapsed ? isAcademicsExpanded : true) && (
-            <>
-              {/* Attendance */}
+          {!isCollapsed ? (
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-[11px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                <span>Fall 24</span>
+              </div>
               <button
                 type="button"
-                className={`nav-item-btn ${activeView === 'academics' && academicsSubTab === 'attendance' ? 'active' : ''}`}
-                onClick={() => {
-                  onSelectView('academics');
-                  onSelectAcademicsSubTab?.('attendance');
-                }}
-                title={isCollapsed ? 'Attendance' : undefined}
+                onClick={handleToggleCollapse}
+                className="text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors"
+                title="Collapse sidebar"
               >
-                <div className="nav-item-left">
-                  <Percent size={17} strokeWidth={activeView === 'academics' && academicsSubTab === 'attendance' ? 2.2 : 1.8} />
-                  {!isCollapsed && <span>Attendance</span>}
+                <PanelLeftClose size={15} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleToggleCollapse}
+              className="text-outline hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors mx-auto"
+              title="Expand sidebar"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Scrollable Navigation Groups */}
+        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+          {/* SECTION 1: ACADEMICS */}
+          <div className="space-y-1">
+            {!isCollapsed && (
+              <div className="flex items-center justify-between px-2 py-1 font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                <span>Academics</span>
+                <button
+                  type="button"
+                  onClick={() => setIsAcademicsExpanded(!isAcademicsExpanded)}
+                  className="text-outline hover:text-on-surface"
+                >
+                  <ChevronDown
+                    size={13}
+                    className={`transition-transform duration-200 ${isAcademicsExpanded ? '' : '-rotate-90'}`}
+                  />
+                </button>
+              </div>
+            )}
+
+            <nav className="space-y-0.5">
+              {/* Dashboard */}
+              <button
+                type="button"
+                onClick={() => onSelectView('dashboard')}
+                title={isCollapsed ? 'Academic Dashboard' : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                  activeView === 'dashboard'
+                    ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
+              >
+                <LayoutDashboard size={18} className="shrink-0" />
+                {!isCollapsed && <span>Dashboard</span>}
+              </button>
+
+              {(!isCollapsed ? isAcademicsExpanded : true) && (
+                <>
+                  {/* Attendance */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectView('academics');
+                      onSelectAcademicsSubTab?.('attendance');
+                    }}
+                    title={isCollapsed ? 'Attendance Safety Engine' : undefined}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5'
+                    } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                      activeView === 'academics' && academicsSubTab === 'attendance'
+                        ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Percent size={18} className="shrink-0" />
+                      {!isCollapsed && <span>Attendance</span>}
+                    </div>
+                    {!isCollapsed && (
+                      <span className="font-tabular-data text-[11px] font-semibold text-secondary bg-secondary-fixed/50 px-1.5 py-0.5 rounded">
+                        {criticalAttendanceCount > 0 ? `${criticalAttendanceCount} Critical` : 'Safe'}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Assignments */}
+                  <button
+                    type="button"
+                    onClick={() => onSelectView('assignments')}
+                    title={isCollapsed ? 'Assignments & Coursework' : undefined}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5'
+                    } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                      activeView === 'assignments'
+                        ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <FileText size={18} className="shrink-0" />
+                      {!isCollapsed && <span>Assignments</span>}
+                    </div>
+                    {!isCollapsed && pendingAssignmentsCount > 0 && (
+                      <span className="font-tabular-data text-[11px] font-semibold text-primary bg-primary-fixed px-1.5 py-0.5 rounded">
+                        {pendingAssignmentsCount} Due
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Marks Ledger */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectView('academics');
+                      onSelectAcademicsSubTab?.('marks');
+                    }}
+                    title={isCollapsed ? 'Marks Ledger' : undefined}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                    } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                      activeView === 'academics' && academicsSubTab === 'marks'
+                        ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    }`}
+                  >
+                    <Award size={18} className="shrink-0" />
+                    {!isCollapsed && <span>Marks Ledger</span>}
+                  </button>
+
+                  {/* Timetable */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectView('academics');
+                      onSelectAcademicsSubTab?.('timetable');
+                    }}
+                    title={isCollapsed ? 'Class Timetable' : undefined}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                    } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                      activeView === 'academics' && academicsSubTab === 'timetable'
+                        ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    }`}
+                  >
+                    <Calendar size={18} className="shrink-0" />
+                    {!isCollapsed && <span>Timetable</span>}
+                  </button>
+
+                  {/* Registered Courses */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectView('academics');
+                      onSelectAcademicsSubTab?.('courses');
+                    }}
+                    title={isCollapsed ? 'Registered Courses' : undefined}
+                    className={`w-full flex items-center ${
+                      isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                    } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                      activeView === 'academics' && academicsSubTab === 'courses'
+                        ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    }`}
+                  >
+                    <BookOpen size={18} className="shrink-0" />
+                    {!isCollapsed && <span>Courses</span>}
+                  </button>
+                </>
+              )}
+            </nav>
+          </div>
+
+          {/* SECTION 2: CAMPUS OPERATIONS */}
+          <div className="space-y-1">
+            {!isCollapsed && (
+              <div className="px-2 py-1 font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                Campus Operations
+              </div>
+            )}
+            <nav className="space-y-0.5">
+              {/* LMS Coursework */}
+              <button
+                type="button"
+                onClick={onOpenLMS || (() => onSelectView('assignments'))}
+                title={isCollapsed ? 'LMS Coursework Hub' : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                  activeView === 'assignments'
+                    ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Layers size={18} className="shrink-0" />
+                  {!isCollapsed && <span>LMS Coursework</span>}
                 </div>
-                {!isCollapsed && criticalAttendanceCount > 0 && (
-                  <span className="nav-badge-pill alert">{criticalAttendanceCount}</span>
+                {!isCollapsed && pendingAssignmentsCount > 0 && (
+                  <span className="font-tabular-data text-[11px] font-semibold text-primary bg-primary-fixed px-1.5 py-0.5 rounded">
+                    {pendingAssignmentsCount} Due
+                  </span>
                 )}
               </button>
 
-              {/* Marks */}
+              {/* Microsoft Teams */}
               <button
                 type="button"
-                className={`nav-item-btn ${activeView === 'academics' && academicsSubTab === 'marks' ? 'active' : ''}`}
-                onClick={() => {
-                  onSelectView('academics');
-                  onSelectAcademicsSubTab?.('marks');
-                }}
-                title={isCollapsed ? 'Marks' : undefined}
+                onClick={onOpenTeams || (() => onSelectView('assignments'))}
+                title={isCollapsed ? 'Teams & Collaboration' : undefined}
+                className="w-full flex items-center justify-between px-2.5 py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
               >
-                <div className="nav-item-left">
-                  <Award size={17} strokeWidth={activeView === 'academics' && academicsSubTab === 'marks' ? 2.2 : 1.8} />
-                  {!isCollapsed && <span>Marks</span>}
+                <div className="flex items-center gap-2.5">
+                  <MessageSquare size={18} className="shrink-0" />
+                  {!isCollapsed && <span>Teams Hub</span>}
                 </div>
               </button>
 
-              {/* Courses */}
+              {/* Master Calendar */}
               <button
                 type="button"
-                className={`nav-item-btn ${activeView === 'academics' && academicsSubTab === 'courses' ? 'active' : ''}`}
                 onClick={() => {
                   onSelectView('academics');
-                  onSelectAcademicsSubTab?.('courses');
+                  onSelectAcademicsSubTab?.('calendar');
                 }}
-                title={isCollapsed ? 'Courses' : undefined}
+                title={isCollapsed ? 'Academic Master Calendar' : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                  activeView === 'academics' && academicsSubTab === 'calendar'
+                    ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
               >
-                <div className="nav-item-left">
-                  <BookOpen size={17} strokeWidth={activeView === 'academics' && academicsSubTab === 'courses' ? 2.2 : 1.8} />
-                  {!isCollapsed && <span>Courses</span>}
-                </div>
+                <CalendarDays size={18} className="shrink-0" />
+                {!isCollapsed && <span>Master Calendar</span>}
               </button>
 
-              {/* Timetable */}
+              {/* OD / Leave Requests */}
               <button
                 type="button"
-                className={`nav-item-btn ${activeView === 'academics' && academicsSubTab === 'timetable' ? 'active' : ''}`}
-                onClick={() => {
-                  onSelectView('academics');
-                  onSelectAcademicsSubTab?.('timetable');
-                }}
-                title={isCollapsed ? 'Timetable' : undefined}
+                onClick={onOpenOD || (() => onSelectView('academics'))}
+                title={isCollapsed ? 'On-Duty & Leave Requests' : undefined}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
               >
-                <div className="nav-item-left">
-                  <Calendar size={17} strokeWidth={activeView === 'academics' && academicsSubTab === 'timetable' ? 2.2 : 1.8} />
-                  {!isCollapsed && <span>Timetable</span>}
-                </div>
+                <Clock size={18} className="shrink-0" />
+                {!isCollapsed && <span>OD / Leave</span>}
               </button>
 
-              {/* Faculty */}
+              {/* Fees & Ledger */}
               <button
                 type="button"
-                className={`nav-item-btn ${activeView === 'academics' && academicsSubTab === 'faculty' ? 'active' : ''}`}
-                onClick={() => {
-                  onSelectView('academics');
-                  onSelectAcademicsSubTab?.('faculty');
-                }}
-                title={isCollapsed ? 'Faculty' : undefined}
+                onClick={() => onSelectView('fees')}
+                title={isCollapsed ? 'Financial Ledger & Dues' : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                  activeView === 'fees'
+                    ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
               >
-                <div className="nav-item-left">
-                  <Users size={17} strokeWidth={activeView === 'academics' && academicsSubTab === 'faculty' ? 2.2 : 1.8} />
-                  {!isCollapsed && <span>Faculty</span>}
-                </div>
+                <CreditCard size={18} className="shrink-0" />
+                {!isCollapsed && <span>Fees & Dues</span>}
               </button>
-            </>
-          )}
-        </div>
 
-        {/* SECTION: CAMPUS */}
-        <div className="sidebar-group-block">
-          {!isCollapsed && <div className="sidebar-section-header">CAMPUS</div>}
+              {/* Placements & Coding Benchmarks */}
+              <button
+                type="button"
+                onClick={() => onSelectView('placements')}
+                title={isCollapsed ? 'Placement Hub & LeetCode Benchmarks' : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                  activeView === 'placements'
+                    ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
+              >
+                <Briefcase size={18} className="shrink-0" />
+                {!isCollapsed && <span>Placements</span>}
+              </button>
+            </nav>
+          </div>
 
-          {/* Assignments / LMS */}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'assignments' ? 'active' : ''}`}
-            onClick={onOpenLMS || (() => onSelectView('assignments'))}
-            title={isCollapsed ? 'Assignments & LMS' : undefined}
-          >
-            <div className="nav-item-left">
-              <Layers size={17} strokeWidth={activeView === 'assignments' ? 2.2 : 1.8} />
-              {!isCollapsed && <span>LMS & Coursework</span>}
-            </div>
-            {!isCollapsed && pendingAssignmentsCount > 0 && (
-              <span className="nav-badge-pill">{pendingAssignmentsCount}</span>
+          {/* SECTION 3: INTELLIGENCE & TOOLS */}
+          <div className="space-y-1">
+            {!isCollapsed && (
+              <div className="px-2 py-1 font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                Intelligence & Tools
+              </div>
             )}
-          </button>
+            <nav className="space-y-0.5">
+              {/* AI Study Planner */}
+              <button
+                type="button"
+                onClick={() => onSelectView('ai-planner')}
+                title={isCollapsed ? 'AI Study Planner' : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left ${
+                  activeView === 'ai-planner'
+                    ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <BrainCircuit size={18} className="shrink-0" />
+                  {!isCollapsed && <span>AI Study Planner</span>}
+                </div>
+                {!isCollapsed && (
+                  <span className="font-label-sm text-[10px] font-bold text-primary bg-primary-fixed px-1.5 py-0.5 rounded uppercase tracking-wider">
+                    AI
+                  </span>
+                )}
+              </button>
 
-          {/* Teams Modal Trigger / Hub */}
-          <button
-            type="button"
-            className="nav-item-btn"
-            onClick={onOpenTeams || (() => onSelectView('assignments'))}
-            title={isCollapsed ? 'Microsoft Teams' : undefined}
-          >
-            <div className="nav-item-left">
-              <MessageSquare size={17} strokeWidth={1.8} />
-              {!isCollapsed && <span>Microsoft Teams</span>}
-            </div>
-          </button>
+              {/* Performance Analytics */}
+              {onOpenAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  title={isCollapsed ? 'Institutional Analytics' : undefined}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                >
+                  <ShieldCheck size={18} className="shrink-0" />
+                  {!isCollapsed && <span>Institutional Meta</span>}
+                </button>
+              )}
 
-          {/* Academic Calendar / Events */}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'academics' && academicsSubTab === 'calendar' ? 'active' : ''}`}
-            onClick={() => {
-              onSelectView('academics');
-              onSelectAcademicsSubTab?.('calendar');
-            }}
-            title={isCollapsed ? 'Academic Calendar & Events' : undefined}
-          >
-            <div className="nav-item-left">
-              <CalendarDays size={17} strokeWidth={1.8} />
-              {!isCollapsed && <span>Events & Calendar</span>}
-            </div>
-          </button>
-
-          {/* OD / Leave Records */}
-          <button
-            type="button"
-            className="nav-item-btn"
-            onClick={onOpenOD || (() => onSelectView('academics'))}
-            title={isCollapsed ? 'On-Duty (OD) & Leave Quota' : undefined}
-          >
-            <div className="nav-item-left">
-              <Clock size={17} strokeWidth={1.8} />
-              {!isCollapsed && <span>OD / Leave</span>}
-            </div>
-          </button>
-
-          {/* Fees & Ledger */}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'fees' ? 'active' : ''}`}
-            onClick={() => onSelectView('fees')}
-            title={isCollapsed ? 'Fees & Ledger' : undefined}
-          >
-            <div className="nav-item-left">
-              <CreditCard size={17} strokeWidth={activeView === 'fees' ? 2.2 : 1.8} />
-              {!isCollapsed && <span>Fees & Ledger</span>}
-            </div>
-          </button>
+              {/* Settings */}
+              {onOpenFeatures && (
+                <button
+                  type="button"
+                  onClick={onOpenFeatures}
+                  title={isCollapsed ? 'Settings & Readiness' : undefined}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                >
+                  <Settings size={18} className="shrink-0" />
+                  {!isCollapsed && <span>Readiness Status</span>}
+                </button>
+              )}
+            </nav>
+          </div>
         </div>
+      </div>
 
-        {/* SECTION: CAREER */}
-        <div className="sidebar-group-block">
-          {!isCollapsed && <div className="sidebar-section-header">CAREER</div>}
-
-          {/* Placement Drives */}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'placements' ? 'active' : ''}`}
-            onClick={() => onSelectView('placements')}
-            title={isCollapsed ? 'Placement Hub' : undefined}
-          >
-            <div className="nav-item-left">
-              <Briefcase size={17} strokeWidth={activeView === 'placements' ? 2.2 : 1.8} />
-              {!isCollapsed && <span>Placement Hub</span>}
+      {/* Footer Block */}
+      <div className="p-2 border-t border-outline-variant/20 bg-surface-container-lowest shrink-0 space-y-2">
+        {/* VTOP Direct Sync Pod */}
+        {!isCollapsed ? (
+          <div className="p-2 rounded bg-surface-container-low border border-outline-variant/30 flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-secondary shrink-0 animate-pulse" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-label-sm text-[11px] font-semibold text-on-surface truncate">
+                  VTOP Direct Sync
+                </span>
+                <span className="font-label-sm text-[10px] text-outline truncate font-tabular-data">
+                  Active • Auto-syncs every 6h
+                </span>
+              </div>
             </div>
-          </button>
+            <button
+              type="button"
+              onClick={onOpenLMS}
+              className="text-on-surface-variant hover:text-on-surface p-1 rounded hover:bg-surface-container transition-colors shrink-0"
+              title="Verify Auth Status"
+            >
+              <RefreshCw size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex justify-center p-1.5" title="VTOP Direct Sync Active">
+            <div className="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse" />
+          </div>
+        )}
 
-          {/* LeetCode Tracker */}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'placements' ? 'active' : ''}`}
-            onClick={() => onSelectView('placements')}
-            title={isCollapsed ? 'LeetCode Tracker' : undefined}
-          >
-            <div className="nav-item-left">
-              <Code2 size={17} strokeWidth={1.8} />
-              {!isCollapsed && <span>LeetCode DSA</span>}
-            </div>
-          </button>
-
-          {/* AI Study Planner */}
-          <button
-            type="button"
-            className={`nav-item-btn ${activeView === 'ai-planner' ? 'active' : ''}`}
-            onClick={() => onSelectView('ai-planner')}
-            title={isCollapsed ? 'AI Study Planner' : undefined}
-          >
-            <div className="nav-item-left">
-              <BrainCircuit size={17} strokeWidth={activeView === 'ai-planner' ? 2.2 : 1.8} />
-              {!isCollapsed && <span>AI Study Planner</span>}
+        {/* User Profile Pill */}
+        <div
+          onClick={onOpenProfile}
+          className={`flex items-center ${
+            isCollapsed ? 'justify-center p-1' : 'justify-between px-2 py-1.5'
+          } rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors border border-transparent hover:border-outline-variant/20`}
+          title={isCollapsed ? `${displayName} (${regNo})` : 'Student Profile & Settings'}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-on-primary text-[11px] font-bold shrink-0">
+              {avatarInitials}
             </div>
             {!isCollapsed && (
-              <span className="nav-badge-pill ai-badge">AI</span>
+              <div className="flex flex-col min-w-0">
+                <span className="font-label-sm text-[12px] font-semibold text-on-surface leading-tight truncate">
+                  {displayName}
+                </span>
+                <span className="font-label-sm text-[10px] text-outline font-tabular-data truncate">
+                  {regNo}
+                </span>
+              </div>
             )}
-          </button>
-        </div>
-
-        {/* SECTION: TOOLS */}
-        <div className="sidebar-group-block">
-          {!isCollapsed && <div className="sidebar-section-header">TOOLS</div>}
-
-          {onOpenAdmin && (
-            <button
-              type="button"
-              className="nav-item-btn"
-              onClick={onOpenAdmin}
-              title={isCollapsed ? 'Admin Analytics' : undefined}
-            >
-              <div className="nav-item-left">
-                <ShieldCheck size={17} strokeWidth={1.8} />
-                {!isCollapsed && <span>Analytics</span>}
-              </div>
-            </button>
-          )}
-
-          {onOpenFeatures && (
-            <button
-              type="button"
-              className="nav-item-btn"
-              onClick={onOpenFeatures}
-              title={isCollapsed ? 'Settings & Feature Readiness' : undefined}
-            >
-              <div className="nav-item-left">
-                <Settings size={17} strokeWidth={1.8} />
-                {!isCollapsed && <span>Settings</span>}
-              </div>
-            </button>
-          )}
-        </div>
-      </nav>
-
-      {/* User Profile Footer */}
-      <div className="sidebar-footer-block">
-        <div
-          className="sidebar-user-pill"
-          onClick={onOpenProfile}
-          title={isCollapsed ? `${displayName} (${regNo})` : 'View Profile & Settings'}
-        >
-          <div className="sidebar-user-avatar">
-            {avatarInitials}
           </div>
-          {!isCollapsed && (
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{displayName}</span>
-              <span className="sidebar-user-reg">{regNo}</span>
-            </div>
-          )}
           {!isCollapsed && onLogout && (
             <button
               type="button"
-              className="sidebar-user-logout-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onLogout();
               }}
+              className="text-outline hover:text-error p-1 rounded hover:bg-error/10 transition-colors"
               title="Sign Out"
               aria-label="Sign Out"
             >
-              <LogOut size={15} />
+              <LogOut size={14} />
             </button>
           )}
         </div>

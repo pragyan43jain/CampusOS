@@ -119,7 +119,7 @@ class VTOPSession:
         self.is_authenticated = False
         self.username: Optional[str] = None
         self.last_login_at: Optional[datetime.datetime] = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         # Cached login page HTML from start_handshake() — reused by fetch_captcha()
         # to avoid a redundant GET that would overwrite self.csrf with a new token
         # not paired with the captcha image the user receives.
@@ -177,18 +177,20 @@ class VTOPSession:
     def _get(self, path: str, **kwargs: Any) -> requests.Response:
         default_timeout = 8.0 if (os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")) else 15.0
         timeout = kwargs.pop("timeout", default_timeout)
-        response = self.http.get(self._url(path), timeout=timeout, **kwargs)
-        self._absorb(response.text)
-        return response
+        with self._lock:
+            response = self.http.get(self._url(path), timeout=timeout, **kwargs)
+            self._absorb(response.text)
+            return response
 
     def _post(
         self, path: str, data: List[Tuple[str, str]], **kwargs: Any
     ) -> requests.Response:
         default_timeout = 8.0 if (os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")) else 15.0
         timeout = kwargs.pop("timeout", default_timeout)
-        response = self.http.post(self._url(path), data=data, timeout=timeout, **kwargs)
-        self._absorb(response.text)
-        return response
+        with self._lock:
+            response = self.http.post(self._url(path), data=data, timeout=timeout, **kwargs)
+            self._absorb(response.text)
+            return response
 
     # -- handshake ---------------------------------------------------------
 
@@ -496,11 +498,13 @@ class VTOPSession:
             fields = [
                 ("_csrf", csrf),
                 ("semesterSubId", semester_id),
+                ("semSubId", semester_id),
                 ("authorizedID", authorized_id),
             ]
         else:
             fields = [
                 ("semesterSubId", semester_id),
+                ("semSubId", semester_id),
                 ("authorizedID", authorized_id),
                 ("_csrf", csrf),
             ]

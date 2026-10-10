@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
 
 export type ThemeType =
+  | 'editorial-dark'
+  | 'editorial-light'
   | 'cyber-dark'
   | 'midnight-slate'
   | 'chaingpt-cyber'
@@ -31,17 +33,46 @@ export interface ThemeOption {
 
 export const THEMES: ThemeOption[] = [
   {
+    id: 'editorial-dark',
+    label: 'Academic Editorial Dark',
+    fontName: 'Geist & Inter',
+    fontFamily: "'Geist', sans-serif",
+    tag: 'Swiss Precision',
+    description: 'Archival slate canvas with high-precision cobalt & hairline grids',
+    previewBg: '#10141c',
+    previewCard: '#171d28',
+    previewAccent: '#91acf5',
+    previewSecondary: '#8fa3be',
+    previewText: '#ecf0ff',
+    badge: 'Stitch Dark',
+  },
+  {
+    id: 'editorial-light',
+    label: 'Academic Editorial Light',
+    fontName: 'Geist & Inter',
+    fontFamily: "'Geist', sans-serif",
+    tag: 'Swiss Archival',
+    description: 'Clean whisper-soft paper canvas with sharp cobalt contrast',
+    previewBg: '#f9f9ff',
+    previewCard: '#ffffff',
+    previewAccent: '#0a3481',
+    previewSecondary: '#416088',
+    previewText: '#171c26',
+    badge: 'Stitch Light',
+    isLight: true,
+  },
+  {
     id: 'cyber-dark',
     label: 'Classy Obsidian',
-    fontName: 'Space Grotesk',
-    fontFamily: "'Space Grotesk', sans-serif",
-    tag: 'Classy Black',
-    description: 'Classy pitch black void with matte surfaces & luxury emerald accents',
-    previewBg: '#0b0b0b',
-    previewCard: '#141414',
-    previewAccent: '#10B981',
-    previewSecondary: '#FFFFFF',
-    previewText: '#FFFFFF',
+    fontName: 'Geist',
+    fontFamily: "'Geist', sans-serif",
+    tag: 'Dark Core',
+    description: 'Precision deep slate with calm emerald accents & hairline borders',
+    previewBg: '#10141c',
+    previewCard: '#171d28',
+    previewAccent: '#4ade80',
+    previewSecondary: '#91acf5',
+    previewText: '#ecf0ff',
     badge: 'Default',
   },
   {
@@ -91,14 +122,15 @@ export const THEMES: ThemeOption[] = [
     label: 'Baby Pink',
     fontName: 'Outfit',
     fontFamily: "'Outfit', sans-serif",
-    tag: 'Sakura Blush & Rose',
-    description: 'Midnight rose velvet canvas with luminous baby pink & sakura petals',
-    previewBg: '#140A15',
-    previewCard: '#241228',
-    previewAccent: '#F472B6',
-    previewSecondary: '#FB7185',
-    previewText: '#FFF0F5',
-    badge: 'Blush ✨',
+    tag: 'Pastel Dream',
+    description: 'Charming pastel baby pink canvas with soft rose surfaces and plum berry text',
+    previewBg: '#FFF0F5',
+    previewCard: '#FFFFFF',
+    previewAccent: '#EC4899',
+    previewSecondary: '#F472B6',
+    previewText: '#4A1528',
+    badge: 'Baby Pink 🌸',
+    isLight: true,
   },
   {
     id: 'nordic-frost',
