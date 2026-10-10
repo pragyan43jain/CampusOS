@@ -113,35 +113,18 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
           completed: false,
           source: 'ai_suggested',
         }))
-      : [
-          {
-            id: 't-1',
-            title: 'Review Raft Consensus Algorithm',
-            courseCode: 'BECE355L',
-            estimatedMinutes: 45,
-            priority: 'high',
-            completed: false,
-            source: 'ai_suggested',
-          },
-          {
-            id: 't-2',
-            title: 'Probability Distributions Problem Set 5',
-            courseCode: 'BMAT202L',
-            estimatedMinutes: 60,
-            priority: 'high',
-            completed: false,
-            source: 'exam_prep',
-          },
-          {
-            id: 't-3',
-            title: 'Packet Tracer Subnetting Lab Mock Test',
-            courseCode: 'BCSE308L',
-            estimatedMinutes: 30,
-            priority: 'medium',
-            completed: true,
-            source: 'lab_assignment',
-          },
-        ];
+      : (courses && courses.length > 0
+          ? courses.slice(0, 3).map((c, i) => ({
+              id: `task-${c.code}-${i}`,
+              title: `Curricular Revision: ${c.title}`,
+              headline: `Curricular Revision: ${c.title}`,
+              courseCode: c.code,
+              estimatedMinutes: 45,
+              priority: i === 0 ? 'high' : 'medium',
+              completed: false,
+              source: 'enrolled_curriculum',
+            }))
+          : []);
   });
 
   const [newTaskTitle, setNewTaskTitle] = useState<string>('');
@@ -510,16 +493,17 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                   onChange={(e) => setSelectedCourseCode(e.target.value)}
                   className="w-full h-10 px-3 pr-8 rounded bg-surface-container-low text-on-surface font-label-md text-xs appearance-none cursor-pointer focus:bg-surface-container-lowest focus:outline-none focus:ring-1 focus:ring-primary border border-outline-variant/30 transition-all"
                 >
-                  {(courses.length > 0 ? courses : [
-                    { code: 'BCSE302L', title: 'Database Systems — Relational Algebra & SQL Normalization' },
-                    { code: 'BMAT202L', title: 'Applied Probability — Random Variables & Stochastic Modeling' },
-                    { code: 'BCSE308L', title: 'Computer Networks — Subnetting & Sliding Window Protocol' },
-                    { code: 'BCSE303P', title: 'Operating Systems Lab — Thread Synchronization & Semaphores' },
-                  ]).map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code} • {c.title}
+                  {courses.length > 0 ? (
+                    courses.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} • {c.title}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      No enrolled courses available
                     </option>
-                  ))}
+                  )}
                 </select>
                 <ChevronDown
                   size={16}
@@ -650,79 +634,60 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
                 </h2>
               </div>
               <span className="font-label-sm text-[11px] text-outline uppercase tracking-wider font-semibold">
-                Winter 2024–25 Schedule
+                Official Examination Timetable
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Exam Target 1 */}
-              <div className="p-4 rounded-lg bg-surface-container-low flex flex-col justify-between gap-3 border border-outline-variant/10">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-label-sm text-[10px] text-error font-semibold uppercase tracking-wider">
-                      Critical Priority
-                    </span>
-                    <h3 className="font-headline-sm text-sm font-semibold text-on-surface mt-0.5">
-                      {exams[0]?.title || 'BCSE302L CAT-2'}
-                    </h3>
-                    <p className="font-body-sm text-xs text-outline">Database Management Systems</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-metric-display text-2xl font-bold text-primary leading-none font-tabular-data">
-                      09
-                    </span>
-                    <span className="font-label-sm text-[10px] text-outline block">Days Left</span>
-                  </div>
-                </div>
+            {exams && exams.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {exams.slice(0, 2).map((exam, idx) => {
+                  const examDate = exam.date ? new Date(exam.date).getTime() : 0;
+                  const daysLeft = examDate ? Math.ceil((examDate - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between font-label-sm text-[11px]">
-                    <span className="text-on-surface-variant font-medium">Curriculum Progress</span>
-                    <span className="font-tabular-data text-primary font-semibold">3 Modules Pending</span>
-                  </div>
-                  <div className="w-full bg-surface-container rounded-full h-2 overflow-hidden">
-                    <div className="bg-primary h-2 rounded-full" style={{ width: '58%' }} />
-                  </div>
-                  <p className="font-label-sm text-[10px] text-on-surface-variant pt-0.5">
-                    Target: Functional Dependency, 3NF/BCNF Decompositions, B+ Trees.
-                  </p>
-                </div>
+                  return (
+                    <div key={exam.id || idx} className="p-4 rounded-lg bg-surface-container-low flex flex-col justify-between gap-3 border border-outline-variant/10">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className={`font-label-sm text-[10px] font-semibold uppercase tracking-wider ${idx === 0 ? 'text-error' : 'text-secondary'}`}>
+                            {exam.examType || 'Examination'}
+                          </span>
+                          <h3 className="font-headline-sm text-sm font-semibold text-on-surface mt-0.5">
+                            {exam.courseCode || exam.subjectCode || 'Course'}: {exam.title || exam.courseTitle || exam.subject || 'Exam'}
+                          </h3>
+                          <p className="font-body-sm text-xs text-outline">{exam.venue ? `Venue: ${exam.venue}` : 'Scheduled Session'}</p>
+                        </div>
+                        {daysLeft !== null && (
+                          <div className="text-right">
+                            <span className="font-metric-display text-2xl font-bold text-primary leading-none font-tabular-data">
+                              {daysLeft > 0 ? (daysLeft < 10 ? `0${daysLeft}` : daysLeft) : '00'}
+                            </span>
+                            <span className="font-label-sm text-[10px] text-outline block">
+                              {daysLeft > 0 ? 'Days Left' : (daysLeft === 0 ? 'Today' : 'Completed')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-outline-variant/10">
+                        <div className="flex items-center justify-between font-label-sm text-[11px]">
+                          <span className="text-on-surface-variant font-medium">Reporting Schedule</span>
+                          <span className="font-tabular-data text-primary font-semibold">{exam.date} {exam.time ? `• ${exam.time}` : ''}</span>
+                        </div>
+                        {exam.slot && (
+                          <p className="font-label-sm text-[10px] text-outline">
+                            Academic Slot: {exam.slot}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              {/* Exam Target 2 */}
-              <div className="p-4 rounded-lg bg-surface-container-low flex flex-col justify-between gap-3 border border-outline-variant/10">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-label-sm text-[10px] text-secondary font-semibold uppercase tracking-wider">
-                      High Priority
-                    </span>
-                    <h3 className="font-headline-sm text-sm font-semibold text-on-surface mt-0.5">
-                      {exams[1]?.title || 'BMAT202L CAT-2'}
-                    </h3>
-                    <p className="font-body-sm text-xs text-outline">Probability & Statistics</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-metric-display text-2xl font-bold text-secondary leading-none font-tabular-data">
-                      12
-                    </span>
-                    <span className="font-label-sm text-[10px] text-outline block">Days Left</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between font-label-sm text-[11px]">
-                    <span className="text-on-surface-variant font-medium">Curriculum Progress</span>
-                    <span className="font-tabular-data text-secondary font-semibold">2 Modules Pending</span>
-                  </div>
-                  <div className="w-full bg-surface-container rounded-full h-2 overflow-hidden">
-                    <div className="bg-secondary h-2 rounded-full" style={{ width: '74%' }} />
-                  </div>
-                  <p className="font-label-sm text-[10px] text-on-surface-variant pt-0.5">
-                    Focus: Random Variables, Joint Distributions & Central Limit Theorem.
-                  </p>
-                </div>
+            ) : (
+              <div className="p-6 text-center text-on-surface-variant font-body-sm text-xs bg-surface-container-low rounded-lg border border-outline-variant/10">
+                No examination schedules published by university administration for the active semester.
               </div>
-            </div>
+            )}
           </div>
 
           {/* Module 3: Priority Revision Backlog & Add Task Form */}

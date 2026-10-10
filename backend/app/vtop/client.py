@@ -421,7 +421,7 @@ class VTOPClientManager:
     ) -> Dict[str, Any]:
         """Scrape, persist, and summarise. Runs outside the session lock."""
         try:
-            payload = scraper.sync(handle.session, semester_id=semester_id)
+            payload = scraper.sync(handle.session, semester_id=semester_id, fast_mode=False)
         except VTOPAuthError as exc:
             self._drop(session_id)
             return self._error(exc.message, exc.code, retryable=exc.retryable)
@@ -434,12 +434,15 @@ class VTOPClientManager:
             )
 
         handle.touch()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if payload.get("student") and isinstance(payload["student"], dict):
+            payload["student"]["lastSynced"] = now_iso
         report = payload.get("syncReport") or {}
         payload = {
             **payload,
             "authenticated": True,
             "message": _summarise(report),
-            "lastSynced": payload.get("student", {}).get("lastSynced"),
+            "lastSynced": now_iso,
         }
         canonical_reg = (payload.get("student") or {}).get("regNo")
         if canonical_reg:

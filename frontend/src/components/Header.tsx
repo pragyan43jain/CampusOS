@@ -104,6 +104,22 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const getDisplayBranch = (): string => {
+    const raw = student?.branch || '';
+    if (raw && !/school|vidyalaya|academy|board/i.test(raw)) {
+      return raw;
+    }
+    const reg = (student?.regNo || '').toUpperCase();
+    if (reg.includes('BLC')) return 'B.Tech ECE (VLSI)';
+    if (reg.includes('BCE')) return 'B.Tech CSE';
+    if (reg.includes('BCN')) return 'B.Tech CSE (Networks)';
+    if (reg.includes('BAI')) return 'B.Tech CSE (AI & ML)';
+    if (reg.includes('BDS')) return 'B.Tech CSE (Data Science)';
+    if (reg.includes('BEE')) return 'B.Tech EEE';
+    if (reg.includes('BME')) return 'B.Tech ME';
+    return student?.program || 'B.Tech';
+  };
+
   return (
     <header className={`fixed top-0 left-0 ${isCollapsed ? 'lg:left-20' : 'lg:left-64'} right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/30 z-40 px-4 md:px-6 flex items-center justify-between transition-all duration-200`}>
       {/* Left: Hamburger (mobile), Breadcrumbs, Search Bar */}
@@ -129,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
           <span className="text-outline-variant font-normal">/</span>
           <span className="text-on-surface font-semibold hidden sm:inline">
-            {student?.branch || 'B.Tech CSE'}
+            {getDisplayBranch()}
           </span>
           <span className="text-outline-variant font-normal hidden sm:inline">/</span>
           <span className="text-primary font-semibold truncate">

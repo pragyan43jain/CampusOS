@@ -1314,34 +1314,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                           </div>
                         ))
                       ) : (
-                        <>
-                          <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/10 flex flex-col gap-1.5 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-label-sm text-label-sm text-outline font-tabular-data">Recent Cycle • Slot {activeDrilldownCourse.slot || 'D1'}</span>
-                              <span className="px-1.5 py-0.5 rounded bg-error/10 text-error font-label-sm text-label-sm font-semibold">Unexcused</span>
-                            </div>
-                            <span className="font-body-sm text-body-sm text-on-surface font-medium">Regular Theory Session</span>
-                            <span className="font-label-sm text-label-sm text-outline">Marked Absent by Faculty • Biometric Miss</span>
-                          </div>
-
-                          <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/10 flex flex-col gap-1.5 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-label-sm text-label-sm text-outline font-tabular-data">Mid Semester • Slot {activeDrilldownCourse.slot || 'TD1'}</span>
-                              <span className="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-semibold">OD Credited</span>
-                            </div>
-                            <span className="font-body-sm text-body-sm text-on-surface font-medium">Inter-Collegiate Hackathon</span>
-                            <span className="font-label-sm text-label-sm text-outline">OD Sanction ID #44091 • Approved by HOD</span>
-                          </div>
-
-                          <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/10 flex flex-col gap-1.5 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-label-sm text-label-sm text-outline font-tabular-data">Early Cycle • Regular Slot</span>
-                              <span className="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-semibold">Medical Leave</span>
-                            </div>
-                            <span className="font-body-sm text-body-sm text-on-surface font-medium">Campus Health Center Visit</span>
-                            <span className="font-label-sm text-label-sm text-outline">Cert #MC-8812 Attached • Dean Approved</span>
-                          </div>
-                        </>
+                        <div className="col-span-full p-4 rounded-lg bg-surface-container-low border border-outline-variant/10 text-center text-outline font-body-sm text-xs">
+                          No individual session attendance exceptions or leave records published for this course in the official VTOP ledger.
+                        </div>
                       )}
                     </div>
                   </div>

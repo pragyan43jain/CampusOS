@@ -523,8 +523,12 @@ export const App: React.FC = () => {
         if (d.courses && d.courses.length > 0) setCourses(d.courses);
         if (d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
         if (d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
-        if (d.marks && d.marks.length > 0) setMarks(d.marks);
-        if (d.exams && (Array.isArray(d.exams) ? d.exams.length > 0 : Object.keys(d.exams).length > 0)) setExams(d.exams as any);
+        const freshExams: Exam[] = d.examsList && Array.isArray(d.examsList)
+          ? d.examsList
+          : Array.isArray(d.exams)
+          ? d.exams
+          : (d.exams && typeof d.exams === 'object' ? Object.values(d.exams).flat() as Exam[] : []);
+        if (freshExams.length > 0) setExams(freshExams);
         if (d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
         if (d.assignments && d.assignments.length > 0) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
         if (d.fees && d.fees.length > 0) setFees(d.fees);
@@ -858,7 +862,10 @@ export const App: React.FC = () => {
     if (d && d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
     if (d && d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
     if (d && d.marks && d.marks.length > 0) setMarks(d.marks);
-    if (d && d.exams && (Array.isArray(d.exams) ? d.exams.length > 0 : Object.keys(d.exams).length > 0)) setExams(d.exams);
+    const loginExams: Exam[] = d && d.examsList && Array.isArray(d.examsList)
+      ? d.examsList
+      : (d && Array.isArray(d.exams) ? d.exams : (d && d.exams && typeof d.exams === 'object' ? Object.values(d.exams).flat() as Exam[] : []));
+    if (loginExams.length > 0) setExams(loginExams);
     if (d && d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
     if (d && d.assignments && d.assignments.length > 0) {
       setAssignments(applyManualStatusOverrides(d.assignments, d.student?.regNo || studentObj?.regNo));
@@ -968,8 +975,12 @@ export const App: React.FC = () => {
         if (d.courses && d.courses.length > 0) setCourses(d.courses);
         if (d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
         if (d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
-        if (d.marks && d.marks.length > 0) setMarks(d.marks);
-        if (d.exams) setExams(d.exams as any);
+        const autoExams: Exam[] = d.examsList && Array.isArray(d.examsList)
+          ? d.examsList
+          : Array.isArray(d.exams)
+          ? d.exams
+          : (d.exams && typeof d.exams === 'object' ? Object.values(d.exams).flat() as Exam[] : []);
+        if (autoExams.length > 0) setExams(autoExams);
         if (d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
         if (d.assignments && d.assignments.length > 0) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
         if (d.fees && d.fees.length > 0) setFees(d.fees);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Clock, CheckCircle2, FileText, Calendar } from 'lucide-react';
+import { X, Clock, CheckCircle2, FileText, Calendar, RefreshCw } from 'lucide-react';
 import { CampusAPI } from '../services/api';
 import { ODResponse, Attendance } from '../types';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -30,6 +30,18 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
     };
     fetchOD();
   }, [isOpen]);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const data = await CampusAPI.refreshOD();
+      setOdData(data);
+    } catch (err) {
+      console.warn('[ODHoursModal] Failed to refresh OD from VTOP:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -147,14 +159,37 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="btn btn-ghost btn-icon"
-            style={{ padding: '6px', borderRadius: '8px' }}
-            aria-label="Close dialog"
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="btn btn-ghost"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color, rgba(255, 255, 255, 0.1))',
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+              title="Sync OD Hours from VTOP"
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span>{loading ? 'Syncing...' : 'Sync VTOP'}</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="btn btn-ghost btn-icon"
+              style={{ padding: '6px', borderRadius: '8px' }}
+              aria-label="Close dialog"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -256,12 +291,12 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose }) =
 
                     <div>
                       <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>
-                        {rec.subjectTitle || rec.subjectCode}
+                        {rec.subjectTitle || (rec as any).courseTitle || rec.subjectCode || (rec as any).courseCode}
                       </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '6px' }}>
-                        <span>{rec.subjectCode}</span>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>{(rec as any).courseCode || rec.subjectCode}</span>
                         {rec.slot && <span>• {rec.slot}</span>}
-                        {rec.type && <span>• {rec.type}</span>}
+                        {((rec as any).reason || rec.type || (rec as any).category) && <span>• {(rec as any).reason || rec.type || (rec as any).category}</span>}
                       </div>
                     </div>
                   </div>

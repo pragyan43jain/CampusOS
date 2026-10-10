@@ -128,6 +128,8 @@ export const persistSessionId = (sid: string | null) => {
 export function getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
   };
   if (activeSessionId) {
     headers['X-Session-ID'] = activeSessionId;
@@ -164,8 +166,10 @@ export function getAuthHeaders(extra?: Record<string, string>): Record<string, s
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit, fallback?: T): Promise<T> {
   const base = getApiBase();
+  const sep = endpoint.includes('?') ? '&' : '?';
+  const urlWithCacheBuster = endpoint.includes('_t=') ? endpoint : `${endpoint}${sep}_t=${Date.now()}`;
   try {
-    const res = await fetchWithTimeout(`${base}${endpoint}`, {
+    const res = await fetchWithTimeout(`${base}${urlWithCacheBuster}`, {
       ...options,
       headers: {
         ...getAuthHeaders(),
@@ -794,7 +798,10 @@ export const CampusAPI = {
 
     inFlightSync = (async () => {
       try {
-        const q = activeSessionId ? `?sessionId=${encodeURIComponent(activeSessionId)}` : '';
+        const params = new URLSearchParams();
+        if (activeSessionId) params.set('sessionId', activeSessionId);
+        params.set('_t', String(Date.now()));
+        const q = `?${params.toString()}`;
         const res = await fetchWithTimeout(`${getApiBase()}/vtop/sync${q}`, {
           method: 'POST',
           headers: getAuthHeaders(),

@@ -1,11 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   GraduationCap,
   ShieldCheck,
   BookOpen,
   Clock,
   RefreshCw,
-  Navigation,
   Download,
   Calendar,
   ArrowRight,
@@ -113,20 +112,150 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return map[dayIndex] || 'THU';
   };
 
-  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(getTodayDayOfWeek());
-  const [simulatedOffset, setSimulatedOffset] = useState<number>(0);
+  const todayDay = useMemo(() => getTodayDayOfWeek(), []);
 
-  // Timetable slots for selected day
+  // Compute available days from timetable
+  const availableDays = useMemo(() => {
+    const days: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+    if (timetable.some((s) => s.day === 'SAT')) days.push('SAT');
+    if (timetable.some((s) => s.day === 'SUN')) days.push('SUN');
+    return days;
+  }, [timetable]);
+
+  const defaultDay = useMemo(() => {
+    const today = getTodayDayOfWeek();
+    if (timetable.some((s) => s.day === today)) return today;
+    const daySequence: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const todayIdx = daySequence.indexOf(today);
+    for (let offset = 1; offset < 7; offset++) {
+      const nextDay = daySequence[(todayIdx + offset) % 7];
+      if (timetable.some((s) => s.day === nextDay)) return nextDay;
+    }
+    return 'MON';
+  }, [timetable]);
+
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(defaultDay);
+  const [simulatedOffset, setSimulatedOffset] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
+
+  // Real-time 30-second clock tick to sync active and upcoming classes dynamically
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Keep selectedDay aligned if timetable loads asynchronously
+  useEffect(() => {
+    if (timetable.length > 0 && !timetable.some((s) => s.day === selectedDay)) {
+      setSelectedDay(defaultDay);
+    }
+  }, [timetable, defaultDay, selectedDay]);
+
+  // Robust helper to parse time strings ("HH:MM", "14:00", "02:00 PM") to minutes from midnight
+  const parseTimeToMinutes = (timeStr?: string): number => {
+    if (!timeStr) return 0;
+    const clean = timeStr.trim();
+    const isPM = /pm/i.test(clean);
+    const isAM = /am/i.test(clean);
+    const numPart = clean.replace(/[^\d:]/g, '');
+    const parts = numPart.split(':');
+    let h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
+    if (!isPM && !isAM && h >= 1 && h <= 7) h += 12; // 24-hr inference if 1..7 (e.g. 2:00 = 14:00)
+    return h * 60 + m;
+  };
+
+  // Timetable slots for selected day, sorted chronologically
   const filteredSlots = useMemo(() => {
     const slots = timetable.filter((s) => s.day === selectedDay);
-    return slots.length > 0 ? slots : timetable.slice(0, 4);
+    return [...slots].sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
   }, [timetable, selectedDay]);
 
-  // Determine active or upcoming class
-  const nextClass = useMemo(() => {
-    if (filteredSlots.length > 0) return filteredSlots[0];
-    return null;
-  }, [filteredSlots]);
+  // Determine active or upcoming class synced with current time
+  const { activeNextClass, nextClassStatus, nextClassDayLabel } = useMemo(() => {
+    const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+
+    // 1. If user explicitly selected a different day, display the first class of that day
+    if (selectedDay !== todayDay) {
+      if (filteredSlots.length > 0) {
+        return {
+          activeNextClass: filteredSlots[0],
+          nextClassStatus: 'scheduled' as const,
+          nextClassDayLabel: selectedDay,
+        };
+      }
+      return { activeNextClass: null, nextClassStatus: 'none' as const, nextClassDayLabel: selectedDay };
+    }
+
+    // 2. User is on today's schedule: look for ongoing or upcoming class today
+    const todaySlots = timetable
+      .filter((s) => s.day === todayDay)
+      .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+
+    for (const slot of todaySlots) {
+      const startMin = parseTimeToMinutes(slot.startTime);
+      const endMin = parseTimeToMinutes(slot.endTime);
+
+      // Ongoing live class right now
+      if (currentMinutes >= startMin && currentMinutes < endMin) {
+        return {
+          activeNextClass: slot,
+          nextClassStatus: 'live' as const,
+          nextClassDayLabel: 'Today',
+        };
+      }
+
+      // Next upcoming class today
+      if (currentMinutes < startMin) {
+        return {
+          activeNextClass: slot,
+          nextClassStatus: 'upcoming' as const,
+          nextClassDayLabel: 'Today',
+        };
+      }
+    }
+
+    // 3. All classes today are finished (or today has no classes): search upcoming days of the week
+    const daySequence: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const todayIdx = daySequence.indexOf(todayDay);
+
+    for (let offset = 1; offset < 7; offset++) {
+      const nextDay = daySequence[(todayIdx + offset) % 7];
+      const nextDaySlots = timetable
+        .filter((s) => s.day === nextDay)
+        .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+
+      if (nextDaySlots.length > 0) {
+        const dayNames: Record<string, string> = {
+          MON: 'Monday',
+          TUE: 'Tuesday',
+          WED: 'Wednesday',
+          THU: 'Thursday',
+          FRI: 'Friday',
+          SAT: 'Saturday',
+          SUN: 'Sunday',
+        };
+        const label = offset === 1 ? 'Tomorrow' : (dayNames[nextDay] || nextDay);
+        return {
+          activeNextClass: nextDaySlots[0],
+          nextClassStatus: 'next_day' as const,
+          nextClassDayLabel: label,
+        };
+      }
+    }
+
+    return {
+      activeNextClass: filteredSlots.length > 0 ? filteredSlots[0] : null,
+      nextClassStatus: 'fallback' as const,
+      nextClassDayLabel: 'Scheduled',
+    };
+  }, [timetable, selectedDay, todayDay, filteredSlots, currentTime]);
+
+  const nextClass = activeNextClass;
 
   // Dynamic slot attendance resolver with zero hallucination and strict course mapping
   const getSlotAttendance = (slot: TimetableSlot) => {
@@ -391,13 +520,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-center justify-between font-label-sm text-[11px] text-on-surface-variant">
             <span>{earnedCredits} Credits Completed</span>
-            <span className="bg-secondary-fixed/40 text-on-secondary-fixed px-1.5 py-0.5 rounded font-semibold">
-              {cgpaDisplay !== '--' && Number(cgpaDisplay) >= 9.0
-                ? 'Exemplary'
-                : cgpaDisplay !== '--' && Number(cgpaDisplay) >= 8.5
-                ? "Dean's List Track"
-                : 'Good Standing'}
-            </span>
           </div>
         </div>
 
@@ -498,7 +620,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </h2>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {(['MON', 'TUE', 'WED', 'THU', 'FRI'] as DayOfWeek[]).map((d) => (
+                {availableDays.map((d) => (
                   <button
                     key={d}
                     type="button"
@@ -521,10 +643,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="bg-surface-container-lowest text-primary font-label-sm text-[11px] px-2 py-0.5 rounded font-bold uppercase tracking-wider animate-pulse">
-                      Next Up • {nextClass.slot || 'Active Session'}
+                      {nextClassStatus === 'live'
+                        ? `Live Now • Slot ${nextClass.slot || 'Active Session'}`
+                        : nextClassStatus === 'next_day'
+                        ? `Next Up (${nextClassDayLabel}) • Slot ${nextClass.slot || 'Upcoming'}`
+                        : nextClassStatus === 'scheduled'
+                        ? `Scheduled (${nextClassDayLabel}) • Slot ${nextClass.slot || 'Session'}`
+                        : `Next Up • Slot ${nextClass.slot || 'Active Session'}`}
                     </span>
                     <span className="font-label-md text-xs text-primary-fixed font-tabular-data">
                       {nextClass.startTime || '14:00'} - {nextClass.endTime || '14:50 IST'}
+                      {nextClassStatus === 'next_day' ? ` (${nextClassDayLabel})` : ''}
                     </span>
                   </div>
                   {nextClassAtt && nextClassAtt.total > 0 ? (
@@ -567,13 +696,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => navigateToAcademics('timetable')}
-                      className="bg-surface-container-lowest text-primary px-3 py-1.5 rounded font-label-sm text-xs font-semibold flex items-center gap-1 hover:bg-surface-container transition-colors shadow-sm"
-                    >
-                      <Navigation size={14} />
-                      <span>Directions</span>
-                    </button>
-                    <button
                       onClick={() => navigateToAcademics('courses')}
                       className="bg-primary-container text-on-primary px-3 py-1.5 rounded font-label-sm text-xs font-semibold flex items-center gap-1 hover:opacity-90 transition-opacity"
                     >
@@ -586,83 +708,130 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             ) : null}
 
             {/* Daily Stream Chrono Cards */}
-            <div className="flex flex-col gap-2.5">
-              {filteredSlots.slice(0, 3).map((slot, idx) => {
-                const slotAtt = getSlotAttendance(slot);
-                return (
-                  <div
-                    key={slot.id || `${slot.courseCode}-${slot.slot}-${idx}`}
-                    className="bg-surface-container-low p-3.5 md:p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-container transition-colors border border-outline-variant/10"
-                  >
-                    <div className="flex items-start sm:items-center gap-3">
-                      <div className="flex flex-col items-center justify-center bg-surface-container-lowest w-14 h-14 rounded shadow-sm shrink-0 border border-outline-variant/20">
-                        <span className="font-label-sm text-[10px] text-outline font-semibold uppercase">
-                          {slot.slot?.startsWith('L') ? 'Lab' : 'Hour'}
-                        </span>
-                        <span className="font-headline-sm text-xs md:text-sm text-on-surface font-tabular-data font-semibold">
-                          {slot.startTime || 'TBA'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-label-sm text-xs font-semibold text-primary">
-                            {slot.courseCode || slot.subjectCode || 'Course'}
-                          </span>
-                          <span className="text-outline-variant text-xs">•</span>
-                          <span className="font-label-sm text-xs text-outline">
-                            Slot {slot.slot || slot.slotName || 'TBA'}
-                          </span>
-                        </div>
-                        <h4 className="font-headline-sm text-sm font-semibold text-on-surface truncate" title={slot.courseTitle || slot.subject}>
-                          {slot.courseTitle || slot.subject || slot.courseName || 'Lecture'}
-                        </h4>
-                        <div className="flex items-center gap-2.5 font-body-sm text-xs text-on-surface-variant mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} /> {slot.room || slot.venue || 'Campus Venue'}
-                          </span>
-                          <span>{slot.faculty || slot.facultyName || 'Faculty'}</span>
-                        </div>
-                      </div>
-                    </div>
+            {filteredSlots.length === 0 ? (
+              <div className="bg-surface-container-low p-6 rounded-lg text-center border border-outline-variant/10">
+                <Calendar size={28} className="mx-auto text-outline-variant mb-2" />
+                <p className="font-headline-sm text-sm font-semibold text-on-surface">No Classes Scheduled</p>
+                <p className="font-body-sm text-xs text-outline mt-0.5">
+                  No academic lecture or lab slots registered for {selectedDay}.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {filteredSlots.map((slot, idx) => {
+                  const slotAtt = getSlotAttendance(slot);
+                  const isToday = selectedDay === todayDay;
+                  const startMin = parseTimeToMinutes(slot.startTime);
+                  const endMin = parseTimeToMinutes(slot.endTime);
+                  const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+                  const isSlotLive = isToday && currentMinutes >= startMin && currentMinutes < endMin;
+                  const isSlotCompleted = isToday && currentMinutes >= endMin;
+                  const isSlotUpcoming = isToday && currentMinutes < startMin;
 
-                    <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                      <div className="text-right">
-                        {slotAtt && slotAtt.total > 0 ? (
-                          <>
-                            <span className={`font-tabular-data font-label-md text-xs px-2 py-0.5 rounded font-semibold ${
-                              slotAtt.isCritical
-                                ? 'bg-error-container text-error'
-                                : 'text-secondary bg-secondary-fixed/50'
-                            }`}>
-                              {slotAtt.percentage.toFixed(1)}%
+                  return (
+                    <div
+                      key={slot.id || `${slot.courseCode}-${slot.slot}-${idx}`}
+                      className={`p-3.5 md:p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${
+                        isSlotLive
+                          ? 'bg-primary-container/15 border-primary/50 ring-1 ring-primary/40'
+                          : isSlotCompleted
+                          ? 'bg-surface-container-low/70 border-outline-variant/10 opacity-75'
+                          : 'bg-surface-container-low hover:bg-surface-container border border-outline-variant/10'
+                      }`}
+                    >
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className={`flex flex-col items-center justify-center w-14 h-14 rounded shadow-sm shrink-0 border ${
+                          isSlotLive
+                            ? 'bg-primary text-on-primary border-primary'
+                            : 'bg-surface-container-lowest border-outline-variant/20'
+                        }`}>
+                          <span className={`font-label-sm text-[10px] font-semibold uppercase ${
+                            isSlotLive ? 'text-primary-fixed' : 'text-outline'
+                          }`}>
+                            {slot.slot?.startsWith('L') ? 'Lab' : 'Hour'}
+                          </span>
+                          <span className={`font-headline-sm text-xs md:text-sm font-tabular-data font-semibold ${
+                            isSlotLive ? 'text-on-primary' : 'text-on-surface'
+                          }`}>
+                            {slot.startTime || 'TBA'}
+                          </span>
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-label-sm text-xs font-semibold text-primary">
+                              {slot.courseCode || slot.subjectCode || 'Course'}
                             </span>
-                            <span className="block font-label-sm text-[10px] text-outline mt-0.5">
-                              Attended: {slotAtt.attended}/{slotAtt.total}
+                            <span className="text-outline-variant text-xs">•</span>
+                            <span className="font-label-sm text-xs text-outline">
+                              Slot {slot.slot || slot.slotName || 'TBA'}
                             </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-tabular-data font-label-md text-xs px-2 py-0.5 rounded font-semibold text-outline bg-surface-container">
-                              --%
+                            {isSlotLive && (
+                              <span className="bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                                Live Now
+                              </span>
+                            )}
+                            {isSlotCompleted && (
+                              <span className="bg-surface-container text-outline text-[10px] font-medium px-1.5 py-0.5 rounded">
+                                Ended
+                              </span>
+                            )}
+                            {isSlotUpcoming && (
+                              <span className="bg-secondary-fixed/50 text-secondary text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                Upcoming
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-headline-sm text-sm font-semibold text-on-surface truncate" title={slot.courseTitle || slot.subject}>
+                            {slot.courseTitle || slot.subject || slot.courseName || 'Lecture'}
+                          </h4>
+                          <div className="flex items-center gap-2.5 font-body-sm text-xs text-on-surface-variant mt-0.5">
+                            <span className="flex items-center gap-1">
+                              <MapPin size={12} /> {slot.room || slot.venue || 'Campus Venue'}
                             </span>
-                            <span className="block font-label-sm text-[10px] text-outline mt-0.5">
-                              No classes held
-                            </span>
-                          </>
-                        )}
+                            <span>{slot.faculty || slot.facultyName || 'Faculty'}</span>
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => navigateToAcademics('attendance')}
-                        className="bg-surface-container-lowest text-on-surface-variant hover:text-on-surface p-1.5 rounded shadow-sm"
-                        title="Inspect Attendance"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
+
+                      <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                        <div className="text-right">
+                          {slotAtt && slotAtt.total > 0 ? (
+                            <>
+                              <span className={`font-tabular-data font-label-md text-xs px-2 py-0.5 rounded font-semibold ${
+                                slotAtt.isCritical
+                                  ? 'bg-error-container text-error'
+                                  : 'text-secondary bg-secondary-fixed/50'
+                              }`}>
+                                {slotAtt.percentage.toFixed(1)}%
+                              </span>
+                              <span className="block font-label-sm text-[10px] text-outline mt-0.5">
+                                Attended: {slotAtt.attended}/{slotAtt.total}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-tabular-data font-label-md text-xs px-2 py-0.5 rounded font-semibold text-outline bg-surface-container">
+                                --%
+                              </span>
+                              <span className="block font-label-sm text-[10px] text-outline mt-0.5">
+                                No classes held
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => navigateToAcademics('attendance')}
+                          className="bg-surface-container-lowest text-on-surface-variant hover:text-on-surface p-1.5 rounded shadow-sm"
+                          title="Inspect Attendance"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* 2. CONTINUOUS ASSESSMENT & CURRICULAR MILESTONES */}
