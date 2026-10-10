@@ -569,12 +569,20 @@ def get_vtop_od(
     max_h = od.get("maxHours") or od.get("maxOdHours") or 40
     records = list(od.get("records") or od.get("odRecords") or [])
 
-    if (has_valid or is_auth) and not records:
+    if (has_valid or is_auth):
         from app.vtop.scraper import extract_unicc_od_from_attendance
         att_source = store.get("attendance") or store.get("courses") or []
-        records = extract_unicc_od_from_attendance(att_source)
-        if records:
+        unicc_recs = extract_unicc_od_from_attendance(att_source)
+        if unicc_recs:
+            records = unicc_recs
             has_valid = True
+
+    for r in records:
+        slot = (r.get("slot") or "").strip()
+        if slot:
+            is_lab = slot.upper().startswith("L")
+            r["hours"] = 2 if is_lab else 1
+            r["type"] = "LAB" if is_lab else "TH"
 
 
 
