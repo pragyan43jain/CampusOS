@@ -58,6 +58,7 @@ import { CalendarModal } from '../components/CalendarModal';
 import { CalendarView } from '../components/CalendarView';
 import { CourseAttendanceDetailModal } from '../components/CourseAttendanceDetailModal';
 import { WeeklyAttendanceSchedule } from '../components/WeeklyAttendanceSchedule';
+import { computeUniccODFromAttendance } from '../utils/odUtils';
 import { OverallAttendancePredictorModal } from '../components/OverallAttendancePredictorModal';
 import { SLOT_MAP } from '../services/slotMap';
 
@@ -192,7 +193,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     const loadOD = async () => {
       try {
         const data = await CampusAPI.getOD();
-        if (data && (data.records?.length || !externalOdData?.records?.length)) {
+        if (data && ((data.records && data.records.length > 0) || (data.approvedHours && data.approvedHours > 0) || (data.usedHours && data.usedHours > 0))) {
           setOdData(data);
         }
       } catch (err) {
@@ -203,16 +204,50 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     loadOD();
   }, [externalOdData]);
 
-  const effectiveOdData = externalOdData ?? odData;
+  const uniccOdFallback = useMemo(() => {
+    if (attendance && attendance.length > 0) {
+      return computeUniccODFromAttendance(attendance);
+    }
+    return [];
+  }, [attendance]);
+
+  const fallbackOdHours = useMemo(() => {
+    return uniccOdFallback.reduce((acc, r) => acc + (r.hours || 0), 0);
+  }, [uniccOdFallback]);
+
+  const rawEffectiveOd = externalOdData ?? odData;
+  const effectiveOdData = useMemo(() => {
+    if (rawEffectiveOd && (rawEffectiveOd.records?.length || 0) > 0) {
+      return rawEffectiveOd;
+    }
+    if (uniccOdFallback.length > 0) {
+      return {
+        ...(rawEffectiveOd || {}),
+        state: 'success_with_records',
+        hasValidData: true,
+        records: uniccOdFallback,
+        approvedHours: fallbackOdHours,
+        usedHours: fallbackOdHours,
+        odHours: fallbackOdHours,
+        totalOdHours: fallbackOdHours,
+        maxHours: rawEffectiveOd?.maxHours ?? 40,
+        maxOdHours: rawEffectiveOd?.maxOdHours ?? 40,
+      } as ODResponse;
+    }
+    return rawEffectiveOd;
+  }, [rawEffectiveOd, uniccOdFallback, fallbackOdHours]);
+
   const approvedOdHours = useMemo(() => {
-    return (
-      effectiveOdData?.approvedHours ??
-      effectiveOdData?.usedHours ??
-      (student as any)?.odHours ??
-      (student as any)?.approvedOdHours ??
-      0
-    );
-  }, [effectiveOdData, student]);
+    const fromEffective =
+      (effectiveOdData?.approvedHours && effectiveOdData.approvedHours > 0) ? effectiveOdData.approvedHours :
+      (effectiveOdData?.usedHours && effectiveOdData.usedHours > 0) ? effectiveOdData.usedHours :
+      null;
+    const fromStudent =
+      ((student as any)?.odHours && (student as any).odHours > 0) ? (student as any).odHours :
+      ((student as any)?.approvedOdHours && (student as any).approvedOdHours > 0) ? (student as any).approvedOdHours :
+      null;
+    return fromEffective ?? fromStudent ?? (fallbackOdHours > 0 ? fallbackOdHours : 0);
+  }, [effectiveOdData, student, fallbackOdHours]);
 
   const maxOdHours = effectiveOdData?.maxHours ?? effectiveOdData?.maxOdHours ?? 40;
   const remainingOdHours = Math.max(0, maxOdHours - approvedOdHours);
@@ -722,22 +757,30 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       {/* === 3.2 ATTENDANCE SUB-TAB (STITCH REDESIGN) === */}
       {activeTab === 'attendance' && (() => {
         const overallAtt = student?.overallAttendance;
-        const canonicalOverallPct = overallAtt?.percentage !== null && overallAtt?.percentage !== undefined
+        const rawAttended = attendance.reduce((acc, a) => acc + (a.attended ?? a.classesAttended ?? 0), 0);
+        const rawConducted = attendance.reduce((acc, a) => acc + (a.conducted ?? a.classesConducted ?? a.total ?? 0), 0);
+
+        const hasValidOverall = overallAtt &&
+          overallAtt.total !== null &&
+          overallAtt.total !== undefined &&
+          Number(overallAtt.total) > 0 &&
+          overallAtt.percentage !== null &&
+          overallAtt.percentage !== undefined &&
+          Number(overallAtt.percentage) > 0;
+
+        const canonicalOverallPct = hasValidOverall
           ? Number(overallAtt.percentage)
-          : (attendance.length > 0
-              ? Math.round(
-                  (attendance.reduce((acc, c) => acc + (c.attended || c.classesAttended || 0), 0) /
-                    Math.max(1, attendance.reduce((acc, c) => acc + (c.total || c.classesConducted || 0), 0))) * 1000
-                ) / 10
-              : 0);
+          : (rawConducted > 0
+              ? Math.round((rawAttended / rawConducted) * 1000) / 10
+              : (overallAtt?.percentage !== null && overallAtt?.percentage !== undefined ? Number(overallAtt.percentage) : 0));
 
-        const baseAttended = overallAtt?.attended !== null && overallAtt?.attended !== undefined
+        const baseAttended = hasValidOverall
           ? Number(overallAtt.attended)
-          : attendance.reduce((acc, a) => acc + (a.attended ?? a.classesAttended ?? 0), 0);
+          : (rawConducted > 0 ? rawAttended : (overallAtt?.attended !== null && overallAtt?.attended !== undefined ? Number(overallAtt.attended) : 0));
 
-        const baseConducted = overallAtt?.total !== null && overallAtt?.total !== undefined
+        const baseConducted = hasValidOverall
           ? Number(overallAtt.total)
-          : attendance.reduce((acc, a) => acc + (a.conducted ?? a.classesConducted ?? a.total ?? 0), 0);
+          : (rawConducted > 0 ? rawConducted : (overallAtt?.total !== null && overallAtt?.total !== undefined ? Number(overallAtt.total) : 0));
 
         // Course-level simulations mapped
         const coursesWithSim = attendance.map((att) => {

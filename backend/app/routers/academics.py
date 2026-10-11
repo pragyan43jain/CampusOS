@@ -97,11 +97,12 @@ def get_attendance(
 def get_marks(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
@@ -112,11 +113,12 @@ def get_marks(
 def get_marks_summary(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
@@ -152,11 +154,12 @@ def get_marks_summary(
 def get_od(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
-    return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    return get_vtop_od(x_session_id, x_reg_no, x_auth_user, sessionId, regNo, authorization=authorization)
 
 
 @router.post("/od/fetch")
@@ -164,22 +167,24 @@ def get_od(
 def refresh_od(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
-    return refresh_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    return refresh_vtop_od(x_session_id, x_reg_no, x_auth_user, sessionId, regNo, authorization=authorization)
 
 
 @router.get("/faculty")
 def get_faculty(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_fac = store.get("faculty") or []

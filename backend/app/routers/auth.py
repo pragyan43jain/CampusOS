@@ -80,6 +80,8 @@ def resolve_student_reg(
     # 1. If verified token is present
     if verified_reg:
         if requested_reg and requested_reg != verified_reg:
+            if len(requested_reg) >= 7 and len(verified_reg) >= 7 and requested_reg[-7:] == verified_reg[-7:]:
+                return verified_reg
             logger.warning(
                 "[Security] IDOR attempt blocked: verified student %s attempted to access %s",
                 verified_reg,
@@ -304,11 +306,12 @@ def keep_alive_session(
 def get_vtop_profile(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     return store.get("student") or empty_store()["student"]
 
@@ -317,23 +320,19 @@ def get_vtop_profile(
 def get_vtop_cgpa(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
     """
     Cumulative academic standing.
-
     Every field here is currently ``None`` by design: CGPA and earned credits come
     from the grade-history module, which is not wired up yet, and VTOP does not
     publish class rank at all. ``registeredCredits`` is the one real number — it is
     summed from the registered-course table.
-
-    The previous version returned ``totalCreditsRequired: 160`` unconditionally.
-    That is a programme-dependent figure nobody had checked, and it fed a progress
-    bar that therefore meant nothing.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     student = load_store(reg).get("student") or {}
     return {
         "currentCgpa": student.get("cgpa"),
@@ -484,11 +483,12 @@ def normalize_faculty_item(fac: Dict[str, Any], courses: List[Dict[str, Any]]) -
 def get_vtop_marks(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
@@ -499,12 +499,13 @@ def get_vtop_marks(
 def get_vtop_marks_summary(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     """Returns continuous marks status for all enrolled courses."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_marks = store.get("marks") or []
@@ -540,12 +541,13 @@ def get_vtop_marks_summary(
 def get_vtop_courses(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
     """Registered courses with their attendance and marks attached."""
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("courses") or []
 
 
@@ -553,6 +555,7 @@ def get_vtop_courses(
 def get_vtop_od(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -560,7 +563,7 @@ def get_vtop_od(
     """
     On-duty hours extracted directly from VTOP Academics -> Student OD details module.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     od = store.get("od") or empty_store()["od"]
     is_auth = bool(store.get("authenticated"))
@@ -690,6 +693,7 @@ def get_vtop_od(
 def refresh_vtop_od(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -699,7 +703,7 @@ def refresh_vtop_od(
     """
     from app.vtop.client import client_manager
     from app.vtop import scraper
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     token = x_session_id or sessionId or authorization
     handle = client_manager._get(token) if token else None
 
@@ -717,11 +721,11 @@ def refresh_vtop_od(
             if od_fresh:
                 store["od"] = od_fresh
                 save_store(store, reg_no=reg)
-                return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+                return get_vtop_od(x_session_id, x_reg_no, x_auth_user, sessionId, regNo, authorization=authorization)
         except Exception as exc:
             logger.warning("[VTOP OD] Direct OD refresh exception: %s", exc)
 
-    return get_vtop_od(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    return get_vtop_od(x_session_id, x_reg_no, x_auth_user, sessionId, regNo, authorization=authorization)
 
 
 
@@ -729,6 +733,7 @@ def refresh_vtop_od(
 def get_vtop_exams(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -736,7 +741,7 @@ def get_vtop_exams(
     """
     Exam schedule grouped by exam type ("CAT 1", "FAT", ...), as VTOP groups it.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     exams = store.get("exams") or {}
     exams_list = store.get("examsList") or []
@@ -779,11 +784,12 @@ def get_vtop_exams(
 def get_vtop_timetable(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("timetable") or []
 
 
@@ -791,6 +797,7 @@ def get_vtop_timetable(
 def get_vtop_faculty(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -798,7 +805,7 @@ def get_vtop_faculty(
     """
     The student's faculty, projected from the registered-course table and university staff records.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     courses = store.get("courses") or []
     raw_fac = store.get("faculty") or []

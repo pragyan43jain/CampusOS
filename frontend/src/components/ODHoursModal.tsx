@@ -29,7 +29,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
       setLoading(true);
       try {
         const data = await CampusAPI.getOD();
-        if (data && (data.records?.length || !externalOdData?.records?.length)) {
+        if (data && ((data.records && data.records.length > 0) || (data.approvedHours && data.approvedHours > 0) || (data.usedHours && data.usedHours > 0))) {
           setOdData(data);
         }
       } catch (err) {
@@ -68,10 +68,14 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
 
   if (!isOpen) return null;
 
+  const fallbackRecords = attendance ? computeUniccODFromAttendance(attendance) : [];
+  const fallbackHours = fallbackRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
   const records = (odData?.records && odData.records.length > 0)
     ? odData.records
-    : (attendance ? computeUniccODFromAttendance(attendance) : []);
-  const approvedHours = odData?.approvedHours ?? odData?.usedHours ?? (records.reduce((sum, r) => sum + (r.hours || 0), 0));
+    : fallbackRecords;
+  const approvedHours = ((odData?.approvedHours && odData.approvedHours > 0) ? odData.approvedHours : null)
+    ?? ((odData?.usedHours && odData.usedHours > 0) ? odData.usedHours : null)
+    ?? (fallbackHours > 0 ? fallbackHours : (records.reduce((sum, r) => sum + (r.hours || 0), 0)));
   const maxHours = odData?.maxHours ?? odData?.maxOdHours ?? 40;
 
   const parseDate = (d?: string) => {

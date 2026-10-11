@@ -220,6 +220,20 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
             seed_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed", f"store_{clean_reg}.json")
             if os.path.exists(seed_file):
                 target_path = seed_file
+            elif len(clean_reg) >= 7:
+                # Scan for canonical suffix match (e.g., 5196BLC1100 -> store_24BLC1100.json)
+                suffix = clean_reg[-7:]
+                current_dir = os.path.dirname(DATA_FILE) if DATA_FILE else DATA_DIR
+                for d in (current_dir, os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed")):
+                    if os.path.exists(d):
+                        for fname in os.listdir(d):
+                            if fname.startswith("store_") and fname.endswith(".json"):
+                                cand = fname[6:-5].upper()
+                                if len(cand) >= 7 and cand[-7:] == suffix:
+                                    target_path = os.path.join(d, fname)
+                                    break
+                    if target_path:
+                        break
         elif _is_test_environment() and os.path.exists(DATA_FILE):
             # In test suite with isolated tmp_path, allow reading the test fixture file
             target_path = DATA_FILE
@@ -248,7 +262,12 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
                 if store_reg:
                     s_reg = store_reg.strip().upper()
                     r_reg = reg_no.strip().upper()
-                    if s_reg != r_reg and not _is_test_environment():
+                    matches = (
+                        s_reg == r_reg
+                        or (len(s_reg) >= 7 and len(r_reg) >= 7 and s_reg[-7:] == r_reg[-7:])
+                        or (target_path and os.path.basename(target_path) in (f"store_{r_reg}.json", f"store_{clean_reg}.json"))
+                    )
+                    if not matches and not _is_test_environment():
                         logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
                         return empty_store()
 

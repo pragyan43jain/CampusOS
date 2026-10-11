@@ -403,22 +403,38 @@ export const App: React.FC = () => {
         studentData.regNo !== 'Sync Required'
       );
 
-      if (isAuthed) {
-        setStudent(studentData);
-        if (Array.isArray(coursesData)) setCourses(coursesData);
-        if (Array.isArray(timetableData)) setTimetable(timetableData);
-        if (Array.isArray(attendanceData)) setAttendance(attendanceData);
-        if (Array.isArray(marksData)) setMarks(marksData);
-        if (examsData) setExams(examsData as any);
-        if (Array.isArray(facultyData)) setFaculty(facultyData);
-        if (Array.isArray(assignmentsData)) setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
-        if (Array.isArray(feesData)) setFees(feesData);
-        if (Array.isArray(placementsData)) setPlacements(placementsData);
-        if (Array.isArray(dsaData)) setDsaTopics(dsaData);
-        if (Array.isArray(aiData)) setAiTasks(aiData);
+      if (isAuthed && studentData) {
+        setStudent((prev) => {
+          if (!prev) return studentData;
+          const prevOverall = prev.overallAttendance;
+          const newOverall = studentData.overallAttendance;
+          const keepPrevOverall = (!newOverall || !newOverall.total || newOverall.total === 0) && (prevOverall && (prevOverall.total || 0) > 0);
+          const studentOd = (studentData as any)?.odHours;
+          const prevOd = (prev as any)?.odHours;
+          return {
+            ...prev,
+            ...studentData,
+            overallAttendance: keepPrevOverall ? prevOverall : (newOverall || prevOverall),
+            odHours: (studentOd && studentOd > 0) ? studentOd : prevOd,
+          } as any;
+        });
+        if (Array.isArray(coursesData) && coursesData.length > 0) setCourses(coursesData);
+        if (Array.isArray(timetableData) && timetableData.length > 0) setTimetable(timetableData);
+        if (Array.isArray(attendanceData) && attendanceData.length > 0) setAttendance(attendanceData);
+        if (Array.isArray(marksData) && marksData.length > 0) setMarks(marksData);
+        if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
+        if (Array.isArray(facultyData) && facultyData.length > 0) setFaculty(facultyData);
+        if (Array.isArray(assignmentsData) && assignmentsData.length > 0) setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
+        if (Array.isArray(feesData) && feesData.length > 0) setFees(feesData);
+        if (Array.isArray(placementsData) && placementsData.length > 0) setPlacements(placementsData);
+        if (Array.isArray(dsaData) && dsaData.length > 0) setDsaTopics(dsaData);
+        if (Array.isArray(aiData) && aiData.length > 0) setAiTasks(aiData);
         let finalOd = odResult;
-        if ((!finalOd || !finalOd.records || finalOd.records.length === 0) && Array.isArray(attendanceData)) {
-          const uniccOd = computeUniccODFromAttendance(attendanceData);
+        const attForOd = (Array.isArray(attendanceData) && attendanceData.length > 0)
+          ? attendanceData
+          : (attendance && attendance.length > 0 ? attendance : []);
+        if ((!finalOd || !finalOd.records || finalOd.records.length === 0) && attForOd.length > 0) {
+          const uniccOd = computeUniccODFromAttendance(attForOd);
           if (uniccOd.length > 0) {
             const totalH = uniccOd.reduce((sum, r) => sum + (r.hours || 0), 0);
             finalOd = {
@@ -436,7 +452,9 @@ export const App: React.FC = () => {
             };
           }
         }
-        if (finalOd) setOdData(finalOd);
+        if (finalOd && ((finalOd.records && finalOd.records.length > 0) || (finalOd.approvedHours && finalOd.approvedHours > 0) || (finalOd.usedHours && finalOd.usedHours > 0))) {
+          setOdData(finalOd);
+        }
         setIsAuthenticated(true);
       } else {
         if (!isAuthenticated) {
@@ -698,6 +716,29 @@ export const App: React.FC = () => {
             if (cd.marks?.length > 0) setMarks(cd.marks);
             if (cd.exams && Object.keys(cd.exams).length > 0) setExams(cd.exams);
             if (cd.faculty?.length > 0) setFaculty(cd.faculty);
+            let cachedOd = cd.od;
+            if ((!cachedOd || !cachedOd.records || cachedOd.records.length === 0) && cd.attendance?.length > 0) {
+              const uniccOd = computeUniccODFromAttendance(cd.attendance);
+              if (uniccOd.length > 0) {
+                const totalH = uniccOd.reduce((sum, r) => sum + (r.hours || 0), 0);
+                cachedOd = {
+                  state: 'success_with_records',
+                  hasValidData: true,
+                  usedHours: totalH,
+                  odHours: totalH,
+                  totalOdHours: totalH,
+                  approvedHours: totalH,
+                  pendingHours: 0,
+                  rejectedHours: 0,
+                  maxHours: 40,
+                  maxOdHours: 40,
+                  records: uniccOd,
+                };
+              }
+            }
+            if (cachedOd && ((cachedOd.records && cachedOd.records.length > 0) || (cachedOd.approvedHours && cachedOd.approvedHours > 0))) {
+              setOdData(cachedOd);
+            }
           }
         } else {
           authed = false;
