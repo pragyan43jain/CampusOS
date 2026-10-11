@@ -843,11 +843,13 @@ export const App: React.FC = () => {
           window.localStorage.removeItem('campus_user_data_' + currentReg);
           window.localStorage.removeItem(`campus_lms_account_${currentReg}`);
           window.localStorage.removeItem(`campus_teams_account_${currentReg}`);
+          window.localStorage.removeItem(`campus_last_sync_timestamp_${currentReg}`);
         }
         window.localStorage.removeItem('campus_current_reg_no');
         window.localStorage.removeItem('campusos_leetcode_username');
         window.localStorage.removeItem('campus_lms_account');
         window.localStorage.removeItem('campus_teams_account');
+        window.localStorage.removeItem('campus_last_sync_timestamp');
 
         // Purge any remaining stale platform keys
         Object.keys(window.localStorage).forEach((key) => {
@@ -912,7 +914,34 @@ export const App: React.FC = () => {
     if (d && d.placements && d.placements.length > 0) setPlacements(d.placements);
     if (d && d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
     if (d && d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
-    if (d && d.od) setOdData(d.od);
+    let finalOd = d?.od;
+    if ((!finalOd || !finalOd.records || finalOd.records.length === 0) && Array.isArray(d?.attendance)) {
+      const uniccOd = computeUniccODFromAttendance(d.attendance);
+      if (uniccOd.length > 0) {
+        const totalH = uniccOd.reduce((sum, r) => sum + (r.hours || 0), 0);
+        finalOd = {
+          state: 'success_with_records',
+          hasValidData: true,
+          usedHours: totalH,
+          odHours: totalH,
+          totalOdHours: totalH,
+          approvedHours: totalH,
+          pendingHours: 0,
+          rejectedHours: 0,
+          maxHours: 40,
+          maxOdHours: 40,
+          records: uniccOd,
+        };
+      }
+    }
+    if (finalOd) setOdData(finalOd);
+
+    // Concurrently re-sync connected academic platforms (Teams + LMS) so latest coursework is immediately visible
+    try {
+      await CampusAPI.syncAllAcademicAccounts();
+    } catch (accErr) {
+      console.warn('Academic accounts sync notice on login:', accErr);
+    }
 
     await loadAllData();
     if (typeof window !== 'undefined') {
@@ -922,7 +951,7 @@ export const App: React.FC = () => {
       window.localStorage.setItem(syncKey, String(nowMs));
       window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
     }
-    triggerSyncToast('Synced Successfully');
+    triggerSyncToast('Synced Successfully • Latest records loaded');
     setShowLanding(false);
     setActiveView('dashboard');
     if (typeof window !== 'undefined') {
@@ -989,13 +1018,13 @@ export const App: React.FC = () => {
     }
   };
 
-  // 6-Hour Background Auto-Sync Engine (Refreshes full VTOP, Teams & LMS records)
-  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+  // Background Auto-Sync Engine (Refreshes full VTOP, Teams & LMS records)
+  const AUTO_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 
   const performAutoSync = useCallback(async (isSilent = true) => {
     if (!isAuthenticated || syncing) return;
     try {
-      console.info('[CampusOS Auto-Sync] Automatically triggering 6-hour sync refresh...');
+      console.info('[CampusOS Auto-Sync] Automatically triggering sync refresh...');
       if (!isSilent) setSyncing(true);
       const vtopResult = await CampusAPI.syncVtop();
       if (vtopResult && vtopResult.success) {
@@ -1013,6 +1042,7 @@ export const App: React.FC = () => {
         if (d.courses && d.courses.length > 0) setCourses(d.courses);
         if (d.timetable && d.timetable.length > 0) setTimetable(d.timetable);
         if (d.attendance && d.attendance.length > 0) setAttendance(d.attendance);
+        if (d.marks && d.marks.length > 0) setMarks(d.marks);
         const autoExams: Exam[] = d.examsList && Array.isArray(d.examsList)
           ? d.examsList
           : Array.isArray(d.exams)
@@ -1025,7 +1055,27 @@ export const App: React.FC = () => {
         if (d.placements && d.placements.length > 0) setPlacements(d.placements);
         if (d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
         if (d.aiTasks && d.aiTasks.length > 0) setAiTasks(d.aiTasks);
-        if (d.od) setOdData(d.od);
+        let finalOd = d.od;
+        if ((!finalOd || !finalOd.records || finalOd.records.length === 0) && Array.isArray(d?.attendance)) {
+          const uniccOd = computeUniccODFromAttendance(d.attendance);
+          if (uniccOd.length > 0) {
+            const totalH = uniccOd.reduce((sum, r) => sum + (r.hours || 0), 0);
+            finalOd = {
+              state: 'success_with_records',
+              hasValidData: true,
+              usedHours: totalH,
+              odHours: totalH,
+              totalOdHours: totalH,
+              approvedHours: totalH,
+              pendingHours: 0,
+              rejectedHours: 0,
+              maxHours: 40,
+              maxOdHours: 40,
+              records: uniccOd,
+            };
+          }
+        }
+        if (finalOd) setOdData(finalOd);
       }
       try {
         await CampusAPI.syncAllAcademicAccounts();
@@ -1040,10 +1090,10 @@ export const App: React.FC = () => {
         window.localStorage.setItem(syncKey, String(nowMs));
         window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
       }
-      triggerSyncToast('Auto-synced latest academic records (6h refresh)');
-      console.info('[CampusOS Auto-Sync] 6-hour automated sync completed successfully.');
+      triggerSyncToast('Synced Successfully • Latest records loaded');
+      console.info('[CampusOS Auto-Sync] Automated sync completed successfully.');
     } catch (err) {
-      console.debug('[CampusOS Auto-Sync] 6-hour background auto-sync notice:', err);
+      console.debug('[CampusOS Auto-Sync] Background auto-sync notice:', err);
     } finally {
       if (!isSilent) setSyncing(false);
     }
@@ -1064,16 +1114,10 @@ export const App: React.FC = () => {
         if (!isNaN(parsed)) lastSyncTime = parsed;
       }
 
-      // If never recorded before, initialize current timestamp
-      if (!lastSyncTime) {
-        window.localStorage.setItem(syncKey, String(Date.now()));
-        window.localStorage.setItem('campus_last_sync_timestamp', String(Date.now()));
-        return;
-      }
-
-      const elapsed = Date.now() - lastSyncTime;
-      if (elapsed >= SIX_HOURS_MS) {
-        console.info(`[CampusOS Auto-Sync] ${Math.round(elapsed / (60 * 60 * 1000))}h elapsed since last sync (>= 6h). Auto-syncing now...`);
+      // If never recorded before, or if cooldown period has elapsed, trigger auto-sync
+      const elapsed = lastSyncTime ? Date.now() - lastSyncTime : Infinity;
+      if (!lastSyncTime || elapsed >= AUTO_SYNC_COOLDOWN_MS) {
+        console.info(`[CampusOS Auto-Sync] Auto-syncing latest data (elapsed: ${lastSyncTime ? Math.round(elapsed / 1000) + 's' : 'first run'})...`);
         performAutoSync(true);
       }
     };
@@ -1081,7 +1125,7 @@ export const App: React.FC = () => {
     // Check immediately on load/mount
     checkAndTriggerAutoSync();
 
-    // Check periodically every minute for 6-hour boundary crossing
+    // Check periodically every minute for boundary crossing
     const interval = setInterval(() => {
       checkAndTriggerAutoSync();
     }, 60 * 1000);
