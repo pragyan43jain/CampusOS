@@ -434,6 +434,24 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     # 3. Raw assignments stored from connected sources
     verified_enrolled = build_verified_semester_course_records(store)
     raw_unfiltered = list(store.get("assignments") or [])
+
+    # Include authentic VTOP digital assignments (DAs) from enrolled course marks
+    from app.vtop.scraper import build_assignments
+    vtop_das = build_assignments(courses)
+    existing_ids = {str(a.get("id", "")) for a in raw_unfiltered}
+    existing_sigs = {
+        (canonicalize_course_code(a.get("courseCode")), str(a.get("title", "")).strip().lower())
+        for a in raw_unfiltered
+    }
+    for v_da in vtop_das:
+        v_id = str(v_da.get("id", ""))
+        v_code = canonicalize_course_code(v_da.get("courseCode"))
+        v_sig = (v_code, str(v_da.get("title", "")).strip().lower())
+        if v_id not in existing_ids and v_sig not in existing_sigs:
+            raw_unfiltered.append(v_da)
+            existing_ids.add(v_id)
+            existing_sigs.add(v_sig)
+
     raw_assignments: List[Dict[str, Any]] = []
 
     for a in raw_unfiltered:

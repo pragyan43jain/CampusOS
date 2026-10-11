@@ -1299,6 +1299,7 @@ export const App: React.FC = () => {
             onForceSync={handleHeaderSync}
             syncing={syncing}
             initialSubTab={academicsSubTab}
+            odData={odData}
           />
         )}
 
@@ -1477,6 +1478,7 @@ export const App: React.FC = () => {
         isOpen={showODModal}
         onClose={() => setShowODModal(false)}
         attendance={attendance}
+        odData={odData}
       />
 
       {/* Feature Availability & System Readiness Modal */}

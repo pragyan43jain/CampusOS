@@ -83,6 +83,7 @@ interface AcademicsViewProps {
   onForceSync?: () => void;
   syncing?: boolean;
   initialSubTab?: AcademicsSubTab;
+  odData?: ODResponse | null;
 }
 
 export const AcademicsView: React.FC<AcademicsViewProps> = ({
@@ -96,6 +97,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   onForceSync,
   syncing = false,
   initialSubTab = 'profile',
+  odData: externalOdData,
 }) => {
   const getSubTabFromUrl = (): AcademicsSubTab => {
     if (typeof window === 'undefined') return initialSubTab;
@@ -153,7 +155,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const [isODModalOpen, setIsODModalOpen] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [calendarType, setCalendarType] = useState<string>('ALL');
-  const [odData, setOdData] = useState<ODResponse | null>(null);
+  const [odData, setOdData] = useState<ODResponse | null>(externalOdData || null);
+
+  useEffect(() => {
+    if (externalOdData) {
+      setOdData(externalOdData);
+    }
+  }, [externalOdData]);
 
   const handleCalendarFetch = async (fnCalendarType?: string) => {
     const typeToUse = fnCalendarType || calendarType || 'ALL';
@@ -184,7 +192,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     const loadOD = async () => {
       try {
         const data = await CampusAPI.getOD();
-        if (data) {
+        if (data && (data.records?.length || !externalOdData?.records?.length)) {
           setOdData(data);
         }
       } catch (err) {
@@ -193,17 +201,21 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     };
     loadCalendar();
     loadOD();
-  }, []);
+  }, [externalOdData]);
 
+  const effectiveOdData = externalOdData ?? odData;
   const approvedOdHours = useMemo(() => {
-    if (odData && typeof odData.approvedHours === 'number') {
-      return odData.approvedHours;
-    }
-    if (odData && typeof odData.usedHours === 'number') {
-      return odData.usedHours;
-    }
-    return 0;
-  }, [odData]);
+    return (
+      effectiveOdData?.approvedHours ??
+      effectiveOdData?.usedHours ??
+      (student as any)?.odHours ??
+      (student as any)?.approvedOdHours ??
+      0
+    );
+  }, [effectiveOdData, student]);
+
+  const maxOdHours = effectiveOdData?.maxHours ?? effectiveOdData?.maxOdHours ?? 40;
+  const remainingOdHours = Math.max(0, maxOdHours - approvedOdHours);
 
   const days: Array<'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT'> = [
     'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT',
@@ -709,10 +721,23 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
 
       {/* === 3.2 ATTENDANCE SUB-TAB (STITCH REDESIGN) === */}
       {activeTab === 'attendance' && (() => {
-        const baseAttended = attendance.reduce((acc, a) => acc + (a.attended ?? a.classesAttended ?? 0), 0);
-        const baseConducted = attendance.reduce((acc, a) => acc + (a.conducted ?? a.classesConducted ?? a.total ?? 0), 0);
-        const basePct = baseConducted > 0 ? Math.round((baseAttended / baseConducted) * 1000) / 10 : 0;
-        const actualOverallPct = student.overallAttendance?.percentage ?? (attendance.length > 0 ? basePct : null);
+        const overallAtt = student?.overallAttendance;
+        const canonicalOverallPct = overallAtt?.percentage !== null && overallAtt?.percentage !== undefined
+          ? Number(overallAtt.percentage)
+          : (attendance.length > 0
+              ? Math.round(
+                  (attendance.reduce((acc, c) => acc + (c.attended || c.classesAttended || 0), 0) /
+                    Math.max(1, attendance.reduce((acc, c) => acc + (c.total || c.classesConducted || 0), 0))) * 1000
+                ) / 10
+              : 0);
+
+        const baseAttended = overallAtt?.attended !== null && overallAtt?.attended !== undefined
+          ? Number(overallAtt.attended)
+          : attendance.reduce((acc, a) => acc + (a.attended ?? a.classesAttended ?? 0), 0);
+
+        const baseConducted = overallAtt?.total !== null && overallAtt?.total !== undefined
+          ? Number(overallAtt.total)
+          : attendance.reduce((acc, a) => acc + (a.conducted ?? a.classesConducted ?? a.total ?? 0), 0);
 
         // Course-level simulations mapped
         const coursesWithSim = attendance.map((att) => {
@@ -743,10 +768,25 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
           };
         });
 
-        const totalSimAttended = coursesWithSim.reduce((acc, c) => acc + c.simAttended, 0) + simAttendedGlobalDelta;
-        const totalSimConducted = coursesWithSim.reduce((acc, c) => acc + c.simConducted, 0) + simAttendedGlobalDelta + simMissedGlobalDelta;
-        const simOverallPct = totalSimConducted > 0 ? Math.round((totalSimAttended / totalSimConducted) * 1000) / 10 : (actualOverallPct ?? 0);
+        const courseAttDelta = Object.values(courseSimulations).reduce((sum, s) => sum + (s.attendedDelta || 0), 0);
+        const courseMissDelta = Object.values(courseSimulations).reduce((sum, s) => sum + (s.missedDelta || 0), 0);
+
+        const totalSimAttended = baseAttended + courseAttDelta + simAttendedGlobalDelta;
+        const totalSimConducted = baseConducted + courseAttDelta + courseMissDelta + simAttendedGlobalDelta + simMissedGlobalDelta;
+
+        const hasActiveSimulation = (
+          simAttendedGlobalDelta !== 0 ||
+          simMissedGlobalDelta !== 0 ||
+          courseAttDelta !== 0 ||
+          courseMissDelta !== 0
+        );
+
+        const simOverallPct = hasActiveSimulation
+          ? (totalSimConducted > 0 ? Math.round((totalSimAttended / totalSimConducted) * 1000) / 10 : canonicalOverallPct)
+          : canonicalOverallPct;
+
         const headroom = Math.round((simOverallPct - targetAttendance) * 10) / 10;
+        const totalRegisteredCourses = courses.length > 0 ? courses.length : attendance.length;
 
         const safeCoursesCount = coursesWithSim.filter((c) => c.simPct >= targetAttendance).length;
         const criticalCoursesCount = coursesWithSim.filter((c) => c.simPct < targetAttendance).length;
@@ -868,7 +908,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Safe Band Courses</span>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="font-metric-display text-metric-display text-on-surface font-bold">{safeCoursesCount}</span>
-                      <span className="font-label-sm text-label-sm text-outline">/ {attendance.length} registered</span>
+                      <span className="font-label-sm text-label-sm text-outline">/ {totalRegisteredCourses} registered</span>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
@@ -879,13 +919,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   <div className="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
                     <div
                       className="h-full bg-secondary rounded-full"
-                      style={{ width: `${attendance.length > 0 ? (safeCoursesCount / attendance.length) * 100 : 0}%` }}
+                      style={{ width: `${totalRegisteredCourses > 0 ? (safeCoursesCount / totalRegisteredCourses) * 100 : 0}%` }}
                     />
                   </div>
                   <div className="mt-2 flex items-center justify-between font-tabular-data text-label-sm text-on-surface-variant">
                     <span>Well above {targetAttendance}% target cutoff</span>
                     <span className="font-semibold text-secondary">
-                      {attendance.length > 0 ? Math.round((safeCoursesCount / attendance.length) * 100) : 0}% Coverage
+                      {totalRegisteredCourses > 0 ? Math.round((safeCoursesCount / totalRegisteredCourses) * 100) : 0}% Coverage
                     </span>
                   </div>
                 </div>
@@ -932,7 +972,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       <span className="font-metric-display text-metric-display text-on-surface font-bold">
                         {approvedOdHours}h
                       </span>
-                      <span className="font-label-sm text-label-sm text-outline">/ {odData?.maxHours || 40}h semester cap</span>
+                      <span className="font-label-sm text-label-sm text-outline">/ {maxOdHours}h semester cap</span>
                     </div>
                   </div>
                   <div className="w-10 h-10 rounded-lg bg-secondary-fixed/50 flex items-center justify-center text-secondary">
@@ -943,13 +983,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   <div className="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full"
-                      style={{ width: `${Math.min(100, (approvedOdHours / (odData?.maxHours || 40)) * 100)}%` }}
+                      style={{ width: `${maxOdHours > 0 ? Math.min(100, (approvedOdHours / maxOdHours) * 100) : 0}%` }}
                     />
                   </div>
                   <div className="mt-2 flex items-center justify-between font-tabular-data text-label-sm text-on-surface-variant">
                     <span>Approved Sanction Credit</span>
                     <span className="font-semibold text-primary">
-                      {Math.max(0, (odData?.maxHours || 40) - approvedOdHours)}h Bank Remaining
+                      {remainingOdHours}h Bank Remaining
                     </span>
                   </div>
                 </div>
@@ -3213,6 +3253,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         isOpen={isODModalOpen}
         onClose={() => setIsODModalOpen(false)}
         attendance={attendance}
+        odData={effectiveOdData}
       />
 
       {/* VTOP Academic Calendar Modal */}

@@ -9,12 +9,19 @@ interface ODHoursModalProps {
   isOpen: boolean;
   onClose: () => void;
   attendance?: Attendance[];
+  odData?: ODResponse | null;
 }
 
-export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, attendance }) => {
+export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, attendance, odData: externalOdData }) => {
   useLockBodyScroll(isOpen);
-  const [odData, setOdData] = useState<ODResponse | null>(null);
+  const [odData, setOdData] = useState<ODResponse | null>(externalOdData || null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (externalOdData) {
+      setOdData(externalOdData);
+    }
+  }, [externalOdData]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -22,7 +29,9 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
       setLoading(true);
       try {
         const data = await CampusAPI.getOD();
-        setOdData(data);
+        if (data && (data.records?.length || !externalOdData?.records?.length)) {
+          setOdData(data);
+        }
       } catch (err) {
         console.warn('[ODHoursModal] Failed to fetch OD data:', err);
       } finally {
@@ -30,7 +39,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
       }
     };
     fetchOD();
-  }, [isOpen]);
+  }, [isOpen, externalOdData]);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -63,7 +72,7 @@ export const ODHoursModal: React.FC<ODHoursModalProps> = ({ isOpen, onClose, att
     ? odData.records
     : (attendance ? computeUniccODFromAttendance(attendance) : []);
   const approvedHours = odData?.approvedHours ?? odData?.usedHours ?? (records.reduce((sum, r) => sum + (r.hours || 0), 0));
-  const maxHours = odData?.maxHours || 40;
+  const maxHours = odData?.maxHours ?? odData?.maxOdHours ?? 40;
 
   const parseDate = (d?: string) => {
     if (!d) return 0;

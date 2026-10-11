@@ -622,5 +622,45 @@ class TestVtopLmsFacultyMatchingDashboard:
         assert assign_pending["isDone"] is False
         assert assign_pending["displayStatus"] == "PENDING"
 
+    def test_vtop_course_continuous_assessment_assignments_ingested(self):
+        """Verifies that authentic VTOP continuous assessments/DAs in course marks are automatically ingested."""
+        store = {
+            "authenticated": True,
+            "selectedSemester": {"id": "CH20262701", "name": "Fall Semester 2026-27"},
+            "courses": [
+                {
+                    "code": "BSSC101N",
+                    "title": "Essence of Traditional Knowledge",
+                    "faculty": "ARUN KUMAR",
+                    "marks": [
+                        {
+                            "title": "Assessment - 1",
+                            "status": "Present",
+                            "scored": 10.0,
+                            "maxWeightage": 10.0,
+                        },
+                        {
+                            "title": "Assessment - 2",
+                            "status": "Absent",
+                            "scored": None,
+                            "maxWeightage": 10.0,
+                        },
+                    ],
+                }
+            ],
+            "assignments": [],
+        }
+        dash = build_unified_assignment_dashboard(store)
+        assert dash["totalAssignments"] == 2
+        sub = next(s for s in dash["subjects"] if s["courseCode"] == "BSSC101N")
+        assert len(sub["assignments"]) == 2
+        vtop_sources = [a for a in sub["assignments"] if a["source"] in ("VTOP Portal", "Portal")]
+        assert len(vtop_sources) == 2
+        done_assign = next(a for a in sub["assignments"] if "assessment---1" in a["id"])
+        pending_assign = next(a for a in sub["assignments"] if "assessment---2" in a["id"])
+        assert done_assign["isDone"] is True
+        assert pending_assign["isDone"] is False
+
+
 
 
