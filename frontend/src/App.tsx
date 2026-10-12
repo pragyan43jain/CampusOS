@@ -314,7 +314,14 @@ export const App: React.FC = () => {
         teamsDirectStatus?.connected
       );
 
+      const localLmsSaved = typeof window !== 'undefined'
+        ? (window.localStorage.getItem(`campus_lms_account_${student?.regNo}`) ||
+           window.localStorage.getItem('campus_lms_account') ||
+           window.localStorage.getItem('campus_lms_saved_username'))
+        : null;
+
       const isLmsConn = Boolean(
+        localLmsSaved ||
         (statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName || (statusData?.lms?.matchedCount ?? 0) > 0)) ||
         (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName || (lmsDirectStatus?.matchedCount ?? 0) > 0)) ||
         statusData?.lms?.status === 'connected' ||
@@ -412,6 +419,39 @@ export const App: React.FC = () => {
       // If a newer sync or newer request was initiated, discard this stale response
       if (currentGen !== loadDataGenRef.current || reqStart < lastSyncTimestampRef.current) {
         console.debug('[CampusOS] Stale loadAllData response ignored in favor of newer sync');
+        return;
+      }
+
+      // Check if localStorage holds a fresher synced dataset than the backend response
+      let localFreshTimestamp = 0;
+      if (typeof window !== 'undefined') {
+        try {
+          const reg = studentData?.regNo || (student as any)?.regNo || window.localStorage.getItem('campus_current_reg_no');
+          if (reg) {
+            const rawLocal = window.localStorage.getItem('campus_user_data_' + reg);
+            if (rawLocal) {
+              const parsedLocal = JSON.parse(rawLocal);
+              const localSynced = parsedLocal?.lastSynced || parsedLocal?.student?.lastSynced || parsedLocal?.data?.student?.lastSynced;
+              if (localSynced) {
+                const parsedTime = new Date(localSynced).getTime();
+                if (!isNaN(parsedTime)) localFreshTimestamp = parsedTime;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      const backendSynced = studentData?.lastSynced;
+      let backendTimestamp = 0;
+      if (backendSynced) {
+        const parsedBackendTime = new Date(backendSynced).getTime();
+        if (!isNaN(parsedBackendTime)) backendTimestamp = parsedBackendTime;
+      }
+
+      // If localStorage holds a strictly fresher synced dataset than the backend response,
+      // preserve verified fresh local state and do not overwrite with stale backend records!
+      if (localFreshTimestamp > 0 && backendTimestamp > 0 && backendTimestamp < localFreshTimestamp) {
+        console.info('[CampusOS] Stale backend snapshot detected — preserving verified fresh local state.');
         return;
       }
 
@@ -869,7 +909,9 @@ export const App: React.FC = () => {
           }
           if (cachedUserData && isMounted) {
             const cd = (cachedUserData as any)?.data || cachedUserData;
-            setStudent(studentProfile);
+            const cachedStudent = cd.student || cachedUserData.student;
+            const mergedStudent = cachedStudent ? { ...studentProfile, ...cachedStudent } : studentProfile;
+            setStudent(mergedStudent);
             if (cd.courses?.length > 0) setCourses(cd.courses);
             if (cd.timetable?.length > 0) setTimetable(cd.timetable);
             if (cd.attendance?.length > 0) setAttendance(cd.attendance);
