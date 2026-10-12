@@ -202,6 +202,8 @@ export const App: React.FC = () => {
     time: '',
   });
   const syncToastTimerRef = useRef<any>(null);
+  const loadDataGenRef = useRef<number>(0);
+  const lastSyncTimestampRef = useRef<number>(0);
 
   const triggerSyncToast = (message: string = 'Synced Successfully') => {
     if (syncToastTimerRef.current) {
@@ -354,6 +356,8 @@ export const App: React.FC = () => {
 
   // Load all initial academic modules from backend
   const loadAllData = async () => {
+    const currentGen = ++loadDataGenRef.current;
+    const reqStart = Date.now();
     try {
       setSyncing(true);
       const vtopStatus = await CampusAPI.getVtopStatus();
@@ -405,6 +409,12 @@ export const App: React.FC = () => {
         CampusAPI.getUnifiedAssignments().catch(() => null),
       ]);
 
+      // If a newer sync or newer request was initiated, discard this stale response
+      if (currentGen !== loadDataGenRef.current || reqStart < lastSyncTimestampRef.current) {
+        console.debug('[CampusOS] Stale loadAllData response ignored in favor of newer sync');
+        return;
+      }
+
       const isAuthed = Boolean(
         studentData &&
         studentData.regNo &&
@@ -437,16 +447,52 @@ export const App: React.FC = () => {
         const flatUnified: Assignment[] = [];
         if (unifiedDash && unifiedDash.subjects) {
           unifiedDash.subjects.forEach((s: any) => {
-            if (s.assignments) flatUnified.push(...s.assignments);
+            if (s.assignments) {
+              s.assignments.forEach((item: any) => {
+                const done = isAssignmentDone(item, studentData?.regNo);
+                const isTeams = isTeamsAssignment(item);
+                flatUnified.push({
+                  ...item,
+                  isDone: done,
+                  isSubmitted: done,
+                  status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                  displayStatus: done ? 'DONE' : 'PENDING',
+                  applicationStatus: done ? 'DONE' : 'PENDING',
+                });
+              });
+            }
           });
         }
         if (unifiedDash && unifiedDash.unmatchedAssignments) {
-          flatUnified.push(...unifiedDash.unmatchedAssignments);
+          unifiedDash.unmatchedAssignments.forEach((item: any) => {
+            const done = isAssignmentDone(item, studentData?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            flatUnified.push({
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            });
+          });
         }
         if (flatUnified.length > 0) {
           setAssignments(applyManualStatusOverrides(flatUnified, studentData?.regNo));
         } else if (Array.isArray(assignmentsData) && assignmentsData.length > 0) {
-          setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
+          const normAssignments = assignmentsData.map((item: any) => {
+            const done = isAssignmentDone(item, studentData?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            return {
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            };
+          });
+          setAssignments(applyManualStatusOverrides(normAssignments, studentData?.regNo));
         }
         if (Array.isArray(feesData) && feesData.length > 0) setFees(feesData);
         if (Array.isArray(placementsData) && placementsData.length > 0) setPlacements(placementsData);
@@ -511,17 +557,53 @@ export const App: React.FC = () => {
         const flatList: Assignment[] = [];
         if (res.dashboard.subjects) {
           res.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
-            if (s.assignments) flatList.push(...s.assignments);
+            if (s.assignments) {
+              s.assignments.forEach((item: Assignment) => {
+                const done = isAssignmentDone(item, student?.regNo);
+                const isTeams = isTeamsAssignment(item);
+                flatList.push({
+                  ...item,
+                  isDone: done,
+                  isSubmitted: done,
+                  status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                  displayStatus: done ? 'DONE' : 'PENDING',
+                  applicationStatus: done ? 'DONE' : 'PENDING',
+                });
+              });
+            }
           });
         }
         if (res.dashboard.unmatchedAssignments) {
-          flatList.push(...res.dashboard.unmatchedAssignments);
+          res.dashboard.unmatchedAssignments.forEach((item: Assignment) => {
+            const done = isAssignmentDone(item, student?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            flatList.push({
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            });
+          });
         }
         setAssignments(applyManualStatusOverrides(flatList, student?.regNo));
       } else {
         const freshAssignments = await CampusAPI.getAssignments();
         if (Array.isArray(freshAssignments)) {
-          setAssignments(applyManualStatusOverrides(freshAssignments, student?.regNo));
+          const normAssignments = freshAssignments.map((item: any) => {
+            const done = isAssignmentDone(item, student?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            return {
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            };
+          });
+          setAssignments(applyManualStatusOverrides(normAssignments, student?.regNo));
         }
       }
 
@@ -549,6 +631,7 @@ export const App: React.FC = () => {
       return;
     }
 
+    lastSyncTimestampRef.current = Date.now();
     setSyncing(true);
     CampusAnalytics.trackEvent('sync_started', '/sync');
     try {
@@ -568,10 +651,12 @@ export const App: React.FC = () => {
       }
 
       // If fresh data was returned directly in vtopResult, update local state immediately
+      let resolvedStudent: StudentProfile | null = student;
       if (vtopResult && vtopResult.success) {
         const d = (vtopResult as any)?.data || vtopResult;
         const studentObj: StudentProfile | null = (d.student as StudentProfile) || null;
         if (studentObj && studentObj.regNo) {
+          resolvedStudent = studentObj;
           CampusAPI.setActiveStudent(studentObj);
           setStudent(studentObj);
           CampusAnalytics.syncProfile(studentObj);
@@ -590,7 +675,21 @@ export const App: React.FC = () => {
           : (d.exams && typeof d.exams === 'object' ? Object.values(d.exams).flat() as Exam[] : []);
         if (freshExams) setExams(freshExams);
         if (Array.isArray(d.faculty)) setFaculty(d.faculty);
-        if (Array.isArray(d.assignments)) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
+        if (Array.isArray(d.assignments)) {
+          const normAssignments = d.assignments.map((item: any) => {
+            const done = isAssignmentDone(item, resolvedStudent?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            return {
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            };
+          });
+          setAssignments(applyManualStatusOverrides(normAssignments, resolvedStudent?.regNo));
+        }
         if (Array.isArray(d.fees)) setFees(d.fees);
         if (Array.isArray(d.placements)) setPlacements(d.placements);
         if (Array.isArray(d.dsaTopics)) setDsaTopics(d.dsaTopics);
@@ -619,16 +718,54 @@ export const App: React.FC = () => {
 
       // 2. Concurrently re-sync connected academic platforms (Teams + LMS)
       try {
-        await CampusAPI.syncAllAcademicAccounts();
+        const syncAccRes = await CampusAPI.syncAllAcademicAccounts();
+        if (syncAccRes && syncAccRes.dashboard) {
+          const flatList: Assignment[] = [];
+          if (syncAccRes.dashboard.subjects) {
+            syncAccRes.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
+              if (s.assignments) {
+                s.assignments.forEach((item: Assignment) => {
+                  const done = isAssignmentDone(item, resolvedStudent?.regNo);
+                  const isTeams = isTeamsAssignment(item);
+                  flatList.push({
+                    ...item,
+                    isDone: done,
+                    isSubmitted: done,
+                    status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                    displayStatus: done ? 'DONE' : 'PENDING',
+                    applicationStatus: done ? 'DONE' : 'PENDING',
+                  });
+                });
+              }
+            });
+          }
+          if (syncAccRes.dashboard.unmatchedAssignments) {
+            syncAccRes.dashboard.unmatchedAssignments.forEach((item: Assignment) => {
+              const done = isAssignmentDone(item, resolvedStudent?.regNo);
+              const isTeams = isTeamsAssignment(item);
+              flatList.push({
+                ...item,
+                isDone: done,
+                isSubmitted: done,
+                status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                displayStatus: done ? 'DONE' : 'PENDING',
+                applicationStatus: done ? 'DONE' : 'PENDING',
+              });
+            });
+          }
+          if (flatList.length > 0) {
+            setAssignments(applyManualStatusOverrides(flatList, resolvedStudent?.regNo));
+          }
+        }
       } catch (accErr) {
         console.warn('Academic accounts sync notice:', accErr);
       }
 
-      // 3. Reload all student data into React state
-      await loadAllData();
+      await loadAcademicAccountsStatus();
+
       if (typeof window !== 'undefined') {
         const nowMs = Date.now();
-        const syncKey = student?.regNo ? `campus_last_sync_timestamp_${student.regNo}` : 'campus_last_sync_timestamp';
+        const syncKey = resolvedStudent?.regNo ? `campus_last_sync_timestamp_${resolvedStudent.regNo}` : 'campus_last_sync_timestamp';
         window.localStorage.setItem(syncKey, String(nowMs));
         window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
       }
@@ -1001,13 +1138,52 @@ export const App: React.FC = () => {
     if (finalOd) setOdData(finalOd);
 
     // Concurrently re-sync connected academic platforms (Teams + LMS) so latest coursework is immediately visible
+    lastSyncTimestampRef.current = Date.now();
     try {
-      await CampusAPI.syncAllAcademicAccounts();
+      const syncAccRes = await CampusAPI.syncAllAcademicAccounts();
+      if (syncAccRes && syncAccRes.dashboard) {
+        const flatList: Assignment[] = [];
+        if (syncAccRes.dashboard.subjects) {
+          syncAccRes.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
+            if (s.assignments) {
+              s.assignments.forEach((item: Assignment) => {
+                const done = isAssignmentDone(item, studentObj?.regNo);
+                const isTeams = isTeamsAssignment(item);
+                flatList.push({
+                  ...item,
+                  isDone: done,
+                  isSubmitted: done,
+                  status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                  displayStatus: done ? 'DONE' : 'PENDING',
+                  applicationStatus: done ? 'DONE' : 'PENDING',
+                });
+              });
+            }
+          });
+        }
+        if (syncAccRes.dashboard.unmatchedAssignments) {
+          syncAccRes.dashboard.unmatchedAssignments.forEach((item: Assignment) => {
+            const done = isAssignmentDone(item, studentObj?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            flatList.push({
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            });
+          });
+        }
+        if (flatList.length > 0) {
+          setAssignments(applyManualStatusOverrides(flatList, studentObj?.regNo));
+        }
+      }
     } catch (accErr) {
       console.warn('Academic accounts sync notice on login:', accErr);
     }
 
-    await loadAllData();
+    await loadAcademicAccountsStatus();
     if (typeof window !== 'undefined') {
       const nowMs = Date.now();
       const regToUse = studentObj?.regNo || d?.student?.regNo;
@@ -1091,10 +1267,12 @@ export const App: React.FC = () => {
       console.info('[CampusOS Auto-Sync] Automatically triggering sync refresh...');
       if (!isSilent) setSyncing(true);
       const vtopResult = await CampusAPI.syncVtop();
+      let resolvedStudent: StudentProfile | null = student;
       if (vtopResult && vtopResult.success) {
         const d = (vtopResult as any)?.data || vtopResult;
         const studentObj: StudentProfile | null = (d.student as StudentProfile) || null;
         if (studentObj && studentObj.regNo) {
+          resolvedStudent = studentObj;
           CampusAPI.setActiveStudent(studentObj);
           setStudent(studentObj);
           CampusAnalytics.syncProfile(studentObj);
@@ -1114,7 +1292,21 @@ export const App: React.FC = () => {
           : (d.exams && typeof d.exams === 'object' ? Object.values(d.exams).flat() as Exam[] : []);
         if (autoExams.length > 0) setExams(autoExams);
         if (d.faculty && d.faculty.length > 0) setFaculty(d.faculty);
-        if (d.assignments && d.assignments.length > 0) setAssignments(applyManualStatusOverrides(d.assignments, studentObj?.regNo));
+        if (d.assignments && d.assignments.length > 0) {
+          const normAssignments = d.assignments.map((item: any) => {
+            const done = isAssignmentDone(item, resolvedStudent?.regNo);
+            const isTeams = isTeamsAssignment(item);
+            return {
+              ...item,
+              isDone: done,
+              isSubmitted: done,
+              status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+              displayStatus: done ? 'DONE' : 'PENDING',
+              applicationStatus: done ? 'DONE' : 'PENDING',
+            };
+          });
+          setAssignments(applyManualStatusOverrides(normAssignments, resolvedStudent?.regNo));
+        }
         if (d.fees && d.fees.length > 0) setFees(d.fees);
         if (d.placements && d.placements.length > 0) setPlacements(d.placements);
         if (d.dsaTopics && d.dsaTopics.length > 0) setDsaTopics(d.dsaTopics);
@@ -1141,16 +1333,55 @@ export const App: React.FC = () => {
         }
         if (finalOd) setOdData(finalOd);
       }
+      lastSyncTimestampRef.current = Date.now();
       try {
-        await CampusAPI.syncAllAcademicAccounts();
+        const syncAccRes = await CampusAPI.syncAllAcademicAccounts();
+        if (syncAccRes && syncAccRes.dashboard) {
+          const flatList: Assignment[] = [];
+          if (syncAccRes.dashboard.subjects) {
+            syncAccRes.dashboard.subjects.forEach((s: SubjectAssignmentGroup) => {
+              if (s.assignments) {
+                s.assignments.forEach((item: Assignment) => {
+                  const done = isAssignmentDone(item, resolvedStudent?.regNo);
+                  const isTeams = isTeamsAssignment(item);
+                  flatList.push({
+                    ...item,
+                    isDone: done,
+                    isSubmitted: done,
+                    status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                    displayStatus: done ? 'DONE' : 'PENDING',
+                    applicationStatus: done ? 'DONE' : 'PENDING',
+                  });
+                });
+              }
+            });
+          }
+          if (syncAccRes.dashboard.unmatchedAssignments) {
+            syncAccRes.dashboard.unmatchedAssignments.forEach((item: Assignment) => {
+              const done = isAssignmentDone(item, resolvedStudent?.regNo);
+              const isTeams = isTeamsAssignment(item);
+              flatList.push({
+                ...item,
+                isDone: done,
+                isSubmitted: done,
+                status: done ? (isTeams ? 'Turned in' : 'Submitted') : 'Pending',
+                displayStatus: done ? 'DONE' : 'PENDING',
+                applicationStatus: done ? 'DONE' : 'PENDING',
+              });
+            });
+          }
+          if (flatList.length > 0) {
+            setAssignments(applyManualStatusOverrides(flatList, resolvedStudent?.regNo));
+          }
+        }
       } catch (accErr) {
         console.debug('[CampusOS Auto-Sync] Academic accounts sync notice:', accErr);
       }
-      await loadAllData();
+      await loadAcademicAccountsStatus();
 
       const nowMs = Date.now();
       if (typeof window !== 'undefined') {
-        const syncKey = student?.regNo ? `campus_last_sync_timestamp_${student.regNo}` : 'campus_last_sync_timestamp';
+        const syncKey = resolvedStudent?.regNo ? `campus_last_sync_timestamp_${resolvedStudent.regNo}` : 'campus_last_sync_timestamp';
         window.localStorage.setItem(syncKey, String(nowMs));
         window.localStorage.setItem('campus_last_sync_timestamp', String(nowMs));
       }
@@ -1161,7 +1392,7 @@ export const App: React.FC = () => {
     } finally {
       if (!isSilent) setSyncing(false);
     }
-  }, [isAuthenticated, syncing, student, loadAllData, triggerSyncToast]);
+  }, [isAuthenticated, syncing, student, triggerSyncToast, loadAcademicAccountsStatus]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

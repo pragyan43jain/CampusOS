@@ -161,6 +161,14 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   useEffect(() => {
     if (externalOdData) {
       setOdData(externalOdData);
+    } else {
+      CampusAPI.getOD().then((data) => {
+        if (data && ((data.records && data.records.length > 0) || (data.approvedHours && data.approvedHours > 0) || (data.usedHours && data.usedHours > 0))) {
+          setOdData(data);
+        }
+      }).catch((err) => {
+        console.warn('[AcademicsView] Failed to fetch initial OD data:', err);
+      });
     }
   }, [externalOdData]);
 
@@ -190,19 +198,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         console.warn('[AcademicsView] Failed to fetch calendar:', err);
       }
     };
-    const loadOD = async () => {
-      try {
-        const data = await CampusAPI.getOD();
-        if (data && ((data.records && data.records.length > 0) || (data.approvedHours && data.approvedHours > 0) || (data.usedHours && data.usedHours > 0))) {
-          setOdData(data);
-        }
-      } catch (err) {
-        console.warn('[AcademicsView] Failed to fetch OD data:', err);
-      }
-    };
     loadCalendar();
-    loadOD();
-  }, [externalOdData]);
+  }, [student?.semesterId]);
 
   const uniccOdFallback = useMemo(() => {
     if (attendance && attendance.length > 0) {

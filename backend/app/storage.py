@@ -207,11 +207,25 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
     """
     Return the synced payload strictly for the specified student regNo, or return the shaped empty payload.
     Never falls back to other students' files or scans disk for default profiles.
+    Guarantees that fresher in-memory synced data is never overwritten by older seed snapshots.
     """
-    target_path = None
-
+    clean_reg = None
     if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
         clean_reg = "".join(c for c in reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
+
+    # Fast path: check direct registration memory cache
+    if clean_reg and not _is_test_environment():
+        with _STORAGE_LOCK:
+            reg_cached = _MEM_CACHE.get(f"reg_{clean_reg}")
+            if reg_cached and isinstance(reg_cached[1], dict) and reg_cached[1].get("storeVersion") == STORE_VERSION:
+                # If memory cache holds a complete synced payload with student info, return it
+                mem_student = reg_cached[1].get("student") or {}
+                if mem_student.get("regNo"):
+                    return reg_cached[1]
+
+    target_path = None
+
+    if clean_reg:
         p = _data_file_for(clean_reg)
         if p and os.path.exists(p):
             target_path = p
@@ -242,6 +256,11 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
         target_path = DATA_FILE
 
     if not target_path or not os.path.exists(target_path):
+        if clean_reg:
+            with _STORAGE_LOCK:
+                reg_cached = _MEM_CACHE.get(f"reg_{clean_reg}")
+                if reg_cached and isinstance(reg_cached[1], dict):
+                    return reg_cached[1]
         return empty_store()
 
     try:
@@ -257,11 +276,11 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
                     _MEM_CACHE[target_path] = (mtime, data)
 
         if isinstance(data, dict) and data.get("storeVersion") == STORE_VERSION:
-            if reg_no and reg_no.strip() and reg_no.strip() not in ("Not available", "Sync Required"):
+            if clean_reg:
                 store_reg = (data.get("student") or {}).get("regNo")
                 if store_reg:
                     s_reg = store_reg.strip().upper()
-                    r_reg = reg_no.strip().upper()
+                    r_reg = clean_reg
                     matches = (
                         s_reg == r_reg
                         or (len(s_reg) >= 7 and len(r_reg) >= 7 and s_reg[-7:] == r_reg[-7:])
@@ -270,6 +289,15 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
                     if not matches and not _is_test_environment():
                         logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
                         return empty_store()
+
+                # If memory cache holds a strictly fresher version for this student (e.g. from recent sync), prefer memory cache
+                with _STORAGE_LOCK:
+                    reg_cached = _MEM_CACHE.get(f"reg_{clean_reg}")
+                    if reg_cached and isinstance(reg_cached[1], dict):
+                        mem_synced = reg_cached[1].get("lastSynced") or ""
+                        disk_synced = data.get("lastSynced") or ""
+                        if mem_synced and disk_synced and mem_synced > disk_synced:
+                            return reg_cached[1]
 
             return data
         elif isinstance(data, dict) and data:
@@ -287,9 +315,13 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
     """
     canonical_reg = (data.get("student") or {}).get("regNo")
     targets = []
+    clean_regs = []
 
     for r in (canonical_reg, reg_no):
         if r and r.strip() and r.strip() not in ("Not available", "Sync Required"):
+            clean_r = "".join(c for c in r.strip().upper() if c.isalnum() or c in ("-", "_"))
+            if clean_r and clean_r not in clean_regs:
+                clean_regs.append(clean_r)
             p = _data_file_for(r)
             if p and p not in targets:
                 targets.append(p)
@@ -304,7 +336,7 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                 os.makedirs(data_dir, exist_ok=True)
 
             merged_data = dict(data)
-            # If target already exists, preserve non-empty sections from disk if key is absent from incoming data (M4)
+            # If target already exists, preserve non-empty sections from disk if incoming section is empty or missing (M4)
             if os.path.exists(tgt):
                 try:
                     with open(tgt, "r", encoding="utf-8") as handle:
@@ -315,14 +347,16 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
                             "aiTasks", "od", "overallAttendance", "semesters", "selectedSemester"
                         )
                         for key in preserve_keys:
-                            if key not in merged_data:
-                                if existing.get(key) is not None:
-                                    merged_data[key] = existing[key]
-                        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
-                            if key not in merged_data and key in existing:
+                            if key not in data and key in existing:
                                 merged_data[key] = existing[key]
-                        if "assignments" not in merged_data and existing.get("assignments"):
+
+                        for key in ("teamsConnected", "teamsAccount", "lmsConnected", "lmsAccount"):
+                            if key not in data and key in existing:
+                                merged_data[key] = existing[key]
+
+                        if "assignments" not in data and existing.get("assignments"):
                             merged_data["assignments"] = existing["assignments"]
+
                         existing_student = existing.get("student") or {}
                         merged_student = merged_data.get("student") or {}
                         for skey, sval in existing_student.items():
@@ -340,9 +374,17 @@ def save_store(data: Dict[str, Any], reg_no: Optional[str] = None) -> None:
             with _STORAGE_LOCK:
                 os.replace(temp_path, tgt)
                 _MEM_CACHE[tgt] = (os.path.getmtime(tgt), payload_to_save)
+                # Keep direct student reg cache updated across all aliases
+                for cr in clean_regs:
+                    _MEM_CACHE[f"reg_{cr}"] = (os.path.getmtime(tgt), payload_to_save)
             logger.info("[Storage] Saved store to %s", tgt)
         except Exception as exc:
             logger.error("[Storage] Could not write store %s: %s", tgt, exc)
+            # Even if disk write failed (e.g. read-only seed path on Vercel), keep memory cache fresh!
+            with _STORAGE_LOCK:
+                _MEM_CACHE[tgt] = (float("inf"), payload_to_save)
+                for cr in clean_regs:
+                    _MEM_CACHE[f"reg_{cr}"] = (float("inf"), payload_to_save)
 
 
 def clear_store(reg_no: Optional[str] = None) -> None:
@@ -360,6 +402,8 @@ def clear_store(reg_no: Optional[str] = None) -> None:
         targets.append(DATA_FILE)
 
     with _STORAGE_LOCK:
+        if _is_test_environment():
+            _MEM_CACHE.clear()
         for tgt in targets:
             _MEM_CACHE.pop(tgt, None)
             if os.path.exists(tgt):

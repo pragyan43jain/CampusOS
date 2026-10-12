@@ -46,11 +46,12 @@ class AssignmentStatusUpdate(BaseModel):
 def get_student_profile(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, Any]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     store = load_store(reg)
     return store.get("student") or empty_store()["student"]
 
@@ -59,11 +60,12 @@ def get_student_profile(
 def get_courses(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("courses") or []
 
 
@@ -71,11 +73,12 @@ def get_courses(
 def get_timetable(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("timetable") or []
 
 
@@ -255,13 +258,14 @@ def get_subject_details(
 def get_exams(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Grouped by exam type, matching ``/api/vtop/exams``."""
     from app.routers.auth import get_vtop_exams
-    return get_vtop_exams(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    return get_vtop_exams(x_session_id, x_reg_no, x_auth_user, sessionId, regNo, authorization=authorization)
 
 
 @router.get("/receipts")
@@ -319,11 +323,12 @@ def get_dues(
 def get_spotlight(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("spotlight") or []
 
 
@@ -331,11 +336,12 @@ def get_spotlight(
 def get_proctor(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> Optional[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("proctor")
 
 
@@ -1005,11 +1011,12 @@ def get_fees(
 def get_placements(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("placements") or []
 
 
@@ -1017,11 +1024,12 @@ def get_placements(
 def get_dsa_topics(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("dsaTopics") or []
 
 
@@ -1029,11 +1037,12 @@ def get_dsa_topics(
 def get_ai_tasks(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user=x_auth_user, authorization=authorization)
     return load_store(reg).get("aiTasks") or []
 
 

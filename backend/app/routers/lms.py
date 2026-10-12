@@ -662,6 +662,182 @@ def authenticate_lms_session(
         )
 
 
+def fetch_lms_sesskey(session: requests.Session) -> Optional[str]:
+    """Extracts Moodle user session key (sesskey) from /my/ page or cookies."""
+    try:
+        r_my = session.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+        if r_my.status_code == 200:
+            m_key = re.search(r'\"sesskey\":\"([^\"]+)\"', r_my.text) or re.search(r'sesskey=([a-zA-Z0-9]+)', r_my.text)
+            if m_key:
+                return m_key.group(1)
+    except Exception as e:
+        logger.debug("Error fetching /my/ page for sesskey: %s", e)
+    return None
+
+
+def fetch_lms_timeline_action_events(
+    session: requests.Session, sesskey: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves all action events and assignments across enrolled courses using
+    Moodle's core_calendar_get_action_events_by_timesort WebService API with cursor pagination.
+    """
+    if not sesskey:
+        sesskey = fetch_lms_sesskey(session)
+    if not sesskey:
+        return []
+
+    events: List[Dict[str, Any]] = []
+    seen_ids = set()
+    after_event_id = 0
+    limit = 50
+    ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
+
+    # Paginate through timeline action events
+    for _ in range(20):  # Maximum 20 pages (1000 events safety limit)
+        try:
+            payload = [
+                {
+                    "index": 0,
+                    "methodname": "core_calendar_get_action_events_by_timesort",
+                    "args": {
+                        "timesortfrom": 0,
+                        "limitnum": limit,
+                        "aftereventid": after_event_id,
+                        "limittonext": False,
+                    },
+                }
+            ]
+            r = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+            if r.status_code != 200:
+                break
+            res = r.json()
+            if not isinstance(res, list) or len(res) == 0:
+                break
+            data = res[0].get("data") or {}
+            event_list = data.get("events") or []
+            if not event_list:
+                break
+
+            for ev in event_list:
+                ev_id = ev.get("id")
+                if ev_id and ev_id not in seen_ids:
+                    seen_ids.add(ev_id)
+                    events.append(ev)
+
+            has_more = data.get("hasmore")
+            last_id = data.get("lastid")
+            if has_more and last_id and last_id != after_event_id:
+                after_event_id = last_id
+            else:
+                break
+        except Exception as exc:
+            logger.warning("[LMS Timeline] Error querying action events: %s", exc)
+            break
+
+    logger.info("[LMS Timeline] Retrieved %d action events across enrolled courses", len(events))
+    return events
+
+
+def transform_timeline_event_to_assignment(
+    ev: Dict[str, Any],
+    verified_enrolled: List[VerifiedCourseRecord],
+    curr_sem_name: str,
+) -> Optional[Dict[str, Any]]:
+    """Transforms a Moodle timeline action event into an authentic CampusOS assignment record."""
+    ev_id = ev.get("id")
+    title = (ev.get("name") or "").strip()
+    if not title or len(title) < 2:
+        return None
+
+    course_info = ev.get("course") or {}
+    course_id = str(course_info.get("id") or "")
+    course_name = (course_info.get("fullname") or course_info.get("shortname") or "").strip()
+
+    action = ev.get("action") or {}
+    assign_url = action.get("url") or ""
+    action_name = (action.get("name") or "").strip()
+    is_actionable = action.get("actionable", True)
+
+    m_cm = re.search(r"id=(\d+)", assign_url)
+    activity_id = m_cm.group(1) if m_cm else str(ev.get("instance") or ev_id)
+    assign_id = f"lms-{course_id}-{activity_id}" if course_id else f"lms-ev-{ev_id}"
+
+    # Due date from timesort (epoch timestamp)
+    timesort = ev.get("timesort")
+    due_date_str = ""
+    due_time_str = "23:59"
+    if timesort and isinstance(timesort, (int, float)) and timesort > 0:
+        try:
+            from app.routers.unified_assignments import IST
+            dt = datetime.fromtimestamp(timesort, tz=timezone.utc).astimezone(IST)
+            due_date_str = dt.strftime("%Y-%m-%d")
+            due_time_str = dt.strftime("%H:%M")
+        except Exception:
+            pass
+
+    is_submitted = (not is_actionable) or any(
+        kw in action_name.lower()
+        for kw in ["view submission", "view feedback", "already submitted", "graded", "done"]
+    )
+    is_pending = not is_submitted
+
+    cand_codes = extract_course_code_candidates(course_name) + extract_course_code_candidates(title)
+    matched_rec = None
+    if cand_codes and verified_enrolled:
+        enrolled_canon = {canonicalize_course_code(r.courseCode): r for r in verified_enrolled if r.courseCode}
+        enrolled_base = {get_base_code(r.courseCode): r for r in verified_enrolled if r.courseCode}
+        for cand in cand_codes:
+            canon = canonicalize_course_code(cand)
+            base = get_base_code(cand)
+            if canon in enrolled_canon:
+                matched_rec = enrolled_canon[canon]
+                break
+            elif base in enrolled_base:
+                matched_rec = enrolled_base[base]
+                break
+
+    course_code = matched_rec.courseCode if matched_rec else (cand_codes[0] if cand_codes else "LMS")
+    vtop_title = matched_rec.courseName if matched_rec else (course_name or "Course")
+    faculty = matched_rec.facultyName if matched_rec else "Faculty unassigned"
+
+    return {
+        "id": assign_id,
+        "activityId": str(activity_id),
+        "title": title,
+        "academicYear": matched_rec.academicYear if matched_rec else "2026",
+        "semester": matched_rec.semester if matched_rec else curr_sem_name,
+        "semesterId": matched_rec.semesterId if matched_rec else "CH20262701",
+        "courseCode": course_code,
+        "courseTitle": vtop_title,
+        "subject": vtop_title,
+        "faculty": faculty,
+        "facultyName": faculty,
+        "professor": faculty,
+        "lmsProfessor": faculty,
+        "postedBy": faculty,
+        "instructor": faculty,
+        "verified": bool(matched_rec),
+        "source": "LMS",
+        "lmsCourseId": course_id,
+        "externalCourseId": course_id,
+        "platformName": "VIT LMS",
+        "platformUrl": assign_url if assign_url.startswith("http") else f"{LMS_BASE_URL}{assign_url}",
+        "submissionUrl": assign_url if assign_url.startswith("http") else f"{LMS_BASE_URL}{assign_url}",
+        "dueDate": due_date_str or "TBA",
+        "dueTime": due_time_str,
+        "status": "Submitted" if is_submitted else "Pending",
+        "applicationStatus": "DONE" if is_submitted else "PENDING",
+        "displayStatus": "DONE" if is_submitted else "PENDING",
+        "isDone": is_submitted,
+        "isSubmitted": is_submitted,
+        "priority": "Critical" if is_pending else "Medium",
+        "weightage": 10,
+        "instructions": f"Assigned on VIT LMS ({course_name})",
+        "matchedLmsCourse": course_name,
+    }
+
+
 def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]]:
     """
     Extracts student's enrolled courses from VIT LMS dashboard using Moodle WebService AJAX API,
@@ -671,15 +847,7 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
     seen_ids = set()
 
     # Step 1: Query /my/ to extract user session key (sesskey)
-    sesskey = None
-    try:
-        r_my = session.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-        if r_my.status_code == 200:
-            m_key = re.search(r'\"sesskey\":\"([^\"]+)\"', r_my.text) or re.search(r'sesskey=([a-zA-Z0-9]+)', r_my.text)
-            if m_key:
-                sesskey = m_key.group(1)
-    except Exception as e:
-        logger.warning("Error fetching /my/ page for sesskey: %s", e)
+    sesskey = fetch_lms_sesskey(session)
 
     # Step 2: Use Moodle WebService AJAX API if sesskey is available
     if sesskey:
@@ -1218,15 +1386,15 @@ def _process_single_lms_course(
         if not prof_ok and c_teachers and matched_rec.facultyName:
             prof_ok = any(match_faculty_names(matched_rec.facultyName, t) for t in c_teachers)
 
-    # Only verify and fetch if course code, semester, AND professor match!
-    if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch and prof_ok:
+    # Only verify and fetch if course code and semester match enrolled VTOP course
+    if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch:
         is_verified = True
         match_meta.verified = True
-        match_meta.facultyMatch = True
+        match_meta.facultyMatch = prof_ok
     else:
         expected_faculty = (matched_rec.facultyName if matched_rec else (match_meta.matchedFacultyName if match_meta else None)) or "None"
         logger.info(
-            "LMS course %s ('%s') did not match enrolled course and professor in current semester (expected faculty '%s', got %s). Skipping fetch.",
+            "LMS course %s ('%s') did not match enrolled course in current semester (expected faculty '%s', got %s). Skipping fetch.",
             c_id,
             c_title,
             expected_faculty,
@@ -1240,7 +1408,8 @@ def _process_single_lms_course(
             return match_meta.model_dump(), None, [], None
         return {}, None, [], None
 
-    # Both Course Code and Professor Name match in the LMS course name! Fetch assignments.
+    # Fetch assignments for enrolled course
+
     real_faculty = matched_rec.facultyName
 
     matched_vtop = {
@@ -1394,6 +1563,33 @@ def fetch_vit_lms_coursework(
                 except Exception as exc:
                     c_item = future_to_course[future]
                     logger.warning("Error processing LMS course %s: %s", c_item.get("title"), exc)
+
+    # Also retrieve Moodle timeline action events with pagination to capture all coursework
+    try:
+        sesskey = fetch_lms_sesskey(session)
+        if sesskey:
+            timeline_events = fetch_lms_timeline_action_events(session, sesskey)
+            for ev in timeline_events:
+                t_asgn = transform_timeline_event_to_assignment(ev, verified_enrolled, curr_sem_name)
+                if t_asgn:
+                    act_id = str(t_asgn.get("activityId") or "")
+                    asgn_id = str(t_asgn.get("id") or "")
+                    if not any(str(a.get("activityId") or "") == act_id or str(a.get("id") or "") == asgn_id for a in all_assignments):
+                        all_assignments.append(t_asgn)
+                        c_code = t_asgn.get("courseCode")
+                        if c_code and not any(ms.get("courseCode") == c_code for ms in matched_subjects):
+                            matched_subjects.append({
+                                "courseCode": c_code,
+                                "courseTitle": t_asgn.get("courseTitle") or c_code,
+                                "faculty": t_asgn.get("faculty") or "Faculty unassigned",
+                                "lmsProfessor": t_asgn.get("faculty") or "Faculty unassigned",
+                                "postedBy": t_asgn.get("faculty") or "Faculty unassigned",
+                                "lmsCourseId": t_asgn.get("lmsCourseId") or "",
+                                "lmsCourseName": t_asgn.get("matchedLmsCourse") or c_code,
+                                "assignmentsCount": 1,
+                            })
+    except Exception as exc:
+        logger.warning("[LMS Timeline] Notice merging timeline action events: %s", exc)
 
     return all_assignments, matched_subjects, len(enrolled_courses), course_matches
 
@@ -1663,6 +1859,12 @@ def sync_lms(
                 if session_cookie:
                     sess.cookies.set("MoodleSession", session_cookie, domain=domain, path="/")
 
+        is_stale_fallback = False
+        assignments: List[Dict[str, Any]] = []
+        matched_subjects: List[Dict[str, Any]] = []
+        total_courses = 0
+        course_matches: List[Dict[str, Any]] = []
+
         # If cookies are missing, attempt silent auto-reauth if credentials are provided
         reauth_performed = False
         if not session_cookie and not cookies_dict:
@@ -1681,24 +1883,21 @@ def sync_lms(
                     store["lmsAccount"] = account
                     save_store(store, reg)
                     reauth_performed = True
-                except HTTPException as he:
-                    store["lmsConnected"] = False
-                    account["status"] = "expired"
-                    store["lmsAccount"] = account
-                    save_store(store, reg)
-                    raise HTTPException(
-                        status_code=401,
-                        detail=f"VIT LMS session has expired. {he.detail}",
-                    )
                 except Exception as exc:
-                    store["lmsConnected"] = False
-                    account["status"] = "expired"
-                    store["lmsAccount"] = account
-                    save_store(store, reg)
-                    raise HTTPException(
-                        status_code=401,
-                        detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
-                    )
+                    logger.warning("[LMS] Auto-reauth with saved credentials failed: %s", exc)
+                    existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
+                    if account.get("username") and (existing_lms or account.get("matchedSubjects")):
+                        assignments = existing_lms
+                        is_stale_fallback = True
+                    else:
+                        store["lmsConnected"] = False
+                        account["status"] = "expired"
+                        store["lmsAccount"] = account
+                        save_store(store, reg)
+                        raise HTTPException(
+                            status_code=401,
+                            detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
+                        )
             else:
                 existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
                 if account.get("username") and (existing_lms or account.get("matchedSubjects")):
@@ -1718,42 +1917,59 @@ def sync_lms(
         else:
             apply_cookies_to_session(s)
 
-        vtop_courses = list(store.get("courses") or [])
-        current_sem = (store.get("selectedSemester") or {}).get("name")
-        assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
-            s, vtop_courses, current_semester=current_sem
-        )
+        if not is_stale_fallback:
+            vtop_courses = list(store.get("courses") or [])
+            current_sem = (store.get("selectedSemester") or {}).get("name")
+            assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
+                s, vtop_courses, current_semester=current_sem
+            )
 
-        session_expired = False
-        if total_courses == 0 and not reauth_performed and not is_stale_fallback:
-            # Verify if Moodle session is still alive
-            r_check = s.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT, allow_redirects=False)
-            if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
-                session_expired = True
+            session_expired = False
+            if total_courses == 0 and not reauth_performed:
+                # Verify if Moodle session is still alive
+                r_check = s.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT, allow_redirects=False)
+                if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
+                    session_expired = True
 
-        if session_expired:
-            if candidate_user and candidate_pass:
-                logger.info("[LMS] Session expired during sync. Attempting silent auto-reauth for %s...", candidate_user)
-                try:
-                    s, auth_info = authenticate_lms_session(candidate_user, candidate_pass, None, campus=campus)
-                    session_cookie = auth_info.get("sessionCookie")
-                    cookies_dict = auth_info.get("cookies") or {}
-                    account["sessionCookie"] = session_cookie
-                    account["cookies"] = cookies_dict
-                    account["displayName"] = auth_info.get("displayName") or account.get("displayName")
-                    account["campus"] = campus
-                    account["status"] = "connected"
-                    store["lmsConnected"] = True
-                    store["lmsAccount"] = account
-                    save_store(store, reg)
-                    # Re-run coursework fetch with new authenticated session
-                    assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
-                        s, vtop_courses, current_semester=current_sem
-                    )
-                except Exception as exc:
-                    logger.warning("[LMS] Auto-reauth during sync failed: %s", exc)
+            if session_expired:
+                if candidate_user and candidate_pass:
+                    logger.info("[LMS] Session expired during sync. Attempting silent auto-reauth for %s...", candidate_user)
+                    try:
+                        s, auth_info = authenticate_lms_session(candidate_user, candidate_pass, None, campus=campus)
+                        session_cookie = auth_info.get("sessionCookie")
+                        cookies_dict = auth_info.get("cookies") or {}
+                        account["sessionCookie"] = session_cookie
+                        account["cookies"] = cookies_dict
+                        account["displayName"] = auth_info.get("displayName") or account.get("displayName")
+                        account["campus"] = campus
+                        account["status"] = "connected"
+                        store["lmsConnected"] = True
+                        store["lmsAccount"] = account
+                        save_store(store, reg)
+                        # Re-run coursework fetch with new authenticated session
+                        assignments, matched_subjects, total_courses, course_matches = fetch_vit_lms_coursework(
+                            s, vtop_courses, current_semester=current_sem
+                        )
+                    except Exception as exc:
+                        logger.warning("[LMS] Auto-reauth during sync failed: %s", exc)
+                        existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
+                        if account.get("username") and (existing_lms or account.get("matchedSubjects")):
+                            assignments = existing_lms
+                            is_stale_fallback = True
+                        else:
+                            store["lmsConnected"] = False
+                            account["status"] = "expired"
+                            account["connected"] = False
+                            store["lmsAccount"] = account
+                            save_store(store, reg)
+                            raise HTTPException(
+                                status_code=401,
+                                detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
+                            )
+                else:
                     existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
                     if account.get("username") and (existing_lms or account.get("matchedSubjects")):
+                        logger.info("[LMS] Session expired during sync; preserving verified coursework in stale fallback mode for %s", account.get("username"))
                         assignments = existing_lms
                         is_stale_fallback = True
                     else:
@@ -1766,28 +1982,11 @@ def sync_lms(
                             status_code=401,
                             detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
                         )
-            else:
-                existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
-                if account.get("username") and (existing_lms or account.get("matchedSubjects")):
-                    logger.info("[LMS] Session expired during sync; preserving verified coursework in stale fallback mode for %s", account.get("username"))
-                    assignments = existing_lms
-                    is_stale_fallback = True
-                else:
-                    store["lmsConnected"] = False
-                    account["status"] = "expired"
-                    account["connected"] = False
-                    store["lmsAccount"] = account
-                    save_store(store, reg)
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
-                    )
+
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]
         existing_lms = [a for a in existing_assignments if a.get("source") == "LMS"]
-
-        is_stale_fallback = False
         # Preserve verified existing LMS assignments if live fetch returned empty
         if not assignments and existing_lms:
             assignments = existing_lms

@@ -1192,20 +1192,21 @@ def sync_all_academic_accounts(
         except HTTPException as he:
             logger.warning("LMS HTTP error during sync-all: %s", he.detail)
             errors.append(f"VIT LMS: {he.detail}")
-            lms_acc = store.get("lmsAccount") or {}
-            if lms_acc.get("username") or store.get("lmsConnected") or lms_acc.get("matchedSubjects"):
-                store["lmsConnected"] = True
-                if isinstance(store.get("lmsAccount"), dict):
-                    store["lmsAccount"]["status"] = "connected"
-                    store["lmsAccount"]["connected"] = True
-                    store["lmsAccount"]["syncStatus"] = "STALE"
-                save_store(store, reg)
+            current_store = load_store(reg)
+            lms_acc = current_store.get("lmsAccount") or {}
+            if lms_acc.get("username") or current_store.get("lmsConnected") or lms_acc.get("matchedSubjects"):
+                current_store["lmsConnected"] = True
+                if isinstance(current_store.get("lmsAccount"), dict):
+                    current_store["lmsAccount"]["status"] = "connected"
+                    current_store["lmsAccount"]["connected"] = True
+                    current_store["lmsAccount"]["syncStatus"] = "STALE"
+                save_store(current_store, reg)
             elif he.status_code == 401 or "expired" in str(he.detail).lower() or "session" in str(he.detail).lower():
-                store["lmsConnected"] = False
-                if "lmsAccount" in store and isinstance(store["lmsAccount"], dict):
-                    store["lmsAccount"]["status"] = "expired"
-                    store["lmsAccount"]["connected"] = False
-                save_store(store, reg)
+                current_store["lmsConnected"] = False
+                if "lmsAccount" in current_store and isinstance(current_store["lmsAccount"], dict):
+                    current_store["lmsAccount"]["status"] = "expired"
+                    current_store["lmsAccount"]["connected"] = False
+                save_store(current_store, reg)
         except Exception as e:
             logger.warning("LMS sync error during sync-all: %s", e)
             errors.append(f"VIT LMS: {e}")
