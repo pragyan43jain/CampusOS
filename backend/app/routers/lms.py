@@ -1402,6 +1402,7 @@ def fetch_vit_lms_coursework(
 def get_lms_status(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -1412,12 +1413,17 @@ def get_lms_status(
         x_reg_no=x_reg_no,
         session_id=sessionId,
         reg_no=regNo,
+        x_auth_user=x_auth_user,
         authorization=authorization,
     )
     store = load_store(reg)
     account = store.get("lmsAccount") or {}
     account_status = account.get("status")
-    is_connected = bool(store.get("lmsConnected")) and account_status != "expired"
+    is_connected = bool(
+        store.get("lmsConnected")
+        or (account.get("username") and account.get("status") in ("connected", "stale", "SUCCESS") and account.get("connected") is not False)
+        or (account.get("connected") is True)
+    ) and account_status != "disconnected"
     assignments = store.get("assignments") or []
     lms_assignments = [a for a in assignments if a.get("source") == "LMS" or "LMS" in (a.get("source") or "")]
 
@@ -1553,6 +1559,7 @@ def login_and_sync_lms(
             "cookies": auth_info.get("cookies") or {},
             "campus": payload.campus or "chennai",
             "status": "connected",
+            "connected": True,
             "connectedAt": now_iso,
             "lastSynced": now_iso,
             "matchedSubjects": matched_subjects,
@@ -1693,14 +1700,21 @@ def sync_lms(
                         detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
                     )
             else:
-                store["lmsConnected"] = False
-                account["status"] = "expired"
-                store["lmsAccount"] = account
-                save_store(store, reg)
-                raise HTTPException(
-                    status_code=401,
-                    detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
-                )
+                existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
+                if account.get("username") and (existing_lms or account.get("matchedSubjects")):
+                    logger.info("[LMS] Session cookie missing in store; falling back to verified cached coursework for %s", account.get("username"))
+                    assignments = existing_lms
+                    is_stale_fallback = True
+                else:
+                    store["lmsConnected"] = False
+                    account["status"] = "expired"
+                    account["connected"] = False
+                    store["lmsAccount"] = account
+                    save_store(store, reg)
+                    raise HTTPException(
+                        status_code=401,
+                        detail="VIT LMS session has expired. Please sign in again with your LMS credentials.",
+                    )
         else:
             apply_cookies_to_session(s)
 
@@ -1711,7 +1725,7 @@ def sync_lms(
         )
 
         session_expired = False
-        if total_courses == 0 and not reauth_performed:
+        if total_courses == 0 and not reauth_performed and not is_stale_fallback:
             # Verify if Moodle session is still alive
             r_check = s.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT, allow_redirects=False)
             if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
@@ -1738,23 +1752,36 @@ def sync_lms(
                     )
                 except Exception as exc:
                     logger.warning("[LMS] Auto-reauth during sync failed: %s", exc)
+                    existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
+                    if account.get("username") and (existing_lms or account.get("matchedSubjects")):
+                        assignments = existing_lms
+                        is_stale_fallback = True
+                    else:
+                        store["lmsConnected"] = False
+                        account["status"] = "expired"
+                        account["connected"] = False
+                        store["lmsAccount"] = account
+                        save_store(store, reg)
+                        raise HTTPException(
+                            status_code=401,
+                            detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
+                        )
+            else:
+                existing_lms = [a for a in (store.get("assignments") or []) if a.get("source") == "LMS"]
+                if account.get("username") and (existing_lms or account.get("matchedSubjects")):
+                    logger.info("[LMS] Session expired during sync; preserving verified coursework in stale fallback mode for %s", account.get("username"))
+                    assignments = existing_lms
+                    is_stale_fallback = True
+                else:
                     store["lmsConnected"] = False
                     account["status"] = "expired"
+                    account["connected"] = False
                     store["lmsAccount"] = account
                     save_store(store, reg)
                     raise HTTPException(
                         status_code=401,
                         detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
                     )
-            else:
-                store["lmsConnected"] = False
-                account["status"] = "expired"
-                store["lmsAccount"] = account
-                save_store(store, reg)
-                raise HTTPException(
-                    status_code=401,
-                    detail="Your VIT LMS session has expired. Please sign in again to sync coursework.",
-                )
 
         existing_assignments = store.get("assignments") or []
         other_assignments = [a for a in existing_assignments if a.get("source") != "LMS"]

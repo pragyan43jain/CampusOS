@@ -934,12 +934,20 @@ def get_vtop_dean_hod(
 def get_vtop_assignments(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> List[Dict[str, Any]]:
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
-    return load_store(reg).get("assignments") or []
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user, authorization=authorization)
+    store = load_store(reg)
+    from app.routers.unified_assignments import build_unified_assignment_dashboard
+    dash = build_unified_assignment_dashboard(store)
+    flat: List[Dict[str, Any]] = []
+    for s in dash.get("subjects", []):
+        flat.extend(s.get("assignments", []))
+    flat.extend(dash.get("unmatchedAssignments", []))
+    return flat if flat else (store.get("assignments") or [])
 
 
 @router.get("/semesters")

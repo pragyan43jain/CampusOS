@@ -307,20 +307,27 @@ export const App: React.FC = () => {
 
       const isTeamsConn = Boolean(
         (statusData?.teams?.connected && statusData?.teams?.email) ||
-        (teamsDirectStatus?.connected && teamsDirectStatus?.email)
-      );
-
-      const isLmsExpired = Boolean(
-        statusData?.lms?.status === 'expired' ||
-        lmsDirectStatus?.status === 'expired' ||
-        statusData?.lms?.expired ||
-        lmsDirectStatus?.expired
+        (teamsDirectStatus?.connected && teamsDirectStatus?.email) ||
+        statusData?.teams?.connected ||
+        teamsDirectStatus?.connected
       );
 
       const isLmsConn = Boolean(
-        !isLmsExpired &&
-        ((statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName)) ||
-        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName)))
+        (statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName || (statusData?.lms?.matchedCount ?? 0) > 0)) ||
+        (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName || (lmsDirectStatus?.matchedCount ?? 0) > 0)) ||
+        statusData?.lms?.status === 'connected' ||
+        lmsDirectStatus?.status === 'connected' ||
+        statusData?.lms?.connected ||
+        lmsDirectStatus?.connected
+      );
+
+      const isLmsExpired = Boolean(
+        !isLmsConn && (
+          statusData?.lms?.status === 'expired' ||
+          lmsDirectStatus?.status === 'expired' ||
+          statusData?.lms?.expired ||
+          lmsDirectStatus?.expired
+        )
       );
 
       setTeamsAccount((prev: any) => ({
@@ -380,6 +387,7 @@ export const App: React.FC = () => {
         dsaData,
         aiData,
         odResult,
+        unifiedDash,
       ] = await Promise.all([
         CampusAPI.getStudentProfile(),
         CampusAPI.getCourses(),
@@ -394,6 +402,7 @@ export const App: React.FC = () => {
         CampusAPI.getDSATracker(),
         CampusAPI.getAIStudyTasks(),
         CampusAPI.getOD(),
+        CampusAPI.getUnifiedAssignments().catch(() => null),
       ]);
 
       const isAuthed = Boolean(
@@ -424,7 +433,21 @@ export const App: React.FC = () => {
         if (Array.isArray(marksData) && marksData.length > 0) setMarks(marksData);
         if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
         if (Array.isArray(facultyData) && facultyData.length > 0) setFaculty(facultyData);
-        if (Array.isArray(assignmentsData) && assignmentsData.length > 0) setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
+
+        const flatUnified: Assignment[] = [];
+        if (unifiedDash && unifiedDash.subjects) {
+          unifiedDash.subjects.forEach((s: any) => {
+            if (s.assignments) flatUnified.push(...s.assignments);
+          });
+        }
+        if (unifiedDash && unifiedDash.unmatchedAssignments) {
+          flatUnified.push(...unifiedDash.unmatchedAssignments);
+        }
+        if (flatUnified.length > 0) {
+          setAssignments(applyManualStatusOverrides(flatUnified, studentData?.regNo));
+        } else if (Array.isArray(assignmentsData) && assignmentsData.length > 0) {
+          setAssignments(applyManualStatusOverrides(assignmentsData, studentData?.regNo));
+        }
         if (Array.isArray(feesData) && feesData.length > 0) setFees(feesData);
         if (Array.isArray(placementsData) && placementsData.length > 0) setPlacements(placementsData);
         if (Array.isArray(dsaData) && dsaData.length > 0) setDsaTopics(dsaData);
@@ -1197,6 +1220,9 @@ export const App: React.FC = () => {
   }
 
   const pendingAssignmentsCount = assignments.filter((a) => !isAssignmentDone(a, student?.regNo)).length;
+  const lmsPendingCount = assignments.filter(
+    (a) => (a.source === 'LMS' || a.source === 'Moodle LMS') && !isAssignmentDone(a, student?.regNo)
+  ).length;
   const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
 
   if (showLanding || !isAuthenticated || !student) {
@@ -1286,6 +1312,7 @@ export const App: React.FC = () => {
         academicsSubTab={academicsSubTab}
         onSelectAcademicsSubTab={handleSelectAcademicsSubTab}
         pendingAssignmentsCount={pendingAssignmentsCount}
+        lmsPendingCount={lmsPendingCount}
         criticalAttendanceCount={criticalAttendanceCount}
         onLogout={handleSignOut}
         onOpenAdmin={() => setShowAdminModal(true)}
@@ -1474,6 +1501,7 @@ export const App: React.FC = () => {
         onClose={() => setIsLMSModalOpen(false)}
         onLoginSuccess={async () => {
           setIsLMSModalOpen(false);
+          setLmsAccount((prev: any) => ({ ...prev, connected: true, status: 'connected' }));
           await loadAcademicAccountsStatus();
           await handleSyncAll();
         }}

@@ -16122,7 +16122,8 @@
         "rejectionReason": "LMS course 'VLSI System Design Lab(BECE303P)' does not match VTOP professor 'None'",
         "lastVerifiedAt": "2026-10-02T20:32:56.396624+00:00"
       }
-    ]
+    ],
+    "connected": true
   },
   "storeVersion": 2,
   "hostel": {

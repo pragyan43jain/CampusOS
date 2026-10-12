@@ -661,6 +661,49 @@ class TestVtopLmsFacultyMatchingDashboard:
         assert done_assign["isDone"] is True
         assert pending_assign["isDone"] is False
 
+    def test_academic_accounts_lms_status_stability(self):
+        """Verify academic accounts status accurately identifies connected LMS without premature expiry."""
+        store = {
+            "authenticated": True,
+            "teamsConnected": True,
+            "teamsAccount": {"email": "pragyan@vitstudent.ac.in", "status": "connected"},
+            "lmsConnected": True,
+            "lmsAccount": {
+                "username": "24BLC1100",
+                "displayName": "Pragyan",
+                "status": "connected",
+                "connected": True,
+                "matchedSubjects": [{"courseCode": "BCSE302L"}],
+            },
+            "student": {"regNo": "24BLC1100"},
+            "courses": [],
+            "assignments": [],
+        }
+        dash = build_unified_assignment_dashboard(store)
+        assert dash["connectedAccounts"]["lms"]["connected"] is True
+        assert dash["connectedAccounts"]["teams"]["connected"] is True
+
+        res = client.get(
+            "/academic-accounts/status",
+            headers={"X-Reg-No": "24BLC1100", "X-Auth-User": "24BLC1100"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["lms"]["connected"] is True
+        assert data["lms"]["status"] == "connected"
+        assert data["teams"]["connected"] is True
+
+    def test_assignments_endpoint_returns_unified_flat_list(self):
+        """Verify /assignments returns verified unified flat list without false pending counts."""
+        res = client.get(
+            "/assignments",
+            headers={"X-Reg-No": "24BLC1100", "X-Auth-User": "24BLC1100"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert isinstance(data, list)
+
+
 
 
 

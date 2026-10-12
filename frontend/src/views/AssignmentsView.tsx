@@ -424,9 +424,25 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
     return allAssignments.filter((a) => isAssignmentDone(a, studentRegNo)).length;
   }, [allAssignments, studentRegNo]);
 
-  const isTeamsConnected = Boolean(teamsAccount?.connected ?? dashboard?.connectedAccounts?.teams?.connected);
-  const isLmsConnected = Boolean(lmsAccount?.connected ?? dashboard?.connectedAccounts?.lms?.connected);
-  const isLmsExpired = Boolean((lmsAccount?.status === 'expired' || dashboard?.connectedAccounts?.lms?.status === 'expired') && !isLmsConnected);
+  const isTeamsConnected = Boolean(
+    teamsAccount?.connected ||
+    dashboard?.connectedAccounts?.teams?.connected ||
+    teamsAccount?.status === 'connected' ||
+    dashboard?.connectedAccounts?.teams?.status === 'connected' ||
+    Boolean(teamsAccount?.email && teamsAccount?.email.trim() !== '')
+  );
+  const isLmsConnected = Boolean(
+    lmsAccount?.connected ||
+    dashboard?.connectedAccounts?.lms?.connected ||
+    lmsAccount?.status === 'connected' ||
+    dashboard?.connectedAccounts?.lms?.status === 'connected' ||
+    Boolean(lmsAccount?.username && lmsAccount?.username.trim() !== '') ||
+    Boolean(dashboard?.connectedAccounts?.lms?.username && dashboard?.connectedAccounts?.lms?.username.trim() !== '')
+  );
+  const isLmsExpired = Boolean(
+    !isLmsConnected &&
+    (lmsAccount?.status === 'expired' || dashboard?.connectedAccounts?.lms?.status === 'expired')
+  );
 
   return (
     <div className="page-container">

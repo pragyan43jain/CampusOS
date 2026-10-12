@@ -30,6 +30,7 @@ interface SidebarProps {
   activeView: NavView;
   onSelectView: (view: NavView) => void;
   pendingAssignmentsCount: number;
+  lmsPendingCount?: number;
   criticalAttendanceCount: number;
   academicsSubTab?: AcademicsSubTab;
   onSelectAcademicsSubTab?: (subTab: AcademicsSubTab) => void;
@@ -49,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeView,
   onSelectView,
   pendingAssignmentsCount,
+  lmsPendingCount = 0,
   criticalAttendanceCount,
   academicsSubTab = 'profile',
   onSelectAcademicsSubTab,
@@ -350,9 +352,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Layers size={18} className="shrink-0" />
                   {!isCollapsed && <span>LMS Coursework</span>}
                 </div>
-                {!isCollapsed && pendingAssignmentsCount > 0 && (
+                {!isCollapsed && lmsPendingCount > 0 && (
                   <span className="font-tabular-data text-[11px] font-semibold text-primary bg-primary-fixed px-1.5 py-0.5 rounded">
-                    {pendingAssignmentsCount} Due
+                    {lmsPendingCount} Due
                   </span>
                 )}
               </button>

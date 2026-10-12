@@ -996,8 +996,15 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     # 8. Determine empty state & sync status
-    teams_connected = bool(store.get("teamsConnected"))
-    lms_connected = bool(store.get("lmsConnected"))
+    teams_connected = bool(
+        store.get("teamsConnected")
+        or (teams_account.get("email") and teams_account.get("connected") is not False)
+    )
+    lms_connected = bool(
+        store.get("lmsConnected")
+        or (lms_account.get("username") and lms_account.get("status") in ("connected", "stale", "SUCCESS") and lms_account.get("connected") is not False)
+        or (lms_account.get("connected") is True)
+    )
     is_any_connected = teams_connected or lms_connected
 
     last_synced = None
@@ -1047,6 +1054,7 @@ def build_unified_assignment_dashboard(store: Dict[str, Any]) -> Dict[str, Any]:
 def get_academic_accounts_status(
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_reg_no: Optional[str] = Header(None, alias="X-Reg-No"),
+    x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
     sessionId: Optional[str] = Query(None),
     regNo: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None, alias="Authorization"),
@@ -1054,13 +1062,20 @@ def get_academic_accounts_status(
     """
     Returns connection status and metadata for all connected academic platforms.
     """
-    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, authorization=authorization)
+    reg = resolve_student_reg(x_session_id, x_reg_no, sessionId, regNo, x_auth_user, authorization=authorization)
     store = load_store(reg)
-    teams_connected = bool(store.get("teamsConnected"))
-    lms_connected = bool(store.get("lmsConnected"))
-
     teams_acc = store.get("teamsAccount") or {}
     lms_acc = store.get("lmsAccount") or {}
+
+    teams_connected = bool(
+        store.get("teamsConnected")
+        or (teams_acc.get("email") and teams_acc.get("connected") is not False)
+    )
+    lms_connected = bool(
+        store.get("lmsConnected")
+        or (lms_acc.get("username") and lms_acc.get("status") in ("connected", "stale", "SUCCESS") and lms_acc.get("connected") is not False)
+        or (lms_acc.get("connected") is True)
+    )
 
     semester = store.get("selectedSemester") or {
         "name": store.get("student", {}).get("semester", "Fall Semester 2026-27"),
@@ -1177,7 +1192,15 @@ def sync_all_academic_accounts(
         except HTTPException as he:
             logger.warning("LMS HTTP error during sync-all: %s", he.detail)
             errors.append(f"VIT LMS: {he.detail}")
-            if he.status_code == 401 or "expired" in str(he.detail).lower() or "session" in str(he.detail).lower():
+            lms_acc = store.get("lmsAccount") or {}
+            if lms_acc.get("username") or store.get("lmsConnected") or lms_acc.get("matchedSubjects"):
+                store["lmsConnected"] = True
+                if isinstance(store.get("lmsAccount"), dict):
+                    store["lmsAccount"]["status"] = "connected"
+                    store["lmsAccount"]["connected"] = True
+                    store["lmsAccount"]["syncStatus"] = "STALE"
+                save_store(store, reg)
+            elif he.status_code == 401 or "expired" in str(he.detail).lower() or "session" in str(he.detail).lower():
                 store["lmsConnected"] = False
                 if "lmsAccount" in store and isinstance(store["lmsAccount"], dict):
                     store["lmsAccount"]["status"] = "expired"
