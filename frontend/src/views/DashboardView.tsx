@@ -112,27 +112,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return map[dayIndex] || 'THU';
   };
 
+  // Guaranteed safe array normalizations to prevent non-iterable or null exceptions
+  const safeTimetable = useMemo(() => (Array.isArray(timetable) ? timetable : []), [timetable]);
+  const safeCourses = useMemo(() => (Array.isArray(courses) ? courses : []), [courses]);
+  const safeAttendance = useMemo(() => (Array.isArray(attendance) ? attendance : []), [attendance]);
+  const safeMarks = useMemo(() => (Array.isArray(marks) ? marks : []), [marks]);
+  const safeExams: Exam[] = useMemo(() => {
+    if (Array.isArray(exams)) return exams;
+    if (exams && typeof exams === 'object') {
+      try {
+        return (Object.values(exams).flat() as Exam[]).filter(Boolean);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [exams]);
+
+  // Safe numerical formatter helper
+  const formatFixed = (val: any, digits: number = 1, fallback: string = '--'): string => {
+    if (val === null || val === undefined) return fallback;
+    const num = typeof val === 'number' ? val : Number(val);
+    if (isNaN(num)) return fallback;
+    return num.toFixed(digits);
+  };
+
   const todayDay = useMemo(() => getTodayDayOfWeek(), []);
 
   // Compute available days from timetable
   const availableDays = useMemo(() => {
     const days: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
-    if (timetable.some((s) => s.day === 'SAT')) days.push('SAT');
-    if (timetable.some((s) => s.day === 'SUN')) days.push('SUN');
+    if (safeTimetable.some((s) => s?.day === 'SAT')) days.push('SAT');
+    if (safeTimetable.some((s) => s?.day === 'SUN')) days.push('SUN');
     return days;
-  }, [timetable]);
+  }, [safeTimetable]);
 
   const defaultDay = useMemo(() => {
     const today = getTodayDayOfWeek();
-    if (timetable.some((s) => s.day === today)) return today;
+    if (safeTimetable.some((s) => s?.day === today)) return today;
     const daySequence: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     const todayIdx = daySequence.indexOf(today);
     for (let offset = 1; offset < 7; offset++) {
       const nextDay = daySequence[(todayIdx + offset) % 7];
-      if (timetable.some((s) => s.day === nextDay)) return nextDay;
+      if (safeTimetable.some((s) => s?.day === nextDay)) return nextDay;
     }
     return 'MON';
-  }, [timetable]);
+  }, [safeTimetable]);
 
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(defaultDay);
   const [simulatedOffset, setSimulatedOffset] = useState<number>(0);
@@ -148,14 +173,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Keep selectedDay aligned if timetable loads asynchronously
   useEffect(() => {
-    if (timetable.length > 0 && !timetable.some((s) => s.day === selectedDay)) {
+    if (safeTimetable.length > 0 && !safeTimetable.some((s) => s?.day === selectedDay)) {
       setSelectedDay(defaultDay);
     }
-  }, [timetable, defaultDay, selectedDay]);
+  }, [safeTimetable, defaultDay, selectedDay]);
 
   // Robust helper to parse time strings ("HH:MM", "14:00", "02:00 PM") to minutes from midnight
   const parseTimeToMinutes = (timeStr?: string): number => {
-    if (!timeStr) return 0;
+    if (!timeStr || typeof timeStr !== 'string') return 0;
     const clean = timeStr.trim();
     const isPM = /pm/i.test(clean);
     const isAM = /am/i.test(clean);
@@ -171,18 +196,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Timetable slots for selected day, sorted chronologically
   const filteredSlots = useMemo(() => {
-    const slots = timetable.filter((s) => s.day === selectedDay);
-    return [...slots].sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
-  }, [timetable, selectedDay]);
+    const slots = safeTimetable.filter((s) => s && s.day === selectedDay);
+    return [...slots].sort((a, b) => parseTimeToMinutes(a?.startTime) - parseTimeToMinutes(b?.startTime));
+  }, [safeTimetable, selectedDay]);
 
   // Determine active or upcoming class synced with current time
   const { activeNextClass, nextClassStatus, nextClassDayLabel } = useMemo(() => {
     const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
 
     // 1. Look for ongoing or upcoming class today
-    const todaySlots = timetable
-      .filter((s) => s.day === todayDay)
-      .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+    const todaySlots = safeTimetable
+      .filter((s) => s && s.day === todayDay)
+      .sort((a, b) => parseTimeToMinutes(a?.startTime) - parseTimeToMinutes(b?.startTime));
 
     for (const slot of todaySlots) {
       const startMin = parseTimeToMinutes(slot.startTime);
@@ -213,9 +238,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     for (let offset = 1; offset < 7; offset++) {
       const nextDay = daySequence[(todayIdx + offset) % 7];
-      const nextDaySlots = timetable
-        .filter((s) => s.day === nextDay)
-        .sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
+      const nextDaySlots = safeTimetable
+        .filter((s) => s && s.day === nextDay)
+        .sort((a, b) => parseTimeToMinutes(a?.startTime) - parseTimeToMinutes(b?.startTime));
 
       if (nextDaySlots.length > 0) {
         const dayNames: Record<string, string> = {
@@ -241,24 +266,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       nextClassStatus: 'fallback' as const,
       nextClassDayLabel: 'Scheduled',
     };
-  }, [timetable, todayDay, filteredSlots, currentTime]);
+  }, [safeTimetable, todayDay, filteredSlots, currentTime]);
 
   const nextClass = activeNextClass;
 
   // Dynamic slot attendance resolver with zero hallucination and strict course mapping
   const getSlotAttendance = (slot: TimetableSlot) => {
-    if (!attendance || attendance.length === 0) return null;
+    if (!safeAttendance || safeAttendance.length === 0) return null;
     const sCode = (slot.courseCode || slot.subjectCode || '').trim().toUpperCase();
     const sSlot = (slot.slot || slot.slotName || '').trim();
     const sTitle = (slot.courseTitle || slot.courseName || slot.subject || '').trim().toLowerCase();
 
-    let match = attendance.find((a) => {
+    let match = safeAttendance.find((a) => {
       const aCode = (a.courseCode || (a as any).code || '').trim().toUpperCase();
       return aCode && sCode && aCode === sCode;
     });
 
     if (!match && sSlot) {
-      match = attendance.find((a) => {
+      match = safeAttendance.find((a) => {
         const aSlot = (a.slot || (a as any).slotName || '').trim();
         const aSlots = (a.slots || '').trim();
         return (aSlot && aSlot === sSlot) || (aSlots && aSlots.includes(sSlot));
@@ -266,7 +291,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
 
     if (!match && sTitle) {
-      match = attendance.find((a) => {
+      match = safeAttendance.find((a) => {
         const aTitle = (a.courseTitle || a.courseName || (a as any).title || '').trim().toLowerCase();
         return aTitle && aTitle === sTitle;
       });
@@ -274,9 +299,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     if (!match) return null;
 
-    const attended = match.attended ?? match.classesAttended ?? 0;
-    const total = match.total ?? match.conducted ?? match.classesConducted ?? 0;
-    const pct = match.percentage ?? match.attendancePercentage ?? (total > 0 ? Math.round((attended / total) * 1000) / 10 : 0);
+    const attended = Number(match.attended ?? match.classesAttended ?? 0) || 0;
+    const total = Number(match.total ?? match.conducted ?? match.classesConducted ?? 0) || 0;
+    const rawPct = match.percentage ?? match.attendancePercentage;
+    const pct = rawPct !== null && rawPct !== undefined && !isNaN(Number(rawPct))
+      ? Number(rawPct)
+      : (total > 0 ? Math.round((attended / total) * 1000) / 10 : 0);
     const safeMiss = match.safeToMiss ?? (pct >= 75 ? Math.max(0, Math.floor((attended - 0.75 * total) / 0.75)) : 0);
     const needAttend = match.needToAttend ?? (pct < 75 ? Math.ceil((0.75 * total - attended) / 0.25) : 0);
 
@@ -295,7 +323,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Evaluated continuous assessment marks from authentic VTOP ledger
   const evaluatedMarks = useMemo(() => {
-    if (!marks || marks.length === 0) return [];
+    if (!safeMarks || safeMarks.length === 0) return [];
     const list: Array<{
       courseCode: string;
       courseTitle: string;
@@ -308,31 +336,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       status?: string;
     }> = [];
 
-    for (const m of marks) {
-      if (m.components && m.components.length > 0) {
+    for (const m of safeMarks) {
+      if (!m) continue;
+      if (Array.isArray(m.components) && m.components.length > 0) {
         for (const c of m.components) {
-          if (c.scored !== null && c.scored !== undefined) {
+          if (!c) continue;
+          if (c.scored !== null && c.scored !== undefined && !isNaN(Number(c.scored))) {
             list.push({
-              courseCode: m.courseCode,
-              courseTitle: m.courseTitle || m.courseName,
-              compTitle: c.title,
-              scored: c.scored,
-              max: c.max,
-              weightage: c.weightage,
-              maxWeightage: c.maxWeightage,
-              average: c.average,
-              status: c.status,
+              courseCode: m.courseCode || '',
+              courseTitle: m.courseTitle || m.courseName || '',
+              compTitle: c.title || 'Component',
+              scored: Number(c.scored),
+              max: c.max !== null && c.max !== undefined && !isNaN(Number(c.max)) ? Number(c.max) : 100,
+              weightage: c.weightage !== null && c.weightage !== undefined && !isNaN(Number(c.weightage)) ? Number(c.weightage) : undefined,
+              maxWeightage: c.maxWeightage !== null && c.maxWeightage !== undefined && !isNaN(Number(c.maxWeightage)) ? Number(c.maxWeightage) : 15,
+              average: c.average !== null && c.average !== undefined && !isNaN(Number(c.average)) ? Number(c.average) : null,
+              status: c.status || 'Recorded',
             });
           }
         }
-      } else if (m.cat1 && m.cat1.scored !== null && m.cat1.scored !== undefined) {
+      } else if (m.cat1 && m.cat1.scored !== null && m.cat1.scored !== undefined && !isNaN(Number(m.cat1.scored))) {
         list.push({
-          courseCode: m.courseCode,
-          courseTitle: m.courseTitle || m.courseName,
+          courseCode: m.courseCode || '',
+          courseTitle: m.courseTitle || m.courseName || '',
           compTitle: 'CAT-1',
-          scored: m.cat1.scored,
-          max: m.cat1.max || 50,
-          weightage: m.cat1.weightage,
+          scored: Number(m.cat1.scored),
+          max: m.cat1.max !== null && m.cat1.max !== undefined && !isNaN(Number(m.cat1.max)) ? Number(m.cat1.max) : 50,
+          weightage: m.cat1.weightage !== null && m.cat1.weightage !== undefined && !isNaN(Number(m.cat1.weightage)) ? Number(m.cat1.weightage) : undefined,
           maxWeightage: 15,
           average: null,
           status: 'Recorded',
@@ -340,51 +370,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       }
     }
     return list.slice(0, 2);
-  }, [marks]);
+  }, [safeMarks]);
 
   // Courses most at risk or closest to 75% cutoff
   const watchCourses = useMemo(() => {
-    if (!attendance || attendance.length === 0) return [];
-    return [...attendance]
-      .filter((a) => (a.total ?? a.classesConducted ?? 0) > 0)
+    if (!safeAttendance || safeAttendance.length === 0) return [];
+    return [...safeAttendance]
+      .filter((a) => a && (a.total ?? a.classesConducted ?? 0) > 0)
       .sort((a, b) => {
-        const pA = a.percentage ?? a.attendancePercentage ?? 100;
-        const pB = b.percentage ?? b.attendancePercentage ?? 100;
+        const pA = Number(a?.percentage ?? a?.attendancePercentage ?? 100) || 100;
+        const pB = Number(b?.percentage ?? b?.attendancePercentage ?? 100) || 100;
         return pA - pB;
       })
       .slice(0, 2);
-  }, [attendance]);
+  }, [safeAttendance]);
 
   // Next upcoming examination from authentic exam schedule
   const nextExam = useMemo(() => {
-    if (!exams || exams.length === 0) return null;
+    if (!safeExams || safeExams.length === 0) return null;
     const now = Date.now();
-    const sorted = [...exams].sort((a, b) => {
-      const tA = new Date(a.date).getTime() || 0;
-      const tB = new Date(b.date).getTime() || 0;
+    const sorted = [...safeExams].sort((a, b) => {
+      const tA = a?.date ? new Date(a.date).getTime() || 0 : 0;
+      const tB = b?.date ? new Date(b.date).getTime() || 0 : 0;
       return tA - tB;
     });
-    return sorted.find((e) => (new Date(e.date).getTime() || 0) >= now - 86400000) || sorted[0];
-  }, [exams]);
+    return sorted.find((e) => (new Date(e?.date || '').getTime() || 0) >= now - 86400000) || sorted[0];
+  }, [safeExams]);
 
   // Calculate overall attendance
   const overallAtt = student?.overallAttendance;
-  const overallPct = overallAtt?.percentage !== null && overallAtt?.percentage !== undefined
+  const overallPct = overallAtt?.percentage !== null && overallAtt?.percentage !== undefined && !isNaN(Number(overallAtt.percentage))
     ? Number(overallAtt.percentage)
-    : (attendance.length > 0
+    : (safeAttendance.length > 0
         ? Math.round(
-            (attendance.reduce((acc, c) => acc + (c.attended || c.classesAttended || 0), 0) /
-              Math.max(1, attendance.reduce((acc, c) => acc + (c.total || c.classesConducted || 0), 0))) * 1000
+            (safeAttendance.reduce((acc, c) => acc + (Number(c?.attended ?? c?.classesAttended ?? 0) || 0), 0) /
+              Math.max(1, safeAttendance.reduce((acc, c) => acc + (Number(c?.total ?? c?.classesConducted ?? 0) || 0), 0))) * 1000
           ) / 10
         : 0);
 
   const attBufferMargin = Math.round((overallPct - 75.0) * 10) / 10;
-  const criticalCount = attendance.filter((a) => {
-    let p = a.percentage !== undefined ? a.percentage : a.attendancePercentage;
-    if (p === undefined && (a.total || a.classesConducted || 0) > 0) {
-      p = Math.round(((a.attended || a.classesAttended || 0) / (a.total || a.classesConducted)) * 1000) / 10;
+  const criticalCount = safeAttendance.filter((a) => {
+    if (!a) return false;
+    let p = a.percentage !== undefined && a.percentage !== null ? a.percentage : a.attendancePercentage;
+    if ((p === undefined || p === null) && (a.total || a.classesConducted || 0) > 0) {
+      p = Math.round(((Number(a.attended ?? a.classesAttended ?? 0) || 0) / (Number(a.total ?? a.classesConducted ?? 1) || 1)) * 1000) / 10;
     }
-    return p !== undefined && p < 75;
+    return p !== undefined && p !== null && !isNaN(Number(p)) && Number(p) < 75;
   }).length;
 
   // CGPA calculation
@@ -392,8 +423,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ? Number(student.cgpa).toFixed(2)
     : '--';
 
-  const earnedCredits = student?.creditsEarned ?? (courses.length > 0 ? courses.reduce((a, c) => a + (c.credits || 0), 0) : '--');
-  const registeredCredits = student?.registeredCredits ?? (courses.length > 0 ? courses.reduce((a, c) => a + (c.credits || 0), 0) : '--');
+  const earnedCredits = student?.creditsEarned ?? (safeCourses.length > 0 ? safeCourses.reduce((a, c) => a + (Number(c?.credits) || 0), 0) : '--');
+  const registeredCredits = student?.registeredCredits ?? (safeCourses.length > 0 ? safeCourses.reduce((a, c) => a + (Number(c?.credits) || 0), 0) : '--');
   const currentSemester = student?.semester ? `Fall Semester 2026-27 • Sem ${student.semester}` : 'Fall Semester 2026-27';
 
   // OD metrics
@@ -556,7 +587,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="my-2 flex items-baseline gap-2">
             <span className="font-metric-display text-3xl font-semibold text-on-surface font-tabular-data">
-              {courses.length}
+              {safeCourses.length}
             </span>
             <span className="font-label-md text-xs text-on-surface-variant">Courses</span>
           </div>
@@ -791,7 +822,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                   ? 'bg-error-container text-error'
                                   : 'text-secondary bg-secondary-fixed/50'
                               }`}>
-                                {slotAtt.percentage.toFixed(1)}%
+                                {formatFixed(slotAtt.percentage, 1, '--')}%
                               </span>
                               <span className="block font-label-sm text-[10px] text-outline mt-0.5">
                                 Attended: {slotAtt.attended}/{slotAtt.total}
@@ -850,9 +881,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Curricular Courses Quick View */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {courses.slice(0, 3).map((course, idx) => {
-                const attMatch = attendance.find((a) => a.courseCode === course.code);
+              {safeCourses.slice(0, 3).map((course, idx) => {
+                const attMatch = safeAttendance.find((a) => a?.courseCode === course?.code);
                 const pct = attMatch?.percentage ?? attMatch?.attendancePercentage;
+                const hasValidPct = pct !== undefined && pct !== null && !isNaN(Number(pct));
                 return (
                   <div key={course.id || course.code || idx} className="bg-surface-container-low p-3.5 rounded-lg flex flex-col justify-between gap-3 border border-outline-variant/10">
                     <div>
@@ -864,12 +896,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {course.title}
                       </h5>
                       <p className="font-body-sm text-[11px] text-on-surface-variant mt-1 leading-snug truncate">
-                        {course.faculty ? `Faculty: ${course.faculty}` : `${course.credits} Credits`}
+                        {course.faculty ? `Faculty: ${course.faculty}` : `${course.credits || 0} Credits`}
                       </p>
                     </div>
                     <div className="pt-2 flex items-center justify-between font-label-sm text-xs border-t border-outline-variant/10">
                       <span className="text-secondary font-semibold font-tabular-data">
-                        {pct !== undefined ? `${pct.toFixed(1)}% Attended` : `${course.credits} Credits`}
+                        {hasValidPct ? `${formatFixed(pct, 1)}% Attended` : `${course.credits || 0} Credits`}
                       </span>
                       <button
                         onClick={() => navigateToAcademics('courses')}
@@ -881,7 +913,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                 );
               })}
-              {courses.length === 0 && (
+              {safeCourses.length === 0 && (
                 <div className="col-span-3 bg-surface-container-low p-4 rounded-lg text-center text-on-surface-variant font-body-sm text-xs border border-outline-variant/10">
                   No courses enrolled for the active semester.
                 </div>
@@ -922,11 +954,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {courses.length > 0 ? (
-                    courses.slice(0, 5).map((course, idx) => {
-                      const attMatch = attendance.find((a) => a.courseCode === course.code);
+                  {safeCourses.length > 0 ? (
+                    safeCourses.slice(0, 5).map((course, idx) => {
+                      const attMatch = safeAttendance.find((a) => a?.courseCode === course?.code);
                       const pct = attMatch?.percentage ?? attMatch?.attendancePercentage;
-                      const status = pct !== undefined ? (pct < 75 ? 'Shortage' : pct < 85 ? 'Watchlist' : 'Safe') : 'Enrolled';
+                      const hasValidPct = pct !== undefined && pct !== null && !isNaN(Number(pct));
+                      const status = hasValidPct ? (Number(pct) < 75 ? 'Shortage' : Number(pct) < 85 ? 'Watchlist' : 'Safe') : 'Enrolled';
 
                       return (
                         <tr
@@ -941,13 +974,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             {course.title}
                           </td>
                           <td className="py-3 px-3 font-tabular-data text-on-surface-variant">
-                            {course.credits !== undefined ? course.credits.toFixed(1) : '--'}
+                            {formatFixed(course.credits, 1, '--')}
                           </td>
                           <td className="py-3 px-3 text-on-surface-variant">
                             {course.type || 'Theory'}
                           </td>
                           <td className="py-3 px-3 text-right font-tabular-data font-semibold text-on-surface">
-                            {pct !== undefined ? `${pct.toFixed(1)}%` : '--'}
+                            {hasValidPct ? `${formatFixed(pct, 1)}%` : '--'}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span
@@ -999,7 +1032,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {watchCourses.length > 0 ? (
               watchCourses.map((attCourse, wIdx) => {
-                const pct = attCourse.percentage ?? attCourse.attendancePercentage ?? 0;
+                const rawPct = attCourse.percentage ?? attCourse.attendancePercentage ?? 0;
+                const pct = Number(rawPct) || 0;
                 const conducted = attCourse.total ?? attCourse.classesConducted ?? 0;
                 const attended = attCourse.attended ?? attCourse.classesAttended ?? 0;
                 const safeMiss = attCourse.safeToMiss ?? 0;
@@ -1013,7 +1047,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {attCourse.courseCode} • {attCourse.courseTitle || attCourse.courseName}
                       </span>
                       <span className={`font-tabular-data font-label-md text-xs font-bold ${isShortage ? 'text-error' : 'text-on-surface'}`}>
-                        {Math.max(0, Math.min(100, pct + simulatedOffset)).toFixed(1)}%
+                        {formatFixed(Math.max(0, Math.min(100, pct + simulatedOffset)), 1)}%
                       </span>
                     </div>
                     {/* Cutoff visual bar with 75% regulatory mark */}
@@ -1115,16 +1149,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                       <div className="flex items-baseline justify-between">
                         <span className="font-headline-sm text-base font-bold text-on-surface font-tabular-data">
-                          {ev.scored.toFixed(1)} <span className="text-outline font-label-sm text-xs font-normal">/ {ev.max.toFixed(1)}</span>
+                          {formatFixed(ev.scored, 1, '0.0')} <span className="text-outline font-label-sm text-xs font-normal">/ {formatFixed(ev.max, 1, '0.0')}</span>
                         </span>
                         <span className="font-headline-sm text-sm text-secondary font-bold font-tabular-data">
                           {pct}%
                         </span>
                       </div>
                       <div className="flex items-center justify-between font-label-sm text-[11px] text-outline pt-1 border-t border-outline-variant/10">
-                        <span>Weightage: {ev.weightage !== undefined ? ev.weightage.toFixed(1) : '-'} / {(ev.maxWeightage || 15).toFixed(1)} pts</span>
+                        <span>Weightage: {formatFixed(ev.weightage, 1, '-')} / {formatFixed(ev.maxWeightage || 15, 1, '15.0')} pts</span>
                         {ev.average !== null && ev.average !== undefined ? (
-                          <span>Class Mean: {ev.average.toFixed(1)}</span>
+                          <span>Class Mean: {formatFixed(ev.average, 1)}</span>
                         ) : (
                           <span className="text-outline">Class Mean: --</span>
                         )}

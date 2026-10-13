@@ -97,6 +97,18 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [showAlertBanner, setShowAlertBanner] = useState<boolean>(true);
 
+  const safeExams: Exam[] = useMemo(() => {
+    if (Array.isArray(exams)) return exams;
+    if (exams && typeof exams === 'object') {
+      try {
+        return (Object.values(exams).flat() as Exam[]).filter(Boolean);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [exams]);
+
   // User created / dynamic tasks list
   const [customTasks, setCustomTasks] = useState<PlannerTask[]>(() => {
     try {
@@ -638,9 +650,9 @@ export const AIPlannerView: React.FC<AIPlannerViewProps> = ({
               </span>
             </div>
 
-            {exams && exams.length > 0 ? (
+            {safeExams.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {exams.slice(0, 2).map((exam, idx) => {
+                {safeExams.slice(0, 2).map((exam, idx) => {
                   const examDate = exam.date ? new Date(exam.date).getTime() : 0;
                   const daysLeft = examDate ? Math.ceil((examDate - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 

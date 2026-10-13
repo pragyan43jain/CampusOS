@@ -470,9 +470,22 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   };
 
   const [examFilter, setExamFilter] = useState<'ALL' | 'CAT 1' | 'CAT 2' | 'FAT' | 'LAB FAT'>('ALL');
+
+  const safeExamsList: Exam[] = useMemo(() => {
+    if (Array.isArray(exams)) return exams;
+    if (exams && typeof exams === 'object') {
+      try {
+        return (Object.values(exams).flat() as Exam[]).filter(Boolean);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [exams]);
+
   const filteredExams = useMemo(() => {
-    if (examFilter === 'ALL') return exams;
-    return exams.filter((ex) => {
+    if (examFilter === 'ALL') return safeExamsList;
+    return safeExamsList.filter((ex) => {
       const type = (ex.examType || ex.title || '').toUpperCase();
       if (examFilter === 'CAT 1') return type.includes('CAT 1') || type.includes('CAT-1') || type.includes('CAT1');
       if (examFilter === 'CAT 2') return type.includes('CAT 2') || type.includes('CAT-2') || type.includes('CAT2');
@@ -480,7 +493,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       if (examFilter === 'LAB FAT') return type.includes('LAB') && (type.includes('FAT') || type.includes('FINAL'));
       return true;
     });
-  }, [exams, examFilter]);
+  }, [safeExamsList, examFilter]);
   // Track manual exam completion status overrides
   const [manualExamCompleted, setManualExamCompleted] = useState<Record<string, boolean>>(() => {
     if (typeof window === 'undefined') return {};
@@ -603,15 +616,15 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   };
 
   const navTabs: { id: AcademicsSubTab; label: string; icon: React.ComponentType<any>; count?: number | string }[] = [
-    { id: 'profile', label: 'Profile', icon: User, count: student.regNo || undefined },
-    { id: 'attendance', label: 'Attendance', icon: Percent, count: attendance.length ? `${attendance.length}` : undefined },
+    { id: 'profile', label: 'Profile', icon: User, count: student?.regNo || undefined },
+    { id: 'attendance', label: 'Attendance', icon: Percent, count: Array.isArray(attendance) && attendance.length ? `${attendance.length}` : undefined },
     { id: 'calendar', label: 'Academic Calendar', icon: CalendarDays, count: 'Semester' },
-    { id: 'timetable', label: 'Timetable', icon: Calendar, count: timetable.length ? `${timetable.length} Slots` : undefined },
-    { id: 'marks', label: 'Marks', icon: Award, count: marks.length ? `${marks.length}` : undefined },
-    { id: 'exams', label: 'Exams', icon: FileText, count: exams.length ? `${exams.length}` : undefined },
-    { id: 'grades', label: 'All Grades & CGPA', icon: TrendingUp, count: student.cgpa ? `${student.cgpa} CGPA` : undefined },
-    { id: 'faculty', label: 'Faculty', icon: Users, count: faculty.length ? `${faculty.length}` : undefined },
-    { id: 'courses', label: 'Courses & Study', icon: BookOpen, count: courses.length ? `${courses.length}` : undefined },
+    { id: 'timetable', label: 'Timetable', icon: Calendar, count: Array.isArray(timetable) && timetable.length ? `${timetable.length} Slots` : undefined },
+    { id: 'marks', label: 'Marks', icon: Award, count: Array.isArray(marks) && marks.length ? `${marks.length}` : undefined },
+    { id: 'exams', label: 'Exams', icon: FileText, count: safeExamsList.length ? `${safeExamsList.length}` : undefined },
+    { id: 'grades', label: 'All Grades & CGPA', icon: TrendingUp, count: student?.cgpa ? `${student.cgpa} CGPA` : undefined },
+    { id: 'faculty', label: 'Faculty', icon: Users, count: Array.isArray(faculty) && faculty.length ? `${faculty.length}` : undefined },
+    { id: 'courses', label: 'Courses & Study', icon: BookOpen, count: Array.isArray(courses) && courses.length ? `${courses.length}` : undefined },
   ];
 
   return (

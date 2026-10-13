@@ -36,6 +36,7 @@ import { AIPlannerView } from './views/AIPlannerView';
 import { LandingPageView } from './views/LandingPageView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { isAssignmentDone, isTeamsAssignment } from './utils/assignmentUtils';
 import { computeUniccODFromAttendance } from './utils/odUtils';
 
@@ -481,7 +482,10 @@ export const App: React.FC = () => {
         if (Array.isArray(timetableData) && timetableData.length > 0) setTimetable(timetableData);
         if (Array.isArray(attendanceData) && attendanceData.length > 0) setAttendance(attendanceData);
         if (Array.isArray(marksData) && marksData.length > 0) setMarks(marksData);
-        if (examsData && (Array.isArray(examsData) ? examsData.length > 0 : Object.keys(examsData).length > 0)) setExams(examsData as any);
+        const normExams: Exam[] = Array.isArray(examsData)
+          ? examsData
+          : (examsData && typeof examsData === 'object' ? (Object.values(examsData).flat() as Exam[]).filter(Boolean) : []);
+        if (normExams.length > 0) setExams(normExams);
         if (Array.isArray(facultyData) && facultyData.length > 0) setFaculty(facultyData);
 
         const flatUnified: Assignment[] = [];
@@ -912,12 +916,15 @@ export const App: React.FC = () => {
             const cachedStudent = cd.student || cachedUserData.student;
             const mergedStudent = cachedStudent ? { ...studentProfile, ...cachedStudent } : studentProfile;
             setStudent(mergedStudent);
-            if (cd.courses?.length > 0) setCourses(cd.courses);
-            if (cd.timetable?.length > 0) setTimetable(cd.timetable);
-            if (cd.attendance?.length > 0) setAttendance(cd.attendance);
-            if (cd.marks?.length > 0) setMarks(cd.marks);
-            if (cd.exams && Object.keys(cd.exams).length > 0) setExams(cd.exams);
-            if (cd.faculty?.length > 0) setFaculty(cd.faculty);
+            if (Array.isArray(cd.courses) && cd.courses.length > 0) setCourses(cd.courses);
+            if (Array.isArray(cd.timetable) && cd.timetable.length > 0) setTimetable(cd.timetable);
+            if (Array.isArray(cd.attendance) && cd.attendance.length > 0) setAttendance(cd.attendance);
+            if (Array.isArray(cd.marks) && cd.marks.length > 0) setMarks(cd.marks);
+            const cachedExams: Exam[] = Array.isArray(cd.exams)
+              ? cd.exams
+              : (cd.exams && typeof cd.exams === 'object' ? (Object.values(cd.exams).flat() as Exam[]).filter(Boolean) : []);
+            if (cachedExams.length > 0) setExams(cachedExams);
+            if (Array.isArray(cd.faculty) && cd.faculty.length > 0) setFaculty(cd.faculty);
             let cachedOd = cd.od;
             if ((!cachedOd || !cachedOd.records || cachedOd.records.length === 0) && cd.attendance?.length > 0) {
               const uniccOd = computeUniccODFromAttendance(cd.attendance);
@@ -1492,11 +1499,13 @@ export const App: React.FC = () => {
     );
   }
 
-  const pendingAssignmentsCount = assignments.filter((a) => !isAssignmentDone(a, student?.regNo)).length;
-  const lmsPendingCount = assignments.filter(
-    (a) => (a.source === 'LMS' || a.source === 'Moodle LMS') && !isAssignmentDone(a, student?.regNo)
+  const safeAssignments = Array.isArray(assignments) ? assignments : [];
+  const safeCourses = Array.isArray(courses) ? courses : [];
+  const pendingAssignmentsCount = safeAssignments.filter((a) => a && !isAssignmentDone(a, student?.regNo)).length;
+  const lmsPendingCount = safeAssignments.filter(
+    (a) => a && (a.source === 'LMS' || a.source === 'Moodle LMS') && !isAssignmentDone(a, student?.regNo)
   ).length;
-  const criticalAttendanceCount = courses.filter((c) => c.attendance?.isCritical).length;
+  const criticalAttendanceCount = safeCourses.filter((c) => c?.attendance?.isCritical).length;
 
   if (showLanding || !isAuthenticated || !student) {
     return (
@@ -1635,97 +1644,99 @@ export const App: React.FC = () => {
         />
 
         <main className="flex-1 w-full px-4 md:px-6 lg:px-8 pt-20 pb-12 max-w-[1600px] mx-auto min-w-0">
-        {activeView === 'dashboard' && (
-          <DashboardView
-            student={student}
-            timetable={timetable}
-            courses={courses}
-            attendance={attendance}
-            marks={marks}
-            exams={exams}
-            assignments={assignments}
-            fees={fees}
-            placements={placements}
-            dsaTopics={dsaTopics}
-            aiTasks={aiTasks}
-            odData={odData}
-            onOpenODModal={() => setShowODModal(true)}
-            onSelectView={setActiveView}
-            onSelectAcademicsSubTab={handleSelectAcademicsSubTab}
-            onToggleAssignment={handleToggleAssignment}
-            onSync={handleHeaderSync}
-            syncing={syncing}
-            onOpenSyncModal={handleHeaderSync}
-            teamsAccount={teamsAccount}
-            lmsAccount={lmsAccount}
-            onLinkTeams={() => {
-              setIsTeamsModalOpen(true);
-              CampusAnalytics.trackEvent('teams_opened', '/assignments/teams');
-            }}
-            onLinkLMS={() => {
-              setIsLMSModalOpen(true);
-              CampusAnalytics.trackEvent('lms_opened', '/assignments/lms');
-            }}
-            onSyncAll={handleSyncAll}
-            syncingAll={syncingAll}
-            syncResultMsg={syncResultMsg}
-          />
-        )}
+          <ErrorBoundary fallbackTitle="CampusOS View Error" onReset={() => setActiveView('dashboard')}>
+            {activeView === 'dashboard' && (
+              <DashboardView
+                student={student}
+                timetable={timetable}
+                courses={courses}
+                attendance={attendance}
+                marks={marks}
+                exams={exams}
+                assignments={assignments}
+                fees={fees}
+                placements={placements}
+                dsaTopics={dsaTopics}
+                aiTasks={aiTasks}
+                odData={odData}
+                onOpenODModal={() => setShowODModal(true)}
+                onSelectView={setActiveView}
+                onSelectAcademicsSubTab={handleSelectAcademicsSubTab}
+                onToggleAssignment={handleToggleAssignment}
+                onSync={handleHeaderSync}
+                syncing={syncing}
+                onOpenSyncModal={handleHeaderSync}
+                teamsAccount={teamsAccount}
+                lmsAccount={lmsAccount}
+                onLinkTeams={() => {
+                  setIsTeamsModalOpen(true);
+                  CampusAnalytics.trackEvent('teams_opened', '/assignments/teams');
+                }}
+                onLinkLMS={() => {
+                  setIsLMSModalOpen(true);
+                  CampusAnalytics.trackEvent('lms_opened', '/assignments/lms');
+                }}
+                onSyncAll={handleSyncAll}
+                syncingAll={syncingAll}
+                syncResultMsg={syncResultMsg}
+              />
+            )}
 
-        {activeView === 'academics' && (
-          <AcademicsView
-            student={student}
-            courses={courses}
-            attendance={attendance}
-            timetable={timetable}
-            marks={marks}
-            exams={exams}
-            faculty={faculty}
-            onForceSync={handleHeaderSync}
-            syncing={syncing}
-            initialSubTab={academicsSubTab}
-            odData={odData}
-          />
-        )}
+            {activeView === 'academics' && (
+              <AcademicsView
+                student={student}
+                courses={courses}
+                attendance={attendance}
+                timetable={timetable}
+                marks={marks}
+                exams={exams}
+                faculty={faculty}
+                onForceSync={handleHeaderSync}
+                syncing={syncing}
+                initialSubTab={academicsSubTab}
+                odData={odData}
+              />
+            )}
 
-        {activeView === 'assignments' && (
-          <AssignmentsView
-            assignments={assignments}
-            courses={courses}
-            onToggleStatus={handleToggleAssignment}
-            onAssignmentsUpdated={(updated) => setAssignments(applyManualStatusOverrides(updated, student?.regNo))}
-            onLinkTeams={() => {
-              setIsTeamsModalOpen(true);
-              CampusAnalytics.trackEvent('teams_opened', '/assignments/teams');
-            }}
-            onLinkLMS={() => {
-              setIsLMSModalOpen(true);
-              CampusAnalytics.trackEvent('lms_opened', '/assignments/lms');
-            }}
-            onSyncAll={handleSyncAll}
-            syncingAll={syncingAll}
-            teamsAccount={teamsAccount}
-            lmsAccount={lmsAccount}
-            studentEmail={student.email || undefined}
-            studentRegNo={student.regNo}
-          />
-        )}
+            {activeView === 'assignments' && (
+              <AssignmentsView
+                assignments={assignments}
+                courses={courses}
+                onToggleStatus={handleToggleAssignment}
+                onAssignmentsUpdated={(updated) => setAssignments(applyManualStatusOverrides(updated, student?.regNo))}
+                onLinkTeams={() => {
+                  setIsTeamsModalOpen(true);
+                  CampusAnalytics.trackEvent('teams_opened', '/assignments/teams');
+                }}
+                onLinkLMS={() => {
+                  setIsLMSModalOpen(true);
+                  CampusAnalytics.trackEvent('lms_opened', '/assignments/lms');
+                }}
+                onSyncAll={handleSyncAll}
+                syncingAll={syncingAll}
+                teamsAccount={teamsAccount}
+                lmsAccount={lmsAccount}
+                studentEmail={student.email || undefined}
+                studentRegNo={student.regNo}
+              />
+            )}
 
-        {activeView === 'fees' && <FeesView fees={fees} onRefresh={loadAllData} />}
+            {activeView === 'fees' && <FeesView fees={fees} onRefresh={loadAllData} />}
 
-        {activeView === 'placements' && (
-          <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />
-        )}
+            {activeView === 'placements' && (
+              <PlacementsView drives={placements} dsaTopics={dsaTopics} student={student} />
+            )}
 
-        {activeView === 'ai-planner' && (
-          <AIPlannerView
-            tasks={aiTasks}
-            timetable={timetable}
-            courses={courses}
-            attendance={attendance}
-            exams={exams}
-          />
-        )}
+            {activeView === 'ai-planner' && (
+              <AIPlannerView
+                tasks={aiTasks}
+                timetable={timetable}
+                courses={courses}
+                attendance={attendance}
+                exams={exams}
+              />
+            )}
+          </ErrorBoundary>
         </main>
       </div>
 
