@@ -412,6 +412,85 @@ def extract_assignment_poster(
     return None
 
 
+def extract_assignment_metadata(
+    session: requests.Session,
+    assign_url: str,
+    row_text: str = "",
+    topic_name: str = "",
+    title: str = "",
+    student_name: Optional[str] = None,
+    course_sections_map: Optional[Dict[str, str]] = None,
+    activity_id: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[bool]]:
+    """
+    Extracts authentic professor, authentic due date, due time, and authentic submission status
+    directly from Moodle assignment view page (/mod/assign/view.php) and metadata.
+    Returns: (poster, due_date_str, due_time_str, is_submitted)
+    """
+    poster = extract_assignment_poster(
+        session=session,
+        assign_url=assign_url,
+        row_text=row_text,
+        topic_name=topic_name,
+        title=title,
+        student_name=student_name,
+        course_sections_map=course_sections_map,
+        activity_id=activity_id,
+    )
+
+    due_date_str: Optional[str] = None
+    due_time_str: Optional[str] = None
+    is_submitted: Optional[bool] = None
+
+    if assign_url and assign_url.startswith("http"):
+        try:
+            r = session.get(assign_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "html.parser")
+                # Parse submission status table or general table rows
+                for tr in soup.find_all("tr"):
+                    cells = tr.find_all(["th", "td"])
+                    if len(cells) >= 2:
+                        h_txt = cells[0].get_text().strip().lower()
+                        v_txt = cells[1].get_text().strip()
+                        if any(k in h_txt for k in ["due date", "deadline", "cutoff date", "close date"]):
+                            d, t = parse_moodle_date(v_txt)
+                            if d:
+                                due_date_str = d
+                                due_time_str = t or "23:59"
+                        elif "submission status" in h_txt:
+                            v_lower = v_txt.lower()
+                            if any(k in v_lower for k in ["submitted for grading", "submitted", "graded", "turnedin", "turned in"]):
+                                if "not submitted" not in v_lower and "no attempt" not in v_lower:
+                                    is_submitted = True
+                            elif any(k in v_lower for k in ["no attempt", "not submitted", "draft"]):
+                                is_submitted = False
+                        elif "grading status" in h_txt and is_submitted is None:
+                            if "graded" in v_txt.lower():
+                                is_submitted = True
+
+                # Regex fallback for due date if table was not found
+                if not due_date_str:
+                    m_due = re.search(r"(?:Due\s*(?:date)?|Deadline)\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", r.text, flags=re.IGNORECASE)
+                    if m_due:
+                        d, t = parse_moodle_date(m_due.group(1).strip())
+                        if d:
+                            due_date_str = d
+                            due_time_str = t or "23:59"
+
+                # Check submission status badges if still undetermined
+                if is_submitted is None:
+                    txt_lower = r.text.lower()
+                    if "submitted for grading" in txt_lower:
+                        is_submitted = True
+                    elif "no attempt" in txt_lower or "not submitted" in txt_lower:
+                        is_submitted = False
+        except Exception as exc:
+            logger.debug("Could not scrape assignment view page metadata for %s: %s", assign_url, exc)
+
+    return poster, due_date_str, due_time_str, is_submitted
+
+
 def match_lms_course_to_vtop(
     course_name: str,
     course_id: str,
@@ -743,6 +822,7 @@ def transform_timeline_event_to_assignment(
     ev: Dict[str, Any],
     verified_enrolled: List[VerifiedCourseRecord],
     curr_sem_name: str,
+    course_id_to_vtop_map: Optional[Dict[str, VerifiedCourseRecord]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Transforms a Moodle timeline action event into an authentic CampusOS assignment record."""
     ev_id = ev.get("id")
@@ -782,9 +862,12 @@ def transform_timeline_event_to_assignment(
     )
     is_pending = not is_submitted
 
-    cand_codes = extract_course_code_candidates(course_name) + extract_course_code_candidates(title)
     matched_rec = None
-    if cand_codes and verified_enrolled:
+    if course_id and course_id_to_vtop_map and str(course_id) in course_id_to_vtop_map:
+        matched_rec = course_id_to_vtop_map[str(course_id)]
+
+    cand_codes = extract_course_code_candidates(course_name) + extract_course_code_candidates(title)
+    if not matched_rec and cand_codes and verified_enrolled:
         enrolled_canon = {canonicalize_course_code(r.courseCode): r for r in verified_enrolled if r.courseCode}
         enrolled_base = {get_base_code(r.courseCode): r for r in verified_enrolled if r.courseCode}
         for cand in cand_codes:
@@ -997,11 +1080,75 @@ def fetch_assignments_for_lms_course(
             return assignments
 
         soup = BeautifulSoup(r.text, "html.parser")
-        table = soup.find("table", class_=lambda x: x and "mod_index" in x) or soup.find("table", class_=lambda x: x and "generaltable" in x)
         parsed_candidates: List[Dict[str, Any]] = []
+        seen_act_ids: set = set()
 
-        if table:
-            # Parse table headers if available
+        # Step 0: Try Moodle WebService AJAX core_course_get_contents if sesskey is available
+        try:
+            sesskey = fetch_lms_sesskey(session)
+            if sesskey:
+                ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
+                payload = [{
+                    "index": 0,
+                    "methodname": "core_course_get_contents",
+                    "args": {"courseid": int(course_id)},
+                }]
+                r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+                if r_ajax.status_code == 200:
+                    data = r_ajax.json()
+                    if isinstance(data, list) and len(data) > 0 and not data[0].get("error"):
+                        sections_data = data[0].get("data") or []
+                        for sec in sections_data:
+                            sec_name = sec.get("name") or ""
+                            for mod in (sec.get("modules") or []):
+                                mod_name = str(mod.get("modname") or "").lower()
+                                if mod_name not in ("assign", "quiz", "turnitintooltwo", "turnitin", "workshop", "feedback", "questionnaire", "lesson", "h5pactivity"):
+                                    continue
+                                act_id = str(mod.get("id") or "")
+                                if not act_id or act_id in seen_act_ids:
+                                    continue
+                                raw_title = (mod.get("name") or "").strip()
+                                if not raw_title or len(raw_title) < 2:
+                                    continue
+                                seen_act_ids.add(act_id)
+                                mod_url = mod.get("url") or f"{LMS_BASE_URL}/mod/{mod_name}/view.php?id={act_id}"
+
+                                due_date_str = ""
+                                due_time_str = "23:59"
+                                for d_item in (mod.get("dates") or []):
+                                    ts = d_item.get("timestamp")
+                                    if ts and isinstance(ts, (int, float)) and ts > 0:
+                                        try:
+                                            from app.routers.unified_assignments import IST
+                                            dt = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(IST)
+                                            due_date_str = dt.strftime("%Y-%m-%d")
+                                            due_time_str = dt.strftime("%H:%M")
+                                        except Exception:
+                                            pass
+                                        if any(k in str(d_item.get("label") or "").lower() for k in ["due", "deadline", "close"]):
+                                            break
+
+                                comp = mod.get("completiondata") or {}
+                                is_sub = bool(comp.get("state", 0) in (1, 2))
+                                parsed_candidates.append({
+                                    "assign_id": f"lms-{course_id}-{act_id}",
+                                    "activity_id": act_id,
+                                    "title": raw_title,
+                                    "assign_url": mod_url,
+                                    "due_date_str": due_date_str,
+                                    "due_time_str": due_time_str,
+                                    "is_submitted": is_sub,
+                                    "is_pending": not is_sub,
+                                    "row_faculty": "",
+                                    "topic_name": sec_name,
+                                    "row_text": f"{raw_title} {sec_name}",
+                                })
+        except Exception as exc:
+            logger.debug("Moodle AJAX course contents check for course %s: %s", course_id, exc)
+
+        # Step 1: Scrape ALL tables on mod/assign/index.php?id={course_id}
+        tables = soup.find_all("table")
+        for table in tables:
             header_map: Dict[str, int] = {}
             thead = table.find("thead")
             if thead:
@@ -1027,11 +1174,10 @@ def fetch_assignments_for_lms_course(
                 if len(cols) < 2:
                     continue
 
-                # Skip pure header rows without links
                 if not row.find("a") and row.find_all("th") and not row.find_all("td"):
                     continue
 
-                link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a")
+                link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a", href=re.compile(r"/mod/[a-z0-9_]+/view\.php")) or row.find("a")
                 if not link:
                     continue
 
@@ -1041,9 +1187,12 @@ def fetch_assignments_for_lms_course(
 
                 m_cm = re.search(r"id=(\d+)", href)
                 activity_id = m_cm.group(1) if m_cm else str(len(assignments) + len(parsed_candidates) + 1)
+                if activity_id in seen_act_ids:
+                    continue
+                seen_act_ids.add(activity_id)
+
                 assign_id = f"lms-{course_id}-{activity_id}"
 
-                # Identify which column index holds the assignment link
                 link_col_idx = 0
                 for i, col in enumerate(cols):
                     if col.find("a") == link or col.get_text().strip() == title:
@@ -1061,7 +1210,6 @@ def fetch_assignments_for_lms_course(
                 if "faculty" in header_map and header_map["faculty"] < len(cols):
                     row_faculty = cols[header_map["faculty"]].get_text().strip()
 
-                # Dynamic column heuristic fallback
                 if not due_raw or not status_raw:
                     other_cols = [(i, c.get_text().strip()) for i, c in enumerate(cols) if i != link_col_idx]
                     for idx_c, text in other_cols:
@@ -1075,7 +1223,6 @@ def fetch_assignments_for_lms_course(
 
                 due_date_str, due_time_str = parse_moodle_date(due_raw)
 
-                # Accurate Moodle status evaluation
                 status_lower = status_raw.lower()
                 is_submitted = (
                     any(kw in status_lower for kw in ["submitted for grading", "graded", "turnedin", "turned in", "complete"])
@@ -1102,14 +1249,41 @@ def fetch_assignments_for_lms_course(
                     "row_text": row.get_text(),
                 })
 
-        # Also scrape Moodle Quizzes index (/mod/quiz/index.php?id={course_id})
+        # Also capture any loose assignment links on mod/assign/index.php that weren't inside a table
+        for extra_link in soup.find_all("a", href=re.compile(r"/mod/assign/view\.php\?[^\"']*id=\d+")):
+            e_href = extra_link.get("href") or ""
+            m_e = re.search(r"id=(\d+)", e_href)
+            if not m_e:
+                continue
+            e_act_id = m_e.group(1)
+            if e_act_id in seen_act_ids:
+                continue
+            seen_act_ids.add(e_act_id)
+            e_title = extra_link.get_text().strip()
+            if not e_title or len(e_title) < 2:
+                continue
+            parsed_candidates.append({
+                "assign_id": f"lms-{course_id}-{e_act_id}",
+                "activity_id": e_act_id,
+                "title": e_title,
+                "assign_url": e_href if e_href.startswith("http") else f"{LMS_BASE_URL}{e_href}",
+                "due_date_str": "",
+                "due_time_str": "23:59",
+                "is_submitted": False,
+                "is_pending": True,
+                "row_faculty": "",
+                "topic_name": "",
+                "row_text": e_title,
+            })
+
+        # Step 2: Scrape Moodle Quizzes index (/mod/quiz/index.php?id={course_id})
         try:
             quiz_index_url = f"{LMS_BASE_URL}/mod/quiz/index.php?id={course_id}"
             r_q = session.get(quiz_index_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r_q.status_code == 200 and "/login" not in r_q.url:
                 soup_q = BeautifulSoup(r_q.text, "html.parser")
-                q_table = soup_q.find("table", class_=lambda x: x and ("mod_index" in x or "generaltable" in x))
-                if q_table:
+                q_tables = soup_q.find_all("table")
+                for q_table in q_tables:
                     q_trs = q_table.find("tbody").find_all("tr") if q_table.find("tbody") else q_table.find_all("tr")
                     for q_row in q_trs:
                         q_cols = q_row.find_all(["td", "th"])
@@ -1124,9 +1298,10 @@ def fetch_assignments_for_lms_course(
                         if not m_q_id:
                             continue
                         q_act_id = m_q_id.group(1)
-                        q_assign_id = f"lms-{course_id}-{q_act_id}"
-                        if any(c["assign_id"] == q_assign_id or c.get("activity_id") == q_act_id for c in parsed_candidates):
+                        if q_act_id in seen_act_ids:
                             continue
+                        seen_act_ids.add(q_act_id)
+                        q_assign_id = f"lms-{course_id}-{q_act_id}"
 
                         q_due_raw = ""
                         q_status_raw = ""
@@ -1158,72 +1333,103 @@ def fetch_assignments_for_lms_course(
         except Exception as exc:
             logger.debug("Could not scrape quiz index for %s: %s", course_id, exc)
 
-        # Also scrape activities directly from course view page (/course/view.php?id={course_id})
-        # to capture quizzes, Turnitin assignments, workshops, and section activities that do not appear on mod/assign/index
+        # Step 3: Scrape activities directly from course view page AND all section pages
         try:
             view_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
             r_v = session.get(view_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r_v.status_code == 200 and "/login" not in r_v.url:
                 soup_v = BeautifulSoup(r_v.text, "html.parser")
-                for a_link in soup_v.find_all("a", href=re.compile(r"/mod/(?:assign|quiz|turnitintooltwo|turnitin|workshop)/view\.php\?id=\d+")):
-                    href = a_link.get("href") or ""
-                    m_id = re.search(r"id=(\d+)", href)
-                    if not m_id:
-                        continue
-                    act_id = m_id.group(1)
-                    a_id = f"lms-{course_id}-{act_id}"
-                    if any(c["assign_id"] == a_id or c.get("activity_id") == act_id for c in parsed_candidates):
-                        continue
 
-                    inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
-                    raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
-                    raw_title = re.sub(r"\s*(?:Assignment|Quiz|Turnitin Assignment 2|Turnitin)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
-                    if not raw_title or len(raw_title) < 2:
-                        continue
+                def _extract_activities_from_course_soup(page_soup: BeautifulSoup, default_topic: str = ""):
+                    for a_link in page_soup.find_all("a", href=re.compile(r"/mod/(?:assign|quiz|turnitintooltwo|turnitin|workshop|feedback|questionnaire|lesson|h5pactivity)/view\.php\?[^\"']*id=\d+")):
+                        href = a_link.get("href") or ""
+                        m_id = re.search(r"id=(\d+)", href)
+                        if not m_id:
+                            continue
+                        act_id = m_id.group(1)
+                        if act_id in seen_act_ids:
+                            continue
 
-                    parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
-                    act_txt = parent_act.get_text() if parent_act else ""
-                    due_raw = ""
-                    status_raw = ""
-                    m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
-                    if m_d:
-                        due_raw = m_d.group(1).strip()
-                    if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
-                        status_raw = "Submitted"
+                        inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
+                        raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
+                        raw_title = re.sub(r"\s*(?:Assignment|Quiz|Turnitin Assignment 2|Turnitin|Feedback|Workshop)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
+                        if not raw_title or len(raw_title) < 2:
+                            continue
 
-                    d_str, t_str = parse_moodle_date(due_raw)
-                    is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
+                        seen_act_ids.add(act_id)
+                        a_id = f"lms-{course_id}-{act_id}"
 
-                    parsed_candidates.append({
-                        "assign_id": a_id,
-                        "activity_id": act_id,
-                        "title": raw_title,
-                        "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
-                        "due_date_str": d_str,
-                        "due_time_str": t_str,
-                        "is_submitted": is_sub,
-                        "is_pending": not is_sub,
-                        "row_faculty": "",
-                        "topic_name": "",
-                        "row_text": act_txt or raw_title,
-                    })
+                        parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
+                        act_txt = parent_act.get_text() if parent_act else ""
+                        due_raw = ""
+                        status_raw = ""
+                        m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
+                        if m_d:
+                            due_raw = m_d.group(1).strip()
+                        if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
+                            status_raw = "Submitted"
+
+                        d_str, t_str = parse_moodle_date(due_raw)
+                        is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
+
+                        sec_elem = a_link.find_parent(["li", "section", "div"], class_=lambda c: c and "section" in str(c).lower())
+                        sec_heading = sec_elem.find(class_=lambda c: c and "sectionname" in str(c).lower()) if sec_elem else None
+                        t_name = sec_heading.get_text().strip() if sec_heading else default_topic
+
+                        parsed_candidates.append({
+                            "assign_id": a_id,
+                            "activity_id": act_id,
+                            "title": raw_title,
+                            "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                            "due_date_str": d_str,
+                            "due_time_str": t_str,
+                            "is_submitted": is_sub,
+                            "is_pending": not is_sub,
+                            "row_faculty": "",
+                            "topic_name": t_name,
+                            "row_text": act_txt or raw_title,
+                        })
+
+                # 1. Parse main course page
+                _extract_activities_from_course_soup(soup_v)
+
+                # 2. Discover section links for multi-page courses
+                section_urls: List[Tuple[str, str]] = []
+                for a_sec in soup_v.find_all("a", href=True):
+                    s_href = a_sec.get("href") or ""
+                    m_s = re.search(r"[?&]section=(\d+)", s_href)
+                    if m_s:
+                        s_num = m_s.group(1)
+                        if s_num != "0":
+                            s_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}&section={s_num}"
+                            if not any(u[0] == s_url for u in section_urls):
+                                section_urls.append((s_url, a_sec.get_text().strip()))
+                    m_sid = re.search(r"[?&]sectionid=(\d+)", s_href)
+                    if m_sid:
+                        s_id = m_sid.group(1)
+                        s_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}&sectionid={s_id}"
+                        if not any(u[0] == s_url for u in section_urls):
+                            section_urls.append((s_url, a_sec.get_text().strip()))
+
+                for s_url, s_name in section_urls[:20]:
+                    try:
+                        r_sec = session.get(s_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+                        if r_sec.status_code == 200 and "/login" not in r_sec.url:
+                            soup_sec = BeautifulSoup(r_sec.text, "html.parser")
+                            _extract_activities_from_course_soup(soup_sec, default_topic=s_name)
+                    except Exception as sec_exc:
+                        logger.debug("Failed to scrape section %s for course %s: %s", s_url, course_id, sec_exc)
         except Exception as exc:
             logger.debug("Could not scrape course view page for %s: %s", course_id, exc)
 
         if not parsed_candidates:
             return assignments
 
-        # Concurrently resolve authentic poster for each assignment
+        # Concurrently resolve authentic poster and verify metadata for each assignment
         def _resolve_candidate_poster(cand: Dict[str, Any]) -> Tuple[str, Optional[str]]:
-            # 1. Row faculty column if explicitly provided
-            if cand["row_faculty"]:
-                t_cand = extract_teacher_from_lms_title(cand["row_faculty"]) or cand["row_faculty"]
-                if 3 <= len(t_cand) < 60 and not is_moodle_noise(t_cand):
-                    return t_cand, t_cand
-
-            # 2. Extract from assignment view page / row metadata using thread-safe cloned session
+            # Extract from assignment view page / row metadata using thread-safe cloned session
             sub_sess = _clone_session(session)
-            extracted = extract_assignment_poster(
+            extracted_poster, resolved_due, resolved_time, resolved_sub = extract_assignment_metadata(
                 session=sub_sess,
                 assign_url=cand["assign_url"],
                 row_text=cand["row_text"],
@@ -1233,10 +1439,23 @@ def fetch_assignments_for_lms_course(
                 course_sections_map=course_sections_map,
                 activity_id=cand["activity_id"],
             )
-            if extracted and not is_moodle_noise(extracted):
-                return extracted, extracted
 
-            # 3. Fall back to course-level LMS instructor, then verified course faculty
+            # Update due date and time if resolved from activity page
+            if resolved_due and (not cand.get("due_date_str") or cand.get("due_date_str") == "TBA"):
+                cand["due_date_str"] = resolved_due
+                cand["due_time_str"] = resolved_time or "23:59"
+            if resolved_sub is not None:
+                cand["is_submitted"] = resolved_sub
+                cand["is_pending"] = not resolved_sub
+
+            if cand["row_faculty"]:
+                t_cand = extract_teacher_from_lms_title(cand["row_faculty"]) or cand["row_faculty"]
+                if 3 <= len(t_cand) < 60 and not is_moodle_noise(t_cand):
+                    return t_cand, t_cand
+
+            if extracted_poster and not is_moodle_noise(extracted_poster):
+                return extracted_poster, extracted_poster
+
             fallback_prof = lms_course_prof
             if not fallback_prof or fallback_prof in ("LMS Instructor", "Instructor", "LMS Teacher", "Faculty unassigned") or is_moodle_noise(fallback_prof):
                 valid_c_teachers = [t for t in c_teachers if not is_moodle_noise(t)]
@@ -1599,13 +1818,23 @@ def fetch_vit_lms_coursework(
                     c_item = future_to_course[future]
                     logger.warning("Error processing LMS course %s: %s", c_item.get("title"), exc)
 
+    course_id_to_vtop_map: Dict[str, VerifiedCourseRecord] = {}
+    for match in course_matches:
+        if isinstance(match, dict) and match.get("verified") and match.get("sourceCourseId"):
+            c_code = match.get("matchedCourseCode")
+            found_rec = next((r for r in verified_enrolled if r.courseCode == c_code), None)
+            if found_rec:
+                course_id_to_vtop_map[str(match.get("sourceCourseId"))] = found_rec
+
     # Also retrieve Moodle timeline action events with pagination to capture all coursework
     try:
         sesskey = fetch_lms_sesskey(session)
         if sesskey:
             timeline_events = fetch_lms_timeline_action_events(session, sesskey)
             for ev in timeline_events:
-                t_asgn = transform_timeline_event_to_assignment(ev, verified_enrolled, curr_sem_name)
+                t_asgn = transform_timeline_event_to_assignment(
+                    ev, verified_enrolled, curr_sem_name, course_id_to_vtop_map=course_id_to_vtop_map
+                )
                 if t_asgn:
                     act_id = str(t_asgn.get("activityId") or "")
                     asgn_id = str(t_asgn.get("id") or "")
@@ -1837,6 +2066,20 @@ def login_and_sync_lms(
                 matched_subjects = store["lmsAccount"]["matchedSubjects"]
             if not course_matches and (store.get("lmsAccount") or {}).get("courseMatches"):
                 course_matches = store["lmsAccount"]["courseMatches"]
+        elif assignments and existing_lms:
+            # Merge fresh assignments into existing records, preserving records from any courses not modified in this fetch
+            merged_lms: Dict[str, Dict[str, Any]] = {}
+            for ex in existing_lms:
+                key = str(ex.get("activityId") or ex.get("id") or "")
+                if key:
+                    merged_lms[key] = ex
+            for fresh in assignments:
+                key = str(fresh.get("activityId") or fresh.get("id") or "")
+                if key:
+                    merged_lms[key] = fresh
+                else:
+                    merged_lms[f"fresh-{len(merged_lms)}"] = fresh
+            assignments = list(merged_lms.values())
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in assignments:
@@ -2106,6 +2349,20 @@ def sync_lms(
                 matched_subjects = store["lmsAccount"]["matchedSubjects"]
             if not course_matches and (store.get("lmsAccount") or {}).get("courseMatches"):
                 course_matches = store["lmsAccount"]["courseMatches"]
+        elif assignments and existing_lms:
+            # Merge fresh assignments into existing records, preserving records from any courses not modified in this fetch
+            merged_lms: Dict[str, Dict[str, Any]] = {}
+            for ex in existing_lms:
+                key = str(ex.get("activityId") or ex.get("id") or "")
+                if key:
+                    merged_lms[key] = ex
+            for fresh in assignments:
+                key = str(fresh.get("activityId") or fresh.get("id") or "")
+                if key:
+                    merged_lms[key] = fresh
+                else:
+                    merged_lms[f"fresh-{len(merged_lms)}"] = fresh
+            assignments = list(merged_lms.values())
 
         manual_status = store.get("manualAssignmentStatus") or {}
         for a in assignments:

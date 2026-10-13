@@ -1127,6 +1127,186 @@ class TestTeacherExtractionAndSectionParsing:
         assert any("Programming Exercise 3" in t for t in titles)
         assert any("Digital Assignment 1" in t for t in titles)
 
+    def test_fetch_assignments_multi_table_extraction(self):
+        """Verifies that fetch_assignments_for_lms_course parses ALL tables on mod/assign/index.php."""
+        from app.routers.lms import fetch_assignments_for_lms_course
+
+        session = MagicMock()
+        r = MagicMock()
+        r.status_code = 200
+        r.url = "https://lms.vit.ac.in/mod/assign/index.php?id=2342"
+        # Two distinct tables representing CAT-1 and CAT-2 modules
+        r.text = """
+        <html>
+          <body>
+            <h2>Module 1 Assessments</h2>
+            <table class="generaltable mod_index">
+              <thead><tr><th>Topic</th><th>Assignment</th><th>Due date</th><th>Submission status</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Unit 1</td>
+                  <td><a href="/mod/assign/view.php?id=20582">Digital Assignment-1</a></td>
+                  <td>Thursday, 20 August 2026, 11:59 PM</td>
+                  <td>Submitted</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h2>Module 2 Assessments</h2>
+            <table class="generaltable mod_index">
+              <thead><tr><th>Topic</th><th>Assignment</th><th>Due date</th><th>Submission status</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Unit 2</td>
+                  <td><a href="/mod/assign/view.php?id=21999">Digital Assignment-2</a></td>
+                  <td>Monday, 19 October 2026, 11:59 PM</td>
+                  <td>No attempt</td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+        </html>
+        """
+        # Session get returns the multi-table index, and fallback empty pages for quiz/course views
+        def mock_get(url, **kwargs):
+            m = MagicMock()
+            m.status_code = 200
+            m.url = url
+            if "mod/assign/index.php" in url:
+                m.text = r.text
+            else:
+                m.text = "<html><body></body></html>"
+            return m
+
+        session.get.side_effect = mock_get
+
+        course = {"code": "BMAT202L", "title": "Probability and Statistics", "faculty": "Dr Thangaraj M"}
+        assignments = fetch_assignments_for_lms_course(
+            session=session,
+            course_id="2342",
+            course_title="Probability and Statistics(BMAT202L)",
+            vtop_course=course,
+            lms_teachers=["Dr Thangaraj M"],
+        )
+
+        titles = [a["title"] for a in assignments]
+        assert "Digital Assignment-1" in titles
+        assert "Digital Assignment-2" in titles
+        assert len(assignments) == 2
+
+        da2 = next(a for a in assignments if a["title"] == "Digital Assignment-2")
+        assert da2["dueDate"] == "2026-10-19"
+        assert da2["status"] == "Pending"
+        assert da2["isDone"] is False
+
+    def test_fetch_assignments_multi_section_course_page(self):
+        """Verifies that activities in separate section pages (e.g. Section 2 with Exp 9-10) are discovered and parsed."""
+        from app.routers.lms import fetch_assignments_for_lms_course
+
+        session = MagicMock()
+        def mock_get(url, **kwargs):
+            m = MagicMock()
+            m.status_code = 200
+            m.url = url
+            if "/mod/assign/index.php" in url or "/mod/quiz/index.php" in url:
+                m.text = "<html><body></body></html>"
+            elif "/course/view.php" in url and "section=2" in url:
+                m.text = """
+                <html>
+                  <body>
+                    <li class="activity assign">
+                      <div class="activity-item">
+                        <a href="/mod/assign/view.php?id=23110">
+                          <span class="instancename">Expt 9 : Network Routing Algorithm</span>
+                        </a>
+                        <span class="text-muted">Due: 25 October 2026, 23:59</span>
+                      </div>
+                    </li>
+                    <li class="activity assign">
+                      <div class="activity-item">
+                        <a href="/mod/assign/view.php?id=23111">
+                          <span class="instancename">Expt 10 : Socket Programming Implementation</span>
+                        </a>
+                        <span class="text-muted">Due: 30 October 2026, 23:59</span>
+                      </div>
+                    </li>
+                  </body>
+                </html>
+                """
+            elif "/course/view.php" in url:
+                # Main course page with section 1 and link to section 2
+                m.text = """
+                <html>
+                  <body>
+                    <div class="course-sections">
+                      <a href="/course/view.php?id=2057&section=1">Section 1: Experiments 1 to 8</a>
+                      <a href="/course/view.php?id=2057&section=2">Section 2: Experiments 9 to 10</a>
+                    </div>
+                    <li class="activity assign">
+                      <div class="activity-item">
+                        <a href="/mod/assign/view.php?id=22530">
+                          <span class="instancename">Expt 7b : Packet routing process</span>
+                        </a>
+                        <span class="text-muted">Due: 29 September 2026, 23:59</span>
+                      </div>
+                    </li>
+                  </body>
+                </html>
+                """
+            else:
+                m.text = "<html><body></body></html>"
+            return m
+
+        session.get.side_effect = mock_get
+
+        course = {"code": "BCSE308P", "title": "Computer Networks Lab", "faculty": "Dr.Jayavignesh"}
+        assignments = fetch_assignments_for_lms_course(
+            session=session,
+            course_id="2057",
+            course_title="Computer Networks Lab(BCSE308P)",
+            vtop_course=course,
+            lms_teachers=["Dr.Jayavignesh"],
+        )
+
+        titles = [a["title"] for a in assignments]
+        assert any("Expt 7b" in t for t in titles)
+        assert any("Expt 9" in t for t in titles)
+        assert any("Expt 10" in t for t in titles)
+        assert len(assignments) == 3
+
+    def test_extract_assignment_metadata_due_date_and_status(self):
+        """Verifies extract_assignment_metadata parses authentic due date, time, and submission state from view page."""
+        from app.routers.lms import extract_assignment_metadata
+
+        session = MagicMock()
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.text = """
+        <html>
+          <body>
+            <h2>Digital Assignment 2</h2>
+            <div id="intro"><p>Prepared by Dr. Thangaraj M.</p></div>
+            <table class="generaltable">
+              <tr><th>Submission status</th><td>Submitted for grading</td></tr>
+              <tr><th>Grading status</th><td>Not graded</td></tr>
+              <tr><th>Due date</th><td>Wednesday, 28 October 2026, 11:59 PM</td></tr>
+            </table>
+          </body>
+        </html>
+        """
+        session.get.return_value = resp
+
+        poster, due_d, due_t, is_sub = extract_assignment_metadata(
+            session=session,
+            assign_url="https://lms.vit.ac.in/mod/assign/view.php?id=21999",
+        )
+
+        assert "Thangaraj" in (poster or "")
+        assert due_d == "2026-10-28"
+        assert due_t == "23:59"
+        assert is_sub is True
+
+
 
 
 
