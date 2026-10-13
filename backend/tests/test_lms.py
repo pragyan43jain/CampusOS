@@ -944,7 +944,7 @@ class TestLMSAssignmentPosterExtraction:
         assert sub_wrong == []
         assert summary_wrong is None
 
-        # 3. LMS course name MISSING professor -> DO NOT FETCH (rejected)
+        # 3. LMS course name MISSING professor in title -> Verified & eligible to fetch (standard VIT LMS naming)
         missing_prof_course = {
             "id": "1003",
             "title": "BCSE302L - Database Systems",
@@ -956,10 +956,11 @@ class TestLMSAssignmentPosterExtraction:
             curr_sem_name="Fall Semester 2026-27",
             session=mock_session,
         )
-        assert meta_missing["verified"] is False
-        assert vtop_missing is None
-        assert sub_missing == []
-        assert summary_missing is None
+        assert meta_missing["verified"] is True
+        assert vtop_missing is not None
+        assert vtop_missing["facultyName"] == "RISHIKESHAN C A"
+        assert summary_missing is not None
+        assert summary_missing["courseCode"] == "BCSE302L"
 
 
 class TestTeacherExtractionAndSectionParsing:

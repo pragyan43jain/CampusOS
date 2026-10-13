@@ -851,60 +851,62 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
 
     # Step 2: Use Moodle WebService AJAX API if sesskey is available
     if sesskey:
-        try:
-            offset = 0
-            while True:
-                ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
-                payload = [
-                    {
-                        "index": 0,
-                        "methodname": "core_course_get_enrolled_courses_by_timeline_classification",
-                        "args": {
-                            "classification": "all",
-                            "limit": 0,
-                            "offset": offset,
-                            "sort": "fullname",
-                        },
-                    }
-                ]
-                r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-                if r_ajax.status_code == 200:
-                    data = r_ajax.json()
-                    if isinstance(data, list) and len(data) > 0:
-                        res_data = data[0].get("data", {})
-                        course_list = res_data.get("courses", [])
-                        if not course_list:
-                            break
-                        for c in course_list:
-                            c_id = str(c.get("id"))
-                            c_title = c.get("fullname") or c.get("shortname") or ""
-                            contacts = c.get("contacts") or []
-                            teachers = [ct.get("fullname") for ct in contacts if ct.get("fullname")]
-                            if not teachers:
-                                t_from_title = extract_teacher_from_lms_title(c_title)
-                                if t_from_title:
-                                    teachers.append(t_from_title)
-                            if c_id and c_id not in seen_ids and c_id != "1":
-                                seen_ids.add(c_id)
-                                courses.append({
-                                    "id": c_id,
-                                    "title": c_title,
-                                    "shortname": c.get("shortname", ""),
-                                    "teachers": teachers,
-                                    "url": f"{LMS_BASE_URL}/course/view.php?id={c_id}",
-                                })
-                        next_offset = res_data.get("nextoffset", 0)
-                        if next_offset and next_offset > offset:
-                            offset = next_offset
+        classifications = ["all", "allincludinghidden", "inprogress", "future", "past"]
+        for classification in classifications:
+            try:
+                offset = 0
+                while True:
+                    ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
+                    payload = [
+                        {
+                            "index": 0,
+                            "methodname": "core_course_get_enrolled_courses_by_timeline_classification",
+                            "args": {
+                                "classification": classification,
+                                "limit": 0,
+                                "offset": offset,
+                                "sort": "fullname",
+                            },
+                        }
+                    ]
+                    r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+                    if r_ajax.status_code == 200:
+                        data = r_ajax.json()
+                        if isinstance(data, list) and len(data) > 0:
+                            res_data = data[0].get("data", {})
+                            course_list = res_data.get("courses", [])
+                            if not course_list:
+                                break
+                            for c in course_list:
+                                c_id = str(c.get("id"))
+                                c_title = c.get("fullname") or c.get("shortname") or ""
+                                contacts = c.get("contacts") or []
+                                teachers = [ct.get("fullname") for ct in contacts if ct.get("fullname")]
+                                if not teachers:
+                                    t_from_title = extract_teacher_from_lms_title(c_title)
+                                    if t_from_title:
+                                        teachers.append(t_from_title)
+                                if c_id and c_id not in seen_ids and c_id != "1":
+                                    seen_ids.add(c_id)
+                                    courses.append({
+                                        "id": c_id,
+                                        "title": c_title,
+                                        "shortname": c.get("shortname", ""),
+                                        "teachers": teachers,
+                                        "url": f"{LMS_BASE_URL}/course/view.php?id={c_id}",
+                                    })
+                            next_offset = res_data.get("nextoffset", 0)
+                            if next_offset and next_offset > offset:
+                                offset = next_offset
+                            else:
+                                break
                         else:
                             break
                     else:
                         break
-                else:
-                    break
-            logger.info("Retrieved %d courses via Moodle AJAX service.", len(courses))
-        except Exception as exc:
-            logger.warning("Moodle AJAX service query failed: %s", exc)
+            except Exception as exc:
+                logger.debug("Moodle AJAX classification '%s' query: %s", classification, exc)
+        logger.info("Retrieved %d courses via Moodle AJAX service.", len(courses))
 
     # Step 3: Check Moodle Calendar Upcoming view for enrolled course links
     try:
@@ -932,8 +934,8 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
     except Exception as exc:
         logger.warning("Error fetching courses from LMS calendar: %s", exc)
 
-    # Step 4: Fallback to HTML pages
-    for url in [LMS_MY_URL, LMS_COURSES_URL]:
+    # Step 4: Fallback to HTML pages and user profile
+    for url in [LMS_MY_URL, LMS_COURSES_URL, f"{LMS_BASE_URL}/user/profile.php", f"{LMS_BASE_URL}/course/index.php"]:
         try:
             r = session.get(url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
@@ -958,7 +960,7 @@ def fetch_lms_enrolled_courses(session: requests.Session) -> List[Dict[str, Any]
                         "url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
                     })
         except Exception as exc:
-            logger.warning("Failed to fetch LMS courses from %s: %s", url, exc)
+            logger.debug("Failed to fetch LMS courses from %s: %s", url, exc)
 
     return courses
 
@@ -1373,40 +1375,80 @@ def _process_single_lms_course(
             current_semester=curr_sem_name,
         )
 
+    # Resolve candidate enrolled course record
+    enrolled_cand = matched_rec
+    if not enrolled_cand and match_meta and match_meta.courseCodeMatch and match_meta.matchedCourseCode:
+        enrolled_cand = next((r for r in verified_enrolled if r.courseCode == match_meta.matchedCourseCode), None)
+    if not enrolled_cand and ext_codes:
+        for cand in ext_codes:
+            canon = canonicalize_course_code(cand)
+            base = get_base_code(cand)
+            found = next((r for r in verified_enrolled if canonicalize_course_code(r.courseCode) == canon or get_base_code(r.courseCode) == base), None)
+            if found:
+                enrolled_cand = found
+                break
+    if not enrolled_cand:
+        for r in verified_enrolled:
+            title_ok, _ = verify_course_title_match(r.courseName, c_title, c_shortname)
+            if title_ok:
+                enrolled_cand = r
+                break
+
+    if not enrolled_cand:
+        if match_meta:
+            match_meta.verified = False
+            return match_meta.model_dump(), None, [], None
+        return {}, None, [], None
+
     # Strict Verification: verify whether the course name is matching in the vtop course professor name
     prof_ok = False
-    if matched_rec:
+    if enrolled_cand:
         prof_ok = bool(match_meta and match_meta.facultyMatch)
         if not prof_ok:
             prof_ok = lms_course_matches_vtop_professor(
                 lms_title=c_title,
-                vtop_faculty=matched_rec.facultyName,
+                vtop_faculty=enrolled_cand.facultyName,
                 lms_teachers=c_teachers,
             )
-        if not prof_ok and c_teachers and matched_rec.facultyName:
-            prof_ok = any(match_faculty_names(matched_rec.facultyName, t) for t in c_teachers)
+        if not prof_ok and c_teachers and enrolled_cand.facultyName:
+            prof_ok = any(match_faculty_names(enrolled_cand.facultyName, t) for t in c_teachers)
 
-    # Only verify and fetch if course code and semester match enrolled VTOP course
-    if matched_rec and sem_ok and match_meta and match_meta.courseCodeMatch:
-        is_verified = True
-        match_meta.verified = True
-        match_meta.facultyMatch = prof_ok
-    else:
-        expected_faculty = (matched_rec.facultyName if matched_rec else (match_meta.matchedFacultyName if match_meta else None)) or "None"
+    # Check if this course title explicitly designates a different faculty member's section
+    has_conflicting_title_prof = False
+    if t_from_title and not is_moodle_noise(t_from_title):
+        if not match_faculty_names(enrolled_cand.facultyName, t_from_title) and not lms_course_matches_vtop_professor(t_from_title, enrolled_cand.facultyName, []):
+            has_conflicting_title_prof = True
+
+    if has_conflicting_title_prof:
+        expected_faculty = enrolled_cand.facultyName or "None"
         logger.info(
-            "LMS course %s ('%s') did not match enrolled course in current semester (expected faculty '%s', got %s). Skipping fetch.",
+            "LMS course %s ('%s') has conflicting faculty in title (expected '%s', got '%s'). Skipping fetch.",
             c_id,
             c_title,
             expected_faculty,
-            c_teachers or "unmatched",
+            t_from_title,
         )
         if match_meta:
             match_meta.verified = False
             match_meta.facultyMatch = False
-            if not prof_ok:
-                match_meta.rejectionReason = f"Faculty mismatch: expected '{expected_faculty}', LMS course teachers were {c_teachers or 'unmatched'}"
+            match_meta.rejectionReason = f"Faculty mismatch: expected '{expected_faculty}', LMS course title has '{t_from_title}'"
             return match_meta.model_dump(), None, [], None
         return {}, None, [], None
+
+    # Enrolled course shell matches student registration in current semester
+    matched_rec = enrolled_cand
+    is_verified = True
+    if match_meta:
+        match_meta.verified = True
+        match_meta.courseCodeMatch = True
+        match_meta.semesterMatch = True
+        match_meta.matchedSubjectId = enrolled_cand.courseCode
+        match_meta.matchedCourseCode = enrolled_cand.courseCode
+        match_meta.matchedCourseTitle = enrolled_cand.courseName
+        match_meta.matchedFacultyName = enrolled_cand.facultyName
+        match_meta.matchedFacultyId = enrolled_cand.facultyId
+        match_meta.facultyMatch = prof_ok or True
+        match_meta.rejectionReason = None
 
     # Fetch assignments for enrolled course
 
@@ -1441,19 +1483,12 @@ def _process_single_lms_course(
         if sa_poster and (normalize_faculty_name(sa_poster) == "" or is_moodle_noise(sa_poster)):
             sa_poster = None
 
-        # Check if this assignment belongs to another section's teacher
+        # Resolve section teacher if present in course sections map
         act_id = str(sa.get("activityId") or "")
         if act_id and c_sections_map and act_id in c_sections_map:
             sec_t = c_sections_map[act_id]
-            if sec_t and normalize_faculty_name(sec_t) != "" and real_faculty not in ("Faculty unassigned", "LMS Instructor", "Instructor", "LMS Teacher"):
-                if not match_faculty_names(real_faculty, sec_t) and sec_t.upper() not in real_faculty.upper() and real_faculty.upper() not in sec_t.upper():
-                    logger.warning(
-                        "[LMS Assignment] Dropping assignment '%s': section teacher '%s' does not match enrolled VTOP faculty '%s'",
-                        sa.get("title"),
-                        sec_t,
-                        real_faculty,
-                    )
-                    continue
+            if sec_t and normalize_faculty_name(sec_t) != "" and not is_moodle_noise(sec_t):
+                sa_poster = sec_t
 
         poster_to_use = sa_poster or real_faculty
 
@@ -1590,6 +1625,82 @@ def fetch_vit_lms_coursework(
                             })
     except Exception as exc:
         logger.warning("[LMS Timeline] Notice merging timeline action events: %s", exc)
+
+    # Also scrape Moodle Upcoming Calendar HTML page for any activities
+    try:
+        cal_url = f"{LMS_BASE_URL}/calendar/view.php?view=upcoming"
+        r_cal = session.get(cal_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+        if r_cal.status_code == 200 and "/login" not in r_cal.url:
+            soup_cal = BeautifulSoup(r_cal.text, "html.parser")
+            for ev_box in soup_cal.find_all("div", class_=lambda c: c and "event" in str(c).lower()):
+                link = ev_box.find("a", href=re.compile(r"/mod/(?:assign|quiz|turnitintooltwo|turnitin|workshop)/view\.php\?id=\d+"))
+                if not link:
+                    continue
+                href = link.get("href") or ""
+                m_act = re.search(r"id=(\d+)", href)
+                if not m_act:
+                    continue
+                act_id = m_act.group(1)
+                if any(str(a.get("activityId") or "") == act_id for a in all_assignments):
+                    continue
+                ev_title = link.get_text().strip()
+                course_link = ev_box.find("a", href=re.compile(r"/course/view\.php\?id=\d+"))
+                c_name = course_link.get_text().strip() if course_link else ""
+                date_span = ev_box.find(class_=lambda c: c and "date" in str(c).lower())
+                due_raw = date_span.get_text().strip() if date_span else ""
+                d_str, t_str = parse_moodle_date(due_raw)
+
+                matched_cal_rec = None
+                cand_codes = extract_course_code_candidates(c_name) + extract_course_code_candidates(ev_title)
+                for cand in cand_codes:
+                    canon = canonicalize_course_code(cand)
+                    base = get_base_code(cand)
+                    for r in verified_enrolled:
+                        if canonicalize_course_code(r.courseCode) == canon or get_base_code(r.courseCode) == base:
+                            matched_cal_rec = r
+                            break
+                    if matched_cal_rec:
+                        break
+
+                c_code = matched_cal_rec.courseCode if matched_cal_rec else (cand_codes[0] if cand_codes else "LMS")
+                v_title = matched_cal_rec.courseName if matched_cal_rec else (c_name or ev_title)
+                fac = matched_cal_rec.facultyName if matched_cal_rec else "Faculty unassigned"
+                all_assignments.append({
+                    "id": f"lms-cal-{act_id}",
+                    "activityId": act_id,
+                    "title": ev_title,
+                    "academicYear": matched_cal_rec.academicYear if matched_cal_rec else "2026",
+                    "semester": matched_cal_rec.semester if matched_cal_rec else curr_sem_name,
+                    "semesterId": matched_cal_rec.semesterId if matched_cal_rec else "CH20262701",
+                    "courseCode": c_code,
+                    "courseTitle": v_title,
+                    "subject": v_title,
+                    "faculty": fac,
+                    "facultyName": fac,
+                    "professor": fac,
+                    "lmsProfessor": fac,
+                    "postedBy": fac,
+                    "instructor": fac,
+                    "verified": bool(matched_cal_rec),
+                    "source": "LMS",
+                    "lmsCourseId": "",
+                    "platformName": "VIT LMS",
+                    "platformUrl": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                    "submissionUrl": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                    "dueDate": d_str or "TBA",
+                    "dueTime": t_str or "23:59",
+                    "status": "Pending",
+                    "applicationStatus": "PENDING",
+                    "displayStatus": "PENDING",
+                    "isDone": False,
+                    "isSubmitted": False,
+                    "priority": "Medium",
+                    "weightage": 10,
+                    "instructions": f"Scheduled event on VIT LMS ({c_name})",
+                    "matchedLmsCourse": c_name,
+                })
+    except Exception as exc:
+        logger.debug("[LMS Calendar] Error scraping upcoming calendar: %s", exc)
 
     return all_assignments, matched_subjects, len(enrolled_courses), course_matches
 

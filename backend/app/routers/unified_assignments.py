@@ -65,6 +65,12 @@ def are_duplicate_assignments(a1: Dict[str, Any], a2: Dict[str, Any]) -> bool:
     if not t1 or not t2:
         return False
 
+    # Never merge distinct numbered tasks (e.g. Assignment 1 != Assignment 2, DA 1 != DA 2, Expt 3 != Expt 4)
+    nums1 = re.findall(r"\b\d+\b", t1)
+    nums2 = re.findall(r"\b\d+\b", t2)
+    if nums1 and nums2 and nums1 != nums2:
+        return False
+
     ratio = difflib.SequenceMatcher(None, t1, t2).ratio()
     if ratio >= 0.85:
         return True
