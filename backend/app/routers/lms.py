@@ -305,6 +305,8 @@ def extract_assignment_poster(
     student_name: Optional[str] = None,
     course_sections_map: Optional[Dict[str, str]] = None,
     activity_id: Optional[str] = None,
+    page_soup: Optional[BeautifulSoup] = None,
+    page_text: Optional[str] = None,
 ) -> Optional[str]:
     """
     Extracts the authentic professor/instructor who posted the assignment on LMS.
@@ -336,78 +338,85 @@ def extract_assignment_poster(
                 return cand
 
     # 4. Fetch and scrape the assignment view page (/mod/assign/view.php)
-    if assign_url and assign_url.startswith("http"):
+    soup = page_soup
+    raw_text = page_text or ""
+    if not soup and assign_url and assign_url.startswith("http"):
         try:
             r = session.get(assign_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
-
-                # 4A. Explicit author/creator/poster elements in Moodle
-                for el in soup.find_all(
-                    ["span", "div", "p", "a"],
-                    class_=lambda c: c and any(k in str(c).lower() for k in ["author", "creator", "poster", "byline", "grader", "instructor", "teacher"]),
-                ):
-                    txt = el.get_text().strip()
-                    if student_name and student_name.lower() in txt.lower():
-                        continue
-                    clean_txt = re.sub(r"^(?:by|posted by|author|created by|instructor|faculty)\s*[:\-]?", "", txt, flags=re.IGNORECASE).strip()
-                    if 3 <= len(clean_txt) < 60 and not any(kw in clean_txt.lower() for kw in ["course", "assignment", "activity", "dashboard", "feedback", "grade", "submission"]):
-                        return clean_txt
-
-                # 4B. User profile links on assignment page (excluding current student)
-                for a_tag in soup.find_all("a", href=re.compile(r"/user/view\.php")):
-                    u_name = a_tag.get_text().strip()
-                    if student_name and student_name.lower() in u_name.lower():
-                        continue
-                    if 3 <= len(u_name) < 60 and not any(kw in u_name.lower() for kw in ["profile", "message", "user", "participant", "dashboard"]):
-                        return u_name
-
-                # 4C. Check assignment description / intro text (#intro or .generalbox)
-                intro_box = soup.find(id="intro") or soup.find(class_=lambda c: c and any(k in str(c).lower() for k in ["intro", "generalbox", "description", "activity-description"]))
-                intro_text = intro_box.get_text() if intro_box else r.text
-
-                # Look for explicit faculty / instructor intro headers
-                m_faculty_intro = re.search(
-                    r"(?:Faculty\s*(?:Name|In-charge)?|Course\s*(?:Instructor|Faculty|Teacher|Coordinator)|Instructor|Teacher|Evaluator|Grader|Uploaded\s*by|Prepared\s*by|Assigned\s*by)\s*[:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
-                    intro_text,
-                    re.IGNORECASE,
-                )
-                if m_faculty_intro:
-                    cand = m_faculty_intro.group(1).strip().split("\n")[0].strip()
-                    if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["assignment", "submission", "deadline", "student", "batch", "slot", "lms", "course", "status", "general", "activity"]):
-                        return cand
-
-                # Look for all-caps faculty name e.g. "FACULTY: RISHIKESHAN C A"
-                m_caps = re.search(
-                    r"(?:FACULTY|INSTRUCTOR|PROFESSOR|TEACHER|PREPARED BY|UPLOADED BY)\s*[:\-]\s*([A-Z]{2,}(?:\s+[A-Z]{1,2}\.?)*(?:\s+[A-Z]{2,})*)",
-                    intro_text,
-                )
-                if m_caps:
-                    cand_caps = m_caps.group(1).strip()
-                    if 3 <= len(cand_caps) < 50 and not any(kw in cand_caps.lower() for kw in ["assignment", "submission", "deadline", "course"]):
-                        return cand_caps
-
-                # Look for sign-offs e.g. "Regards, Dr. S. Geetha" or "Posted by Dr. ..."
-                m_signoff = re.search(
-                    r"(?:Regards|Thanks\s*(?:&|and)\s*Regards|Best\s*Wishes|Sincerely|Assigned\s*by|Posted\s*by|Created\s*by|Faculty|Instructor|Submitted\s*to)\s*[,:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
-                    intro_text,
-                    re.IGNORECASE,
-                )
-                if m_signoff:
-                    cand = m_signoff.group(1).strip()
-                    if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["assignment", "submission", "deadline", "student", "batch", "slot", "lms", "regards"]):
-                        prefix_match = re.search(r"(Dr\.|Prof\.|Professor)", intro_text[max(0, m_signoff.start()-10):m_signoff.end()], re.IGNORECASE)
-                        prefix = f"{prefix_match.group(1)} " if prefix_match and not cand.lower().startswith(("dr.", "prof")) else ""
-                        return f"{prefix}{cand}".strip()
-
-                # Look for Dr. / Prof. / Professor in intro text
-                m_prof = re.search(r"(?:Dr\.|Prof\.|Professor)\s+([A-Z][a-zA-Z\.\s]{2,35})", intro_text)
-                if m_prof:
-                    cand_prof = m_prof.group(0).strip()
-                    if not any(kw in cand_prof.lower() for kw in ["course", "theory", "lab", "fall", "winter", "semester", "assignment"]):
-                        return cand_prof
+                raw_text = r.text
         except Exception as exc:
             logger.debug("Could not scrape assignment view page %s: %s", assign_url, exc)
+
+    if soup:
+        try:
+            # 4A. Explicit author/creator/poster elements in Moodle
+            for el in soup.find_all(
+                ["span", "div", "p", "a"],
+                class_=lambda c: c and any(k in str(c).lower() for k in ["author", "creator", "poster", "byline", "grader", "instructor", "teacher"]),
+            ):
+                txt = el.get_text().strip()
+                if student_name and student_name.lower() in txt.lower():
+                    continue
+                clean_txt = re.sub(r"^(?:by|posted by|author|created by|instructor|faculty)\s*[:\-]?", "", txt, flags=re.IGNORECASE).strip()
+                if 3 <= len(clean_txt) < 60 and not any(kw in clean_txt.lower() for kw in ["course", "assignment", "activity", "dashboard", "feedback", "grade", "submission"]):
+                    return clean_txt
+
+            # 4B. User profile links on assignment page (excluding current student)
+            for a_tag in soup.find_all("a", href=re.compile(r"/user/view\.php")):
+                u_name = a_tag.get_text().strip()
+                if student_name and student_name.lower() in u_name.lower():
+                    continue
+                if 3 <= len(u_name) < 60 and not any(kw in u_name.lower() for kw in ["profile", "message", "user", "participant", "dashboard"]):
+                    return u_name
+
+            # 4C. Check assignment description / intro text (#intro or .generalbox)
+            intro_box = soup.find(id="intro") or soup.find(class_=lambda c: c and any(k in str(c).lower() for k in ["intro", "generalbox", "description", "activity-description"]))
+            intro_text = intro_box.get_text() if intro_box else raw_text
+
+            # Look for explicit faculty / instructor intro headers
+            m_faculty_intro = re.search(
+                r"(?:Faculty\s*(?:Name|In-charge)?|Course\s*(?:Instructor|Faculty|Teacher|Coordinator)|Instructor|Teacher|Evaluator|Grader|Uploaded\s*by|Prepared\s*by|Assigned\s*by)\s*[:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
+                intro_text,
+                re.IGNORECASE,
+            )
+            if m_faculty_intro:
+                cand = m_faculty_intro.group(1).strip().split("\n")[0].strip()
+                if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["assignment", "submission", "deadline", "student", "batch", "slot", "lms", "course", "status", "general", "activity"]):
+                    return cand
+
+            # Look for all-caps faculty name e.g. "FACULTY: RISHIKESHAN C A"
+            m_caps = re.search(
+                r"(?:FACULTY|INSTRUCTOR|PROFESSOR|TEACHER|PREPARED BY|UPLOADED BY)\s*[:\-]\s*([A-Z]{2,}(?:\s+[A-Z]{1,2}\.?)*(?:\s+[A-Z]{2,})*)",
+                intro_text,
+            )
+            if m_caps:
+                cand_caps = m_caps.group(1).strip()
+                if 3 <= len(cand_caps) < 50 and not any(kw in cand_caps.lower() for kw in ["assignment", "submission", "deadline", "course"]):
+                    return cand_caps
+
+            # Look for sign-offs e.g. "Regards, Dr. S. Geetha" or "Posted by Dr. ..."
+            m_signoff = re.search(
+                r"(?:Regards|Thanks\s*(?:&|and)\s*Regards|Best\s*Wishes|Sincerely|Assigned\s*by|Posted\s*by|Created\s*by|Faculty|Instructor|Submitted\s*to)\s*[,:\-]?\s*(?:(?:Dr\.|Prof\.|Professor|Mr\.|Ms\.|Mrs\.)\s*)?([A-Z][A-Za-z\.\s]{2,40})",
+                intro_text,
+                re.IGNORECASE,
+            )
+            if m_signoff:
+                cand = m_signoff.group(1).strip()
+                if 3 <= len(cand) < 60 and not any(kw in cand.lower() for kw in ["assignment", "submission", "deadline", "student", "batch", "slot", "lms", "regards"]):
+                    prefix_match = re.search(r"(Dr\.|Prof\.|Professor)", intro_text[max(0, m_signoff.start()-10):m_signoff.end()], re.IGNORECASE)
+                    prefix = f"{prefix_match.group(1)} " if prefix_match and not cand.lower().startswith(("dr.", "prof")) else ""
+                    return f"{prefix}{cand}".strip()
+
+            # Look for Dr. / Prof. / Professor in intro text
+            m_prof = re.search(r"(?:Dr\.|Prof\.|Professor)\s+([A-Z][a-zA-Z\.\s]{2,35})", intro_text)
+            if m_prof:
+                cand_prof = m_prof.group(0).strip()
+                if not any(kw in cand_prof.lower() for kw in ["course", "theory", "lab", "fall", "winter", "semester", "assignment"]):
+                    return cand_prof
+        except Exception as exc:
+            logger.debug("Error parsing poster from view soup for %s: %s", assign_url, exc)
 
     return None
 
@@ -424,29 +433,21 @@ def extract_assignment_metadata(
 ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[bool]]:
     """
     Extracts authentic professor, authentic due date, due time, and authentic submission status
-    directly from Moodle assignment view page (/mod/assign/view.php) and metadata.
+    directly from Moodle assignment view page (/mod/assign/view.php) and metadata in a single HTTP GET.
     Returns: (poster, due_date_str, due_time_str, is_submitted)
     """
-    poster = extract_assignment_poster(
-        session=session,
-        assign_url=assign_url,
-        row_text=row_text,
-        topic_name=topic_name,
-        title=title,
-        student_name=student_name,
-        course_sections_map=course_sections_map,
-        activity_id=activity_id,
-    )
-
     due_date_str: Optional[str] = None
     due_time_str: Optional[str] = None
     is_submitted: Optional[bool] = None
+    soup: Optional[BeautifulSoup] = None
+    raw_text: str = ""
 
     if assign_url and assign_url.startswith("http"):
         try:
             r = session.get(assign_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
+                raw_text = r.text
                 # Parse submission status table or general table rows
                 for tr in soup.find_all("tr"):
                     cells = tr.find_all(["th", "td"])
@@ -476,17 +477,28 @@ def extract_assignment_metadata(
                         d, t = parse_moodle_date(m_due.group(1).strip())
                         if d:
                             due_date_str = d
-                            due_time_str = t or "23:59"
-
                 # Check submission status badges if still undetermined
                 if is_submitted is None:
-                    txt_lower = r.text.lower()
+                    txt_lower = raw_text.lower()
                     if "submitted for grading" in txt_lower:
                         is_submitted = True
                     elif "no attempt" in txt_lower or "not submitted" in txt_lower:
                         is_submitted = False
         except Exception as exc:
             logger.debug("Could not scrape assignment view page metadata for %s: %s", assign_url, exc)
+
+    poster = extract_assignment_poster(
+        session=session,
+        assign_url=assign_url,
+        row_text=row_text,
+        topic_name=topic_name,
+        title=title,
+        student_name=student_name,
+        course_sections_map=course_sections_map,
+        activity_id=activity_id,
+        page_soup=soup,
+        page_text=raw_text,
+    )
 
     return poster, due_date_str, due_time_str, is_submitted
 
@@ -742,13 +754,18 @@ def authenticate_lms_session(
 
 
 def fetch_lms_sesskey(session: requests.Session) -> Optional[str]:
-    """Extracts Moodle user session key (sesskey) from /my/ page or cookies."""
+    """Extracts Moodle user session key (sesskey) from /my/ page or cookies with session-level caching."""
+    cached = getattr(session, "_cached_sesskey", None)
+    if cached:
+        return cached
     try:
         r_my = session.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
         if r_my.status_code == 200:
             m_key = re.search(r'\"sesskey\":\"([^\"]+)\"', r_my.text) or re.search(r'sesskey=([a-zA-Z0-9]+)', r_my.text)
             if m_key:
-                return m_key.group(1)
+                key = m_key.group(1)
+                setattr(session, "_cached_sesskey", key)
+                return key
     except Exception as e:
         logger.debug("Error fetching /my/ page for sesskey: %s", e)
     return None
@@ -1065,8 +1082,6 @@ def fetch_assignments_for_lms_course(
     """
     assignments: List[Dict[str, Any]] = []
     c_teachers = list(lms_teachers or [])
-    url = f"{LMS_BASE_URL}/mod/assign/index.php?id={course_id}"
-
     course_code = canonicalize_course_code(vtop_course.get("code") or vtop_course.get("courseCode")) or "LMS"
     vtop_prof = vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
     matching_lms_teacher = next((t for t in (lms_teachers or []) if match_faculty_names(vtop_prof, t)), None)
@@ -1074,360 +1089,367 @@ def fetch_assignments_for_lms_course(
     vtop_title = vtop_course.get("title") or vtop_course.get("courseTitle") or course_title
     semester_name = vtop_course.get("semester") or "Fall Semester 2026-27"
 
+    parsed_candidates: List[Dict[str, Any]] = []
+    seen_act_ids: set = set()
+
+    # Step 0: Try Moodle WebService AJAX core_course_get_contents FIRST (fastest, full course tree)
     try:
+        sesskey = fetch_lms_sesskey(session)
+        if sesskey:
+            ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
+            payload = [{
+                "index": 0,
+                "methodname": "core_course_get_contents",
+                "args": {"courseid": int(course_id)},
+            }]
+            r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+            if r_ajax.status_code == 200:
+                data = r_ajax.json()
+                if isinstance(data, list) and len(data) > 0 and not data[0].get("error"):
+                    sections_data = data[0].get("data") or []
+                    for sec in sections_data:
+                        sec_name = sec.get("name") or ""
+                        for mod in (sec.get("modules") or []):
+                            mod_name = str(mod.get("modname") or "").lower()
+                            if mod_name not in ("assign", "quiz", "turnitintooltwo", "turnitin", "workshop", "feedback", "questionnaire", "lesson", "h5pactivity"):
+                                continue
+                            act_id = str(mod.get("id") or "")
+                            if not act_id or act_id in seen_act_ids:
+                                continue
+                            raw_title = (mod.get("name") or "").strip()
+                            if not raw_title or len(raw_title) < 2:
+                                continue
+                            seen_act_ids.add(act_id)
+                            mod_url = mod.get("url") or f"{LMS_BASE_URL}/mod/{mod_name}/view.php?id={act_id}"
+
+                            due_date_str = ""
+                            due_time_str = "23:59"
+                            for d_item in (mod.get("dates") or []):
+                                ts = d_item.get("timestamp")
+                                if ts and isinstance(ts, (int, float)) and ts > 0:
+                                    try:
+                                        from app.routers.unified_assignments import IST
+                                        dt = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(IST)
+                                        due_date_str = dt.strftime("%Y-%m-%d")
+                                        due_time_str = dt.strftime("%H:%M")
+                                    except Exception:
+                                        pass
+                                    if any(k in str(d_item.get("label") or "").lower() for k in ["due", "deadline", "close"]):
+                                        break
+
+                            comp = mod.get("completiondata") or {}
+                            is_sub = bool(comp.get("state", 0) in (1, 2))
+                            parsed_candidates.append({
+                                "assign_id": f"lms-{course_id}-{act_id}",
+                                "activity_id": act_id,
+                                "title": raw_title,
+                                "assign_url": mod_url,
+                                "due_date_str": due_date_str,
+                                "due_time_str": due_time_str,
+                                "is_submitted": is_sub,
+                                "is_pending": not is_sub,
+                                "row_faculty": "",
+                                "topic_name": sec_name,
+                                "row_text": f"{raw_title} {sec_name}",
+                            })
+    except Exception as exc:
+        logger.debug("Moodle AJAX course contents check for course %s: %s", course_id, exc)
+
+    # Step 1: Scrape ALL tables on mod/assign/index.php?id={course_id}
+    try:
+        url = f"{LMS_BASE_URL}/mod/assign/index.php?id={course_id}"
         r = session.get(url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-        if r.status_code != 200 or "/login" in r.url:
-            return assignments
+        if r.status_code == 200 and "/login" not in r.url:
+            soup = BeautifulSoup(r.text, "html.parser")
+            tables = soup.find_all("table")
+            for table in tables:
+                header_map: Dict[str, int] = {}
+                thead = table.find("thead")
+                if thead:
+                    th_row = thead.find("tr")
+                    if th_row:
+                        for idx, th in enumerate(th_row.find_all(["th", "td"])):
+                            th_txt = th.get_text().strip().lower()
+                            if any(k in th_txt for k in ["assignment", "activity", "name"]):
+                                header_map["title"] = idx
+                            elif any(k in th_txt for k in ["due", "deadline", "date"]):
+                                header_map["due"] = idx
+                            elif any(k in th_txt for k in ["submission", "status"]):
+                                header_map["status"] = idx
+                            elif "grade" in th_txt:
+                                header_map["grade"] = idx
+                            elif any(k in th_txt for k in ["faculty", "teacher", "instructor", "author", "posted by", "staff", "prof"]):
+                                header_map["faculty"] = idx
 
-        soup = BeautifulSoup(r.text, "html.parser")
-        parsed_candidates: List[Dict[str, Any]] = []
-        seen_act_ids: set = set()
+                all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
 
-        # Step 0: Try Moodle WebService AJAX core_course_get_contents if sesskey is available
-        try:
-            sesskey = fetch_lms_sesskey(session)
-            if sesskey:
-                ajax_url = f"{LMS_BASE_URL}/lib/ajax/service.php?sesskey={sesskey}"
-                payload = [{
-                    "index": 0,
-                    "methodname": "core_course_get_contents",
-                    "args": {"courseid": int(course_id)},
-                }]
-                r_ajax = session.post(ajax_url, json=payload, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-                if r_ajax.status_code == 200:
-                    data = r_ajax.json()
-                    if isinstance(data, list) and len(data) > 0 and not data[0].get("error"):
-                        sections_data = data[0].get("data") or []
-                        for sec in sections_data:
-                            sec_name = sec.get("name") or ""
-                            for mod in (sec.get("modules") or []):
-                                mod_name = str(mod.get("modname") or "").lower()
-                                if mod_name not in ("assign", "quiz", "turnitintooltwo", "turnitin", "workshop", "feedback", "questionnaire", "lesson", "h5pactivity"):
-                                    continue
-                                act_id = str(mod.get("id") or "")
-                                if not act_id or act_id in seen_act_ids:
-                                    continue
-                                raw_title = (mod.get("name") or "").strip()
-                                if not raw_title or len(raw_title) < 2:
-                                    continue
-                                seen_act_ids.add(act_id)
-                                mod_url = mod.get("url") or f"{LMS_BASE_URL}/mod/{mod_name}/view.php?id={act_id}"
+                for row in all_trs:
+                    cols = row.find_all(["td", "th"])
+                    if len(cols) < 2:
+                        continue
 
-                                due_date_str = ""
-                                due_time_str = "23:59"
-                                for d_item in (mod.get("dates") or []):
-                                    ts = d_item.get("timestamp")
-                                    if ts and isinstance(ts, (int, float)) and ts > 0:
-                                        try:
-                                            from app.routers.unified_assignments import IST
-                                            dt = datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(IST)
-                                            due_date_str = dt.strftime("%Y-%m-%d")
-                                            due_time_str = dt.strftime("%H:%M")
-                                        except Exception:
-                                            pass
-                                        if any(k in str(d_item.get("label") or "").lower() for k in ["due", "deadline", "close"]):
-                                            break
+                    if not row.find("a") and row.find_all("th") and not row.find_all("td"):
+                        continue
 
-                                comp = mod.get("completiondata") or {}
-                                is_sub = bool(comp.get("state", 0) in (1, 2))
-                                parsed_candidates.append({
-                                    "assign_id": f"lms-{course_id}-{act_id}",
-                                    "activity_id": act_id,
-                                    "title": raw_title,
-                                    "assign_url": mod_url,
-                                    "due_date_str": due_date_str,
-                                    "due_time_str": due_time_str,
-                                    "is_submitted": is_sub,
-                                    "is_pending": not is_sub,
-                                    "row_faculty": "",
-                                    "topic_name": sec_name,
-                                    "row_text": f"{raw_title} {sec_name}",
-                                })
-        except Exception as exc:
-            logger.debug("Moodle AJAX course contents check for course %s: %s", course_id, exc)
+                    link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a", href=re.compile(r"/mod/[a-z0-9_]+/view\.php")) or row.find("a")
+                    if not link:
+                        continue
 
-        # Step 1: Scrape ALL tables on mod/assign/index.php?id={course_id}
-        tables = soup.find_all("table")
-        for table in tables:
-            header_map: Dict[str, int] = {}
-            thead = table.find("thead")
-            if thead:
-                th_row = thead.find("tr")
-                if th_row:
-                    for idx, th in enumerate(th_row.find_all(["th", "td"])):
-                        th_txt = th.get_text().strip().lower()
-                        if any(k in th_txt for k in ["assignment", "activity", "name"]):
-                            header_map["title"] = idx
-                        elif any(k in th_txt for k in ["due", "deadline", "date"]):
-                            header_map["due"] = idx
-                        elif any(k in th_txt for k in ["submission", "status"]):
-                            header_map["status"] = idx
-                        elif "grade" in th_txt:
-                            header_map["grade"] = idx
-                        elif any(k in th_txt for k in ["faculty", "teacher", "instructor", "author", "posted by", "staff", "prof"]):
-                            header_map["faculty"] = idx
+                    title = link.get_text().strip()
+                    href = link.get("href") or ""
+                    assign_url = href if href.startswith("http") else f"{LMS_BASE_URL}{href}"
 
-            all_trs = table.find("tbody").find_all("tr") if table.find("tbody") else table.find_all("tr")
+                    m_cm = re.search(r"id=(\d+)", href)
+                    activity_id = m_cm.group(1) if m_cm else str(len(assignments) + len(parsed_candidates) + 1)
+                    if activity_id in seen_act_ids:
+                        continue
+                    seen_act_ids.add(activity_id)
 
-            for row in all_trs:
-                cols = row.find_all(["td", "th"])
-                if len(cols) < 2:
+                    assign_id = f"lms-{course_id}-{activity_id}"
+
+                    link_col_idx = 0
+                    for i, col in enumerate(cols):
+                        if col.find("a") == link or col.get_text().strip() == title:
+                            link_col_idx = i
+                            break
+
+                    due_raw = ""
+                    status_raw = ""
+                    row_faculty = ""
+
+                    if "due" in header_map and header_map["due"] < len(cols):
+                        due_raw = cols[header_map["due"]].get_text().strip()
+                    if "status" in header_map and header_map["status"] < len(cols):
+                        status_raw = cols[header_map["status"]].get_text().strip()
+                    if "faculty" in header_map and header_map["faculty"] < len(cols):
+                        row_faculty = cols[header_map["faculty"]].get_text().strip()
+
+                    if not due_raw or not status_raw:
+                        other_cols = [(i, c.get_text().strip()) for i, c in enumerate(cols) if i != link_col_idx]
+                        for idx_c, text in other_cols:
+                            lower_txt = text.lower()
+                            if any(kw in lower_txt for kw in ["submitted", "no submission", "not submitted", "graded", "turnedin", "turned in", "draft", "complete"]):
+                                if not status_raw:
+                                    status_raw = text
+                            elif any(m in lower_txt for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
+                                if not due_raw:
+                                    due_raw = text
+
+                    due_date_str, due_time_str = parse_moodle_date(due_raw)
+
+                    status_lower = status_raw.lower()
+                    is_submitted = (
+                        any(kw in status_lower for kw in ["submitted for grading", "graded", "turnedin", "turned in", "complete"])
+                        or ("submitted" in status_lower and "not submitted" not in status_lower and "draft" not in status_lower)
+                    )
+
+                    is_pending = not is_submitted
+                    topic_name = cols[0].get_text().strip() if len(cols) > 0 and link_col_idx != 0 else ""
+                    prev_heading = row.find_previous(["h2", "h3", "h4", "th"], class_=lambda c: c and any(k in str(c).lower() for k in ["sectionname", "topic", "module"]))
+                    if not topic_name and prev_heading:
+                        topic_name = prev_heading.get_text().strip()
+
+                    parsed_candidates.append({
+                        "assign_id": assign_id,
+                        "activity_id": activity_id,
+                        "title": title,
+                        "assign_url": assign_url,
+                        "due_date_str": due_date_str,
+                        "due_time_str": due_time_str,
+                        "is_submitted": is_submitted,
+                        "is_pending": is_pending,
+                        "row_faculty": row_faculty,
+                        "topic_name": topic_name,
+                        "row_text": row.get_text(),
+                    })
+
+            # Also capture loose assignment links on mod/assign/index.php
+            for extra_link in soup.find_all("a", href=re.compile(r"/mod/assign/view\.php\?[^\"']*id=\d+")):
+                e_href = extra_link.get("href") or ""
+                m_e = re.search(r"id=(\d+)", e_href)
+                if not m_e:
                     continue
-
-                if not row.find("a") and row.find_all("th") and not row.find_all("td"):
+                e_act_id = m_e.group(1)
+                if e_act_id in seen_act_ids:
                     continue
-
-                link = row.find("a", href=re.compile(r"/mod/assign/view\.php")) or row.find("a", href=re.compile(r"/mod/[a-z0-9_]+/view\.php")) or row.find("a")
-                if not link:
+                seen_act_ids.add(e_act_id)
+                e_title = extra_link.get_text().strip()
+                if not e_title or len(e_title) < 2:
                     continue
-
-                title = link.get_text().strip()
-                href = link.get("href") or ""
-                assign_url = href if href.startswith("http") else f"{LMS_BASE_URL}{href}"
-
-                m_cm = re.search(r"id=(\d+)", href)
-                activity_id = m_cm.group(1) if m_cm else str(len(assignments) + len(parsed_candidates) + 1)
-                if activity_id in seen_act_ids:
-                    continue
-                seen_act_ids.add(activity_id)
-
-                assign_id = f"lms-{course_id}-{activity_id}"
-
-                link_col_idx = 0
-                for i, col in enumerate(cols):
-                    if col.find("a") == link or col.get_text().strip() == title:
-                        link_col_idx = i
-                        break
-
-                due_raw = ""
-                status_raw = ""
-                row_faculty = ""
-
-                if "due" in header_map and header_map["due"] < len(cols):
-                    due_raw = cols[header_map["due"]].get_text().strip()
-                if "status" in header_map and header_map["status"] < len(cols):
-                    status_raw = cols[header_map["status"]].get_text().strip()
-                if "faculty" in header_map and header_map["faculty"] < len(cols):
-                    row_faculty = cols[header_map["faculty"]].get_text().strip()
-
-                if not due_raw or not status_raw:
-                    other_cols = [(i, c.get_text().strip()) for i, c in enumerate(cols) if i != link_col_idx]
-                    for idx_c, text in other_cols:
-                        lower_txt = text.lower()
-                        if any(kw in lower_txt for kw in ["submitted", "no submission", "not submitted", "graded", "turnedin", "turned in", "draft", "complete"]):
-                            if not status_raw:
-                                status_raw = text
-                        elif any(m in lower_txt for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
-                            if not due_raw:
-                                due_raw = text
-
-                due_date_str, due_time_str = parse_moodle_date(due_raw)
-
-                status_lower = status_raw.lower()
-                is_submitted = (
-                    any(kw in status_lower for kw in ["submitted for grading", "graded", "turnedin", "turned in", "complete"])
-                    or ("submitted" in status_lower and "not submitted" not in status_lower and "draft" not in status_lower)
-                )
-
-                is_pending = not is_submitted
-                topic_name = cols[0].get_text().strip() if len(cols) > 0 and link_col_idx != 0 else ""
-                prev_heading = row.find_previous(["h2", "h3", "h4", "th"], class_=lambda c: c and any(k in str(c).lower() for k in ["sectionname", "topic", "module"]))
-                if not topic_name and prev_heading:
-                    topic_name = prev_heading.get_text().strip()
-
                 parsed_candidates.append({
-                    "assign_id": assign_id,
-                    "activity_id": activity_id,
-                    "title": title,
-                    "assign_url": assign_url,
-                    "due_date_str": due_date_str,
-                    "due_time_str": due_time_str,
-                    "is_submitted": is_submitted,
-                    "is_pending": is_pending,
-                    "row_faculty": row_faculty,
-                    "topic_name": topic_name,
-                    "row_text": row.get_text(),
+                    "assign_id": f"lms-{course_id}-{e_act_id}",
+                    "activity_id": e_act_id,
+                    "title": e_title,
+                    "assign_url": e_href if e_href.startswith("http") else f"{LMS_BASE_URL}{e_href}",
+                    "due_date_str": "",
+                    "due_time_str": "23:59",
+                    "is_submitted": False,
+                    "is_pending": True,
+                    "row_faculty": "",
+                    "topic_name": "",
+                    "row_text": e_title,
                 })
+    except Exception as exc:
+        logger.debug("Could not scrape assign index for %s: %s", course_id, exc)
 
-        # Also capture any loose assignment links on mod/assign/index.php that weren't inside a table
-        for extra_link in soup.find_all("a", href=re.compile(r"/mod/assign/view\.php\?[^\"']*id=\d+")):
-            e_href = extra_link.get("href") or ""
-            m_e = re.search(r"id=(\d+)", e_href)
-            if not m_e:
-                continue
-            e_act_id = m_e.group(1)
-            if e_act_id in seen_act_ids:
-                continue
-            seen_act_ids.add(e_act_id)
-            e_title = extra_link.get_text().strip()
-            if not e_title or len(e_title) < 2:
-                continue
-            parsed_candidates.append({
-                "assign_id": f"lms-{course_id}-{e_act_id}",
-                "activity_id": e_act_id,
-                "title": e_title,
-                "assign_url": e_href if e_href.startswith("http") else f"{LMS_BASE_URL}{e_href}",
-                "due_date_str": "",
-                "due_time_str": "23:59",
-                "is_submitted": False,
-                "is_pending": True,
-                "row_faculty": "",
-                "topic_name": "",
-                "row_text": e_title,
-            })
+    # Step 2: Scrape Moodle Quizzes index (/mod/quiz/index.php?id={course_id})
+    try:
+        quiz_index_url = f"{LMS_BASE_URL}/mod/quiz/index.php?id={course_id}"
+        r_q = session.get(quiz_index_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+        if r_q.status_code == 200 and "/login" not in r_q.url:
+            soup_q = BeautifulSoup(r_q.text, "html.parser")
+            q_tables = soup_q.find_all("table")
+            for q_table in q_tables:
+                q_trs = q_table.find("tbody").find_all("tr") if q_table.find("tbody") else q_table.find_all("tr")
+                for q_row in q_trs:
+                    q_cols = q_row.find_all(["td", "th"])
+                    if len(q_cols) < 2:
+                        continue
+                    q_link = q_row.find("a", href=re.compile(r"/mod/quiz/view\.php")) or q_row.find("a")
+                    if not q_link:
+                        continue
+                    q_title = q_link.get_text().strip()
+                    q_href = q_link.get("href") or ""
+                    m_q_id = re.search(r"id=(\d+)", q_href)
+                    if not m_q_id:
+                        continue
+                    q_act_id = m_q_id.group(1)
+                    if q_act_id in seen_act_ids:
+                        continue
+                    seen_act_ids.add(q_act_id)
+                    q_assign_id = f"lms-{course_id}-{q_act_id}"
 
-        # Step 2: Scrape Moodle Quizzes index (/mod/quiz/index.php?id={course_id})
-        try:
-            quiz_index_url = f"{LMS_BASE_URL}/mod/quiz/index.php?id={course_id}"
-            r_q = session.get(quiz_index_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-            if r_q.status_code == 200 and "/login" not in r_q.url:
-                soup_q = BeautifulSoup(r_q.text, "html.parser")
-                q_tables = soup_q.find_all("table")
-                for q_table in q_tables:
-                    q_trs = q_table.find("tbody").find_all("tr") if q_table.find("tbody") else q_table.find_all("tr")
-                    for q_row in q_trs:
-                        q_cols = q_row.find_all(["td", "th"])
-                        if len(q_cols) < 2:
-                            continue
-                        q_link = q_row.find("a", href=re.compile(r"/mod/quiz/view\.php")) or q_row.find("a")
-                        if not q_link:
-                            continue
-                        q_title = q_link.get_text().strip()
-                        q_href = q_link.get("href") or ""
-                        m_q_id = re.search(r"id=(\d+)", q_href)
-                        if not m_q_id:
-                            continue
-                        q_act_id = m_q_id.group(1)
-                        if q_act_id in seen_act_ids:
-                            continue
-                        seen_act_ids.add(q_act_id)
-                        q_assign_id = f"lms-{course_id}-{q_act_id}"
+                    q_due_raw = ""
+                    q_status_raw = ""
+                    for q_col in q_cols:
+                        txt = q_col.get_text().strip()
+                        if any(m in txt.lower() for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
+                            if not q_due_raw:
+                                q_due_raw = txt
+                        elif any(st in txt.lower() for st in ["submitted", "attempt", "graded", "done", "complete", "closed"]):
+                            if not q_status_raw:
+                                q_status_raw = txt
 
-                        q_due_raw = ""
-                        q_status_raw = ""
-                        for q_col in q_cols:
-                            txt = q_col.get_text().strip()
-                            if any(m in txt.lower() for m in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "203", "am", "pm", ":"]):
-                                if not q_due_raw:
-                                    q_due_raw = txt
-                            elif any(st in txt.lower() for st in ["submitted", "attempt", "graded", "done", "complete", "closed"]):
-                                if not q_status_raw:
-                                    q_status_raw = txt
+                    q_due_date, q_due_time = parse_moodle_date(q_due_raw)
+                    q_is_sub = any(kw in q_status_raw.lower() for kw in ["submitted", "graded", "attempt"]) and "no attempt" not in q_status_raw.lower()
 
-                        q_due_date, q_due_time = parse_moodle_date(q_due_raw)
-                        q_is_sub = any(kw in q_status_raw.lower() for kw in ["submitted", "graded", "attempt"]) and "no attempt" not in q_status_raw.lower()
+                    parsed_candidates.append({
+                        "assign_id": q_assign_id,
+                        "activity_id": q_act_id,
+                        "title": q_title,
+                        "assign_url": q_href if q_href.startswith("http") else f"{LMS_BASE_URL}{q_href}",
+                        "due_date_str": q_due_date,
+                        "due_time_str": q_due_time,
+                        "is_submitted": q_is_sub,
+                        "is_pending": not q_is_sub,
+                        "row_faculty": "",
+                        "topic_name": "Online Quiz",
+                        "row_text": q_row.get_text(),
+                    })
+    except Exception as exc:
+        logger.debug("Could not scrape quiz index for %s: %s", course_id, exc)
 
-                        parsed_candidates.append({
-                            "assign_id": q_assign_id,
-                            "activity_id": q_act_id,
-                            "title": q_title,
-                            "assign_url": q_href if q_href.startswith("http") else f"{LMS_BASE_URL}{q_href}",
-                            "due_date_str": q_due_date,
-                            "due_time_str": q_due_time,
-                            "is_submitted": q_is_sub,
-                            "is_pending": not q_is_sub,
-                            "row_faculty": "",
-                            "topic_name": "Online Quiz",
-                            "row_text": q_row.get_text(),
-                        })
-        except Exception as exc:
-            logger.debug("Could not scrape quiz index for %s: %s", course_id, exc)
+    # Step 3: Scrape activities directly from course view page AND all section pages
+    try:
+        view_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
+        r_v = session.get(view_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
+        if r_v.status_code == 200 and "/login" not in r_v.url:
+            soup_v = BeautifulSoup(r_v.text, "html.parser")
 
-        # Step 3: Scrape activities directly from course view page AND all section pages
-        try:
-            view_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}"
-            r_v = session.get(view_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-            if r_v.status_code == 200 and "/login" not in r_v.url:
-                soup_v = BeautifulSoup(r_v.text, "html.parser")
+            def _extract_activities_from_course_soup(page_soup: BeautifulSoup, default_topic: str = ""):
+                for a_link in page_soup.find_all("a", href=re.compile(r"/mod/(?:assign|quiz|turnitintooltwo|turnitin|workshop|feedback|questionnaire|lesson|h5pactivity)/view\.php\?[^\"']*id=\d+")):
+                    href = a_link.get("href") or ""
+                    m_id = re.search(r"id=(\d+)", href)
+                    if not m_id:
+                        continue
+                    act_id = m_id.group(1)
+                    if act_id in seen_act_ids:
+                        continue
 
-                def _extract_activities_from_course_soup(page_soup: BeautifulSoup, default_topic: str = ""):
-                    for a_link in page_soup.find_all("a", href=re.compile(r"/mod/(?:assign|quiz|turnitintooltwo|turnitin|workshop|feedback|questionnaire|lesson|h5pactivity)/view\.php\?[^\"']*id=\d+")):
-                        href = a_link.get("href") or ""
-                        m_id = re.search(r"id=(\d+)", href)
-                        if not m_id:
-                            continue
-                        act_id = m_id.group(1)
-                        if act_id in seen_act_ids:
-                            continue
+                    inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
+                    raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
+                    cleaned_title = re.sub(r"\s*(?:Assignment|Quiz|Turnitin Assignment 2|Turnitin|Feedback|Workshop)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
+                    if len(cleaned_title) >= 2:
+                        raw_title = cleaned_title
+                    if not raw_title or len(raw_title) < 2:
+                        continue
 
-                        inst_span = a_link.find(class_=lambda c: c and "instancename" in str(c).lower())
-                        raw_title = inst_span.get_text().strip() if inst_span else a_link.get_text().strip()
-                        raw_title = re.sub(r"\s*(?:Assignment|Quiz|Turnitin Assignment 2|Turnitin|Feedback|Workshop)\s*$", "", raw_title, flags=re.IGNORECASE).strip()
-                        if not raw_title or len(raw_title) < 2:
-                            continue
+                    seen_act_ids.add(act_id)
+                    a_id = f"lms-{course_id}-{act_id}"
 
-                        seen_act_ids.add(act_id)
-                        a_id = f"lms-{course_id}-{act_id}"
+                    parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
+                    act_txt = parent_act.get_text() if parent_act else ""
+                    due_raw = ""
+                    status_raw = ""
+                    m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
+                    if m_d:
+                        due_raw = m_d.group(1).strip()
+                    if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
+                        status_raw = "Submitted"
 
-                        parent_act = a_link.find_parent(["li", "div"], class_=lambda c: c and any(k in str(c).lower() for k in ["activity", "activity-item", "modtype"]))
-                        act_txt = parent_act.get_text() if parent_act else ""
-                        due_raw = ""
-                        status_raw = ""
-                        m_d = re.search(r"Due\s*[:\-]?\s*([A-Za-z0-9\s,:]+)", act_txt, re.IGNORECASE)
-                        if m_d:
-                            due_raw = m_d.group(1).strip()
-                        if any(kw in act_txt.lower() for kw in ["submitted", "done", "complete"]):
-                            status_raw = "Submitted"
+                    d_str, t_str = parse_moodle_date(due_raw)
+                    is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
 
-                        d_str, t_str = parse_moodle_date(due_raw)
-                        is_sub = "submitted" in status_raw.lower() or "done" in status_raw.lower()
+                    sec_elem = a_link.find_parent(["li", "section", "div"], class_=lambda c: c and "section" in str(c).lower())
+                    sec_heading = sec_elem.find(class_=lambda c: c and "sectionname" in str(c).lower()) if sec_elem else None
+                    t_name = sec_heading.get_text().strip() if sec_heading else default_topic
 
-                        sec_elem = a_link.find_parent(["li", "section", "div"], class_=lambda c: c and "section" in str(c).lower())
-                        sec_heading = sec_elem.find(class_=lambda c: c and "sectionname" in str(c).lower()) if sec_elem else None
-                        t_name = sec_heading.get_text().strip() if sec_heading else default_topic
+                    parsed_candidates.append({
+                        "assign_id": a_id,
+                        "activity_id": act_id,
+                        "title": raw_title,
+                        "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
+                        "due_date_str": d_str,
+                        "due_time_str": t_str,
+                        "is_submitted": is_sub,
+                        "is_pending": not is_sub,
+                        "row_faculty": "",
+                        "topic_name": t_name,
+                        "row_text": act_txt or raw_title,
+                    })
 
-                        parsed_candidates.append({
-                            "assign_id": a_id,
-                            "activity_id": act_id,
-                            "title": raw_title,
-                            "assign_url": href if href.startswith("http") else f"{LMS_BASE_URL}{href}",
-                            "due_date_str": d_str,
-                            "due_time_str": t_str,
-                            "is_submitted": is_sub,
-                            "is_pending": not is_sub,
-                            "row_faculty": "",
-                            "topic_name": t_name,
-                            "row_text": act_txt or raw_title,
-                        })
+            # 1. Parse main course page
+            _extract_activities_from_course_soup(soup_v)
 
-                # 1. Parse main course page
-                _extract_activities_from_course_soup(soup_v)
-
-                # 2. Discover section links for multi-page courses
-                section_urls: List[Tuple[str, str]] = []
-                for a_sec in soup_v.find_all("a", href=True):
-                    s_href = a_sec.get("href") or ""
-                    m_s = re.search(r"[?&]section=(\d+)", s_href)
-                    if m_s:
-                        s_num = m_s.group(1)
-                        if s_num != "0":
-                            s_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}&section={s_num}"
-                            if not any(u[0] == s_url for u in section_urls):
-                                section_urls.append((s_url, a_sec.get_text().strip()))
-                    m_sid = re.search(r"[?&]sectionid=(\d+)", s_href)
-                    if m_sid:
-                        s_id = m_sid.group(1)
-                        s_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}&sectionid={s_id}"
+            # 2. Discover section links for multi-page courses (cap to 6 sections to respect timeouts)
+            section_urls: List[Tuple[str, str]] = []
+            for a_sec in soup_v.find_all("a", href=True):
+                s_href = a_sec.get("href") or ""
+                m_s = re.search(r"[?&]section=(\d+)", s_href)
+                if m_s:
+                    s_num = m_s.group(1)
+                    if s_num != "0":
+                        s_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}&section={s_num}"
                         if not any(u[0] == s_url for u in section_urls):
                             section_urls.append((s_url, a_sec.get_text().strip()))
+                m_sid = re.search(r"[?&]sectionid=(\d+)", s_href)
+                if m_sid:
+                    s_id = m_sid.group(1)
+                    s_url = f"{LMS_BASE_URL}/course/view.php?id={course_id}&sectionid={s_id}"
+                    if not any(u[0] == s_url for u in section_urls):
+                        section_urls.append((s_url, a_sec.get_text().strip()))
 
-                for s_url, s_name in section_urls[:20]:
-                    try:
-                        r_sec = session.get(s_url, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT)
-                        if r_sec.status_code == 200 and "/login" not in r_sec.url:
-                            soup_sec = BeautifulSoup(r_sec.text, "html.parser")
-                            _extract_activities_from_course_soup(soup_sec, default_topic=s_name)
-                    except Exception as sec_exc:
-                        logger.debug("Failed to scrape section %s for course %s: %s", s_url, course_id, sec_exc)
-        except Exception as exc:
-            logger.debug("Could not scrape course view page for %s: %s", course_id, exc)
+            for s_url, s_name in section_urls[:6]:
+                try:
+                    r_sec = session.get(s_url, verify=get_vtop_ca_bundle(), timeout=10.0)
+                    if r_sec.status_code == 200 and "/login" not in r_sec.url:
+                        soup_sec = BeautifulSoup(r_sec.text, "html.parser")
+                        _extract_activities_from_course_soup(soup_sec, default_topic=s_name)
+                except Exception as sec_exc:
+                    logger.debug("Failed to scrape section %s for course %s: %s", s_url, course_id, sec_exc)
+    except Exception as exc:
+        logger.debug("Could not scrape course view page for %s: %s", course_id, exc)
 
-        if not parsed_candidates:
-            return assignments
+    if not parsed_candidates:
+        return assignments
 
-        # Concurrently resolve authentic poster and verify metadata for each assignment
-        def _resolve_candidate_poster(cand: Dict[str, Any]) -> Tuple[str, Optional[str]]:
-            # Extract from assignment view page / row metadata using thread-safe cloned session
+    # Concurrently resolve authentic poster and verify metadata for each assignment
+    def _resolve_candidate_poster(cand: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+        # Fast path: If due date and submission status are already known, avoid expensive network GET
+        need_fetch = (not cand.get("due_date_str") or cand.get("due_date_str") == "TBA") or not cand.get("row_faculty")
+        extracted_poster = None
+
+        if need_fetch and cand.get("assign_url") and cand["assign_url"].startswith("http"):
             sub_sess = _clone_session(session)
             extracted_poster, resolved_due, resolved_time, resolved_sub = extract_assignment_metadata(
                 session=sub_sess,
@@ -1448,20 +1470,21 @@ def fetch_assignments_for_lms_course(
                 cand["is_submitted"] = resolved_sub
                 cand["is_pending"] = not resolved_sub
 
-            if cand["row_faculty"]:
-                t_cand = extract_teacher_from_lms_title(cand["row_faculty"]) or cand["row_faculty"]
-                if 3 <= len(t_cand) < 60 and not is_moodle_noise(t_cand):
-                    return t_cand, t_cand
+        if cand["row_faculty"]:
+            t_cand = extract_teacher_from_lms_title(cand["row_faculty"]) or cand["row_faculty"]
+            if 3 <= len(t_cand) < 60 and not is_moodle_noise(t_cand):
+                return t_cand, t_cand
 
-            if extracted_poster and not is_moodle_noise(extracted_poster):
-                return extracted_poster, extracted_poster
+        if extracted_poster and not is_moodle_noise(extracted_poster):
+            return extracted_poster, extracted_poster
 
-            fallback_prof = lms_course_prof
-            if not fallback_prof or fallback_prof in ("LMS Instructor", "Instructor", "LMS Teacher", "Faculty unassigned") or is_moodle_noise(fallback_prof):
-                valid_c_teachers = [t for t in c_teachers if not is_moodle_noise(t)]
-                fallback_prof = (valid_c_teachers[0] if valid_c_teachers else None) or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
-            return fallback_prof, None
+        fallback_prof = lms_course_prof
+        if not fallback_prof or fallback_prof in ("LMS Instructor", "Instructor", "LMS Teacher", "Faculty unassigned") or is_moodle_noise(fallback_prof):
+            valid_c_teachers = [t for t in c_teachers if not is_moodle_noise(t)]
+            fallback_prof = (valid_c_teachers[0] if valid_c_teachers else None) or vtop_course.get("faculty") or vtop_course.get("facultyName") or "Faculty unassigned"
+        return fallback_prof, None
 
+    try:
         max_workers = min(5, max(1, len(parsed_candidates)))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             posters = list(executor.map(_resolve_candidate_poster, parsed_candidates))

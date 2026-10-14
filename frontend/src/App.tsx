@@ -453,6 +453,21 @@ export const App: React.FC = () => {
       // preserve verified fresh local state and do not overwrite with stale backend records!
       if (localFreshTimestamp > 0 && backendTimestamp > 0 && backendTimestamp < localFreshTimestamp) {
         console.info('[CampusOS] Stale backend snapshot detected — preserving verified fresh local state.');
+        if (typeof window !== 'undefined') {
+          try {
+            const reg = studentData?.regNo || (student as any)?.regNo || window.localStorage.getItem('campus_current_reg_no');
+            if (reg) {
+              const rawLocal = window.localStorage.getItem('campus_user_data_' + reg);
+              if (rawLocal) {
+                const parsedLocal = JSON.parse(rawLocal);
+                const localAssignments = parsedLocal?.assignments || parsedLocal?.data?.assignments;
+                if (Array.isArray(localAssignments) && localAssignments.length > 0) {
+                  setAssignments(applyManualStatusOverrides(localAssignments, reg));
+                }
+              }
+            }
+          } catch (e) {}
+        }
         return;
       }
 
@@ -925,6 +940,9 @@ export const App: React.FC = () => {
               : (cd.exams && typeof cd.exams === 'object' ? (Object.values(cd.exams).flat() as Exam[]).filter(Boolean) : []);
             if (cachedExams.length > 0) setExams(cachedExams);
             if (Array.isArray(cd.faculty) && cd.faculty.length > 0) setFaculty(cd.faculty);
+            if (Array.isArray(cd.assignments) && cd.assignments.length > 0) {
+              setAssignments(applyManualStatusOverrides(cd.assignments, studentProfile.regNo));
+            }
             let cachedOd = cd.od;
             if ((!cachedOd || !cachedOd.records || cachedOd.records.length === 0) && cd.attendance?.length > 0) {
               const uniccOd = computeUniccODFromAttendance(cd.attendance);
