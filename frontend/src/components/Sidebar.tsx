@@ -22,7 +22,8 @@ import {
   FileText,
 } from 'lucide-react';
 import { AcademicsSubTab } from '../views/AcademicsView';
-import { StudentProfile } from '../types';
+import { StudentProfile, ODResponse, Attendance } from '../types';
+import { computeUniccODFromAttendance } from '../utils/odUtils';
 
 export type NavView = 'dashboard' | 'academics' | 'assignments' | 'fees' | 'placements' | 'ai-planner';
 
@@ -32,6 +33,10 @@ interface SidebarProps {
   pendingAssignmentsCount: number;
   lmsPendingCount?: number;
   criticalAttendanceCount: number;
+  approvedOdHours?: number;
+  maxOdHours?: number;
+  odData?: ODResponse | null;
+  attendance?: Attendance[];
   academicsSubTab?: AcademicsSubTab;
   onSelectAcademicsSubTab?: (subTab: AcademicsSubTab) => void;
   onLogout?: () => void;
@@ -52,6 +57,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingAssignmentsCount,
   lmsPendingCount = 0,
   criticalAttendanceCount,
+  approvedOdHours,
+  maxOdHours,
+  odData,
+  attendance,
   academicsSubTab = 'profile',
   onSelectAcademicsSubTab,
   onLogout,
@@ -65,6 +74,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed: externalIsCollapsed,
   onToggleCollapse: externalToggleCollapse,
 }) => {
+  const effectiveApprovedOd = approvedOdHours ?? (
+    ((odData?.approvedHours && odData.approvedHours > 0) ? odData.approvedHours : null)
+    ?? ((odData?.usedHours && odData.usedHours > 0) ? odData.usedHours : null)
+    ?? (student as any)?.odHours
+    ?? (student as any)?.approvedOdHours
+    ?? (attendance && attendance.length > 0 ? computeUniccODFromAttendance(attendance).reduce((sum, r) => sum + (r.hours || 0), 0) : 0)
+  );
+  const effectiveMaxOd = maxOdHours ?? odData?.maxHours ?? odData?.maxOdHours ?? 40;
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('campusos_sidebar_collapsed') === 'true';
@@ -396,11 +413,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onOpenOD || (() => onSelectView('academics'))}
-                title={isCollapsed ? 'On-Duty & Leave Requests' : undefined}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                title={isCollapsed ? `On-Duty & Leave Requests (${effectiveApprovedOd}h / ${effectiveMaxOd}h Sanctioned)` : undefined}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5'
+                } py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface`}
               >
-                <Clock size={18} className="shrink-0" />
-                {!isCollapsed && <span>OD / Leave</span>}
+                <div className="flex items-center gap-2.5">
+                  <Clock size={18} className="shrink-0" />
+                  {!isCollapsed && <span>OD / Leave</span>}
+                </div>
+                {!isCollapsed && (
+                  <span className="font-tabular-data text-[11px] font-semibold text-secondary bg-secondary-fixed/50 px-1.5 py-0.5 rounded">
+                    {effectiveApprovedOd}h / {effectiveMaxOd}h
+                  </span>
+                )}
               </button>
 
               {/* Fees & Ledger */}

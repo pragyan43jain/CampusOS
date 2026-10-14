@@ -1524,6 +1524,17 @@ export const App: React.FC = () => {
     (a) => a && (a.source === 'LMS' || a.source === 'Moodle LMS') && !isAssignmentDone(a, student?.regNo)
   ).length;
   const criticalAttendanceCount = safeCourses.filter((c) => c?.attendance?.isCritical).length;
+  const fallbackOdRecords = Array.isArray(attendance) && attendance.length > 0
+    ? computeUniccODFromAttendance(attendance)
+    : [];
+  const fallbackOdHours = fallbackOdRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
+  const approvedOdHours =
+    ((odData?.approvedHours && odData.approvedHours > 0) ? odData.approvedHours : null)
+    ?? ((odData?.usedHours && odData.usedHours > 0) ? odData.usedHours : null)
+    ?? (student as any)?.odHours
+    ?? (student as any)?.approvedOdHours
+    ?? (fallbackOdHours > 0 ? fallbackOdHours : 0);
+  const maxOdHours = odData?.maxHours ?? odData?.maxOdHours ?? 40;
 
   if (showLanding || !isAuthenticated || !student) {
     return (
@@ -1622,6 +1633,10 @@ export const App: React.FC = () => {
         onOpenLMS={() => setIsLMSModalOpen(true)}
         onOpenTeams={() => setIsTeamsModalOpen(true)}
         onOpenOD={() => setShowODModal(true)}
+        approvedOdHours={approvedOdHours}
+        maxOdHours={maxOdHours}
+        odData={odData}
+        attendance={attendance}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => {
           const next = !isSidebarCollapsed;
