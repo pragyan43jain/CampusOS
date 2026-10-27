@@ -877,9 +877,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* LEFT COLUMN (8 COLS) */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           {/* 1. ACADEMIC TIMELINE & LIVE CLASS ROSTER */}
-          <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-2 border-b border-outline-variant/20">
-              <div className="flex items-center gap-2">
+          <section className="bg-surface-container-lowest rounded-xl p-3 sm:p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-3 sm:gap-4 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-2 border-b border-outline-variant/20 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <Calendar size={20} className="text-primary" />
                 <h2 className="font-headline-md text-lg font-semibold text-on-surface">
                   Today's Academic Timeline
@@ -950,7 +950,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span className="font-tabular-data text-xs text-primary font-bold tracking-wider">
                     {nextClass.courseCode || nextClass.subjectCode || 'Active Course'}
                   </span>
-                  <h3 className="font-headline-md text-xl md:text-2xl font-semibold text-on-surface mt-0.5">
+                  <h3 className="font-headline-md text-xl md:text-2xl font-semibold text-on-surface mt-0.5 min-w-0 break-words [overflow-wrap:anywhere]">
                     {nextClass.courseTitle || nextClass.subject || nextClass.courseName || 'Lecture'}
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-on-surface-variant text-xs">
@@ -1045,7 +1045,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <h4 className="font-semibold text-sm text-on-surface truncate">
+                            <h4 className="font-semibold text-sm text-on-surface line-clamp-2 break-words [overflow-wrap:anywhere]">
                               {slot.courseTitle || slot.subject || slot.courseName || 'Lecture'}
                             </h4>
                             <p className="text-xs text-on-surface-variant mt-0.5 truncate font-tabular-data">
@@ -1175,7 +1175,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </section>
 
           {/* Stitch Interactive Absence Risk Telemetry Card */}
-          <section className="rounded-xl bg-surface-container p-4 md:p-5 shadow-xl border border-outline-variant/30 flex flex-col gap-3">
+          <section className="hidden md:flex rounded-xl bg-surface-container p-4 md:p-5 shadow-xl border border-outline-variant/30 flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Calculator size={18} className="text-primary" />
@@ -1312,7 +1312,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </section>
 
           {/* 3. COMPREHENSIVE CURRICULAR PERFORMANCE LEDGER TABLE */}
-          <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+          <section className="bg-surface-container-lowest rounded-xl p-3 sm:p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-3 sm:gap-4 min-w-0">
             <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
               <div>
                 <h2 className="font-headline-md text-lg font-semibold text-on-surface">
@@ -1461,7 +1461,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* RIGHT COLUMN (4 COLS / SATELLITE INSPECTOR) */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           {/* 1. QUICK ATTENDANCE SAFETY WATCH WITH SIMULATOR */}
-          <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+          <section className="hidden md:flex bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex-col gap-4">
             <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={20} className="text-secondary" />
@@ -1564,7 +1564,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </section>
 
           {/* 2. RECENT MARKS & EVALUATION FEED */}
-          <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+          <section className="hidden md:flex bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex-col gap-4">
             <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
               <div className="flex items-center gap-2">
                 <Award size={20} className="text-secondary" />
@@ -1622,7 +1622,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </section>
 
           {/* 3. CAMPUS FACILITIES & STUDY PODS REAL-TIME VACANCY */}
-          <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col gap-4">
+          <section className="hidden md:flex bg-surface-container-lowest p-5 md:p-6 shadow-sm border border-outline-variant/30 flex-col gap-4 rounded-xl">
             <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
               <div className="flex items-center gap-2">
                 <Users size={20} className="text-secondary" />

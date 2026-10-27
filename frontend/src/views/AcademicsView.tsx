@@ -874,10 +874,11 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       <ShieldCheck size={14} className="shrink-0" />
                       Regulatory Engine
                     </span>
-                    <span className="font-tabular-data text-label-sm text-outline">VTOP API v4.2.8 • Strict {targetAttendance}.00% Clause</span>
+                    <span className="hidden sm:inline font-tabular-data text-label-sm text-outline">VTOP API v4.2.8 • Strict {targetAttendance}.00% Clause</span>
                   </div>
                   <h1 className="text-xl sm:text-2xl xl:text-headline-xl font-semibold text-on-surface tracking-tight">
-                    Attendance Safety Engine &amp; Margin Forecaster
+                    <span className="sm:hidden">Attendance</span>
+                    <span className="hidden sm:inline">Attendance Safety Engine &amp; Margin Forecaster</span>
                   </h1>
                   <p className="hidden sm:block font-body-md text-body-md text-on-surface-variant">
                     Predictive simulation model for institutional minimum-attendance guidelines. Calibrate your absence headroom across regular instruction, On-Duty buffers, and laboratory mandates.
@@ -1126,7 +1127,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     {coursesWithSim.map((course, idx) => (
                       <div
                         key={course.courseCode || idx}
-                        className={`p-space-md rounded-xl bg-surface-container-lowest border shadow-sm flex flex-col justify-between gap-4 transition-all ${
+                        className={`p-3 sm:p-space-md min-w-0 rounded-xl bg-surface-container-lowest border shadow-sm flex flex-col justify-between gap-3 sm:gap-4 transition-all ${
                           course.simPct < targetAttendance
                             ? 'border-error/40 bg-error/5'
                             : course.simPct < 80
@@ -1135,8 +1136,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span className="font-headline-sm text-headline-sm font-semibold text-on-surface">
                                 {course.courseCode}
                               </span>
@@ -1144,15 +1145,15 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                 {course.isLab ? 'Lab • 1.5 Cr' : 'Theory • 3-4 Cr'}
                               </span>
                             </div>
-                            <h4 className="font-body-sm font-semibold text-on-surface mt-1 line-clamp-2">
+                            <h4 className="font-body-sm font-semibold text-on-surface mt-1 line-clamp-2 break-words [overflow-wrap:anywhere]">
                               {course.courseTitle || course.courseName || 'Subject Title'}
                             </h4>
-                            <span className="font-label-sm text-outline font-tabular-data block mt-0.5">
+                            <span className="font-label-sm text-outline font-tabular-data block mt-0.5 break-words [overflow-wrap:anywhere]">
                               {course.slot || 'Regular'} • {course.facultyName || course.faculty || 'Professor'}
                             </span>
                           </div>
 
-                          <div className="text-right">
+                          <div className="text-right shrink-0">
                             <span className={`font-metric-display text-[26px] leading-tight font-bold font-tabular-data ${
                               course.simPct < targetAttendance ? 'text-error' : course.simPct < 80 ? 'text-tertiary' : 'text-primary'
                             }`}>
@@ -1173,8 +1174,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                         </div>
 
                         {/* Card bottom actions */}
-                        <div className="flex items-center justify-between pt-2 border-t border-outline-variant/10">
-                          <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold ${
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/10 min-w-0">
+                          <div className={`inline-flex min-w-0 max-w-[calc(100%-2.5rem)] items-center gap-1.5 px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold ${
                             course.simPct >= targetAttendance ? 'bg-secondary-fixed/50 text-on-secondary-fixed' : 'bg-tertiary-fixed text-on-tertiary-fixed'
                           }`}>
                             {course.simPct >= targetAttendance ? (
@@ -1182,24 +1183,24 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                             ) : (
                               <AlertTriangle size={13} className="shrink-0" />
                             )}
-                            <span>
+                            <span className="min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]">
                               {course.simPct >= targetAttendance
                                 ? `Can miss ${course.safeBunks} ${course.isLab ? 'labs' : 'classes'}`
                                 : `Must attend ${course.recoveryNeeded} ${course.isLab ? 'labs' : 'classes'}`}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => handleSimulateCourse(course.courseCode, 1)}
-                              className="w-7 h-7 rounded bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface flex items-center justify-center transition-all shadow-sm"
+                              className="hidden md:flex w-7 h-7 rounded bg-surface-container hover:bg-primary hover:text-on-primary text-on-surface items-center justify-center transition-all shadow-sm"
                               title="Simulate Attend (+1)"
                             >
                               <Plus size={14} />
                             </button>
                             <button
                               onClick={() => handleSimulateCourse(course.courseCode, -1)}
-                              className="w-7 h-7 rounded bg-surface-container hover:bg-tertiary-container hover:text-on-tertiary-container text-on-surface flex items-center justify-center transition-all shadow-sm"
+                              className="hidden md:flex w-7 h-7 rounded bg-surface-container hover:bg-tertiary-container hover:text-on-tertiary-container text-on-surface items-center justify-center transition-all shadow-sm"
                               title="Simulate Miss (-1)"
                             >
                               <Minus size={14} />
@@ -1409,7 +1410,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               {/* RIGHT PANEL: SEMESTER FORECASTER & ACADEMIC CALENDAR (4 COLS) */}
               <div className="xl:col-span-4 flex flex-col gap-space-md">
                 {/* Editorial Forecaster Card */}
-                <div className="p-space-lg rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col gap-space-md">
+                <div className="hidden md:flex p-space-lg rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex-col gap-space-md">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Simulation Engine</span>
