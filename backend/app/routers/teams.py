@@ -1410,10 +1410,12 @@ def get_teams_status(
 
     return {
         "connected": is_connected,
+        "status": account.get("status") or ("connected" if is_connected else "disconnected"),
         "email": account.get("email"),
         "displayName": account.get("displayName"),
         "lastSynced": account.get("lastSynced"),
         "syncStatus": account.get("syncStatus"),
+        "lastError": account.get("lastError"),
         "lastSyncAttempt": account.get("lastSyncAttempt"),
         "portal": TEAMS_PORTAL_URL,
         "mfaRequired": bool(account.get("mfaRequired")),
@@ -1674,6 +1676,7 @@ def sync_teams(
         email = account.get("email") or ""
         refresh_token = account.get("refreshToken")
         access_token = None
+        refresh_http_status: Optional[int] = None
 
         session = get_teams_session()
         assignments_token = None
@@ -1694,17 +1697,20 @@ def sync_teams(
                     ref_json = r_ref.json()
                     access_token = ref_json.get("access_token")
                     account["refreshToken"] = ref_json.get("refresh_token") or refresh_token
+                else:
+                    refresh_http_status = r_ref.status_code
+                    logger.warning("Microsoft Graph token refresh failed with HTTP %s", r_ref.status_code)
             except Exception as exc:
                 logger.warning("Token refresh error: %s", exc)
 
-            # Refresh access token for Education Assignments service
+            # The Education assignments resource needs its own access token.
             try:
                 r_at = session.post(
                     LOGIN_TOKEN_URL,
                     data={
                         "client_id": TEAMS_CLIENT_ID,
                         "grant_type": "refresh_token",
-                        "refresh_token": refresh_token,
+                        "refresh_token": account.get("refreshToken") or refresh_token,
                         "resource": ASSIGNMENTS_RESOURCE,
                     },
                     timeout=REQUEST_TIMEOUT,
@@ -1713,6 +1719,27 @@ def sync_teams(
                     assignments_token = r_at.json().get("access_token")
             except Exception as exc:
                 logger.warning("Assignments token refresh error: %s", exc)
+
+        if not refresh_token or not access_token:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            is_expired = refresh_http_status == 400
+            account["lastSyncAttempt"] = now_iso
+            account["lastError"] = "Microsoft session expired" if is_expired else "Microsoft token refresh failed"
+            account["syncStatus"] = "FAILED"
+            account["status"] = "expired" if is_expired else "stale"
+            account["connected"] = not is_expired
+            store["teamsConnected"] = not is_expired
+            store["teamsAccount"] = account
+            save_store(store, reg)
+            if is_expired:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Microsoft Teams session has expired. Reconnect Teams to fetch current assignments.",
+                )
+            raise HTTPException(
+                status_code=502,
+                detail="Microsoft Teams token refresh failed. Please retry or reconnect Teams.",
+            )
 
         vtop_courses = list(store.get("courses") or [])
         user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(

@@ -17,7 +17,7 @@ import { CampusAPI } from '../services/api';
 import { TeamsLoginModal } from '../components/TeamsLoginModal';
 import { LMSLoginModal } from '../components/LMSLoginModal';
 import { MetricCard } from '../components/MetricCard';
-import { isAssignmentDone, isTeamsAssignment, parseAssignmentDate, setManualOverride } from '../utils/assignmentUtils';
+import { isAssignmentDone, isExternalAcademicAssignment, isLmsAssignment, isTeamsAssignment, parseAssignmentDate, setManualOverride } from '../utils/assignmentUtils';
 
 interface AssignmentsViewProps {
   assignments?: Assignment[];
@@ -67,7 +67,7 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS' | 'VTOP'>('ALL');
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'TEAMS' | 'LMS'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'SUBMITTED'>('ALL');
   const [sortOrder, setSortOrder] = useState<'LATEST' | 'PENDING_FIRST' | 'DUE_SOON' | 'COURSE'>('LATEST');
 
@@ -262,9 +262,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
           });
         });
       }
-      if (list.length > 0) return list;
+      if (list.length > 0) return list.filter(isExternalAcademicAssignment);
     }
-    return (_assignments || []).map((a) => {
+    return (_assignments || []).filter(isExternalAcademicAssignment).map((a) => {
       const prof = findFaculty(
         a.courseCode,
         a.courseTitle || a.subject,
@@ -344,10 +344,9 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   const filteredAssignments = useMemo(() => {
     return allAssignments
       .filter((a) => {
-        const srcUpper = (a.source || '').toUpperCase();
-        if (sourceFilter === 'TEAMS' && !srcUpper.includes('TEAMS')) return false;
-        if (sourceFilter === 'LMS' && !srcUpper.includes('LMS')) return false;
-        if (sourceFilter === 'VTOP' && !srcUpper.includes('VTOP') && !srcUpper.includes('PORTAL')) return false;
+        if (!isExternalAcademicAssignment(a)) return false;
+        if (sourceFilter === 'TEAMS' && !isTeamsAssignment(a)) return false;
+        if (sourceFilter === 'LMS' && !isLmsAssignment(a)) return false;
 
         const isDone = isAssignmentDone(a, studentRegNo);
         if (statusFilter === 'PENDING' && isDone) return false;
@@ -427,18 +426,15 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   const isTeamsConnected = Boolean(
     teamsAccount?.connected ||
     dashboard?.connectedAccounts?.teams?.connected ||
-    teamsAccount?.status === 'connected' ||
-    dashboard?.connectedAccounts?.teams?.status === 'connected' ||
-    Boolean(teamsAccount?.email && teamsAccount?.email.trim() !== '')
+    teamsAccount?.status === 'connected'
   );
   const isLmsConnected = Boolean(
     lmsAccount?.connected ||
     dashboard?.connectedAccounts?.lms?.connected ||
-    lmsAccount?.status === 'connected' ||
-    dashboard?.connectedAccounts?.lms?.status === 'connected' ||
-    Boolean(lmsAccount?.username && lmsAccount?.username.trim() !== '') ||
-    Boolean(dashboard?.connectedAccounts?.lms?.username && dashboard?.connectedAccounts?.lms?.username.trim() !== '')
+    lmsAccount?.status === 'connected'
   );
+  const isTeamsStale = Boolean(teamsAccount?.syncStatus === 'STALE' || teamsAccount?.status === 'stale');
+  const isLmsStale = Boolean(lmsAccount?.syncStatus === 'STALE' || lmsAccount?.status === 'stale');
   const isLmsExpired = Boolean(
     !isLmsConnected &&
     (lmsAccount?.status === 'expired' || dashboard?.connectedAccounts?.lms?.status === 'expired')
@@ -538,6 +534,23 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
         </div>
       )}
 
+      {(isTeamsStale || isLmsStale) && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-on-surface">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {[
+                isTeamsStale && 'Teams',
+                isLmsStale && 'LMS',
+              ].filter(Boolean).join(' and ')} could not refresh live assignments. The list may show saved results; reconnect the affected account to fetch current work.
+            </span>
+            <div className="flex shrink-0 gap-2">
+              {isTeamsStale && <button onClick={() => (onLinkTeams ? onLinkTeams() : setIsTeamsModalOpen(true))} className="btn btn-sm btn-primary">Reconnect Teams</button>}
+              {isLmsStale && <button onClick={() => (onLinkLMS ? onLinkLMS() : setIsLMSModalOpen(true))} className="btn btn-sm btn-primary">Reconnect LMS</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 2. Summary Metrics Grid */}
       <div className="metrics-stat-grid">
         <MetricCard
@@ -585,13 +598,13 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
 
           {/* Platform Source Tabs */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full md:w-auto">
-            {(['ALL', 'TEAMS', 'LMS', 'VTOP'] as const).map((src) => (
+            {(['ALL', 'TEAMS', 'LMS'] as const).map((src) => (
               <button
                 key={src}
                 className={`btn btn-sm ${sourceFilter === src ? 'btn-primary' : 'btn-secondary'} shrink-0 text-xs sm:text-sm py-1.5 px-2.5 sm:px-3`}
                 onClick={() => setSourceFilter(src)}
               >
-                {src === 'ALL' ? 'All Platforms' : src === 'TEAMS' ? 'Teams' : src === 'LMS' ? 'LMS' : 'VTOP'}
+                {src === 'ALL' ? 'All Assignments' : src === 'TEAMS' ? 'Teams' : 'LMS'}
               </button>
             ))}
           </div>

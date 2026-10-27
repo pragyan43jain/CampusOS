@@ -38,7 +38,7 @@ import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal'
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { MobileAppDownloadModal } from './components/MobileAppDownloadModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { isAssignmentDone, isTeamsAssignment } from './utils/assignmentUtils';
+import { isAssignmentDone, isExternalAcademicAssignment, isTeamsAssignment } from './utils/assignmentUtils';
 import { computeUniccODFromAttendance } from './utils/odUtils';
 
 interface RouteInfo {
@@ -113,12 +113,14 @@ const getRouteFromPath = (path: string): RouteInfo => {
 };
 
 const applyManualStatusOverrides = (items: Assignment[], regNo?: string): Assignment[] => {
-  if (typeof window === 'undefined' || !items || items.length === 0) return items;
+  if (!Array.isArray(items)) return [];
+  const externalAssignments = items.filter(isExternalAcademicAssignment);
+  if (typeof window === 'undefined' || externalAssignments.length === 0) return externalAssignments;
   try {
     const reg = regNo || window.localStorage.getItem('campus_current_reg_no') || 'default';
     const raw = window.localStorage.getItem(`campus_manual_assignment_status_${reg}`);
     const overrides = raw ? JSON.parse(raw) : {};
-    return items.map((a) => {
+    return externalAssignments.map((a) => {
       let manualDone: boolean | undefined = undefined;
       if (a.id && overrides[a.id] !== undefined) {
         manualDone = overrides[a.id];
@@ -155,7 +157,7 @@ const applyManualStatusOverrides = (items: Assignment[], regNo?: string): Assign
       };
     });
   } catch {
-    return items;
+    return externalAssignments;
   }
 };
 
@@ -316,15 +318,9 @@ export const App: React.FC = () => {
         statusData?.teams?.connected ||
         teamsDirectStatus?.connected
       );
-
-      const localLmsSaved = typeof window !== 'undefined'
-        ? (window.localStorage.getItem(`campus_lms_account_${student?.regNo}`) ||
-           window.localStorage.getItem('campus_lms_account') ||
-           window.localStorage.getItem('campus_lms_saved_username'))
-        : null;
+      const isTeamsStale = Boolean(statusData?.teams?.syncStatus === 'STALE' || teamsDirectStatus?.syncStatus === 'STALE' || statusData?.teams?.status === 'stale' || teamsDirectStatus?.status === 'stale');
 
       const isLmsConn = Boolean(
-        localLmsSaved ||
         (statusData?.lms?.connected && (statusData?.lms?.username || statusData?.lms?.displayName || (statusData?.lms?.matchedCount ?? 0) > 0)) ||
         (lmsDirectStatus?.connected && (lmsDirectStatus?.username || lmsDirectStatus?.displayName || (lmsDirectStatus?.matchedCount ?? 0) > 0)) ||
         statusData?.lms?.status === 'connected' ||
@@ -332,6 +328,7 @@ export const App: React.FC = () => {
         statusData?.lms?.connected ||
         lmsDirectStatus?.connected
       );
+      const isLmsStale = Boolean(statusData?.lms?.syncStatus === 'STALE' || lmsDirectStatus?.syncStatus === 'STALE' || statusData?.lms?.status === 'stale' || lmsDirectStatus?.status === 'stale');
 
       const isLmsExpired = Boolean(
         !isLmsConn && (
@@ -347,7 +344,7 @@ export const App: React.FC = () => {
         ...(statusData?.teams || {}),
         ...(teamsDirectStatus || {}),
         connected: isTeamsConn,
-        status: isTeamsConn ? 'connected' : (prev.status === 'failed' ? 'failed' : 'disconnected'),
+        status: isTeamsConn ? (isTeamsStale ? 'stale' : 'connected') : (prev.status === 'failed' ? 'failed' : 'disconnected'),
       }));
 
       setLmsAccount((prev: any) => ({
@@ -355,7 +352,7 @@ export const App: React.FC = () => {
         ...(statusData?.lms || {}),
         ...(lmsDirectStatus || {}),
         connected: isLmsConn,
-        status: isLmsConn ? 'connected' : (isLmsExpired ? 'expired' : (prev.status === 'failed' ? 'failed' : 'disconnected')),
+        status: isLmsConn ? (isLmsStale ? 'stale' : 'connected') : (isLmsExpired ? 'expired' : (prev.status === 'failed' ? 'failed' : 'disconnected')),
       }));
     } catch (e) {
       console.warn('Failed to load academic accounts status:', e);
@@ -669,9 +666,12 @@ export const App: React.FC = () => {
       }
 
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setSyncResultMsg(res.message ? `✓ ${res.message} (${timeStr})` : `✓ Synced all accounts successfully (${timeStr})`);
-      if (res.message && res.message.toLowerCase().includes('lms') && (res.message.toLowerCase().includes('expired') || res.message.toLowerCase().includes('sign in'))) {
+      const syncFailed = res.success === false || (res.errors?.length ?? 0) > 0 || res.status === 'PARTIAL';
+      setSyncResultMsg(`${syncFailed ? '⚠️' : '✓'} ${res.message || (syncFailed ? 'Some connected platforms could not sync.' : 'Synced all accounts successfully')} (${timeStr})`);
+      if (syncFailed && res.message && res.message.toLowerCase().includes('lms') && (res.message.toLowerCase().includes('expired') || res.message.toLowerCase().includes('sign in'))) {
         triggerSyncToast('LMS session expired — please re-link LMS');
+      } else if (syncFailed) {
+        triggerSyncToast(res.message || 'Assignment sync failed. Check your Teams and LMS connections.');
       } else {
         triggerSyncToast('Synced Successfully');
       }

@@ -2300,7 +2300,15 @@ def sync_lms(
             if total_courses == 0 and not reauth_performed:
                 # Verify if Moodle session is still alive
                 r_check = s.get(LMS_MY_URL, verify=get_vtop_ca_bundle(), timeout=REQUEST_TIMEOUT, allow_redirects=False)
-                if r_check.status_code in (302, 303) and "login" in (r_check.headers.get("Location") or ""):
+                login_location = (r_check.headers.get("Location") or "").lower()
+                checked_url = (getattr(r_check, "url", "") or "").lower()
+                checked_body = (getattr(r_check, "text", "") or "")[:8000].lower()
+                login_page = (
+                    "login" in login_location
+                    or "login/index.php" in checked_url
+                    or ("login" in checked_body and ("loginform" in checked_body or "username" in checked_body and "password" in checked_body))
+                )
+                if r_check.status_code in (401, 403) or (r_check.status_code in (302, 303) and login_page) or (r_check.status_code == 200 and login_page):
                     session_expired = True
 
             if session_expired:

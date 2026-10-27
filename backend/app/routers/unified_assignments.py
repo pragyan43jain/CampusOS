@@ -1164,7 +1164,7 @@ def sync_all_academic_accounts(
     if store.get("teamsConnected"):
         try:
             from app.routers.teams import sync_teams
-            sync_teams(
+            teams_result = sync_teams(
                 x_session_id=x_session_id,
                 x_reg_no=x_reg_no or reg,
                 sessionId=sessionId,
@@ -1172,6 +1172,8 @@ def sync_all_academic_accounts(
                 authorization=authorization,
             )
             synced_sources.append("Microsoft Teams")
+            if (teams_result or {}).get("status") == "STALE":
+                errors.append("Microsoft Teams returned cached assignments because the live fetch returned no records. Re-link Teams to refresh it.")
         except HTTPException as he:
             logger.warning("Teams HTTP error during sync-all: %s", he.detail)
             errors.append(f"Microsoft Teams: {he.detail}")
@@ -1183,7 +1185,7 @@ def sync_all_academic_accounts(
     if store.get("lmsConnected"):
         try:
             from app.routers.lms import sync_lms
-            sync_lms(
+            lms_result = sync_lms(
                 x_session_id=x_session_id,
                 x_reg_no=x_reg_no or reg,
                 x_auth_user=x_auth_user,
@@ -1195,6 +1197,8 @@ def sync_all_academic_accounts(
                 authorization=authorization,
             )
             synced_sources.append("VIT LMS")
+            if (lms_result or {}).get("status") == "STALE":
+                errors.append("VIT LMS returned cached assignments because the live fetch returned no records. Re-link LMS to refresh it.")
         except HTTPException as he:
             logger.warning("LMS HTTP error during sync-all: %s", he.detail)
             errors.append(f"VIT LMS: {he.detail}")

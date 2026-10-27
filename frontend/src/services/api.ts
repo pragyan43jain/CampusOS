@@ -1180,6 +1180,8 @@ export const CampusAPI = {
   syncAllAcademicAccounts: async (): Promise<{
     success: boolean;
     message: string;
+    status?: 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'DISCONNECTED';
+    errors?: string[];
     dashboard?: UnifiedAssignmentsDashboard;
   }> => {
     try {

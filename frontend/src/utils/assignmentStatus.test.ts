@@ -1,6 +1,15 @@
 import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { isAssignmentDone, isTeamsAssignment, getAssignmentStatusLabel } from './assignmentUtils.ts';
+import { isAssignmentDone, isExternalAcademicAssignment, isLmsAssignment, isTeamsAssignment, getAssignmentStatusLabel } from './assignmentUtils.ts';
+
+test('assignment feed accepts only Teams and LMS sources', () => {
+  assert.equal(isExternalAcademicAssignment({ source: 'Teams' }), true);
+  assert.equal(isExternalAcademicAssignment({ source: 'VIT LMS' }), true);
+  assert.equal(isExternalAcademicAssignment({ source: 'Teams + LMS' }), true);
+  assert.equal(isExternalAcademicAssignment({ source: 'VTOP Portal' }), false);
+  assert.equal(isExternalAcademicAssignment({ source: 'Canvas' }), false);
+  assert.equal(isLmsAssignment({ id: 'lms-123' }), true);
+});
 
 describe('Teams Assignment Status Verification', () => {
   test('identifies Microsoft Teams assignments accurately', () => {

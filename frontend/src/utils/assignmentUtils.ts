@@ -50,6 +50,19 @@ export const isTeamsAssignment = (a: Assignment | any): boolean => {
   return false;
 };
 
+/** Checks whether an assignment belongs to one of the two connected coursework sources. */
+export const isLmsAssignment = (a: Assignment | any): boolean => {
+  if (!a) return false;
+  const sources = [a.source, a.platformName, ...(Array.isArray(a.sourceList) ? a.sourceList : [])]
+    .filter(Boolean)
+    .map((source) => String(source).toUpperCase());
+  if (sources.some((source) => source.includes('LMS') || source.includes('MOODLE'))) return true;
+  return typeof a.id === 'string' && (a.id.startsWith('lms-') || a.id.includes('-lms-'));
+};
+
+export const isExternalAcademicAssignment = (a: Assignment | any): boolean =>
+  isTeamsAssignment(a) || isLmsAssignment(a);
+
 /**
  * Robustly checks if an assignment is completed / turned in / submitted.
  * Prioritizes:
