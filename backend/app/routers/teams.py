@@ -1677,6 +1677,7 @@ def sync_teams(
         refresh_token = account.get("refreshToken")
         access_token = None
         refresh_http_status: Optional[int] = None
+        cached_teams = [a for a in (store.get("assignments") or []) if a.get("source") == "Teams"]
 
         session = get_teams_session()
         assignments_token = None
@@ -1720,26 +1721,38 @@ def sync_teams(
             except Exception as exc:
                 logger.warning("Assignments token refresh error: %s", exc)
 
-        if not refresh_token or not access_token:
+        if refresh_http_status == 400:
             now_iso = datetime.now(timezone.utc).isoformat()
-            is_expired = refresh_http_status == 400
             account["lastSyncAttempt"] = now_iso
-            account["lastError"] = "Microsoft session expired" if is_expired else "Microsoft token refresh failed"
+            account["lastError"] = "Microsoft session expired"
             account["syncStatus"] = "FAILED"
-            account["status"] = "expired" if is_expired else "stale"
-            account["connected"] = not is_expired
-            store["teamsConnected"] = not is_expired
+            account["status"] = "expired"
+            account["connected"] = False
+            store["teamsConnected"] = False
             store["teamsAccount"] = account
             save_store(store, reg)
-            if is_expired:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Microsoft Teams session has expired. Reconnect Teams to fetch current assignments.",
-                )
             raise HTTPException(
-                status_code=502,
-                detail="Microsoft Teams token refresh failed. Please retry or reconnect Teams.",
+                status_code=401,
+                detail="Microsoft Teams session has expired. Reconnect Teams to fetch current assignments.",
             )
+
+        if not refresh_token or not access_token:
+            if cached_teams:
+                logger.warning("Microsoft Teams live refresh unavailable; preserving verified cached assignments")
+            else:
+                now_iso = datetime.now(timezone.utc).isoformat()
+                account["lastSyncAttempt"] = now_iso
+                account["lastError"] = "Microsoft token refresh failed"
+                account["syncStatus"] = "FAILED"
+                account["status"] = "stale"
+                account["connected"] = True
+                store["teamsConnected"] = True
+                store["teamsAccount"] = account
+                save_store(store, reg)
+                raise HTTPException(
+                    status_code=502,
+                    detail="Microsoft Teams token refresh failed. Please retry or reconnect Teams.",
+                )
 
         vtop_courses = list(store.get("courses") or [])
         user_info, teams_assignments, matched_subjects, course_matches = fetch_microsoft_teams_coursework(
@@ -1805,6 +1818,10 @@ def sync_teams(
         account["recordsFetched"] = len(teams_assignments)
         account["status"] = "stale" if is_stale_fallback else "connected"
         account["syncStatus"] = "STALE" if is_stale_fallback else "SUCCESS"
+        if is_stale_fallback:
+            account["lastError"] = "Live assignment fetch returned no records; showing verified cached assignments."
+        else:
+            account.pop("lastError", None)
         store["teamsAccount"] = account
 
         save_store(store, reg)
