@@ -130,10 +130,9 @@ def test_parse_calendar_html():
     assert len(day13["events"]) >= 1
     assert day13["events"][0]["type"] == "Festival"
 
-    # Day 14: Day had no explicit event in HTML, but is Wednesday -> backfilled with Instructional Day!
+    # Missing VTOP events must remain unknown, even on weekdays.
     day14 = next(d for d in parsed["days"] if d["date"] == 14)
-    assert len(day14["events"]) >= 1
-    assert day14["events"][0]["type"] == "Instructional Day"
+    assert day14["events"] == []
 
 
 def test_get_fallback_calendar():
@@ -145,21 +144,68 @@ def test_get_fallback_calendar():
         assert len(cal["days"]) >= 28
 
 
-def test_calendar_api_endpoints():
-    client = TestClient(app)
+@pytest.mark.parametrize("post", [False, True])
+def test_calendar_routes_use_selected_semester_and_ignore_unverified_cache(post):
+    from app.routers import academics
+    store = {"student": {"semesterId": "CH20242501"},
+             "selectedSemester": {"id": "CH20262701"},
+             "calendar": {"semesterId": "CH20262701", "calendars": [{"month": "WRONG"}]}}
+    with patch.object(academics, "resolve_student_reg", return_value="TEST"), \
+         patch.object(academics, "load_store", return_value=store):
+        kwargs = dict(x_session_id=None, x_reg_no=None, sessionId=None, regNo=None, authorization=None)
+        result = (academics.post_calendar_route(academics.CalendarPostBody(), **kwargs) if post
+                  else academics.get_calendar(semesterId=None, type="ALL", **kwargs))
+    assert result["semesterId"] == "CH20262701"
+    assert result["source"] == "unavailable"
+    assert result["calendars"][0]["month"] == "JULY 2026"
+    assert all(not day["events"] for month in result["calendars"] for day in month["days"])
 
-    # 1. GET /api/calendar
-    res = client.get("/api/calendar?semesterId=CH20262701")
-    assert res.status_code == 200
-    data = res.json()
-    assert "calendars" in data
-    assert len(data["calendars"]) > 0
 
-    # 2. POST /api/calendar
-    post_res = client.post("/api/calendar", json={
-        "semesterId": "CH20262701",
-        "type": "ALL"
-    })
-    assert post_res.status_code == 200
-    post_data = post_res.json()
-    assert "calendars" in post_data
+def test_login_page_is_not_a_calendar():
+    session = MagicMock()
+    session.authorized_id = "TEST"
+    session.post_calendar.return_value = '<h4>Login</h4><table><tr><td>Calendar menu</td></tr></table>'
+    result = fetch_vtop_academic_calendar(session, "CH20262701")
+    assert result["source"] == "unavailable"
+    assert all(not day["events"] for month in result["calendars"] for day in month["days"])
+
+
+def test_live_calendar_reports_failed_months():
+    session = MagicMock()
+    session.authorized_id = "TEST"
+    session.post_calendar.side_effect = lambda sem, date, group: SAMPLE_CALENDAR_HTML if "OCT" in date else '<h4>Login</h4>'
+    result = fetch_vtop_academic_calendar(session, "CH20262701")
+    assert result["source"] == "vtop"
+    assert len(result["missingMonths"]) == 5
+    assert result["classGroupId"] == "ALL"
+    assert result["syncedAt"]
+    assert result["calendars"][0]["days"][0]["events"] == []
+
+
+@pytest.mark.parametrize("post", [False, True])
+@pytest.mark.parametrize("requested_group, expected_source", [("ALL", "cached"), ("ALL03", "unavailable")])
+def test_cached_calendar_must_match_cohort(post, requested_group, expected_source):
+    from app.routers import academics
+    store = {"student": {"semesterId": "CH20262701"}, "calendar": {
+        "semesterId": "CH20262701", "source": "vtop", "classGroupId": "ALL",
+        "calendars": [{"month": "OCTOBER 2026", "days": []}]}}
+    with patch.object(academics, "resolve_student_reg", return_value="TEST"), \
+         patch.object(academics, "load_store", return_value=store):
+        kwargs = dict(x_session_id=None, x_reg_no=None, sessionId=None, regNo=None, authorization=None)
+        result = (academics.post_calendar_route(academics.CalendarPostBody(type=requested_group), **kwargs) if post
+                  else academics.get_calendar(semesterId=None, type=requested_group, **kwargs))
+    assert result["source"] == expected_source
+    assert store["calendar"]["source"] == "vtop"
+
+
+def test_vtop_wrong_month_response_is_rejected():
+    session = MagicMock()
+    session.authorized_id = "TEST"
+    session.post_calendar.return_value = SAMPLE_CALENDAR_HTML
+    result = fetch_vtop_academic_calendar(session, "CH20262701")
+    assert len(result["missingMonths"]) == 5
+    assert result["calendars"][0]["days"][0]["events"] == []
+
+
+def test_heading_without_year_uses_requested_year():
+    assert _derive_month_year("JANUARY", "01-JAN-2025") == ("JANUARY 2025", 2025, 1)

@@ -71,7 +71,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
+    if (!email.trim() || !password) {
       setError('Please enter both your student email and password.');
       return;
     }
@@ -81,7 +81,7 @@ export const TeamsLoginModal: React.FC<TeamsLoginModalProps> = ({
     setSuccessMsg(null);
 
     try {
-      const res = await CampusAPI.loginTeams(email.trim(), password.trim());
+      const res = await CampusAPI.loginTeams(email.trim(), password);
 
       if (!res.success) {
         throw new Error(res.message || 'Failed to connect to Microsoft Teams.');

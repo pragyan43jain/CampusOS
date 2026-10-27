@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 
 from app import storage
 from app.main import app
+from app.auth_crypto import generate_signed_session_token
 from app.routers.teams import (
     match_team_to_vtop_course,
     fetch_assignments_for_matched_team,
@@ -717,7 +718,7 @@ class TestTeamsSubmissionStatus:
         test_file = tmp_path / "store_24BLC1100.json"
         test_file.write_text(json.dumps({
             "storeVersion": 1,
-            "student": {"regNo": "24BLC1100", "name": "PRAGYAN JAIN", "email": "pragyan43jain@gmail.com"},
+            "student": {"regNo": "24BLC1100", "name": "PRAGYAN JAIN", "email": "pragyan.jain2024@vitstudent.ac.in"},
             "courses": [],
             "assignments": [],
         }))
@@ -754,6 +755,7 @@ class TestTeamsSubmissionStatus:
                     res = client.post(
                         "/api/teams/login",
                         json={"email": "new.student2024@vitstudent.ac.in", "password": "ValidPassword123!", "regNo": "24BLC9999"},
+                        headers={"Authorization": "Bearer " + generate_signed_session_token("24BLC9999")},
                     )
                     assert res.status_code == 200, res.text
                     data = res.json()

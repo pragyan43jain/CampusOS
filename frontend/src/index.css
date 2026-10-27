@@ -1734,9 +1734,13 @@ a {
 }
 
 @media (max-width: 767px) {
-  .metrics-stat-grid,
+  .metrics-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
   .metrics-stat-grid.metrics-stat-grid-4 {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 }
 
@@ -2173,6 +2177,7 @@ a {
   font-size: 0.88rem;
   font-family: 'Geist', sans-serif;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
   border: 1px solid transparent;
   background: transparent;
@@ -2484,7 +2489,7 @@ body.modal-open .modal-content-glass {
    ========================================================================== */
 
 /* Desktop defaults */
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .mobile-bottom-nav {
     display: none !important;
   }
@@ -2493,8 +2498,8 @@ body.modal-open .modal-content-glass {
   }
 }
 
-/* Mobile & Touch App Experience */
-@media (max-width: 767px) {
+/* Mobile & Tablet (< 1024px) Touch App Experience */
+@media (max-width: 1023px) {
   .app-sidebar,
   .landing-nav-links {
     display: none !important;
@@ -2564,19 +2569,24 @@ body.modal-open .modal-content-glass {
     gap: 16px;
   }
 
-  /* Metric cards single column stack on phones */
+  /* Metric cards adapt on phones (3-col micro-tiles or 2x2 grid) */
   .metrics-stat-grid {
-    grid-template-columns: 1fr !important;
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .metrics-stat-grid.metrics-stat-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
   }
 
   .stat-card {
-    padding: 16px 18px;
-    min-height: 120px;
+    padding: 12px 10px;
+    min-height: 84px;
   }
 
   .stat-card-value {
-    font-size: 1.75rem;
+    font-size: 1.35rem;
   }
 
   .stat-card-label {

@@ -287,15 +287,6 @@ def get_receipts(
     )
     store = load_store(reg)
     receipts = store.get("receipts") or store.get("fees") or []
-    if not receipts and reg:
-        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
-        if os.path.exists(seed_path):
-            try:
-                with open(seed_path, "r", encoding="utf-8") as f:
-                    sdata = json.load(f)
-                    receipts = sdata.get("receipts") or sdata.get("fees") or []
-            except Exception:
-                pass
     return receipts
 
 
@@ -494,16 +485,9 @@ def get_calendar(
     student = store.get("student") or {}
     selected_sem = store.get("selectedSemester") or {}
     sem_id = semesterId or selected_sem.get("id") or student.get("semesterId")
-    if not sem_id and student.get("semester"):
-        import re
-        sem_str = str(student.get("semester"))
-        yr_m = re.search(r"20(\d\d)", sem_str)
-        yr = yr_m.group(1) if yr_m else "26"
-        next_yr = f"{int(yr) + 1:02d}"
-        is_winter = "winter" in sem_str.lower()
-        sem_id = f"CH20{yr}{next_yr}{'05' if is_winter else '01'}"
-    if not sem_id:
-        sem_id = "CH20262701"
+    # Preserve the calendar route response before a student has synced. The
+    # fallback is a blank date grid; it must not fabricate classes or exams.
+    sem_id = sem_id or "CH20262701"
 
     student_exams = store.get("examsList") or store.get("exams")
 
@@ -519,7 +503,7 @@ def get_calendar(
                 reg_no=reg or handle.reg_no,
                 class_group_id=type or "ALL",
             )
-            if live_cal and live_cal.get("calendars"):
+            if live_cal and live_cal.get("calendars") and live_cal.get("source") == "vtop":
                 live_cal = merge_student_exams_into_calendar(live_cal, student_exams)
                 store["calendar"] = live_cal
                 save_store(store, reg)
@@ -530,13 +514,12 @@ def get_calendar(
     # 2. Check persisted calendar in store (must match the requested/active semester)
     stored_cal = store.get("calendar")
     if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
-        if stored_cal.get("semesterId") == sem_id:
-            return merge_student_exams_into_calendar(stored_cal, student_exams)
+        if (stored_cal.get("semesterId") == sem_id and stored_cal.get("source") == "vtop"
+                and stored_cal.get("classGroupId") == (type or "ALL")):
+            return {**merge_student_exams_into_calendar(stored_cal, student_exams), "source": "cached"}
 
     # 3. Fallback to authentic academic calendar for this exact semester and year
     fallback_cal = get_fallback_calendar(sem_id, student_exams=student_exams)
-    store["calendar"] = fallback_cal
-    save_store(store, reg)
     return fallback_cal
 
 
@@ -571,7 +554,10 @@ def post_calendar_route(
 
     store = load_store(reg)
     student = store.get("student") or {}
-    sem_id = body.semesterId or student.get("semesterId") or "CH20242501"
+    selected_sem = store.get("selectedSemester") or {}
+    sem_id = body.semesterId or selected_sem.get("id") or student.get("semesterId")
+    if not sem_id:
+        raise HTTPException(status_code=409, detail="Sync VTOP and select your current semester first")
     student_exams = store.get("examsList") or store.get("exams")
 
     # 1. If explicit credentials provided (UniCC schema)
@@ -593,7 +579,7 @@ def post_calendar_route(
                 csrf_token=body.csrf,
                 class_group_id=body.type or "ALL",
             )
-            if live_cal and live_cal.get("calendars"):
+            if live_cal and live_cal.get("calendars") and live_cal.get("source") == "vtop":
                 live_cal = merge_student_exams_into_calendar(live_cal, student_exams)
                 store["calendar"] = live_cal
                 save_store(store, reg)
@@ -613,7 +599,7 @@ def post_calendar_route(
                 reg_no=reg or handle.reg_no,
                 class_group_id=body.type or "ALL",
             )
-            if live_cal and live_cal.get("calendars"):
+            if live_cal and live_cal.get("calendars") and live_cal.get("source") == "vtop":
                 live_cal = merge_student_exams_into_calendar(live_cal, student_exams)
                 store["calendar"] = live_cal
                 save_store(store, reg)
@@ -624,12 +610,11 @@ def post_calendar_route(
     # 3. Check stored or fallback
     stored_cal = store.get("calendar")
     if stored_cal and isinstance(stored_cal, dict) and stored_cal.get("calendars"):
-        if not body.semesterId or stored_cal.get("semesterId") == sem_id:
-            return merge_student_exams_into_calendar(stored_cal, student_exams)
+        if (stored_cal.get("semesterId") == sem_id and stored_cal.get("source") == "vtop"
+                and stored_cal.get("classGroupId") == (body.type or "ALL")):
+            return {**merge_student_exams_into_calendar(stored_cal, student_exams), "source": "cached"}
 
     fallback_cal = get_fallback_calendar(sem_id, student_exams=student_exams)
-    store["calendar"] = fallback_cal
-    save_store(store, reg)
     return fallback_cal
 
 
@@ -995,15 +980,6 @@ def get_fees(
     )
     store = load_store(reg)
     fees = store.get("fees") or store.get("receipts") or []
-    if not fees and reg:
-        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
-        if os.path.exists(seed_path):
-            try:
-                with open(seed_path, "r", encoding="utf-8") as f:
-                    sdata = json.load(f)
-                    fees = sdata.get("fees") or sdata.get("receipts") or []
-            except Exception:
-                pass
     return fees
 
 

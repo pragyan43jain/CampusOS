@@ -20,6 +20,8 @@ import {
   Clock,
   ChevronDown,
   FileText,
+  Smartphone,
+  Download,
 } from 'lucide-react';
 import { AcademicsSubTab } from '../views/AcademicsView';
 import { StudentProfile, ODResponse, Attendance } from '../types';
@@ -47,6 +49,7 @@ interface SidebarProps {
   onOpenLMS?: () => void;
   onOpenTeams?: () => void;
   onOpenOD?: () => void;
+  onOpenMobileDownload?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -71,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenLMS,
   onOpenTeams,
   onOpenOD,
+  onOpenMobileDownload,
   isCollapsed: externalIsCollapsed,
   onToggleCollapse: externalToggleCollapse,
 }) => {
@@ -522,6 +526,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {!isCollapsed && <span>Readiness Status</span>}
                 </button>
               )}
+
+              {/* Download Mobile App Navigation Item */}
+              {onOpenMobileDownload && (
+                <button
+                  type="button"
+                  onClick={onOpenMobileDownload}
+                  title={isCollapsed ? 'Download Mobile App (Android APK & PWA)' : undefined}
+                  className={`w-full flex items-center ${
+                    isCollapsed ? 'justify-center px-0' : 'justify-between px-2.5'
+                  } py-2 transition-colors font-label-md text-label-md rounded text-left text-on-surface-variant hover:bg-surface-container hover:text-on-surface`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Smartphone size={18} className="shrink-0 text-primary" />
+                    {!isCollapsed && <span className="font-semibold text-on-surface">Download App</span>}
+                  </div>
+                  {!isCollapsed && (
+                    <span className="font-label-sm text-[10px] font-bold text-secondary bg-secondary/15 px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                      APK
+                    </span>
+                  )}
+                </button>
+              )}
             </nav>
           </div>
         </div>
@@ -529,6 +556,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer Block */}
       <div className="p-2 border-t border-outline-variant/20 bg-surface-container-lowest shrink-0 space-y-2">
+        {/* Mobile App Download Card */}
+        {!isCollapsed ? (
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/10 via-surface-container to-surface-container-high border border-primary/20 shadow-sm space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                  <Smartphone size={16} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[12px] font-bold text-on-surface flex items-center gap-1.5 truncate">
+                    <span>CampusOS App</span>
+                    <span className="text-[9px] font-bold text-secondary bg-secondary/20 px-1 py-0.2 rounded shrink-0">
+                      APK
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-outline truncate">Android APK • latest build</div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <a
+                href="https://github.com/pragyan43jain/CampusOS/releases/download/mobile-latest/CampusOS.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-1.5 px-2 rounded-lg bg-primary hover:bg-primary-hover text-on-primary text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                title="Download latest Android APK"
+              >
+                <Download size={13} />
+                <span>Download APK</span>
+              </a>
+              {onOpenMobileDownload && (
+                <button
+                  type="button"
+                  onClick={onOpenMobileDownload}
+                  className="px-2 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface border border-outline-variant/30 text-[11px] font-medium transition-colors"
+                  title="View Installation Guide & PWA"
+                >
+                  Guide
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <a
+              href="https://github.com/pragyan43jain/CampusOS/releases/download/mobile-latest/CampusOS.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Download the latest CampusOS Android APK"
+              className="w-8 h-8 rounded-lg bg-primary/15 hover:bg-primary/25 text-primary flex items-center justify-center transition-colors"
+            >
+              <Download size={15} />
+            </a>
+          </div>
+        )}
+
         {/* VTOP Direct Sync Pod */}
         {!isCollapsed ? (
           <div className="p-2 rounded bg-surface-container-low border border-outline-variant/30 flex items-center justify-between">

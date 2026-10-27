@@ -15,6 +15,7 @@ import logging
 import os
 import secrets
 import time
+import tempfile
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("campusos.auth_crypto")
@@ -43,12 +44,9 @@ def get_auth_secret() -> str:
         _CACHED_SECRET = env_secret.strip()
         return _CACHED_SECRET
 
-    # On serverless platforms (Vercel, AWS Lambda) without an env secret, use a consistent deterministic key
-    # so all stateless Lambda containers verify each other's tokens without mismatching ephemeral /tmp keys.
+    # Stateless workers must share an operator-configured, private signing key.
     if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-        fallback = hashlib.sha256(b"CampusOS_Persistent_Serverless_Secret_Key_2026").hexdigest()
-        _CACHED_SECRET = fallback
-        return _CACHED_SECRET
+        raise RuntimeError("Set CAMPUSOS_SESSION_SECRET for serverless authentication")
 
     from app.storage import DATA_DIR
     candidate_paths = [
@@ -67,19 +65,26 @@ def get_auth_secret() -> str:
             parent = os.path.dirname(secret_file)
             if parent:
                 os.makedirs(parent, exist_ok=True)
-            new_secret = secrets.token_hex(32)
-            with open(secret_file, "w", encoding="utf-8") as f:
-                f.write(new_secret)
-            _CACHED_SECRET = new_secret
-            return _CACHED_SECRET
+            # Publish a complete key atomically so concurrent workers agree.
+            with tempfile.NamedTemporaryFile(mode="w", dir=parent, delete=False) as f:
+                temporary_path = f.name
+                f.write(secrets.token_hex(32))
+            try:
+                try:
+                    os.link(temporary_path, secret_file)
+                except FileExistsError:
+                    pass  # Another worker published the shared key first.
+                with open(secret_file, "r", encoding="utf-8") as f:
+                    _CACHED_SECRET = f.read().strip()
+                if _CACHED_SECRET:
+                    return _CACHED_SECRET
+            finally:
+                os.unlink(temporary_path)
         except Exception as exc:
             logger.debug("[AuthCrypto] Could not use %s: %s", secret_file, exc)
             continue
 
-    # Deterministic fallback when filesystem is completely read-only and no env var set
-    fallback = hashlib.sha256(b"CampusOS_Persistent_Serverless_Secret_Key_2026").hexdigest()
-    _CACHED_SECRET = fallback
-    return _CACHED_SECRET
+    raise RuntimeError("Cannot persist a session signing key; set CAMPUSOS_SESSION_SECRET")
 
 
 def generate_signed_session_token(
@@ -162,8 +167,10 @@ def verify_session_token(token: Optional[str]) -> Optional[str]:
             logger.warning("[AuthCrypto] Failed to parse token payload: %s", exc)
             return None
 
+        if not isinstance(payload, dict):
+            return None
         exp = payload.get("exp")
-        if exp and isinstance(exp, (int, float)) and time.time() > exp:
+        if isinstance(exp, bool) or not isinstance(exp, (int, float)) or not (time.time() < exp < float("inf")):
             logger.info("[AuthCrypto] Token expired (exp=%s)", exp)
             return None
 
@@ -210,3 +217,11 @@ def extract_token_from_request(
         return session_id.strip()
 
     return None
+
+
+def integration_session_token(reg_no: str, authorization: Optional[str], x_session_id: Optional[str]) -> str:
+    """Keep the live VTOP state when linking another integration to its session."""
+    token = extract_token_from_request(authorization=authorization, x_session_id=x_session_id)
+    if token and verify_session_token(token) == reg_no:
+        return token
+    return generate_signed_session_token(reg_no)

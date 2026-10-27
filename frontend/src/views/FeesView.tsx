@@ -313,57 +313,117 @@ export const FeesView: React.FC<FeesViewProps> = ({ fees: initialFees, onRefresh
             <p>No fee records matching "{searchQuery}"</p>
           </div>
         ) : (
-          <div className="table-responsive-wrapper">
-            <table className="academic-data-table table-fees">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: 200 }}>Fee Title</th>
-                  <th style={{ minWidth: 140 }}>Category / Semester</th>
-                  <th style={{ minWidth: 120 }}>Total Amount</th>
-                  <th style={{ minWidth: 120 }}>Paid Amount</th>
-                  <th style={{ minWidth: 120 }}>Pending Due</th>
-                  <th style={{ minWidth: 130 }}>Receipt Number</th>
-                  <th style={{ minWidth: 110 }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFees.map((fee, idx) => {
-                  const isPaid = fee.status === 'Paid' || (fee.pendingAmount === 0 && (fee.paidAmount || 0) > 0);
-                  const paidVal = fee.paidAmount ?? (isPaid ? fee.amount || fee.totalAmount || 0 : 0);
-                  const pendVal = fee.pendingAmount ?? (isPaid ? 0 : fee.amount || fee.totalAmount || 0);
-                  const totalVal = fee.totalAmount ?? fee.amount ?? paidVal + pendVal;
+          <>
+            {/* Mobile Cards View (< md) */}
+            <div className="md:hidden flex flex-col gap-3">
+              {filteredFees.map((fee, idx) => {
+                const isPaid = fee.status === 'Paid' || (fee.pendingAmount === 0 && (fee.paidAmount || 0) > 0);
+                const paidVal = fee.paidAmount ?? (isPaid ? fee.amount || fee.totalAmount || 0 : 0);
+                const pendVal = fee.pendingAmount ?? (isPaid ? 0 : fee.amount || fee.totalAmount || 0);
+                const totalVal = fee.totalAmount ?? fee.amount ?? paidVal + pendVal;
 
-                  return (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {fee.title || 'Semester Tuition Fee'}
-                      </td>
-                      <td style={{ color: 'var(--text-secondary)' }}>
-                        {fee.category || fee.semester || 'Tuition / Academic Fee'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {showFeeDetails ? `₹${totalVal.toLocaleString('en-IN')}` : '₹ ••••••'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--success-emerald)', fontWeight: 700 }}>
-                        {showFeeDetails ? `₹${paidVal.toLocaleString('en-IN')}` : '₹ ••••••'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', color: pendVal > 0 ? 'var(--warning-amber)' : 'var(--text-muted)' }}>
-                        {showFeeDetails ? `₹${pendVal.toLocaleString('en-IN')}` : '₹ ••••••'}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                        {fee.receiptNumber || 'REC-' + (1000 + idx)}
-                      </td>
-                      <td>
-                        <span className={`status-badge ${isPaid ? 'safe' : 'warning'}`}>
-                          {isPaid ? 'Paid in Full ✓' : 'Payment Due'}
+                return (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-xl border border-outline-variant/20 bg-surface-container-low flex flex-col gap-3 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-on-surface text-sm leading-snug">
+                          {fee.title || 'Semester Tuition Fee'}
+                        </h4>
+                        <span className="text-xs text-on-surface-variant block mt-0.5">
+                          {fee.category || fee.semester || 'Tuition / Academic Fee'}
                         </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                      <span className={`status-badge shrink-0 ${isPaid ? 'safe' : 'warning'}`}>
+                        {isPaid ? 'Paid in Full ✓' : 'Payment Due'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/15 text-center">
+                      <div>
+                        <span className="text-[10px] text-outline uppercase font-semibold block">Total</span>
+                        <span className="font-mono text-xs font-bold text-on-surface block mt-0.5">
+                          {showFeeDetails ? `₹${totalVal.toLocaleString('en-IN')}` : '₹ ••••'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-outline uppercase font-semibold block">Paid</span>
+                        <span className="font-mono text-xs font-bold text-emerald-500 block mt-0.5">
+                          {showFeeDetails ? `₹${paidVal.toLocaleString('en-IN')}` : '₹ ••••'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-outline uppercase font-semibold block">Pending</span>
+                        <span className={`font-mono text-xs font-bold block mt-0.5 ${pendVal > 0 ? 'text-amber-500' : 'text-on-surface-variant'}`}>
+                          {showFeeDetails ? `₹${pendVal.toLocaleString('en-IN')}` : '₹ ••••'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-outline font-mono pt-1 border-t border-outline-variant/10">
+                      <span>Receipt:</span>
+                      <span className="text-primary font-semibold">{fee.receiptNumber || 'REC-' + (1000 + idx)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (>= md) */}
+            <div className="hidden md:block table-responsive-wrapper">
+              <table className="academic-data-table table-fees">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 200 }}>Fee Title</th>
+                    <th style={{ minWidth: 140 }}>Category / Semester</th>
+                    <th style={{ minWidth: 120 }}>Total Amount</th>
+                    <th style={{ minWidth: 120 }}>Paid Amount</th>
+                    <th style={{ minWidth: 120 }}>Pending Due</th>
+                    <th style={{ minWidth: 130 }}>Receipt Number</th>
+                    <th style={{ minWidth: 110 }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFees.map((fee, idx) => {
+                    const isPaid = fee.status === 'Paid' || (fee.pendingAmount === 0 && (fee.paidAmount || 0) > 0);
+                    const paidVal = fee.paidAmount ?? (isPaid ? fee.amount || fee.totalAmount || 0 : 0);
+                    const pendVal = fee.pendingAmount ?? (isPaid ? 0 : fee.amount || fee.totalAmount || 0);
+                    const totalVal = fee.totalAmount ?? fee.amount ?? paidVal + pendVal;
+
+                    return (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {fee.title || 'Semester Tuition Fee'}
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>
+                          {fee.category || fee.semester || 'Tuition / Academic Fee'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                          {showFeeDetails ? `₹${totalVal.toLocaleString('en-IN')}` : '₹ ••••••'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--success-emerald)', fontWeight: 700 }}>
+                          {showFeeDetails ? `₹${paidVal.toLocaleString('en-IN')}` : '₹ ••••••'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: pendVal > 0 ? 'var(--warning-amber)' : 'var(--text-muted)' }}>
+                          {showFeeDetails ? `₹${pendVal.toLocaleString('en-IN')}` : '₹ ••••••'}
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                          {fee.receiptNumber || 'REC-' + (1000 + idx)}
+                        </td>
+                        <td>
+                          <span className={`status-badge ${isPaid ? 'safe' : 'warning'}`}>
+                            {isPaid ? 'Paid in Full ✓' : 'Payment Due'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

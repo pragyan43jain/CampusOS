@@ -55,6 +55,10 @@ def _derive_month_year(heading_text: str, cal_date: Optional[str] = None) -> Tup
     clean_heading = heading_text.strip() if heading_text else ""
     m_name = ""
     year = now.year
+    if cal_date:
+        requested_year = re.search(r"-(\d{4})$", cal_date)
+        if requested_year:
+            year = int(requested_year.group(1))
 
     if clean_heading:
         m = re.search(r"([a-zA-Z]+)\s*(\d{4})?", clean_heading)
@@ -97,8 +101,9 @@ def parse_calendar_html(html: str, cal_date: Optional[str] = None) -> Dict[str, 
         return _build_empty_month_calendar(month_label, year, month_idx)
 
     soup = BeautifulSoup(html, "html.parser")
-    h4 = soup.find(["h4", "h3", "h2", "center", "b"])
-    raw_heading = h4.get_text().strip() if h4 else ""
+    headings = soup.find_all(["h4", "h3", "h2", "center", "b"])
+    raw_heading = next((h.get_text().strip() for h in headings
+                        if re.match(r"^(?:" + "|".join(MONTH_MAP) + r")\b", h.get_text().strip(), re.I)), "")
     month_label, year, month_idx = _derive_month_year(raw_heading, cal_date)
 
     days_in_month = cal_mod.monthrange(year, month_idx)[1]
@@ -187,31 +192,7 @@ def parse_calendar_html(html: str, cal_date: Optional[str] = None) -> Dict[str, 
 
     days_list: List[Dict[str, Any]] = []
     for d in range(1, days_in_month + 1):
-        weekday = datetime.date(year, month_idx, d).weekday()  # 0=Mon, 5=Sat, 6=Sun
         day_events = days_by_num.get(d, [])
-
-        if not day_events:
-            if weekday == 6:  # Sunday
-                day_events = [{
-                    "text": "Sunday (Holiday)",
-                    "type": "Holiday",
-                    "color": "#ef4444",
-                    "category": "Sunday",
-                }]
-            elif weekday == 5:  # Saturday
-                day_events = [{
-                    "text": "Saturday (Weekend)",
-                    "type": "Other",
-                    "color": "#94a3b8",
-                    "category": "Weekend",
-                }]
-            else:  # Monday to Friday
-                day_events = [{
-                    "text": "Instructional Day",
-                    "type": "Instructional Day",
-                    "color": "#10b981",
-                    "category": "Instructional Day",
-                }]
 
         days_list.append({
             "date": d,
@@ -219,7 +200,7 @@ def parse_calendar_html(html: str, cal_date: Optional[str] = None) -> Dict[str, 
         })
 
     return {
-        "month": raw_heading or month_label,
+        "month": month_label,
         "year": year,
         "days": days_list,
     }
@@ -229,13 +210,7 @@ def _build_empty_month_calendar(month_label: str, year: int, month_idx: int) -> 
     days_in_month = cal_mod.monthrange(year, month_idx)[1]
     days_list: List[Dict[str, Any]] = []
     for d in range(1, days_in_month + 1):
-        weekday = datetime.date(year, month_idx, d).weekday()
-        if weekday == 6:
-            ev = [{"text": "Sunday (Holiday)", "type": "Holiday", "color": "#ef4444", "category": "Sunday"}]
-        elif weekday == 5:
-            ev = [{"text": "Saturday (Weekend)", "type": "Other", "color": "#94a3b8", "category": "Weekend"}]
-        else:
-            ev = [{"text": "Instructional Day", "type": "Instructional Day", "color": "#10b981", "category": "Instructional Day"}]
+        ev = []  # No academic schedule is known until VTOP supplies it.
         days_list.append({"date": d, "events": ev})
 
     return {
@@ -356,9 +331,10 @@ def fetch_vtop_academic_calendar(
                     )
                     html = resp.text
 
-            if html and ("calendar-table" in html or "calendar" in html.lower() or "<table" in html):
+            if html and BeautifulSoup(html, "html.parser").select_one("table.calendar-table") is not None:
                 parsed = parse_calendar_html(html, cal_date=m_date)
-                if parsed and parsed.get("days"):
+                expected_label, _, _ = _derive_month_year("", m_date)
+                if parsed and parsed.get("days") and parsed["month"] == expected_label:
                     return parsed
         except Exception as exc:
             logger.warning("[VTOP Calendar] Month %s fetch error: %s", m_date, exc)
@@ -385,7 +361,7 @@ def fetch_vtop_academic_calendar(
     fb_by_month = {m.get("month", "").upper().split()[0]: m for m in fb_calendars if m.get("month")}
 
     if not all_calendars:
-        logger.info("[VTOP Calendar] Using authentic semester calendar dataset for %s", sem_id)
+        logger.info("[VTOP Calendar] Live calendar unavailable for %s", sem_id)
         return fallback_data
 
     # Use authentic live data directly without overwriting with synthetic fallback
@@ -403,10 +379,14 @@ def fetch_vtop_academic_calendar(
         else:
             complete_calendars.append(_build_empty_month_calendar(m_label, yr, m_idx))
 
-    logger.info("[VTOP Calendar] Successfully verified %d months of academic calendar for %s", len(complete_calendars), sem_id)
+    logger.info("[VTOP Calendar] Fetched %d months of academic calendar for %s", len(month_results), sem_id)
     return {
         "semesterId": sem_id,
         "calendars": complete_calendars,
+        "source": "vtop",
+        "classGroupId": class_group_id,
+        "syncedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "missingMonths": [m for m in months if m not in month_results],
     }
 
 
@@ -750,42 +730,17 @@ def merge_student_exams_into_calendar(calendar_dict: Dict[str, Any], student_exa
 
 
 def get_fallback_calendar(semester_id: Optional[str] = None, student_exams: Any = None) -> Dict[str, Any]:
-    """
-    Load cached academic calendar dataset and ensure all days have explicit entries.
-    Falls back to authentic VIT calendar generator if dataset is missing or invalid.
-    Optionally overlays student's personal exam schedule if provided.
+    """Return a date grid without inventing holidays, class days, or exam dates.
+
+    Verified cached calendars are served by the routes from the student's store.
+    The bundled calendar was generated from fixed dates and is not a live source.
     """
     sem_id = semester_id or "CH20262701"
-    raw_calendars = []
-
-    if os.path.exists(CALENDAR_JSON_PATH):
-        try:
-            with open(CALENDAR_JSON_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict) and data.get("semesterId") == sem_id:
-                    raw_cals = data.get("calendars") or []
-                    if raw_cals and len(raw_cals) > 0:
-                        raw_calendars = raw_cals
-        except Exception as exc:
-            logger.warning("[Calendar] Fallback file read error: %s", exc)
-
-    if not raw_calendars:
-        generated = build_authentic_semester_calendar(sem_id)
-        if sem_id == "CH20262701":
-            try:
-                os.makedirs(os.path.dirname(CALENDAR_JSON_PATH), exist_ok=True)
-                with open(CALENDAR_JSON_PATH, "w", encoding="utf-8") as f:
-                    json.dump(generated, f, indent=2)
-            except Exception as exc:
-                logger.warning("[Calendar] Could not write authentic calendar to static cache: %s", exc)
-        cal_res = generated
-    else:
-        cal_res = {
-            "semesterId": sem_id,
-            "calendars": raw_calendars,
-        }
-
+    calendars = []
+    for month_date in get_semester_calendar_months(sem_id):
+        label, year, month_idx = _derive_month_year("", month_date)
+        calendars.append(_build_empty_month_calendar(label, year, month_idx))
+    result = {"semesterId": sem_id, "calendars": calendars, "source": "unavailable"}
     if student_exams:
-        cal_res = merge_student_exams_into_calendar(cal_res, student_exams)
-
-    return cal_res
+        result = merge_student_exams_into_calendar(result, student_exams)
+    return result

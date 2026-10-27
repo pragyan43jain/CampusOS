@@ -35,7 +35,7 @@ export const CALENDAR_TYPES: Record<string, string> = {
 export const HOLIDAY_KEYWORDS = [
   "holiday", "pooja", "puja", "ayudha", "diwali", "deepavali", "pongal", "eid", "christmas", "good friday",
   "independence", "republic", "onam", "holi", "ramadan", "ganesh", "maha shivaratri", "vesak",
-  "vacation", "term end", "no instructional", "noinstructional", "vinayakar chathurthi", "gandhi jayanthi",
+  "vacation", "non instructional", "no instructional", "noinstructional", "vinayakar chathurthi", "gandhi jayanthi",
   "gandhi jayanti", "thaipoosam", "telugu", "tamil", "ambedkar", "sunday", "winter break"
 ];
 
@@ -82,6 +82,8 @@ export function isSemiHolidayEvent(e: any): boolean {
 }
 
 export interface CalendarViewProps {
+  source?: CalendarResponse['source'];
+  missingMonths?: string[];
   calendars?: any;
   initialCalendars?: MonthCalendar[];
   calendarType?: string;
@@ -93,6 +95,8 @@ export interface CalendarViewProps {
 }
 
 export function CalendarView({
+  source,
+  missingMonths,
   calendars,
   initialCalendars,
   calendarType = "ALL",
@@ -107,13 +111,12 @@ export function CalendarView({
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedDay, setSelectedDay] = useState<{ date: number; events: any[] } | null>(null);
 
+  const [fetchedSource, setFetchedSource] = useState<CalendarResponse['source']>();
+  const [fetchedMissingMonths, setFetchedMissingMonths] = useState<string[]>([]);
+
   // Sync props if parent updates them
   useEffect(() => {
-    if (calendars && Array.isArray(calendars) && calendars.length > 0) {
-      setInternalCalendars(calendars);
-    } else if (initialCalendars && Array.isArray(initialCalendars) && initialCalendars.length > 0) {
-      setInternalCalendars(initialCalendars);
-    }
+    setInternalCalendars(calendars ?? initialCalendars ?? null);
   }, [calendars, initialCalendars]);
 
   // Built-in calendar fetcher supporting UniCC VTOP flow
@@ -124,7 +127,9 @@ export function CalendarView({
         await handleCalendarFetch(typeToFetch);
       } else {
         const data: CalendarResponse = await CampusAPI.getCalendar(semesterId || undefined, typeToFetch);
-        if (data && data.calendars && data.calendars.length > 0) {
+        if (data && data.calendars) {
+          setFetchedSource(data.source);
+          setFetchedMissingMonths(data.missingMonths || []);
           setInternalCalendars(data.calendars);
           setCurrentType(typeToFetch);
           if (onCalendarTypeChange) {
@@ -314,6 +319,13 @@ export function CalendarView({
 
   return (
     <div className="flex flex-col gap-4 w-full">
+      <p role="status" className="text-sm text-on-surface-variant text-center">
+        {(source || fetchedSource) === 'vtop'
+          ? ((missingMonths || fetchedMissingMonths).length ? 'Partially synced from VTOP. Refresh to retry missing months.' : 'Synced from VTOP')
+          : (source || fetchedSource) === 'cached'
+            ? 'Saved VTOP calendar. Sign in and refresh for the latest dates.'
+            : 'VTOP calendar unavailable. Sign in and refresh to load verified dates.'}
+      </p>
       {/* 1. Header with Calendar Type and Refresh Button (UniCC format) */}
       <h1 className="text-lg font-semibold mb-1 text-center text-gray-800 dark:text-gray-100 flex items-center justify-center gap-3 flex-wrap">
         <span>Academic Calendar ({CALENDAR_TYPES[currentType] || currentType})</span>
@@ -354,19 +366,23 @@ export function CalendarView({
           {activeCalendar.month ?? monthStart.toLocaleString(undefined, { month: "long" })}
         </h2>
 
+        <p className="text-xs text-center text-gray-500 mb-2 sm:hidden flex items-center justify-center gap-1">
+          <span>&larr;</span> Swipe horizontally to browse full calendar <span>&rarr;</span>
+        </p>
+
         <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
-          <div className="w-full min-w-[950px] grid grid-cols-7 text-center border-collapse">
+          <div className="w-full min-w-[640px] sm:min-w-[950px] grid grid-cols-7 text-center border-collapse">
             {weekdays.map((day) => (
               <div
                 key={day}
-                className="font-semibold py-2.5 border-b text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-sm"
+                className="font-semibold py-2 sm:py-2.5 border-b text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-xs sm:text-sm"
               >
                 {day}
               </div>
             ))}
 
             {blanks.map((_, i) => (
-              <div key={`blank-${i}`} className="h-36 bg-gray-50/40 dark:bg-gray-900/10 border-b border-r border-gray-100 dark:border-gray-800" />
+              <div key={`blank-${i}`} className="h-24 sm:h-36 bg-gray-50/40 dark:bg-gray-900/10 border-b border-r border-gray-100 dark:border-gray-800" />
             ))}
 
             {daysInMonth.map((dateObj) => {
@@ -420,10 +436,9 @@ export function CalendarView({
               const isToday = isCurrentMonth && dateObj.getDate() === today.getDate();
               const hasSemiHoliday = events.some(isSemiHolidayEvent);
 
-              const isSunday = dateObj.getDay() === 0;
               let dayType = "regular";
               if (hasSemiHoliday) dayType = "semiholiday";
-              else if (hasHoliday || isSunday) dayType = "holiday";
+              else if (hasHoliday) dayType = "holiday";
               else if (hasInstructional) dayType = "instructional";
               else if (events.length > 0) dayType = "other";
               else dayType = "regular";
@@ -486,22 +501,22 @@ export function CalendarView({
                 <div
                   key={date}
                   onClick={() => setSelectedDay({ date, events })}
-                  className={`relative flex flex-col items-start justify-start p-3 h-40 shadow-sm border-b border-r border-gray-200 dark:border-gray-800 cursor-pointer transition-all ${bgClass} ${
+                  className={`relative flex flex-col items-start justify-start p-1.5 sm:p-3 h-28 sm:h-40 shadow-sm border-b border-r border-gray-200 dark:border-gray-800 cursor-pointer transition-all ${bgClass} ${
                     isToday ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-900" : ""
                   }`}
                 >
                   <div className="w-full flex items-center justify-between">
-                    <div className="text-lg font-bold text-left text-gray-800 dark:text-gray-100">
+                    <div className="text-base sm:text-lg font-bold text-left text-gray-800 dark:text-gray-100">
                       {date}
                     </div>
                     {badgeLabel ? (
-                      <div className={`text-xs font-semibold px-2 py-0.5 rounded ${badgeColorClass}`}>
+                      <div className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 rounded truncate max-w-[80px] sm:max-w-none ${badgeColorClass}`}>
                         {badgeLabel}
                       </div>
                     ) : null}
                   </div>
 
-                  <div className="mt-2 w-full text-left overflow-y-auto max-h-28">
+                  <div className="mt-1 sm:mt-2 w-full text-left overflow-y-auto max-h-16 sm:max-h-28">
                     {displayEvents.length > 0 && (
                       <ul className="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300">
                         {displayEvents.map((e: any, i: number) => {

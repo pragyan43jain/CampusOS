@@ -23,7 +23,7 @@ from urllib3.util.retry import Retry
 
 from app.storage import _is_test_environment, empty_store, load_store, save_store
 from app.routers.auth import resolve_student_reg
-from app.auth_crypto import generate_signed_session_token
+from app.auth_crypto import integration_session_token
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
@@ -600,6 +600,8 @@ def authenticate_lms_session(
             r = s.get(urls["my"], verify=get_vtop_ca_bundle(), allow_redirects=False, timeout=REQUEST_TIMEOUT)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
+                if not soup.select_one(".userbutton, .usermenu, a[href*=\"logout.php\"]") or soup.select_one("input[name=password]"):
+                    raise HTTPException(status_code=401, detail="Unable to verify LMS session. Please sign in again.")
                 user_elem = soup.find(class_=lambda x: x and ("usertext" in x or "userbutton" in x or "username" in x))
                 display_name = user_elem.get_text().strip() if user_elem else "Student"
                 return s, {
@@ -654,7 +656,7 @@ def authenticate_lms_session(
         # Step 2: POST credentials
         post_data = {
             "username": username.strip(),
-            "password": password.strip(),
+            "password": password,
             "logintoken": logintoken,
         }
 
@@ -729,14 +731,7 @@ def authenticate_lms_session(
                 detail="Authentication failed. Could not verify VIT LMS session. Please reconnect and verify credentials.",
             )
 
-        return s, {
-            "username": username,
-            "displayName": username,
-            "authMethod": "credentials",
-            "sessionCookie": moodle_cookie,
-            "cookies": all_cookies,
-            "campus": campus or "chennai",
-        }
+        raise HTTPException(status_code=401, detail="Unable to verify LMS login. Please sign in again.")
 
     except HTTPException:
         raise
@@ -1998,6 +1993,8 @@ def get_lms_status(
         "displayName": account.get("displayName"),
         "portalUrl": LMS_BASE_URL,
         "lastSynced": account.get("lastSynced"),
+        "syncStatus": account.get("syncStatus"),
+        "lastSyncAttempt": account.get("lastSyncAttempt"),
         "totalAssignments": len(lms_assignments),
         "pendingCount": len(pending),
         "submittedCount": len(submitted),
@@ -2005,7 +2002,7 @@ def get_lms_status(
         "matchedCount": account.get("matchedCount") or 0,
         "totalCoursesCount": account.get("totalCoursesCount") or 0,
         "courseMatches": account.get("courseMatches") or [],
-        "status": "connected" if is_connected else (account_status or "disconnected"),
+        "status": account_status or ("connected" if is_connected else "disconnected"),
     }
 
 
@@ -2031,7 +2028,7 @@ def login_and_sync_lms(
         cand_user = None
         if payload.username:
             clean_u = payload.username.strip().split("@")[0].upper()
-            m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", clean_u)
+            m = re.fullmatch(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", clean_u)
             if m:
                 cand_user = m.group(1).upper()
             elif re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", clean_u):
@@ -2046,10 +2043,8 @@ def login_and_sync_lms(
                 x_auth_user=x_auth_user,
                 authorization=authorization,
             )
-            or (find_reg_by_email(payload.username) if payload.username else None)
-            or (payload.regNo.strip().upper() if payload.regNo and payload.regNo.strip() else None)
-            or (x_reg_no.strip().upper() if x_reg_no and x_reg_no.strip() else None)
-            or cand_user
+            or (find_reg_by_email(payload.username) if payload.username and not payload.sessionCookie else None)
+            or (cand_user if not payload.sessionCookie else None)
         )
 
         if not reg and not _is_test_environment():
@@ -2153,7 +2148,7 @@ def login_and_sync_lms(
         return {
             "success": True,
             "message": f"Successfully connected to VIT LMS. Matched {len(matched_subjects)} subjects. {len(assignments)} authentic assignments loaded.",
-            "sessionId": generate_signed_session_token(reg) if reg else None,
+            "sessionId": integration_session_token(reg, authorization, x_session_id) if reg else None,
             "regNo": reg,
             "student": store.get("student"),
             "username": auth_info.get("username"),
@@ -2409,7 +2404,9 @@ def sync_lms(
         store["lmsConnected"] = True
 
         now_iso = datetime.now(timezone.utc).isoformat()
-        account["lastSynced"] = now_iso
+        account["lastSyncAttempt"] = now_iso
+        if not is_stale_fallback:
+            account["lastSynced"] = now_iso
         account["matchedSubjects"] = matched_subjects
         account["matchedCount"] = len(matched_subjects)
         account["totalCoursesCount"] = total_courses
@@ -2431,7 +2428,7 @@ def sync_lms(
             "assignments": all_assignments,
             "matchedSubjects": matched_subjects,
             "matchedCount": len(matched_subjects),
-            "lastSynced": now_iso,
+            "lastSynced": account.get("lastSynced"),
         }
     except HTTPException:
         raise

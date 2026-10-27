@@ -1,16 +1,20 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  GraduationCap,
+  ShieldCheck,
   ClipboardList,
-  BrainCircuit,
+  CalendarDays,
   Menu,
 } from 'lucide-react';
 import { NavView } from './Sidebar';
+import { AcademicsSubTab } from '../views/AcademicsView';
+
+export type MobileNavTabId = 'dashboard' | 'attendance' | 'assignments' | 'timetable';
 
 interface MobileBottomNavProps {
   activeView: NavView;
-  onSelectView: (view: NavView) => void;
+  academicsSubTab?: AcademicsSubTab;
+  onSelectView: (tab: MobileNavTabId | NavView) => void;
   onOpenMore: () => void;
   pendingAssignmentsCount: number;
   criticalAttendanceCount: number;
@@ -18,6 +22,7 @@ interface MobileBottomNavProps {
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeView,
+  academicsSubTab,
   onSelectView,
   onOpenMore,
   pendingAssignmentsCount,
@@ -25,142 +30,93 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const tabs = [
     {
-      id: 'dashboard' as NavView,
+      id: 'dashboard' as const,
       label: 'Dashboard',
       icon: LayoutDashboard,
+      isActive: activeView === 'dashboard',
     },
     {
-      id: 'academics' as NavView,
-      label: 'Academics',
-      icon: GraduationCap,
+      id: 'attendance' as const,
+      label: 'Attendance',
+      icon: ShieldCheck,
+      isActive: activeView === 'academics' && academicsSubTab === 'attendance',
       badge: criticalAttendanceCount > 0 ? { count: criticalAttendanceCount, alert: true } : undefined,
     },
     {
-      id: 'assignments' as NavView,
+      id: 'assignments' as const,
       label: 'Tasks',
       icon: ClipboardList,
+      isActive: activeView === 'assignments',
       badge: pendingAssignmentsCount > 0 ? { count: pendingAssignmentsCount, alert: false } : undefined,
     },
     {
-      id: 'ai-planner' as NavView,
-      label: 'Planner',
-      icon: BrainCircuit,
-      badge: { count: 'AI', alert: false },
+      id: 'timetable' as const,
+      label: 'Timetable',
+      icon: CalendarDays,
+      isActive: activeView === 'academics' && academicsSubTab === 'timetable',
     },
   ];
 
   return (
     <nav
-      className="mobile-bottom-nav"
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant/30 shadow-[0_-2px_16px_rgba(0,0,0,0.35)]"
       style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 'calc(64px + env(safe-area-inset-bottom, 12px))',
-        paddingBottom: 'env(safe-area-inset-bottom, 12px)',
-        backgroundColor: 'var(--surface-header)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        borderTop: '1px solid var(--border-card)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        zIndex: 50,
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.25)',
+        backgroundColor: 'var(--surface-header, var(--surface-primary, #10141c))',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+        height: 'calc(62px + env(safe-area-inset-bottom, 8px))',
       }}
     >
-      {tabs.map((tab) => {
-        const Icon = tab.icon;
-        const isActive = activeView === tab.id;
+      <div className="flex items-center justify-around h-[62px] px-1 max-w-lg mx-auto">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = tab.isActive;
 
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onSelectView(tab.id)}
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              gap: '4px',
-              color: isActive ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              transition: 'all var(--transition-fast)',
-              position: 'relative',
-              padding: '6px 0',
-            }}
-          >
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} />
-              {tab.badge && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '-6px',
-                    right: '-10px',
-                    fontSize: '0.62rem',
-                    fontWeight: 800,
-                    padding: '1px 5px',
-                    borderRadius: '9999px',
-                    backgroundColor: tab.badge.alert ? 'var(--accent-crimson)' : 'var(--accent-cyan)',
-                    color: tab.badge.alert ? '#FFFFFF' : '#000000',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                    fontFamily: 'var(--font-mono)',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {tab.badge.count}
-                </span>
-              )}
-            </div>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: isActive ? 700 : 500,
-                letterSpacing: '-0.1px',
-              }}
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onSelectView(tab.id)}
+              className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-all relative py-1 min-h-[44px] min-w-[44px] ${
+                isActive
+                  ? 'text-primary font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
             >
-              {tab.label}
-            </span>
-            {isActive && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  width: '32px',
-                  height: '2.5px',
-                  backgroundColor: 'var(--accent-cyan)',
-                  borderRadius: '0 0 4px 4px',
-                  boxShadow: '0 0 10px var(--accent-cyan)',
-                }}
-              />
-            )}
-          </button>
-        );
-      })}
+              <div className={`relative flex items-center justify-center px-3.5 py-1 rounded-full transition-all ${
+                isActive ? 'bg-primary/20 text-primary' : ''
+              }`}>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+                {tab.badge && (
+                  <span
+                    className={`absolute -top-1 -right-1 text-[9px] font-bold px-1.5 py-0.2 rounded-full font-mono shadow-sm ${
+                      tab.badge.alert
+                        ? 'bg-error text-on-error'
+                        : 'bg-primary text-on-primary'
+                    }`}
+                  >
+                    {tab.badge.count}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] tracking-tight font-medium leading-none">
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
 
-      {/* More / Menu Button */}
-      <button
-        onClick={onOpenMore}
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          gap: '4px',
-          color: 'var(--text-muted)',
-          transition: 'all var(--transition-fast)',
-          position: 'relative',
-          padding: '6px 0',
-        }}
-      >
-        <Menu size={20} strokeWidth={1.8} />
-        <span style={{ fontSize: '0.72rem', fontWeight: 500, letterSpacing: '-0.1px' }}>More</span>
-      </button>
+        {/* More Actions Drawer Trigger */}
+        <button
+          onClick={onOpenMore}
+          className="flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-all relative py-1 min-h-[44px] min-w-[44px] text-on-surface-variant hover:text-on-surface"
+        >
+          <div className="relative flex items-center justify-center px-3.5 py-1">
+            <Menu size={20} strokeWidth={1.8} />
+          </div>
+          <span className="text-[10px] tracking-tight font-medium leading-none">More</span>
+        </button>
+      </div>
     </nav>
   );
 };

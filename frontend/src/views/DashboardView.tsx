@@ -13,6 +13,11 @@ import {
   Award,
   Users,
   MapPin,
+  BarChart2,
+  CheckCircle2,
+  RotateCcw,
+  Bell,
+  FlaskConical,
 } from 'lucide-react';
 import {
   StudentProfile,
@@ -161,6 +166,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(defaultDay);
   const [simulatedOffset, setSimulatedOffset] = useState<number>(0);
+  const [deltaLeaves, setDeltaLeaves] = useState<number>(0);
+  const [deltaOD, setDeltaOD] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
 
   // Real-time 30-second clock tick to sync active and upcoming classes dynamically
@@ -269,6 +276,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [safeTimetable, todayDay, filteredSlots, currentTime]);
 
   const nextClass = activeNextClass;
+
+  // Today's total classes and current class position for the hero cockpit card
+  const todaySlots = useMemo(() => {
+    return safeTimetable
+      .filter((s) => s && s.day === todayDay)
+      .sort((a, b) => parseTimeToMinutes(a?.startTime) - parseTimeToMinutes(b?.startTime));
+  }, [safeTimetable, todayDay]);
+
+  const currentSlotIndex = useMemo(() => {
+    if (!nextClass) return 1;
+    const idx = todaySlots.findIndex(
+      (s) =>
+        (s.courseCode || s.subjectCode) === (nextClass.courseCode || nextClass.subjectCode) &&
+        s.startTime === nextClass.startTime
+    );
+    return idx >= 0 ? idx + 1 : 1;
+  }, [todaySlots, nextClass]);
+
+  const nextClassTiming = useMemo(() => {
+    if (!nextClass) {
+      return { label: 'No class scheduled', progressPct: 0 };
+    }
+    const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const startMin = parseTimeToMinutes(nextClass.startTime);
+    const endMin = parseTimeToMinutes(nextClass.endTime);
+
+    if (nextClassStatus === 'live') {
+      const elapsed = Math.max(0, currentMinutes - startMin);
+      const duration = Math.max(1, endMin - startMin);
+      const pct = Math.min(100, Math.max(10, Math.round((elapsed / duration) * 100)));
+      const remaining = Math.max(1, endMin - currentMinutes);
+      return {
+        label: `Class in session • ${remaining}m remaining`,
+        progressPct: pct,
+      };
+    }
+
+    if (nextClassStatus === 'upcoming') {
+      const diff = Math.max(0, startMin - currentMinutes);
+      return {
+        label: diff <= 60 ? `Class starts in ${diff} min${diff === 1 ? '' : 's'}` : `Starts at ${nextClass.startTime}`,
+        progressPct: 65,
+      };
+    }
+
+    if (nextClassStatus === 'next_day') {
+      return {
+        label: `Starts ${nextClassDayLabel} at ${nextClass.startTime || 'TBA'}`,
+        progressPct: 40,
+      };
+    }
+
+    return {
+      label: `Scheduled at ${nextClass.startTime || 'TBA'}`,
+      progressPct: 50,
+    };
+  }, [nextClass, nextClassStatus, nextClassDayLabel, currentTime]);
 
   // Dynamic slot attendance resolver with zero hallucination and strict course mapping
   const getSlotAttendance = (slot: TimetableSlot) => {
@@ -409,6 +473,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         : 0);
 
   const attBufferMargin = Math.round((overallPct - 75.0) * 10) / 10;
+
+  // Stitch Absence Simulator projected attendance telemetry
+  const projectedAttendance = useMemo(() => {
+    const netPct = Math.round((overallPct - deltaLeaves * 1.1 + deltaOD * 0.8) * 10) / 10;
+    const clamped = Math.max(0, Math.min(100, netPct));
+    const headroom = Math.round((clamped - 75.0) * 10) / 10;
+    const isSafe = clamped >= 75.0;
+    return {
+      percentage: clamped,
+      headroom,
+      isSafe,
+      statusLabel: isSafe ? `Safe (+${headroom}% Headroom)` : `Defaulter Risk (${Math.abs(headroom)}% Below)`,
+    };
+  }, [overallPct, deltaLeaves, deltaOD]);
   const criticalCount = safeAttendance.filter((a) => {
     if (!a) return false;
     let p = a.percentage !== undefined && a.percentage !== null ? a.percentage : a.attendancePercentage;
@@ -471,160 +549,326 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="flex flex-col w-full gap-6">
       {/* =========================================================================
-          1. TOP EDITORIAL GREETING & CONTEXT BANNER
+          MOBILE EDITORIAL HERO (MATCHING USER REFERENCE DESIGN)
           ========================================================================= */}
-      <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-col gap-1.5 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-label-sm text-[11px] uppercase tracking-wider text-secondary font-semibold bg-secondary-fixed/40 px-2 py-0.5 rounded">
-              {currentSemester}
-            </span>
-            <span className="text-outline-variant text-[11px]">•</span>
-            <span className="font-label-sm text-[11px] text-outline font-semibold">
-              {student?.branch || 'Undergraduate Engineering'}
-            </span>
-            <span className="text-outline-variant text-[11px]">•</span>
-            <span className="font-label-sm text-[11px] text-on-surface-variant font-tabular-data">
-              Slot Set 1
-            </span>
-          </div>
-          <h1 className="font-display-lg text-2xl md:text-3xl text-on-background tracking-tight font-semibold">
-            {getGreeting()}, {studentDisplayName}
+      <div className="md:hidden flex flex-col gap-4">
+        {/* Clean Greeting */}
+        <div className="flex flex-col gap-0.5 pt-1">
+          <span className="text-sm font-medium text-on-surface-variant">Good Morning,</span>
+          <h1 className="text-2xl font-bold tracking-tight text-on-surface uppercase font-heading">
+            {studentDisplayName}
           </h1>
-          <p className="font-body-md text-sm text-on-surface-variant">
-            Continuous Assessment matrix normalized. No administrative holds detected on student file.
-          </p>
         </div>
 
-        <div className="flex items-center gap-4 self-start md:self-auto shrink-0">
-          <div className="flex flex-col items-end">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-              <span className="font-label-md text-xs font-semibold text-on-surface">VTOP Sync Live</span>
-            </div>
-            <span className="font-label-sm text-[11px] text-outline font-tabular-data">
-              {formatLastSynced()}
-            </span>
-          </div>
-          <button
-            onClick={onSync || onOpenSyncModal}
-            disabled={syncing}
-            className="bg-primary text-on-primary px-3.5 py-2 rounded font-label-md text-xs font-semibold flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity disabled:opacity-70"
+        {/* Sync Data Pill Button */}
+        <button
+          onClick={onSync || onOpenSyncModal}
+          disabled={syncing}
+          className="w-full py-3 px-4 rounded-2xl bg-surface-container-high hover:bg-surface-container-highest active:scale-[0.99] transition-all flex items-center justify-center gap-2 font-semibold text-sm text-on-surface shadow-sm border border-outline-variant/15"
+        >
+          <RefreshCw size={15} className={`text-on-surface-variant ${syncing ? 'animate-spin text-primary' : ''}`} />
+          <span>{syncing ? 'Syncing Records...' : 'Sync Data'}</span>
+        </button>
+
+        {/* TWO SQUARE BOXES (HERO METRICS AS REQUESTED) */}
+        <div className="grid grid-cols-2 gap-3.5">
+          {/* Square Box 1: Attendance */}
+          <div
+            onClick={() => navigateToAcademics('attendance')}
+            className="aspect-square p-4 rounded-2xl bg-surface-container-high border border-outline-variant/15 flex flex-col items-center justify-center text-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer group"
           >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            <span>Pull Ledger</span>
-          </button>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          2. TOP METRICS STRIP: 4-COLUMN HIGH PRECISION ANALYTICAL STRIP
-          ========================================================================= */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: CGPA */}
-        <div
-          onClick={() => navigateToAcademics('grades')}
-          className="bg-surface-container-lowest p-4 md:p-5 rounded-lg shadow-sm border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
-              Cumulative GPA
-            </span>
-            <GraduationCap size={18} className="text-secondary" />
-          </div>
-          <div className="my-2 flex items-baseline gap-2">
-            <span className="font-metric-display text-3xl font-semibold text-on-surface font-tabular-data">
-              {cgpaDisplay}
-            </span>
-            <span className="font-label-md text-xs text-outline font-medium font-tabular-data">
-              / 10.00
-            </span>
-          </div>
-          <div className="flex items-center justify-between font-label-sm text-[11px] text-on-surface-variant">
-            <span>{earnedCredits} Credits Completed</span>
-          </div>
-        </div>
-
-        {/* Metric 2: Aggregate Attendance */}
-        <div
-          onClick={() => navigateToAcademics('attendance')}
-          className="bg-surface-container-lowest p-4 md:p-5 rounded-lg shadow-sm border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
-              Aggregate Attendance
-            </span>
-            <ShieldCheck size={18} className="text-secondary" />
-          </div>
-          <div className="my-2 flex items-baseline gap-2">
-            <span className="font-metric-display text-3xl font-semibold text-on-surface font-tabular-data">
+            {/* Circular Ring Gauge */}
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <svg className="w-12 h-12 transform -rotate-90">
+                <circle
+                  cx="24"
+                  cy="24"
+                  r="20"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  className="text-surface-container-highest"
+                  fill="none"
+                />
+                <circle
+                  cx="24"
+                  cy="24"
+                  r="20"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  strokeDasharray={125.6}
+                  strokeDashoffset={125.6 * (1 - Math.min(100, Math.max(0, Number(overallPct) || 0)) / 100)}
+                  strokeLinecap="round"
+                  className={Number(overallPct) >= 75 ? 'text-primary' : 'text-error'}
+                  fill="none"
+                />
+              </svg>
+            </div>
+            <span className="text-2xl font-bold font-tabular-data text-on-surface tracking-tight leading-none mt-1">
               {overallPct}%
             </span>
-            <span className="font-label-sm text-[11px] text-outline font-tabular-data">
-              Req: 75.0%
+            <span className="text-xs text-on-surface-variant font-medium">
+              Attendance
             </span>
           </div>
-          <div className="flex items-center justify-between font-label-sm text-[11px]">
-            <span className="text-primary font-medium font-tabular-data">
-              {attBufferMargin >= 0 ? `+${attBufferMargin}% Buffer Margin` : `${attBufferMargin}% Below Cutoff`}
+
+          {/* Square Box 2: OD Classes */}
+          <div
+            onClick={onOpenODModal}
+            className="aspect-square p-4 rounded-2xl bg-surface-container-high border border-outline-variant/15 flex flex-col items-center justify-center text-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-on-surface">
+              <Bell size={28} className="text-on-surface-variant group-hover:text-primary transition-colors" />
+            </div>
+            <span className="text-2xl font-bold font-tabular-data text-on-surface tracking-tight leading-none mt-1">
+              {approvedOdHours}/{maxOdHours}
             </span>
-            <span className="text-on-surface-variant">
-              {criticalCount === 0 ? '0 Critical Courses' : `${criticalCount} Critical`}
+            <span className="text-xs text-on-surface-variant font-medium">
+              OD Classes
             </span>
           </div>
         </div>
 
-        {/* Metric 3: Curricular Load */}
+        {/* Academic Calendar Link Card */}
         <div
-          onClick={() => navigateToAcademics('courses')}
-          className="bg-surface-container-lowest p-4 md:p-5 rounded-lg shadow-sm border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
+          onClick={() => onSelectAcademicsSubTab?.('calendar')}
+          className="w-full p-4 rounded-2xl bg-surface-container-high border border-outline-variant/15 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all shadow-sm"
         >
-          <div className="flex items-center justify-between">
-            <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
-              Curricular Load
-            </span>
-            <BookOpen size={18} className="text-secondary" />
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-surface-container-highest/60 flex items-center justify-center text-on-surface">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm text-on-surface">Academic Calendar</h4>
+              <p className="text-xs text-on-surface-variant">View schedule &amp; working days</p>
+            </div>
           </div>
-          <div className="my-2 flex items-baseline gap-2">
-            <span className="font-metric-display text-3xl font-semibold text-on-surface font-tabular-data">
-              {safeCourses.length}
-            </span>
-            <span className="font-label-md text-xs text-on-surface-variant">Courses</span>
-          </div>
-          <div className="flex items-center justify-between font-label-sm text-[11px] text-on-surface-variant">
-            <span className="font-tabular-data">{registeredCredits} Credit Hours</span>
-            <span className="text-outline">Max: 27.0 CH</span>
-          </div>
+          <ChevronRight size={20} className="text-on-surface-variant" />
         </div>
 
-        {/* Metric 4: On-Duty Buffer */}
-        <div
-          onClick={onOpenODModal}
-          className="bg-surface-container-lowest p-4 md:p-5 rounded-lg shadow-sm border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
-              On-Duty Buffer
-            </span>
-            <Clock size={18} className="text-secondary" />
+        {/* Secondary Row: GPA & Registered Courses (Pill Cards) */}
+        <div className="grid grid-cols-2 gap-3">
+          <div
+            onClick={() => navigateToAcademics('grades')}
+            className="p-3.5 rounded-2xl bg-surface-container-high border border-outline-variant/15 flex items-center gap-3 cursor-pointer active:scale-95 transition-all"
+          >
+            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center text-primary shrink-0">
+              <GraduationCap size={18} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-sm font-bold text-on-surface block leading-tight font-tabular-data">{cgpaDisplay}</span>
+              <span className="text-[11px] text-on-surface-variant font-medium truncate block">GPA · {earnedCredits} Cr</span>
+            </div>
           </div>
-          <div className="my-2 flex items-baseline gap-2">
-            <span className="font-metric-display text-3xl font-semibold text-on-surface font-tabular-data">
-              {approvedOdHours}
-              <span className="text-outline text-base font-normal">/{maxOdHours}</span>
-            </span>
-            <span className="font-label-md text-xs text-on-surface-variant">Sanctioned</span>
-          </div>
-          <div className="flex items-center justify-between font-label-sm text-[11px] text-on-surface-variant">
-            <span className="text-secondary font-semibold font-tabular-data">
-              {remainingOdHours}h Available Reserve
-            </span>
-            <span className="text-outline">
-              {maxOdHours > 0 ? Math.round((approvedOdHours / maxOdHours) * 100) : 0}% Consumed
-            </span>
+
+          <div
+            onClick={() => navigateToAcademics('courses')}
+            className="p-3.5 rounded-2xl bg-surface-container-high border border-outline-variant/15 flex items-center gap-3 cursor-pointer active:scale-95 transition-all"
+          >
+            <div className="w-9 h-9 rounded-xl bg-secondary/15 flex items-center justify-center text-secondary shrink-0">
+              <BookOpen size={18} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-sm font-bold text-on-surface block leading-tight font-tabular-data">{safeCourses.length}</span>
+              <span className="text-[11px] text-on-surface-variant font-medium truncate block">Courses · {registeredCredits} CH</span>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
+
+      {/* =========================================================================
+          DESKTOP EDITORIAL GREETING & KPI CARDS (>= md)
+          ========================================================================= */}
+      <div className="hidden md:flex flex-col gap-6">
+        <section className="bg-surface-container-lowest rounded-xl p-5 md:p-6 shadow-sm border border-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-label-sm text-[11px] uppercase tracking-wider text-secondary font-semibold bg-secondary-fixed/40 px-2 py-0.5 rounded">
+                {currentSemester}
+              </span>
+              <span className="text-outline-variant text-[11px]">•</span>
+              <span className="font-label-sm text-[11px] text-outline font-semibold">
+                {student?.branch || 'Undergraduate Engineering'}
+              </span>
+              <span className="text-outline-variant text-[11px]">•</span>
+              <span className="font-label-sm text-[11px] text-on-surface-variant font-tabular-data">
+                Slot Set 1
+              </span>
+            </div>
+            <h1 className="font-display-lg text-2xl md:text-3xl text-on-background tracking-tight font-semibold">
+              {getGreeting()}, {studentDisplayName}
+            </h1>
+            <p className="font-body-md text-xs sm:text-sm text-on-surface-variant">
+              Academic records &amp; continuous assessment matrix synchronized directly with VTOP.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 self-start md:self-auto shrink-0 flex-wrap">
+            <div className="flex flex-col items-start md:items-end">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+                <span className="font-label-md text-xs font-semibold text-on-surface">VTOP Live Sync</span>
+              </div>
+              <span className="font-label-sm text-[11px] text-outline font-tabular-data">
+                {formatLastSynced()}
+              </span>
+            </div>
+            <button
+              onClick={onSync || onOpenSyncModal}
+              disabled={syncing}
+              className="bg-primary text-on-primary px-3.5 py-2 rounded-lg font-label-md text-xs font-semibold flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity disabled:opacity-70 active:scale-95"
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+              <span>{syncing ? 'Syncing...' : 'Sync Records'}</span>
+            </button>
+          </div>
+        </section>
+
+        {/* Academic KPI Cards (4-col on Desktop) */}
+        <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          {/* Metric 1: CGPA */}
+          <div
+            onClick={() => navigateToAcademics('grades')}
+            className="bg-surface-container-high p-3.5 md:p-5 rounded-xl shadow-md border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
+          >
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                Cumulative GPA
+              </span>
+              <GraduationCap size={18} className="text-primary" />
+            </div>
+            <div className="my-2">
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-metric-display text-2xl md:text-3xl font-bold text-on-surface font-tabular-data">
+                  {cgpaDisplay}
+                </span>
+                <span className="font-label-md text-xs text-outline font-medium font-tabular-data">
+                  / 10.00
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between font-label-sm text-[11px]">
+                <span className="text-secondary font-semibold font-tabular-data">+0.14 trend</span>
+                <span className="text-on-surface-variant font-tabular-data">{earnedCredits} Cr</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 2: Aggregate Attendance */}
+          <div
+            onClick={() => navigateToAcademics('attendance')}
+            className="bg-surface-container-high p-3.5 md:p-5 rounded-xl shadow-md border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
+          >
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                Aggregate Attend.
+              </span>
+              <ShieldCheck size={18} className="text-secondary" />
+            </div>
+            <div className="my-2">
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-metric-display text-2xl md:text-3xl font-bold text-secondary font-tabular-data">
+                  {overallPct}%
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between font-label-sm text-[11px]">
+                <span className={`font-semibold font-tabular-data ${attBufferMargin >= 0 ? 'text-secondary' : 'text-error'}`}>
+                  {attBufferMargin >= 0 ? `+${attBufferMargin}% Buffer` : `${attBufferMargin}% Below`}
+                </span>
+                <span className="text-outline font-tabular-data">
+                  {criticalCount > 0 ? `${criticalCount} Critical` : 'Req: 75%'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 3: Curricular Load */}
+          <div
+            onClick={() => navigateToAcademics('courses')}
+            className="bg-surface-container-high p-3.5 md:p-5 rounded-xl shadow-md border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
+          >
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                Curricular Load
+              </span>
+              <BookOpen size={18} className="text-tertiary" />
+            </div>
+            <div className="my-2">
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-metric-display text-2xl md:text-3xl font-bold text-on-surface font-tabular-data">
+                  {safeCourses.length}
+                </span>
+                <span className="font-label-md text-xs text-on-surface-variant">Courses</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between font-label-sm text-[11px] text-on-surface-variant">
+                <span className="font-tabular-data">{registeredCredits} CH</span>
+                <span className="text-outline">Max: 27.0</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 4: On-Duty Buffer */}
+          <div
+            onClick={onOpenODModal}
+            className="bg-surface-container-high p-3.5 md:p-5 rounded-xl shadow-md border border-outline-variant/30 flex flex-col justify-between cursor-pointer hover:border-primary/40 transition-colors"
+          >
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline font-semibold">
+                On-Duty Buffer
+              </span>
+              <Clock size={18} className={approvedOdHours > maxOdHours ? 'text-error' : 'text-secondary'} />
+            </div>
+            <div className="my-2">
+              <div className="flex items-baseline gap-1.5">
+                <span className={`font-metric-display text-2xl md:text-3xl font-bold font-tabular-data ${approvedOdHours > maxOdHours ? 'text-error' : 'text-on-surface'}`}>
+                  {approvedOdHours}
+                </span>
+                <span className="font-label-md text-xs text-outline font-medium font-tabular-data">
+                  / {maxOdHours}h
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between font-label-sm text-[11px] text-on-surface-variant">
+                <span className={`font-semibold font-tabular-data ${approvedOdHours > maxOdHours ? 'text-error' : 'text-secondary'}`}>
+                  {maxOdHours > 0 ? Math.round((approvedOdHours / maxOdHours) * 100) : 0}% Consumed
+                </span>
+                <span className="text-outline">
+                  {approvedOdHours > maxOdHours ? 'Exceeded' : `${remainingOdHours}h left`}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Quick Action Shortcuts Bar */}
+        <section className="grid grid-cols-3 gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => onSelectView?.('assignments')}
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface transition-all active:scale-95 min-h-[56px] shadow-sm border border-outline-variant/20 group"
+          >
+            <BarChart2 size={18} className="text-primary group-hover:scale-110 transition-transform sm:w-5 sm:h-5" />
+            <span className="text-[11px] sm:text-xs font-semibold mt-1 text-center truncate w-full">Assignments</span>
+            <span className="text-[9px] text-outline hidden sm:block">LMS &amp; Teams</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => (onSync ? onSync() : onOpenSyncModal?.())}
+            disabled={syncing}
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface transition-all active:scale-95 min-h-[56px] shadow-sm border border-outline-variant/20 group"
+          >
+            <RefreshCw size={18} className={`text-secondary group-hover:scale-110 transition-transform sm:w-5 sm:h-5 ${syncing ? 'animate-spin' : ''}`} />
+            <span className="text-[11px] sm:text-xs font-semibold mt-1 text-center truncate w-full">Sync VTOP</span>
+            <span className="text-[9px] text-outline hidden sm:block">Live Refresh</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigateToAcademics('attendance')}
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface transition-all active:scale-95 min-h-[56px] shadow-sm border border-outline-variant/20 group"
+          >
+            <ShieldCheck size={18} className="text-tertiary group-hover:scale-110 transition-transform sm:w-5 sm:h-5" />
+            <span className="text-[11px] sm:text-xs font-semibold mt-1 text-center truncate w-full">Attendance</span>
+            <span className="text-[9px] text-outline hidden sm:block">75% Calculator</span>
+          </button>
+        </section>
+      </div>
 
       {/* =========================================================================
           3. TWO-COLUMN WORKSPACE: LEFT CORE (8 COLS) + RIGHT SATELLITE (4 COLS)
@@ -641,95 +885,123 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   Today's Academic Timeline
                 </h2>
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {availableDays.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setSelectedDay(d)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-label-sm font-semibold transition-colors ${
-                      selectedDay === d
-                        ? 'bg-primary text-on-primary shadow-sm'
-                        : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full no-scrollbar flex-nowrap py-1">
+                {availableDays.map((d) => {
+                  const isDayActive = selectedDay === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setSelectedDay(d)}
+                      className={`transition-all shrink-0 ${
+                        isDayActive
+                          ? 'px-5 py-1.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-bold shadow-sm text-xs'
+                          : 'px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Next Up: Highlighted Active Class Banner */}
+            {/* Next Up: Highlighted Active Class Banner (Stitch Hero Cockpit) */}
             {nextClass ? (
-              <div className="bg-primary text-on-primary rounded-lg p-4 md:p-5 shadow-sm relative overflow-hidden flex flex-col gap-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="relative overflow-hidden rounded-xl bg-surface-container-high border border-outline-variant/30 p-4 md:p-5 shadow-xl flex flex-col gap-3">
+                <div className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+                <div className="flex items-center justify-between flex-wrap gap-2 relative z-10">
                   <div className="flex items-center gap-2">
-                    <span className="bg-surface-container-lowest text-primary font-label-sm text-[11px] px-2 py-0.5 rounded font-bold uppercase tracking-wider animate-pulse">
+                    <span className="px-2.5 py-0.5 rounded-full bg-primary/15 text-primary text-[11px] font-bold font-tabular-data uppercase tracking-wide">
                       {nextClassStatus === 'live'
                         ? `Live Now • Slot ${nextClass.slot || 'Active Session'}`
                         : nextClassStatus === 'next_day'
                         ? `Next Up (${nextClassDayLabel}) • Slot ${nextClass.slot || 'Upcoming'}`
-                        : `Next Up • Slot ${nextClass.slot || 'Active Session'}`}
+                        : `Next Up • Slot ${nextClass.slot || 'Active'}`}
                     </span>
-                    <span className="font-label-md text-xs text-primary-fixed font-tabular-data">
-                      {nextClass.startTime || '14:00'} - {nextClass.endTime || '14:50 IST'}
-                      {nextClassStatus === 'next_day' ? ` (${nextClassDayLabel})` : ''}
+                    <span className="text-xs text-on-surface-variant font-tabular-data">
+                      {nextClass.startTime || '14:00'} - {nextClass.endTime || '14:50'}
                     </span>
                   </div>
                   {nextClassAtt && nextClassAtt.total > 0 ? (
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-label-sm text-[11px] font-semibold ${
+                    <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
                       nextClassAtt.isCritical
                         ? 'bg-error text-white'
-                        : 'bg-primary-container text-on-primary-container'
+                        : 'bg-secondary-container/20 text-secondary'
                     }`}>
                       <ShieldCheck size={14} />
                       <span>
                         {nextClassAtt.isCritical
                           ? `Need +${nextClassAtt.needToAttend} Classes`
                           : nextClassAtt.safeToMiss > 0
-                          ? `Safe Buffer +${nextClassAtt.safeToMiss}`
+                          ? `Safe Buffer: +${nextClassAtt.safeToMiss}`
                           : 'Borderline (0 Safe)'}
                       </span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 bg-primary-container px-2 py-0.5 rounded text-on-primary-container font-label-sm text-[11px] font-semibold">
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-secondary text-[11px] font-semibold">
                       <ShieldCheck size={14} />
-                      <span>Cutoff 75%</span>
+                      <span>Safe Buffer: Cutoff 75%</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mt-1">
-                  <div>
-                    <div className="font-label-sm text-xs text-primary-fixed uppercase tracking-wider font-semibold">
-                      {nextClass.courseCode || nextClass.subjectCode || 'Active Course'}
-                    </div>
-                    <h3 className="font-headline-lg text-xl md:text-2xl font-semibold text-on-primary mt-0.5">
-                      {nextClass.courseTitle || nextClass.subject || nextClass.courseName || 'Lecture'}
-                    </h3>
-                    <p className="font-body-sm text-xs text-primary-fixed mt-1 flex items-center gap-1.5 flex-wrap">
-                      <span>Faculty: {nextClass.faculty || nextClass.facultyName || 'Faculty'}</span>
-                      <span>•</span>
-                      <span>Room {nextClass.room || nextClass.venue || 'Campus Venue'}</span>
-                    </p>
+                <div className="relative z-10 mt-0.5">
+                  <span className="font-tabular-data text-xs text-primary font-bold tracking-wider">
+                    {nextClass.courseCode || nextClass.subjectCode || 'Active Course'}
+                  </span>
+                  <h3 className="font-headline-md text-xl md:text-2xl font-semibold text-on-surface mt-0.5">
+                    {nextClass.courseTitle || nextClass.subject || nextClass.courseName || 'Lecture'}
+                  </h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-on-surface-variant text-xs">
+                    <span className="flex items-center gap-1 text-on-surface">
+                      <Users size={14} className="text-primary" />
+                      {nextClass.faculty || nextClass.facultyName || 'Course Faculty'}
+                    </span>
+                    <span className="flex items-center gap-1 text-on-surface">
+                      <MapPin size={14} className="text-primary" />
+                      Room {nextClass.room || nextClass.venue || 'Campus Venue'}
+                    </span>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => navigateToAcademics('courses')}
-                      className="bg-primary-container text-on-primary px-3 py-1.5 rounded font-label-sm text-xs font-semibold flex items-center gap-1 hover:opacity-90 transition-opacity"
-                    >
-                      <Download size={14} />
-                      <span>Syllabus</span>
-                    </button>
-                  </div>
+                {/* Progress indicator */}
+                <div className="relative z-10 mt-1 bg-surface-container-lowest rounded-full h-1.5 w-full overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-primary to-secondary h-full rounded-full transition-all duration-500"
+                    style={{ width: `${nextClassTiming.progressPct}%` }}
+                  />
+                </div>
+                <div className="relative z-10 flex justify-between text-[11px] text-on-surface-variant font-tabular-data">
+                  <span>{nextClassTiming.label}</span>
+                  <span>Slot {currentSlotIndex} of {Math.max(1, todaySlots.length)} today</span>
+                </div>
+
+                {/* Actions */}
+                <div className="relative z-10 mt-1 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigateToAcademics('courses')}
+                    className="flex-1 min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] border border-outline-variant/20 shadow-sm"
+                  >
+                    <Download size={15} className="text-primary" />
+                    <span>Syllabus</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateToAcademics('attendance')}
+                    className="flex-1 min-h-[44px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-fixed text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.98]"
+                  >
+                    <ShieldCheck size={15} />
+                    <span>Quick Check-in</span>
+                  </button>
                 </div>
               </div>
             ) : null}
 
             {/* Daily Stream Chrono Cards */}
             {filteredSlots.length === 0 ? (
-              <div className="bg-surface-container-low p-6 rounded-lg text-center border border-outline-variant/10">
+              <div className="bg-surface-container-low p-6 rounded-2xl text-center border border-outline-variant/10">
                 <Calendar size={28} className="mx-auto text-outline-variant mb-2" />
                 <p className="font-headline-sm text-sm font-semibold text-on-surface">No Classes Scheduled</p>
                 <p className="font-body-sm text-xs text-outline mt-0.5">
@@ -749,16 +1021,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   const isSlotUpcoming = isToday && currentMinutes < startMin;
 
                   return (
-                    <div
-                      key={slot.id || `${slot.courseCode}-${slot.slot}-${idx}`}
-                      className={`p-3.5 md:p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${
-                        isSlotLive
-                          ? 'bg-primary-container/15 border-primary/50 ring-1 ring-primary/40'
-                          : isSlotCompleted
-                          ? 'bg-surface-container-low/70 border-outline-variant/10 opacity-75'
-                          : 'bg-surface-container-low hover:bg-surface-container border border-outline-variant/10'
-                      }`}
-                    >
+                    <React.Fragment key={slot.id || `${slot.courseCode}-${slot.slot}-${idx}`}>
+                      {/* Mobile Class Card (< md) */}
+                      <div
+                        onClick={() => navigateToAcademics('courses')}
+                        className={`md:hidden p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-sm active:scale-[0.99] ${
+                          isSlotLive
+                            ? 'bg-primary-container/20 border-primary/50'
+                            : 'bg-surface-container-high border-outline-variant/15'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                            slot.slot?.startsWith('L') || (slot.courseCode || '').endsWith('P')
+                              ? 'bg-primary/20 text-primary'
+                              : 'bg-secondary/20 text-secondary'
+                          }`}>
+                            {slot.slot?.startsWith('L') || (slot.courseCode || '').endsWith('P') ? (
+                              <FlaskConical size={22} />
+                            ) : (
+                              <BookOpen size={22} />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-semibold text-sm text-on-surface truncate">
+                              {slot.courseTitle || slot.subject || slot.courseName || 'Lecture'}
+                            </h4>
+                            <p className="text-xs text-on-surface-variant mt-0.5 truncate font-tabular-data">
+                              {slot.startTime || 'TBA'} - {slot.endTime || 'TBA'} {slot.room || slot.venue ? `· ${slot.room || slot.venue}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {slotAtt && slotAtt.total > 0 && (
+                            <span className={`text-xs font-bold font-tabular-data px-2 py-0.5 rounded-full ${
+                              slotAtt.isCritical
+                                ? 'bg-error-container text-error'
+                                : 'bg-secondary-fixed/40 text-on-secondary-fixed'
+                            }`}>
+                              {formatFixed(slotAtt.percentage, 0)}%
+                            </span>
+                          )}
+                          <ChevronRight size={18} className="text-on-surface-variant/70" />
+                        </div>
+                      </div>
+
+                      {/* Desktop Slot Row (>= md) */}
+                      <div
+                        className={`hidden md:flex p-3.5 md:p-4 rounded-lg flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${
+                          isSlotLive
+                            ? 'bg-primary-container/15 border-primary/50 ring-1 ring-primary/40'
+                            : isSlotCompleted
+                            ? 'bg-surface-container-low/70 border-outline-variant/10 opacity-75'
+                            : 'bg-surface-container-low hover:bg-surface-container border border-outline-variant/10'
+                        }`}
+                      >
                       <div className="flex items-start sm:items-center gap-3">
                         <div className={`flex flex-col items-center justify-center w-14 h-14 rounded shadow-sm shrink-0 border ${
                           isSlotLive
@@ -848,9 +1167,80 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </button>
                       </div>
                     </div>
-                  );
-                })}
+                  </React.Fragment>
+                );
+              })}
               </div>
+            )}
+          </section>
+
+          {/* Stitch Interactive Absence Risk Telemetry Card */}
+          <section className="rounded-xl bg-surface-container p-4 md:p-5 shadow-xl border border-outline-variant/30 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calculator size={18} className="text-primary" />
+                <h3 className="font-headline-sm text-base font-semibold text-on-surface">Absence Simulator</h3>
+              </div>
+              <span className="font-tabular-data text-[11px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded font-medium">
+                Threshold: 75% Cutoff
+              </span>
+            </div>
+            <p className="text-xs text-on-surface-variant">
+              Simulate prospective leaves or OD clearances to monitor regulatory attendance impact in real-time.
+            </p>
+            {/* Interactive Steppers Row */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeltaLeaves((prev) => (prev + 1) % 4)}
+                className={`min-h-[44px] flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-2 transition-all active:scale-95 border ${
+                  deltaLeaves > 0
+                    ? 'bg-error/20 text-error border-error/40 font-bold'
+                    : 'bg-surface-container-high hover:bg-surface-bright text-error border-outline-variant/20'
+                }`}
+                id="btn-leave-sim"
+              >
+                <Clock size={14} />
+                <span>{deltaLeaves > 0 ? `+${deltaLeaves} Leave (-${deltaLeaves * 4}h)` : '+1 Sick Leave (-4h)'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeltaOD((prev) => (prev + 1) % 4)}
+                className={`min-h-[44px] flex items-center justify-center gap-1.5 rounded-lg text-xs font-semibold px-3 py-2 transition-all active:scale-95 border ${
+                  deltaOD > 0
+                    ? 'bg-secondary/20 text-secondary border-secondary/40 font-bold'
+                    : 'bg-surface-container-high hover:bg-surface-bright text-secondary border-outline-variant/20'
+                }`}
+                id="btn-od-sim"
+              >
+                <ShieldCheck size={14} />
+                <span>{deltaOD > 0 ? `+${deltaOD * 3}d OD (+${deltaOD * 12}h)` : '+3 Days OD (+12h)'}</span>
+              </button>
+            </div>
+            {/* Projected Telemetry Readout */}
+            <div className="rounded-lg bg-surface-container-lowest p-3.5 flex items-center justify-between border border-outline-variant/20">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-outline">Projected Net Attendance</span>
+                <span className={`text-xl font-bold font-tabular-data ${projectedAttendance.isSafe ? 'text-secondary' : 'text-error'}`}>
+                  {projectedAttendance.percentage}%
+                </span>
+              </div>
+              <div className={`flex items-center gap-1.5 text-xs font-semibold ${projectedAttendance.isSafe ? 'text-secondary' : 'text-error'}`}>
+                {projectedAttendance.isSafe ? <CheckCircle2 size={16} /> : <ShieldCheck size={16} />}
+                <span>{projectedAttendance.statusLabel}</span>
+              </div>
+            </div>
+            {(deltaLeaves > 0 || deltaOD > 0) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeltaLeaves(0);
+                  setDeltaOD(0);
+                }}
+                className="self-end text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
+              >
+                <RotateCcw size={12} /> Reset to actuals
+              </button>
             )}
           </section>
 
@@ -934,14 +1324,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <button
                 onClick={() => navigateToAcademics('courses')}
-                className="bg-surface-container text-on-surface-variant px-3 py-1.5 rounded font-label-sm text-xs font-semibold flex items-center gap-1.5 hover:bg-surface-container-high transition-colors"
+                className="bg-surface-container text-on-surface-variant px-3 py-1.5 rounded font-label-sm text-xs font-semibold flex items-center gap-1.5 hover:bg-surface-container-high transition-colors shrink-0"
               >
                 <Download size={14} />
-                <span>Export Academic Audit</span>
+                <span className="hidden sm:inline">Export Academic Audit</span>
+                <span className="sm:hidden">View All</span>
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Cards View (< md) */}
+            <div className="md:hidden divide-y divide-outline-variant/15">
+              {safeCourses.length > 0 ? (
+                safeCourses.slice(0, 5).map((course, idx) => {
+                  const attMatch = safeAttendance.find((a) => a?.courseCode === course?.code);
+                  const pct = attMatch?.percentage ?? attMatch?.attendancePercentage;
+                  const hasValidPct = pct !== undefined && pct !== null && !isNaN(Number(pct));
+                  const status = hasValidPct ? (Number(pct) < 75 ? 'Shortage' : Number(pct) < 85 ? 'Watchlist' : 'Safe') : 'Enrolled';
+
+                  return (
+                    <div
+                      key={course.id || course.code || idx}
+                      onClick={() => navigateToAcademics('courses')}
+                      className="py-3 px-1 flex items-center justify-between gap-3 active:bg-surface-container-low transition-colors cursor-pointer"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-semibold text-primary font-label-md text-xs tracking-wide">
+                            {course.code}
+                          </span>
+                          <span className="text-[11px] text-on-surface-variant/80 bg-surface-container px-1.5 py-0.5 rounded">
+                            {course.type || 'Theory'} · {formatFixed(course.credits, 0, '--')} cr
+                          </span>
+                        </div>
+                        <p className="font-medium text-on-surface text-xs leading-snug truncate">
+                          {course.title}
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        <span className="font-tabular-data font-bold text-sm text-on-surface">
+                          {hasValidPct ? `${formatFixed(pct, 1)}%` : '--'}
+                        </span>
+                        <span
+                          className={`font-label-sm text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                            status === 'Shortage'
+                              ? 'bg-error-container text-error'
+                              : status === 'Watchlist'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-6 text-center text-on-surface-variant font-body-sm text-xs">
+                  No courses loaded yet.
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Table View (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left font-body-sm text-xs border-collapse">
                 <thead>
                   <tr className="text-outline uppercase font-label-sm text-[11px] bg-surface-container-low">
@@ -1001,7 +1448,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   ) : (
                     <tr>
                       <td colSpan={6} className="py-6 text-center text-on-surface-variant font-body-sm text-xs">
-                        No registered courses loaded for the active semester.
+                        No courses loaded yet.
                       </td>
                     </tr>
                   )}
@@ -1027,7 +1474,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
             </div>
             <p className="font-body-sm text-xs text-on-surface-variant">
-              Statutory attendance tracking with live buffer margin calculations.
+              Your lowest attendance, at a glance.
             </p>
 
             {watchCourses.length > 0 ? (
@@ -1087,7 +1534,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Calculator size={15} className="text-outline" />
               </div>
               <p className="font-body-sm text-[11px] text-on-surface-variant">
-                Select hypothetical sick leaves or conference OD to verify threshold survival.
+                Preview leave and OD changes.
               </p>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <button
@@ -1122,14 +1569,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="flex items-center gap-2">
                 <Award size={20} className="text-secondary" />
                 <h3 className="font-headline-md text-base font-semibold text-on-surface">
-                  Recent Evaluations
+                  Recent marks
                 </h3>
               </div>
               <button
                 onClick={() => navigateToAcademics('marks')}
                 className="font-label-sm text-xs text-primary font-semibold hover:underline"
               >
-                Full Ledger
+                All marks
               </button>
             </div>
 
@@ -1168,7 +1615,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 })
               ) : (
                 <div className="bg-surface-container-low p-4 rounded-lg text-center text-on-surface-variant font-body-sm text-xs border border-outline-variant/10">
-                  No continuous evaluation marks published yet for the active semester.
+                  No marks published yet.
                 </div>
               )}
             </div>

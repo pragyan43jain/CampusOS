@@ -28,4 +28,5 @@ supabase/.temp/
 .vercel/
 scratch/
 .agents/
-
+*.apk
+.gradle/

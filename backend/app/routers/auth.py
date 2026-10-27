@@ -80,8 +80,6 @@ def resolve_student_reg(
     # 1. If verified token is present
     if verified_reg:
         if requested_reg and requested_reg != verified_reg:
-            if len(requested_reg) >= 7 and len(verified_reg) >= 7 and requested_reg[-7:] == verified_reg[-7:]:
-                return verified_reg
             logger.warning(
                 "[Security] IDOR attempt blocked: verified student %s attempted to access %s",
                 verified_reg,
@@ -831,15 +829,6 @@ def get_vtop_receipts(
     )
     store = load_store(reg)
     receipts = store.get("receipts") or store.get("fees") or []
-    if not receipts and reg:
-        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
-        if os.path.exists(seed_path):
-            try:
-                with open(seed_path, "r", encoding="utf-8") as f:
-                    sdata = json.load(f)
-                    receipts = sdata.get("receipts") or sdata.get("fees") or []
-            except Exception:
-                pass
     return receipts
 
 
@@ -882,15 +871,6 @@ def get_vtop_fees(
     )
     store = load_store(reg)
     fees = store.get("fees") or store.get("receipts") or []
-    if not fees and reg:
-        seed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "seed", f"store_{reg}.json")
-        if os.path.exists(seed_path):
-            try:
-                with open(seed_path, "r", encoding="utf-8") as f:
-                    sdata = json.load(f)
-                    fees = sdata.get("fees") or sdata.get("receipts") or []
-            except Exception:
-                pass
     return fees
 
 

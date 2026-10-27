@@ -568,57 +568,57 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
       </div>
 
       {/* 3. Filter & Search Control Bar */}
-      <div className="card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="card p-4 sm:p-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           {/* Search Input */}
-          <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+          <div className="relative flex-1 min-w-0 w-full">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search assignments or course code..."
-              className="input-field"
+              className="input-field w-full"
               style={{ paddingLeft: '38px', height: '44px' }}
             />
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-muted)' }} />
           </div>
 
           {/* Platform Source Tabs */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full md:w-auto">
             {(['ALL', 'TEAMS', 'LMS', 'VTOP'] as const).map((src) => (
               <button
                 key={src}
-                className={`btn btn-sm ${sourceFilter === src ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn btn-sm ${sourceFilter === src ? 'btn-primary' : 'btn-secondary'} shrink-0 text-xs sm:text-sm py-1.5 px-2.5 sm:px-3`}
                 onClick={() => setSourceFilter(src)}
               >
-                {src === 'ALL' ? 'All Platforms' : src === 'TEAMS' ? 'Teams' : src === 'LMS' ? 'Moodle LMS' : 'VTOP Portal'}
+                {src === 'ALL' ? 'All Platforms' : src === 'TEAMS' ? 'Teams' : src === 'LMS' ? 'LMS' : 'VTOP'}
               </button>
             ))}
           </div>
 
           {/* Status & Sort Dropdowns */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-2 sm:gap-2.5 w-full md:w-auto">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="custom-select-control"
-              style={{ height: '44px', minWidth: '140px' }}
+              className="custom-select-control flex-1 md:flex-none text-xs sm:text-sm"
+              style={{ height: '44px', minWidth: '120px' }}
             >
               <option value="ALL">All Statuses</option>
               <option value="PENDING">Pending Only</option>
-              <option value="SUBMITTED">Submitted / Done Only</option>
+              <option value="SUBMITTED">Done Only</option>
             </select>
 
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
-              className="custom-select-control"
-              style={{ height: '44px', minWidth: '175px' }}
+              className="custom-select-control flex-1 md:flex-none text-xs sm:text-sm"
+              style={{ height: '44px', minWidth: '150px' }}
             >
-              <option value="LATEST">Sort: Latest to Oldest</option>
-              <option value="PENDING_FIRST">Sort: Pending First (Latest)</option>
-              <option value="DUE_SOON">Sort: Oldest to Latest</option>
-              <option value="COURSE">Sort: By Course</option>
+              <option value="LATEST">Sort: Latest</option>
+              <option value="PENDING_FIRST">Pending First</option>
+              <option value="DUE_SOON">Oldest First</option>
+              <option value="COURSE">By Course</option>
             </select>
           </div>
         </div>
@@ -690,166 +690,159 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                   )}
 
                   <div
+                    className="p-3.5 sm:p-5 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-all"
                     style={{
-                    padding: '20px 24px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--surface-input)',
-                    border: '1px solid var(--border-card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '16px',
-                    transition: 'all var(--transition-fast)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '280px' }}>
-                    <button
-                      onClick={() => handleToggle(a)}
-                      style={{ color: isDone ? 'var(--accent-emerald)' : 'var(--text-muted)', cursor: 'pointer' }}
-                      title={isDone ? 'Mark as Pending' : 'Mark as Submitted'}
-                      aria-label="Toggle submission status"
-                    >
-                      {isDone ? <CheckSquare size={22} /> : <Square size={22} />}
-                    </button>
+                      backgroundColor: 'var(--surface-input)',
+                      border: '1px solid var(--border-card)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: 0, width: '100%' }}>
+                      <button
+                        onClick={() => handleToggle(a)}
+                        style={{ color: isDone ? 'var(--accent-emerald)' : 'var(--text-muted)', cursor: 'pointer', marginTop: '2px' }}
+                        title={isDone ? 'Mark as Pending' : 'Mark as Submitted'}
+                        aria-label="Toggle submission status"
+                      >
+                        {isDone ? <CheckSquare size={22} /> : <Square size={22} />}
+                      </button>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
-                          {a.courseCode || 'COURSE'}
-                        </span>
-                        {(() => {
-                          const isTeams = a.source?.toUpperCase().includes('TEAMS');
-                          const isLms = a.source?.toUpperCase().includes('LMS');
-                          const sourceLabel = isTeams ? 'Teams' : isLms ? 'Moodle LMS' : 'VTOP Portal';
-                          const badgeClass = isTeams ? 'info' : isLms ? 'warning' : 'success';
-                          return <span className={`status-badge ${badgeClass}`}>{sourceLabel}</span>;
-                        })()}
-                        {a.facultyName && a.facultyName !== 'Faculty unassigned' && (
-                          <span
-                            style={{
-                              fontSize: '0.74rem',
-                              color: 'var(--accent-purple)',
-                              background: 'rgba(181, 117, 255, 0.10)',
-                              border: '1px solid rgba(181, 117, 255, 0.25)',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                            title={a.source?.toUpperCase().includes('LMS') ? `Posted by (LMS): ${a.postedBy || a.lmsProfessor || a.facultyName}` : `Assigned by: ${a.facultyName}`}
-                          >
-                            <User size={11} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.80rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                            {a.courseCode || 'COURSE'}
+                          </span>
+                          {(() => {
+                            const isTeams = a.source?.toUpperCase().includes('TEAMS');
+                            const isLms = a.source?.toUpperCase().includes('LMS');
+                            const sourceLabel = isTeams ? 'Teams' : isLms ? 'Moodle LMS' : 'VTOP Portal';
+                            const badgeClass = isTeams ? 'info' : isLms ? 'warning' : 'success';
+                            return <span className={`status-badge ${badgeClass}`}>{sourceLabel}</span>;
+                          })()}
+                          {a.facultyName && a.facultyName !== 'Faculty unassigned' && (
+                            <span
+                              style={{
+                                fontSize: '0.74rem',
+                                color: 'var(--accent-purple)',
+                                background: 'rgba(181, 117, 255, 0.10)',
+                                border: '1px solid rgba(181, 117, 255, 0.25)',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                              title={a.source?.toUpperCase().includes('LMS') ? `Posted by (LMS): ${a.postedBy || a.lmsProfessor || a.facultyName}` : `Assigned by: ${a.facultyName}`}
+                            >
+                              <User size={11} />
+                              <span>
+                                {a.source?.toUpperCase().includes('LMS')
+                                  ? (a.postedBy || a.lmsProfessor || a.facultyName).startsWith('Dr.') || (a.postedBy || a.lmsProfessor || a.facultyName).startsWith('Prof.')
+                                    ? (a.postedBy || a.lmsProfessor || a.facultyName)
+                                    : `Prof. ${a.postedBy || a.lmsProfessor || a.facultyName}`
+                                  : a.facultyName}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.98rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', wordBreak: 'break-word', lineHeight: 1.4 }}>
+                          {a.title}
+                        </div>
+
+                        {/* Explicit Assignment - Subject - Faculty Details */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            background: 'rgba(45, 231, 211, 0.08)',
+                            border: '1px solid rgba(45, 231, 211, 0.20)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.78rem',
+                            fontWeight: 550,
+                          }}>
+                            <BookOpen size={12} color="var(--accent-cyan)" />
+                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>Subject:</span>
+                            <span>{a.subject || a.courseTitle || a.courseCode || 'General Course'}</span>
+                          </span>
+
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            background: 'rgba(181, 117, 255, 0.08)',
+                            border: '1px solid rgba(181, 117, 255, 0.20)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.78rem',
+                            fontWeight: 550,
+                          }}>
+                            <User size={12} color="var(--accent-purple)" />
+                            <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>
+                              {a.source?.toUpperCase().includes('LMS') ? 'Posted By (LMS):' : 'Faculty:'}
+                            </span>
                             <span>
-                              {a.source?.toUpperCase().includes('LMS')
-                                ? (a.postedBy || a.lmsProfessor || a.facultyName).startsWith('Dr.') || (a.postedBy || a.lmsProfessor || a.facultyName).startsWith('Prof.')
-                                  ? (a.postedBy || a.lmsProfessor || a.facultyName)
-                                  : `Prof. ${a.postedBy || a.lmsProfessor || a.facultyName}`
-                                : a.facultyName}
+                              {a.postedBy && a.postedBy !== 'LMS Instructor' && a.postedBy !== 'Faculty unassigned'
+                                ? a.postedBy
+                                : a.lmsProfessor && a.lmsProfessor !== 'LMS Instructor' && a.lmsProfessor !== 'Faculty unassigned'
+                                ? a.lmsProfessor
+                                : a.facultyName && a.facultyName !== 'LMS Instructor' && a.facultyName !== 'Faculty unassigned'
+                                ? a.facultyName
+                                : a.professor && a.professor !== 'LMS Instructor' && a.professor !== 'Faculty unassigned'
+                                ? a.professor
+                                : a.faculty && a.faculty !== 'LMS Instructor'
+                                ? a.faculty
+                                : 'Faculty unassigned'}
                             </span>
                           </span>
-                        )}
-                      </div>
+                        </div>
 
-                      <div style={{ fontSize: '1.02rem', fontWeight: 700, color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none', wordBreak: 'break-word', lineHeight: 1.4 }}>
-                        {a.title}
-                      </div>
-
-                      {/* Explicit Assignment - Subject - Faculty Details */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          padding: '3px 9px',
-                          borderRadius: '6px',
-                          background: 'rgba(45, 231, 211, 0.08)',
-                          border: '1px solid rgba(45, 231, 211, 0.20)',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.78rem',
-                          fontWeight: 550,
-                        }}>
-                          <BookOpen size={12} color="var(--accent-cyan)" />
-                          <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>Subject:</span>
-                          <span>{a.subject || a.courseTitle || a.courseCode || 'General Course'}</span>
-                        </span>
-
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          padding: '3px 9px',
-                          borderRadius: '6px',
-                          background: 'rgba(181, 117, 255, 0.08)',
-                          border: '1px solid rgba(181, 117, 255, 0.20)',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.78rem',
-                          fontWeight: 550,
-                        }}>
-                          <User size={12} color="var(--accent-purple)" />
-                          <span style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>
-                            {a.source?.toUpperCase().includes('LMS') ? 'Posted By (LMS):' : 'Faculty:'}
-                          </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', color: isDone ? 'var(--text-muted)' : isOverdue ? 'var(--accent-crimson)' : isDueSoon ? 'var(--accent-orange)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                          {isOverdue ? <AlertCircle size={13} /> : <Clock size={13} />}
                           <span>
-                            {a.postedBy && a.postedBy !== 'LMS Instructor' && a.postedBy !== 'Faculty unassigned'
-                              ? a.postedBy
-                              : a.lmsProfessor && a.lmsProfessor !== 'LMS Instructor' && a.lmsProfessor !== 'Faculty unassigned'
-                              ? a.lmsProfessor
-                              : a.facultyName && a.facultyName !== 'LMS Instructor' && a.facultyName !== 'Faculty unassigned'
-                              ? a.facultyName
-                              : a.professor && a.professor !== 'LMS Instructor' && a.professor !== 'Faculty unassigned'
-                              ? a.professor
-                              : a.faculty && a.faculty !== 'LMS Instructor'
-                              ? a.faculty
-                              : 'Faculty unassigned'}
+                            {isDone
+                              ? `${isTeams ? 'Turned in' : 'Submitted'} (Due: ${a.dueDate || '11:59 PM'})`
+                              : isOverdue
+                              ? `Overdue: ${a.dueDate || 'Passed'}`
+                              : `Deadline: ${a.dueDate || '11:59 PM'}`}
                           </span>
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', color: isDone ? 'var(--text-muted)' : isOverdue ? 'var(--accent-crimson)' : isDueSoon ? 'var(--accent-orange)' : 'var(--text-secondary)', marginTop: '2px' }}>
-                        {isOverdue ? <AlertCircle size={13} /> : <Clock size={13} />}
-                        <span>
-                          {isDone
-                            ? `${isTeams ? 'Turned in' : 'Submitted'} (Due: ${a.dueDate || '11:59 PM'})`
-                            : isOverdue
-                            ? `Overdue: ${a.dueDate || 'Passed'}`
-                            : `Deadline: ${a.dueDate || '11:59 PM'}`}
-                        </span>
+                        </div>
                       </div>
                     </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15">
+                      <span className={`status-badge ${isDone ? 'safe' : isOverdue ? 'critical' : 'warning'}`}>
+                        {isDone ? (isTeams ? 'Turned in ✓' : 'Submitted ✓') : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
+                      </span>
+
+                      {(() => {
+                        const portalUrl =
+                          a.submissionUrl ||
+                          (a as any).teamsSubmissionUrl ||
+                          (a as any).lmsSubmissionUrl ||
+                          (a as any).platformUrl ||
+                          (a as any).webUrl ||
+                          (isTeams ? 'https://teams.microsoft.com' : 'https://lms.vit.ac.in');
+
+                        return (
+                          <a
+                            href={portalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                            title={`Open in ${isTeams ? 'Microsoft Teams' : 'VIT Moodle LMS'}`}
+                          >
+                            <span>Open Portal</span>
+                            <ExternalLink size={13} />
+                          </a>
+                        );
+                      })()}
+                    </div>
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className={`status-badge ${isDone ? 'safe' : isOverdue ? 'critical' : 'warning'}`}>
-                      {isDone ? (isTeams ? 'Turned in ✓' : 'Submitted ✓') : isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'Pending'}
-                    </span>
-
-                    {(() => {
-                      const portalUrl =
-                        a.submissionUrl ||
-                        (a as any).teamsSubmissionUrl ||
-                        (a as any).lmsSubmissionUrl ||
-                        (a as any).platformUrl ||
-                        (a as any).webUrl ||
-                        (isTeams ? 'https://teams.microsoft.com' : 'https://lms.vit.ac.in');
-
-                      return (
-                        <a
-                          href={portalUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-secondary btn-sm"
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
-                          title={`Open in ${isTeams ? 'Microsoft Teams' : 'VIT Moodle LMS'}`}
-                        >
-                          <span>Open Portal</span>
-                          <ExternalLink size={13} />
-                        </a>
-                      );
-                    })()}
-                  </div>
-                </div>
               </React.Fragment>
             );
           })}

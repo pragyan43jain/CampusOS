@@ -565,6 +565,9 @@ export interface MonthCalendar {
 }
 
 export interface CalendarResponse {
+  source?: 'vtop' | 'cached' | 'unavailable';
+  syncedAt?: string;
+  missingMonths?: string[];
   semesterId: string;
   calendars: MonthCalendar[];
 }

@@ -49,12 +49,23 @@ export const getApiBase = (): string => {
     const protocol = window.location.protocol;
     const port = window.location.port;
 
-    // 3. If running on HTTPS production domain (e.g. Netlify) and no VITE_API_URL was set
+    // 3. Native Mobile App (Capacitor / Android / iOS) detection
+    const isCapacitor = Boolean(
+      (window as any).Capacitor?.isNativePlatform?.() ||
+      (window as any).Capacitor?.getPlatform?.() === 'android' ||
+      (window as any).Capacitor?.getPlatform?.() === 'ios' ||
+      (protocol === 'https:' && hostname === 'localhost' && !port)
+    );
+    if (isCapacitor) {
+      return 'https://campus-os-pi-three.vercel.app/api';
+    }
+
+    // 4. If running on HTTPS production domain and no VITE_API_URL was set
     if (protocol === 'https:' && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
       return '/api';
     }
 
-    // 4. If running locally on preview or custom port
+    // 5. If running locally on preview or custom port
     if (port && port !== '5173' && port !== '8000') {
       return 'http://127.0.0.1:8000/api';
     }
@@ -673,43 +684,14 @@ export const CampusAPI = {
   },
 
   getCalendar: async (semesterId?: string, type?: string): Promise<CalendarResponse> => {
-    let semToUse: string = semesterId || '';
-    if (!semToUse) {
-      if (activeStudent?.semesterId) {
-        semToUse = activeStudent.semesterId;
-      } else if (activeStudent?.semester) {
-        const semStr = String(activeStudent.semester);
-        const yrMatch = semStr.match(/20(\d\d)/);
-        const yr = yrMatch ? yrMatch[1] : '26';
-        const nextYr = String(parseInt(yr, 10) + 1).padStart(2, '0');
-        const isWinter = semStr.toLowerCase().includes('winter');
-        semToUse = `CH20${yr}${nextYr}${isWinter ? '05' : '01'}`;
-      } else {
-        semToUse = 'CH20262701';
-      }
-    }
     const params = new URLSearchParams();
-    params.append('semesterId', semToUse);
-    if (type) params.append('type', type);
-    const q = params.toString() ? `?${params.toString()}` : '';
-    let res = await fetchJson<CalendarResponse>(`/calendar${q}`, undefined, {
-      semesterId: semToUse,
+    if (semesterId) params.set('semesterId', semesterId);
+    if (type) params.set('type', type);
+    return fetchJson<CalendarResponse>(`/calendar?${params}`, undefined, {
+      semesterId: semesterId || '',
       calendars: [],
+      source: 'unavailable',
     });
-    if (!res || !res.calendars || res.calendars.length === 0) {
-      try {
-        const staticRes = await fetch('/calendar/academic_calendar.json');
-        if (staticRes.ok) {
-          const staticData = await staticRes.json();
-          if (staticData && staticData.calendars && staticData.calendars.length > 0) {
-            return staticData;
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load static academic_calendar.json:', err);
-      }
-    }
-    return res;
   },
 
   getOD: async (): Promise<ODResponse> => {

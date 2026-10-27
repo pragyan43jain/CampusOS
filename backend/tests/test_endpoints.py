@@ -274,3 +274,14 @@ class TestStudyMaterialsEndpoint:
         res = client.get("/api/study-materials?code=BSSC101N").json()
         assert res["available"] is True
         assert res["url"] == "https://www.vhelpcc.com/study-material"
+
+
+class TestDownloadApkEndpoint:
+    def test_download_apk_endpoint_returns_file_when_present(self):
+        res = client.get("/api/download/apk")
+        # In our project, CampusOS.apk is present in frontend/public/downloads/
+        if res.status_code == 200:
+            assert res.headers["content-type"] == "application/vnd.android.package-archive"
+            assert "CampusOS.apk" in res.headers.get("content-disposition", "")
+        else:
+            assert res.status_code == 404

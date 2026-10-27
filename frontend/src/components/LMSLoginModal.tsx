@@ -71,7 +71,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loginMode === 'credentials') {
-      if (!username.trim() || !password.trim()) {
+      if (!username.trim() || !password) {
         setError('Please enter both your registration number and LMS password.');
         return;
       }
@@ -91,7 +91,7 @@ export const LMSLoginModal: React.FC<LMSLoginModalProps> = ({
       const cachedReg = typeof window !== 'undefined' ? (localStorage.getItem('campus_current_reg_no') || undefined) : undefined;
       const res = await CampusAPI.loginLMS({
         username: loginMode === 'credentials' ? resolvedUsername : undefined,
-        password: loginMode === 'credentials' ? password.trim() : undefined,
+        password: loginMode === 'credentials' ? password : undefined,
         sessionCookie: loginMode === 'session_cookie' ? sessionCookie.trim() : undefined,
         campus: campus,
         regNo: cachedReg,

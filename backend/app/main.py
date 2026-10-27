@@ -11,10 +11,10 @@ import logging
 import os
 from typing import Any, Dict
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.routers import academics, analytics, auth, leetcode, lms, teams, unified_assignments
@@ -36,10 +36,12 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Strict CORS allowlist for authorized CampusOS client deployments
 ALLOWED_ORIGINS = [
     "https://campus-os-pi-three.vercel.app",
     "https://campus-o.netlify.app",
+    "https://localhost",
+    "capacitor://localhost",
+    "http://localhost",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:4173",
@@ -193,6 +195,26 @@ def root():
         "vtopConnected": bool(store.get("authenticated")),
         "docs": "/docs",
     }
+
+
+@app.get("/download/apk")
+@app.get("/api/download/apk")
+def download_android_apk():
+    """
+    Directly serves the compiled CampusOS Android APK for student download.
+    """
+    possible_paths = [
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "downloads", "CampusOS.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")),
+    ]
+    for p in possible_paths:
+        if os.path.exists(p) and os.path.isfile(p):
+            return FileResponse(
+                path=p,
+                filename="CampusOS.apk",
+                media_type="application/vnd.android.package-archive",
+            )
+    raise HTTPException(status_code=404, detail="CampusOS APK file not found on server.")
 
 
 if __name__ == "__main__":

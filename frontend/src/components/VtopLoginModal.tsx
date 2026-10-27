@@ -392,37 +392,60 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
           </div>
 
           {/* Verification Captcha */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="vtop-captcha" style={{ marginBottom: '6px' }}>Verification Captcha</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label className="form-label" htmlFor="vtop-captcha" style={{ margin: 0, fontWeight: 600 }}>
+                Verification Captcha
+              </label>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                {captcha.length}/6 characters
+              </span>
+            </div>
+
+            {/* Captcha Image & Refresh Row */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '6px 8px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                borderRadius: 'var(--radius-input, 8px)',
+                border: '1px solid var(--border-primary, rgba(255, 255, 255, 0.1))',
+              }}
+            >
               <div
                 style={{
-                  height: '44px',
-                  minWidth: '130px',
+                  height: '48px',
+                  flex: 1,
                   background: '#FFFFFF',
-                  borderRadius: 'var(--radius-input)',
+                  borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   overflow: 'hidden',
-                  border: '1px solid var(--border-primary)',
+                  border: '1px solid #d1d5db',
+                  padding: '2px 8px',
                 }}
               >
                 {loadingCaptcha ? (
-                  <RefreshCw size={18} className="animate-spin" color="#111" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#374151' }}>
+                    <RefreshCw size={18} className="animate-spin text-primary" />
+                    <span style={{ fontSize: '0.78rem', fontWeight: 500 }}>Generating...</span>
+                  </div>
                 ) : captchaImage ? (
                   <img
                     src={captchaImage}
                     alt="Captcha"
-                    style={{ height: '100%', objectFit: 'contain' }}
+                    style={{ height: '100%', maxWidth: '100%', objectFit: 'contain' }}
                   />
                 ) : (
                   <button
                     type="button"
                     onClick={() => loadCaptcha(true)}
-                    style={{ background: 'none', border: 'none', color: '#666', fontSize: '0.72rem', cursor: 'pointer' }}
+                    style={{ background: 'none', border: 'none', color: '#4b5563', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}
                   >
-                    Click to load
+                    Tap to load CAPTCHA
                   </button>
                 )}
               </div>
@@ -432,13 +455,26 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 onClick={() => loadCaptcha(true)}
                 disabled={loadingCaptcha}
                 className="btn btn-secondary"
-                style={{ height: '44px', padding: '0 12px' }}
+                style={{
+                  height: '48px',
+                  padding: '0 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.80rem',
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
                 title="Reload captcha image"
                 aria-label="Refresh Captcha"
               >
                 <RefreshCw size={15} className={loadingCaptcha ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
+            </div>
 
+            {/* Captcha Input Box - Full Width, High-Visibility, Large Monospace Text */}
+            <div style={{ position: 'relative', width: '100%' }}>
               <input
                 id="vtop-captcha"
                 name="captcha"
@@ -450,14 +486,56 @@ export const VtopLoginModal: React.FC<VtopLoginModalProps> = ({
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck="false"
-                placeholder="Enter 6-character CAPTCHA"
+                placeholder="ENTER 6 CHARACTERS"
                 className="input-field"
-                style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '0.95rem', letterSpacing: '1px' }}
+                style={{
+                  width: '100%',
+                  height: '52px',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.22em',
+                  textAlign: 'center',
+                  background: 'var(--surface-input, rgba(16, 24, 38, 0.95))',
+                  border: '1.5px solid var(--accent-cyan, #2de7d3)',
+                  boxShadow: '0 0 12px rgba(45, 231, 211, 0.12)',
+                  color: 'var(--text-primary, #ffffff)',
+                  textTransform: 'uppercase',
+                }}
                 autoComplete="off"
               />
+              {captcha && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCaptcha('');
+                    captchaInputRef.current?.focus();
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                  title="Clear input"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Enter the 6 characters shown in the CAPTCHA image above.
+
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              Type the exact 6 characters shown above (auto-capitalized).
             </div>
           </div>
 

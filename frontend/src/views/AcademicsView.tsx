@@ -147,7 +147,12 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const [marksSearchQuery, setMarksSearchQuery] = useState('');
 
   // Attendance Tab states
-  const [attendanceViewMode, setAttendanceViewMode] = useState<'cards' | 'weekly' | 'table'>('table');
+  const [attendanceViewMode, setAttendanceViewMode] = useState<'cards' | 'weekly' | 'table'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'cards';
+    }
+    return 'table';
+  });
   const [selectedAttDetail, setSelectedAttDetail] = useState<Attendance | null>(null);
   const [isPredictorModalOpen, setIsPredictorModalOpen] = useState(false);
   const [calendarData, setCalendarData] = useState<CalendarResponse | null>(null);
@@ -175,9 +180,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const handleCalendarFetch = async (fnCalendarType?: string) => {
     const typeToUse = fnCalendarType || calendarType || 'ALL';
     try {
-      const semToUse = student?.semesterId || (student as any)?.semester || undefined;
+      const semToUse = student?.semesterId || undefined;
       const data = await CampusAPI.getCalendar(semToUse, typeToUse);
-      if (data && data.calendars && data.calendars.length > 0) {
+      if (data && data.calendars) {
         setCalendarData(data);
         setCalendarType(typeToUse);
       }
@@ -187,11 +192,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   };
 
   useEffect(() => {
+    let cancelled = false;
+    setCalendarData(null);
     const loadCalendar = async () => {
       try {
-        const semToUse = student?.semesterId || (student as any)?.semester || undefined;
+        const semToUse = student?.semesterId || undefined;
         const data = await CampusAPI.getCalendar(semToUse);
-        if (data && data.calendars) {
+        if (!cancelled && data && data.calendars) {
           setCalendarData(data);
         }
       } catch (err) {
@@ -199,6 +206,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       }
     };
     loadCalendar();
+    return () => { cancelled = true; };
   }, [student?.semesterId]);
 
   const uniccOdFallback = useMemo(() => {
@@ -639,8 +647,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <span>•</span>
               <span style={{ color: 'var(--text-muted)' }}>{student.program || 'VIT Chennai'}</span>
             </div>
-            <h2 className="hero-heading">Academics Command Center</h2>
-            <p className="hero-desc">
+            <h2 className="hero-heading text-lg sm:text-2xl font-bold">Academics Command Center</h2>
+            <p className="hero-desc hidden sm:block">
               Authoritative university ledger for attendance thresholds, continuous assessments, faculty directory, and exam schedules.
             </p>
           </div>
@@ -868,10 +876,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     </span>
                     <span className="font-tabular-data text-label-sm text-outline">VTOP API v4.2.8 • Strict {targetAttendance}.00% Clause</span>
                   </div>
-                  <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
+                  <h1 className="text-xl sm:text-2xl xl:text-headline-xl font-semibold text-on-surface tracking-tight">
                     Attendance Safety Engine &amp; Margin Forecaster
                   </h1>
-                  <p className="font-body-md text-body-md text-on-surface-variant">
+                  <p className="hidden sm:block font-body-md text-body-md text-on-surface-variant">
                     Predictive simulation model for institutional minimum-attendance guidelines. Calibrate your absence headroom across regular instruction, On-Duty buffers, and laboratory mandates.
                   </p>
                 </div>
@@ -880,20 +888,21 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-space-md shrink-0">
                   <div className="flex flex-col p-2 rounded-lg bg-surface-container-low border border-outline-variant/20 shadow-sm">
                     <span className="font-label-sm text-label-sm text-outline px-2 pb-1 uppercase font-semibold">Target Baseline Cutoff</span>
-                    <div className="inline-flex rounded-lg bg-surface-container p-0.5">
+                    <div className="flex items-center rounded-lg bg-surface-container p-0.5 overflow-x-auto no-scrollbar">
                       {[75, 80, 85, 90].map((cutoff) => {
                         const isCutoffActive = targetAttendance === cutoff;
                         return (
                           <button
                             key={cutoff}
                             onClick={() => setTargetAttendance(cutoff)}
-                            className={`px-3 py-1.5 rounded font-label-md text-label-md transition-all font-semibold ${
+                            className={`px-2.5 sm:px-3 py-1.5 rounded font-label-md text-label-md transition-all font-semibold whitespace-nowrap shrink-0 ${
                               isCutoffActive
                                 ? 'bg-primary-container text-on-primary shadow-sm'
                                 : 'text-on-surface-variant hover:text-on-surface'
                             }`}
                           >
-                            {cutoff}% {cutoff === 75 ? 'Mandatory' : cutoff === 80 ? 'Safety Buffer' : cutoff === 85 ? 'Distinction' : 'Vanguard'}
+                            <span>{cutoff}%</span>
+                            <span className="hidden sm:inline"> {cutoff === 75 ? 'Mandatory' : cutoff === 80 ? 'Safety Buffer' : cutoff === 85 ? 'Distinction' : 'Vanguard'}</span>
                           </button>
                         );
                       })}
@@ -912,93 +921,93 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
             </div>
 
             {/* AGGREGATE INTELLIGENCE STRIP (4 METRIC TILES) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-md">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-space-md">
               {/* Overall Metric */}
-              <div className="p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between relative overflow-hidden group">
+              <div className="p-3 sm:p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between relative overflow-hidden group">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Aggregate Attendance</span>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-metric-display text-metric-display text-primary font-bold tracking-tight">
+                    <span className="font-label-sm text-[10px] sm:text-label-sm uppercase tracking-wider text-outline font-semibold">Attendance</span>
+                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 mt-1">
+                      <span className="text-2xl sm:text-metric-display text-primary font-bold tracking-tight">
                         {simOverallPct.toFixed(1)}%
                       </span>
-                      <span className={`font-label-sm text-label-sm px-1.5 py-0.5 rounded font-semibold ${
+                      <span className={`text-[10px] sm:text-label-sm px-1.5 py-0.5 rounded font-semibold w-fit ${
                         headroom >= 0 ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-error-container text-on-error-container'
                       }`}>
-                        {headroom >= 0 ? `+${headroom.toFixed(1)}% headroom` : `${headroom.toFixed(1)}% shortage`}
+                        {headroom >= 0 ? `+${headroom.toFixed(1)}%` : `${headroom.toFixed(1)}%`}
                       </span>
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-primary-fixed/40 flex items-center justify-center text-primary">
-                    <TrendingUp size={20} />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary-fixed/40 flex items-center justify-center text-primary shrink-0">
+                    <TrendingUp size={16} className="sm:w-5 sm:h-5" />
                   </div>
                 </div>
-                <div className="mt-4 pt-3 flex items-center justify-between font-tabular-data text-tabular-data text-on-surface-variant border-t border-outline-variant/10">
-                  <span>{totalSimAttended} Attended / {totalSimConducted} Held</span>
-                  <span className="text-secondary font-semibold">
+                <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between font-tabular-data text-[11px] sm:text-tabular-data text-on-surface-variant border-t border-outline-variant/10">
+                  <span>{totalSimAttended}/{totalSimConducted} Attended</span>
+                  <span className="text-secondary font-semibold hidden sm:inline">
                     {Math.max(0, totalSimConducted - totalSimAttended)} Classes Forfeited
                   </span>
                 </div>
                 {/* Tiny Sparkline SVG */}
-                <svg className="w-full h-4 mt-2 text-primary opacity-60" preserveAspectRatio="none" viewBox="0 0 100 16">
+                <svg className="w-full h-3 sm:h-4 mt-1 sm:mt-2 text-primary opacity-60" preserveAspectRatio="none" viewBox="0 0 100 16">
                   <path d="M0,14 Q20,12 35,6 T65,8 T85,3 T100,2" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
                 </svg>
               </div>
 
               {/* Safe Band Courses */}
-              <div className="p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between">
+              <div className="p-3 sm:p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Safe Band Courses</span>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-metric-display text-metric-display text-on-surface font-bold">{safeCoursesCount}</span>
-                      <span className="font-label-sm text-label-sm text-outline">/ {totalRegisteredCourses} registered</span>
+                    <span className="font-label-sm text-[10px] sm:text-label-sm uppercase tracking-wider text-outline font-semibold">Safe Band</span>
+                    <div className="flex items-baseline gap-1 sm:gap-2 mt-1">
+                      <span className="text-2xl sm:text-metric-display text-on-surface font-bold">{safeCoursesCount}</span>
+                      <span className="text-[10px] sm:text-label-sm text-outline">/{totalRegisteredCourses}</span>
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
-                    <Layers size={20} />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-surface-container flex items-center justify-center text-secondary shrink-0">
+                    <Layers size={16} className="sm:w-5 sm:h-5" />
                   </div>
                 </div>
-                <div className="mt-4">
+                <div className="mt-2 sm:mt-4">
                   <div className="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
                     <div
                       className="h-full bg-secondary rounded-full"
                       style={{ width: `${totalRegisteredCourses > 0 ? (safeCoursesCount / totalRegisteredCourses) * 100 : 0}%` }}
                     />
                   </div>
-                  <div className="mt-2 flex items-center justify-between font-tabular-data text-label-sm text-on-surface-variant">
-                    <span>Well above {targetAttendance}% target cutoff</span>
+                  <div className="mt-1.5 sm:mt-2 flex items-center justify-between font-tabular-data text-[10px] sm:text-label-sm text-on-surface-variant">
+                    <span className="truncate">&gt;{targetAttendance}% target</span>
                     <span className="font-semibold text-secondary">
-                      {totalRegisteredCourses > 0 ? Math.round((safeCoursesCount / totalRegisteredCourses) * 100) : 0}% Coverage
+                      {totalRegisteredCourses > 0 ? Math.round((safeCoursesCount / totalRegisteredCourses) * 100) : 0}%
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Watchlist Margin Courses */}
-              <div className="p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between">
+              <div className="p-3 sm:p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Watchlist &amp; Caution</span>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-metric-display text-metric-display text-tertiary-container font-bold">
+                    <span className="font-label-sm text-[10px] sm:text-label-sm uppercase tracking-wider text-outline font-semibold">Caution</span>
+                    <div className="flex items-baseline gap-1 sm:gap-2 mt-1">
+                      <span className="text-2xl sm:text-metric-display text-tertiary-container font-bold">
                         {criticalCoursesCount}
                       </span>
                       {criticalCoursesCount > 0 && firstCriticalCourse && (
-                        <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-semibold">
+                        <span className="text-[10px] sm:text-label-sm px-1 sm:px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-semibold truncate max-w-[70px]">
                           {firstCriticalCourse.courseCode}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-tertiary-fixed/40 flex items-center justify-center text-tertiary">
-                    <AlertTriangle size={20} />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-tertiary-fixed/40 flex items-center justify-center text-tertiary shrink-0">
+                    <AlertTriangle size={16} className="sm:w-5 sm:h-5" />
                   </div>
                 </div>
-                <div className="mt-4 pt-3 flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant border-t border-outline-variant/10">
-                  <span>0 Debarred • {criticalCoursesCount} on Critical Edge</span>
-                  <span className="text-tertiary font-semibold">
-                    {criticalCoursesCount === 0 ? 'All Safe' : `Delta: ${firstCriticalCourse?.recoveryNeeded || 1} Abs. max`}
+                <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 flex items-center justify-between font-label-sm text-[10px] sm:text-label-sm text-on-surface-variant border-t border-outline-variant/10">
+                  <span className="truncate">{criticalCoursesCount === 0 ? 'All Safe' : `${criticalCoursesCount} at risk`}</span>
+                  <span className="text-tertiary font-semibold shrink-0">
+                    {criticalCoursesCount === 0 ? '0' : `Req: +${firstCriticalCourse?.recoveryNeeded || 1}`}
                   </span>
                 </div>
               </div>
@@ -1006,36 +1015,26 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               {/* Approved OD Buffer Credit */}
               <div
                 onClick={() => setIsODModalOpen(true)}
-                className="p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between cursor-pointer hover:border-outline-variant/40 transition-colors"
+                className="p-3 sm:p-space-md rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm flex flex-col justify-between cursor-pointer hover:border-outline-variant/40 transition-colors"
                 title="Click to view sanctioned On-Duty leave records"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-semibold">Approved OD Allowance</span>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-metric-display text-metric-display text-on-surface font-bold">
+                    <span className="font-label-sm text-[10px] sm:text-label-sm uppercase tracking-wider text-outline font-semibold">OD Allowance</span>
+                    <div className="flex items-baseline gap-1 sm:gap-2 mt-1">
+                      <span className="text-2xl sm:text-metric-display text-on-surface font-bold">
                         {approvedOdHours}h
                       </span>
-                      <span className="font-label-sm text-label-sm text-outline">/ {maxOdHours}h semester cap</span>
+                      <span className="text-[10px] sm:text-label-sm text-outline">/{maxOdHours}h cap</span>
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary-fixed/50 flex items-center justify-center text-secondary">
-                    <ClipboardCheck size={20} />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-secondary-fixed/50 flex items-center justify-center text-secondary shrink-0">
+                    <ClipboardCheck size={16} className="sm:w-5 sm:h-5" />
                   </div>
                 </div>
-                <div className="mt-4">
-                  <div className="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: `${maxOdHours > 0 ? Math.min(100, (approvedOdHours / maxOdHours) * 100) : 0}%` }}
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between font-tabular-data text-label-sm text-on-surface-variant">
-                    <span>Approved Sanction Credit</span>
-                    <span className="font-semibold text-primary">
-                      {remainingOdHours}h Bank Remaining
-                    </span>
-                  </div>
+                <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 flex items-center justify-between font-tabular-data text-[10px] sm:text-label-sm text-on-surface-variant border-t border-outline-variant/10">
+                  <span className="truncate">{remainingOdHours}h Bank Left</span>
+                  <span className="text-primary font-semibold shrink-0">Details &rarr;</span>
                 </div>
               </div>
             </div>
@@ -1145,7 +1144,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                 {course.isLab ? 'Lab • 1.5 Cr' : 'Theory • 3-4 Cr'}
                               </span>
                             </div>
-                            <h4 className="font-body-sm font-semibold text-on-surface mt-1 truncate max-w-[220px]">
+                            <h4 className="font-body-sm font-semibold text-on-surface mt-1 line-clamp-2">
                               {course.courseTitle || course.courseName || 'Subject Title'}
                             </h4>
                             <span className="font-label-sm text-outline font-tabular-data block mt-0.5">
@@ -3283,6 +3282,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
       {/* === 3.10 SEMESTER ACADEMIC CALENDAR (CAMPUSOS IN-PAGE COMPONENT) === */}
       {activeTab === 'calendar' && (
         <CalendarView
+          source={calendarData?.source}
+          missingMonths={calendarData?.missingMonths}
           calendars={calendarData?.calendars}
           calendarType={calendarType}
           semesterId={student?.semesterId}

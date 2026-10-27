@@ -61,9 +61,10 @@ python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ./run_backend.sh
 ```
 
-> Bind to `127.0.0.1`, not `0.0.0.0`. The backend holds live VTOP session cookies
-> and has no authentication of its own, so exposing it to the network would hand
-> your portal session to anyone sharing the wifi.
+> Bind local development to `127.0.0.1`. Student API access uses signed sessions.
+> Serverless deployments must configure a private `CAMPUSOS_SESSION_SECRET` shared
+> across workers before deployment. See [the system check report](SYSTEM_CHECK_REPORT.md)
+> for validation results, behavior changes, and live verification still required.
 
 ### 2. Start Frontend (Vite + React + TypeScript)
 ```bash

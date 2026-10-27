@@ -36,22 +36,14 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
 
   return (
     <div
-      className="timetable-slot-card card-hover"
+      className="timetable-slot-card card-hover p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-lg transition-all"
       style={{
-        padding: '18px 22px',
-        borderRadius: 'var(--radius-md)',
         backgroundColor: 'var(--surface-input)',
         border: '1px solid var(--border-card)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px',
-        transition: 'all var(--transition-fast)',
       }}
     >
       {/* Time & Slot Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '150px' }}>
+      <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto shrink-0">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             <Clock size={14} color="var(--accent-cyan)" />
@@ -79,7 +71,7 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
       </div>
 
       {/* Main Course Info */}
-      <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div className="flex-1 min-w-0 w-full flex flex-col gap-1">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
             {courseCode}
@@ -97,11 +89,11 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
           )}
         </div>
 
-        <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+        <h4 style={{ fontSize: '1.02rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word' }}>
           {courseTitle}
         </h4>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.80rem', color: 'var(--text-secondary)', marginTop: '2px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <MapPin size={13} color="var(--text-muted)" />
             <span>{venueText}</span>
@@ -114,14 +106,14 @@ export const TimetableSlotCard: React.FC<TimetableSlotCardProps> = ({ slot }) =>
       </div>
 
       {/* Attendance Metrics Block */}
-      <div style={{ minWidth: '180px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+      <div className="w-full sm:w-auto flex flex-col sm:items-end justify-between sm:justify-center gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/15 shrink-0">
         {attendance && attendance.percentage !== null && attendance.percentage !== undefined ? (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+              <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
                 {attendance.attended ?? '-'} / {attendance.total ?? '-'} attended
               </span>
-              <span className={`status-badge ${badgeVariant}`} style={{ fontSize: '0.82rem', padding: '3px 10px' }}>
+              <span className={`status-badge ${badgeVariant}`} style={{ fontSize: '0.80rem', padding: '2px 8px' }}>
                 {isCritical && <AlertTriangle size={12} />}
                 {!isCritical && <CheckCircle2 size={12} />}
                 <span>{attendance.percentage}%</span>

@@ -140,31 +140,15 @@ def find_reg_by_email(email: Optional[str]) -> Optional[str]:
     local_part = clean_email.split("@")[0].upper()
 
     # 1. Direct regNo encoding in email (e.g. 21BCE1234@vitstudent.ac.in)
-    m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", local_part)
-    if m:
+    m = re.fullmatch(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", local_part)
+    if m and clean_email.split("@")[-1] in ("vitstudent.ac.in", "vit.ac.in"):
         return m.group(1).upper()
-    if re.match(r"^[0-9]{2}[A-Z]{3}[0-9]{4,5}$", local_part):
-        return local_part
 
-    # 2. Local profiles cache lookup
-    try:
-        from app.supabase_client import get_local_profiles_cache
-        profiles = get_local_profiles_cache()
-        for p_reg, p_data in profiles.items():
-            if isinstance(p_data, dict):
-                p_email = (p_data.get("email") or "").strip().lower()
-                if p_email == clean_email and p_reg:
-                    return str(p_reg).strip().upper()
-    except Exception as exc:
-        logger.debug("[Storage] profiles_cache email lookup: %s", exc)
-
-    # 3. Search existing store_*.json files in DATA_DIR and seed directory
+    # Match exact email addresses in previously synced student stores.
     try:
         import glob
         pattern = os.path.join(DATA_DIR, "store_*.json")
         search_paths = list(glob.glob(pattern))
-        seed_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed")
-        search_paths.extend(glob.glob(os.path.join(seed_dir, "store_*.json")))
         for store_path in search_paths:
             try:
                 base = os.path.basename(store_path)
@@ -182,11 +166,6 @@ def find_reg_by_email(email: Optional[str]) -> Optional[str]:
                 if clean_email in (s_email, t_email, l_email) and reg_candidate:
                     return reg_candidate
 
-                s_name = ((store_data.get("student") or {}).get("name") or "").strip().lower()
-                if s_name and reg_candidate:
-                    name_parts = [p for p in re.findall(r"[a-z0-9]+", s_name) if len(p) >= 3]
-                    if name_parts and all(p in clean_email for p in name_parts):
-                        return reg_candidate
             except Exception:
                 continue
     except Exception as exc:
@@ -229,25 +208,6 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
         p = _data_file_for(clean_reg)
         if p and os.path.exists(p):
             target_path = p
-        elif not _is_test_environment():
-            # Check seed bundle directory (e.g. backend/app/seed/store_{clean_reg}.json)
-            seed_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed", f"store_{clean_reg}.json")
-            if os.path.exists(seed_file):
-                target_path = seed_file
-            elif len(clean_reg) >= 7:
-                # Scan for canonical suffix match (e.g., 5196BLC1100 -> store_24BLC1100.json)
-                suffix = clean_reg[-7:]
-                current_dir = os.path.dirname(DATA_FILE) if DATA_FILE else DATA_DIR
-                for d in (current_dir, os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed")):
-                    if os.path.exists(d):
-                        for fname in os.listdir(d):
-                            if fname.startswith("store_") and fname.endswith(".json"):
-                                cand = fname[6:-5].upper()
-                                if len(cand) >= 7 and cand[-7:] == suffix:
-                                    target_path = os.path.join(d, fname)
-                                    break
-                    if target_path:
-                        break
         elif _is_test_environment() and os.path.exists(DATA_FILE):
             # In test suite with isolated tmp_path, allow reading the test fixture file
             target_path = DATA_FILE
@@ -281,11 +241,7 @@ def load_store(reg_no: Optional[str] = None) -> Dict[str, Any]:
                 if store_reg:
                     s_reg = store_reg.strip().upper()
                     r_reg = clean_reg
-                    matches = (
-                        s_reg == r_reg
-                        or (len(s_reg) >= 7 and len(r_reg) >= 7 and s_reg[-7:] == r_reg[-7:])
-                        or (target_path and os.path.basename(target_path) in (f"store_{r_reg}.json", f"store_{clean_reg}.json"))
-                    )
+                    matches = s_reg == r_reg
                     if not matches and not _is_test_environment():
                         logger.warning("[Storage] Store regNo %s mismatch with requested %s, returning empty", store_reg, reg_no)
                         return empty_store()

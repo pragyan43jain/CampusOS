@@ -36,6 +36,7 @@ import { AIPlannerView } from './views/AIPlannerView';
 import { LandingPageView } from './views/LandingPageView';
 import { FeatureAvailabilityModal } from './components/FeatureAvailabilityModal';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { MobileAppDownloadModal } from './components/MobileAppDownloadModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isAssignmentDone, isTeamsAssignment } from './utils/assignmentUtils';
 import { computeUniccODFromAttendance } from './utils/odUtils';
@@ -180,6 +181,7 @@ export const App: React.FC = () => {
   const [showODModal, setShowODModal] = useState<boolean>(false);
   const [odData, setOdData] = useState<ODResponse | null>(null);
   const [isFeatureModalOpen, setIsFeatureModalOpen] = useState<boolean>(false);
+  const [isMobileDownloadOpen, setIsMobileDownloadOpen] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -1633,6 +1635,7 @@ export const App: React.FC = () => {
         onOpenLMS={() => setIsLMSModalOpen(true)}
         onOpenTeams={() => setIsTeamsModalOpen(true)}
         onOpenOD={() => setShowODModal(true)}
+        onOpenMobileDownload={() => setIsMobileDownloadOpen(true)}
         approvedOdHours={approvedOdHours}
         maxOdHours={maxOdHours}
         odData={odData}
@@ -1676,7 +1679,7 @@ export const App: React.FC = () => {
           }}
         />
 
-        <main className="flex-1 w-full px-4 md:px-6 lg:px-8 pt-20 pb-12 max-w-[1600px] mx-auto min-w-0">
+        <main className="flex-1 w-full px-3 sm:px-4 md:px-6 lg:px-8 pt-16 md:pt-20 pb-28 lg:pb-12 max-w-[1600px] mx-auto min-w-0">
           <ErrorBoundary fallbackTitle="CampusOS View Error" onReset={() => setActiveView('dashboard')}>
             {activeView === 'dashboard' && (
               <DashboardView
@@ -1854,10 +1857,25 @@ export const App: React.FC = () => {
       {/* Mobile Bottom Navigation Bar (< 768px) */}
       <MobileBottomNav
         activeView={activeView}
-        onSelectView={(view) => {
-          setActiveView(view);
-          if (typeof window !== 'undefined') {
-            window.history.pushState(null, '', `/${view}`);
+        academicsSubTab={academicsSubTab}
+        onSelectView={(tab) => {
+          if (tab === 'attendance') {
+            setActiveView('academics');
+            setAcademicsSubTab('attendance');
+            if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', '/academics/attendance');
+            }
+          } else if (tab === 'timetable') {
+            setActiveView('academics');
+            setAcademicsSubTab('timetable');
+            if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', '/academics/timetable');
+            }
+          } else {
+            setActiveView(tab as NavView);
+            if (typeof window !== 'undefined') {
+              window.history.pushState(null, '', `/${tab}`);
+            }
           }
         }}
         onOpenMore={() => setShowMobileMore(true)}
@@ -1888,6 +1906,10 @@ export const App: React.FC = () => {
         onOpenFeatures={() => {
           setShowMobileMore(false);
           setIsFeatureModalOpen(true);
+        }}
+        onOpenMobileDownload={() => {
+          setShowMobileMore(false);
+          setIsMobileDownloadOpen(true);
         }}
         onLogout={handleSignOut}
       />
@@ -1921,6 +1943,12 @@ export const App: React.FC = () => {
             window.history.pushState(null, '', `/${view}${subTab ? `?tab=${subTab}` : ''}`);
           }
         }}
+      />
+
+      {/* Mobile Download & Installation Modal */}
+      <MobileAppDownloadModal
+        isOpen={isMobileDownloadOpen}
+        onClose={() => setIsMobileDownloadOpen(false)}
       />
 
       {/* Floating Synced Successfully Toast Notification */}

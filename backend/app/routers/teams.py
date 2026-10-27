@@ -10,6 +10,7 @@ Under no circumstances generates fake, mock, or placeholder assignments.
 """
 
 import json
+import hashlib
 import logging
 import re
 import urllib.parse
@@ -25,7 +26,7 @@ from urllib3.util.retry import Retry
 
 from app.storage import _is_test_environment, empty_store, empty_student, load_store, save_store
 from app.routers.auth import resolve_student_reg
-from app.auth_crypto import generate_signed_session_token
+from app.auth_crypto import integration_session_token
 from app.course_verification import (
     VerifiedCourseRecord,
     ExternalCourseMatch,
@@ -277,42 +278,30 @@ def fetch_student_teams_submission(
                 r = s.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
                 if r.status_code == 200:
                     data = r.json()
-                    # 1. Handle single submission object directly returned by endpoint
-                    if isinstance(data, dict) and not data.get("value") and (
-                        data.get("status") or data.get("submittedDateTime") or data.get("submittedBy") or data.get("recipient")
+                    scoped_to_me = "/mySubmission" in url or "/education/me/" in url
+                    if isinstance(data, dict) and "value" not in data and (
+                        data.get("status") or data.get("submittedDateTime") or data.get("recipient")
                     ):
-                        return data, False
-
-                    items = data.get("value", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                        items = [data]
+                    else:
+                        items = data.get("value", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
                     if not items:
                         return None, False
 
-                    if authenticated_user_id:
-                        target_uid = str(authenticated_user_id).lower().strip()
-                        for item in items:
-                            recip = item.get("recipient") or {}
-                            recip_id = str(recip.get("userId") or (recip.get("user") or {}).get("id") or item.get("userId") or "").lower().strip()
-                            sub_by = (item.get("submittedBy") or {}).get("user") or {}
-                            sub_id = str(sub_by.get("id") or (item.get("submittedBy") or {}).get("userId") or "").lower().strip()
-                            if (recip_id and recip_id == target_uid) or (sub_id and sub_id == target_uid):
-                                return item, False
-
-                    if len(items) == 1:
-                        return items[0], False
-
-                    # If multiple items and UID didn't strictly match, prioritize any turned-in / submitted record
+                    target_uid = str(authenticated_user_id or "").lower().strip()
                     for item in items:
-                        item_st = str(item.get("status") or item.get("state") or "").lower().strip()
-                        if (
-                            item_st in ("submitted", "turnedin", "turned in", "turned_in", "returned", "released")
-                            or item.get("submittedDateTime")
-                            or ("turn" in item_st and "not" not in item_st)
-                        ):
+                        recip = item.get("recipient") or {}
+                        recip_id = str(recip.get("userId") or (recip.get("user") or {}).get("id") or item.get("userId") or "").lower().strip()
+                        sub_by = item.get("submittedBy") or {}
+                        sub_id = str((sub_by.get("user") or {}).get("id") or sub_by.get("userId") or "").lower().strip()
+                        # The recipient takes precedence over the actor who submitted it.
+                        owner_id = recip_id or sub_id
+                        if target_uid and owner_id == target_uid:
                             return item, False
-
-                    if items:
-                        return items[0], False
-                    return None, False
+                        if scoped_to_me and not owner_id and len(items) == 1:
+                            return item, False
+                    # Never substitute a classmate's record when identity is unavailable.
+                    continue
 
                 elif r.status_code == 404:
                     continue
@@ -456,17 +445,12 @@ def authenticate_microsoft_online(email: str, password: str) -> Dict[str, Any]:
             detail="This Microsoft account has been disabled by your university IT administrator.",
         )
 
-    # 6. Multi-Factor Authentication (MFA) required by institutional policy
-    # Microsoft triggers 50076/50079 ONLY AFTER verifying that the password is valid and correct!
+    # A password accepted before MFA is not an authenticated Microsoft session.
     if 50076 in error_codes or 50079 in error_codes:
-        return {
-            "success": True,
-            "mfa_required": True,
-            "message": (
-                "Institutional credentials verified successfully with Microsoft Online. "
-                "Note: Multi-Factor Authentication (MFA) is active for your account."
-            ),
-        }
+        raise HTTPException(
+            status_code=401,
+            detail="Microsoft requires interactive MFA sign-in. Password-only Teams login cannot complete this account's authentication.",
+        )
 
     # 7. Other invalid grant or auth errors
     clean_msg = error_desc.split("Trace ID:")[0].strip()
@@ -1429,6 +1413,8 @@ def get_teams_status(
         "email": account.get("email"),
         "displayName": account.get("displayName"),
         "lastSynced": account.get("lastSynced"),
+        "syncStatus": account.get("syncStatus"),
+        "lastSyncAttempt": account.get("lastSyncAttempt"),
         "portal": TEAMS_PORTAL_URL,
         "mfaRequired": bool(account.get("mfaRequired")),
         "totalAssignments": len(teams_assignments),
@@ -1453,7 +1439,7 @@ def login_and_sync_teams(
     and returns verified coursework without touching other students' data.
     """
     email = payload.email.strip()
-    password = payload.password.strip()
+    password = payload.password
 
     if not email or "@" not in email:
         raise HTTPException(
@@ -1489,33 +1475,14 @@ def login_and_sync_teams(
             from app.storage import find_reg_by_email
             reg = find_reg_by_email(email)
 
-        if not reg and payload.regNo:
-            cand = "".join(c for c in payload.regNo.strip().upper() if c.isalnum() or c in ("-", "_"))
-            if len(cand) >= 5:
-                reg = cand
-
-        if not reg and x_reg_no:
-            cand = "".join(c for c in x_reg_no.strip().upper() if c.isalnum() or c in ("-", "_"))
-            if len(cand) >= 5:
-                reg = cand
-
         if not reg and email:
-            clean_email = email.strip()
-            local_part = clean_email.split("@")[0].upper()
-            m = re.search(r"([0-9]{2}[A-Z]{3}[0-9]{4,5})", local_part)
-            if m:
-                reg = m.group(1).upper()
-            else:
-                clean_slug = re.sub(r"[^A-Z0-9]", "", local_part)[:20]
-                if len(clean_slug) >= 5:
-                    reg = clean_slug
-                elif _is_test_environment():
-                    reg = "TEST_STUDENT"
+            # A standalone account has its own namespace; names cannot identify students.
+            reg = "TEAMS_" + hashlib.sha256(email.lower().encode()).hexdigest()[:24].upper()
 
         if not reg and not _is_test_environment():
             raise HTTPException(
                 status_code=401,
-                detail="Unable to determine student identity for this Microsoft account. Please sign in to VTOP first or specify your registration number.",
+                detail="Unable to determine student identity for this Microsoft account. Please sign in to VTOP first.",
             )
 
         store = load_store(reg)
@@ -1642,7 +1609,7 @@ def login_and_sync_teams(
         if mfa_required:
             msg = f"Credentials verified with Microsoft Online ({email}). Multi-Factor Authentication active."
 
-        session_token = generate_signed_session_token(reg) if reg else None
+        session_token = integration_session_token(reg, authorization, x_session_id) if reg else None
 
         return {
             "success": True,
@@ -1775,7 +1742,7 @@ def sync_teams(
             # If existing store record already had verified submittedAt / DONE and API was transiently unavailable
             prev_a = existing_teams_map.get(a_id)
             if prev_a and (prev_a.get("isDone") is True or prev_a.get("submittedAt")) and not a.get("isDone"):
-                if a.get("teamsSubmissionState") in ("unavailable", "notSubmitted") and prev_a.get("teamsSubmissionState") in ("submitted", "turnedin", "returned", "released"):
+                if a.get("teamsSubmissionState") in ("unavailable",) and prev_a.get("teamsSubmissionState") in ("submitted", "turnedin", "returned", "released"):
                     a["status"] = prev_a.get("status", "DONE")
                     a["applicationStatus"] = prev_a.get("applicationStatus", "DONE")
                     a["displayStatus"] = prev_a.get("displayStatus", "DONE")
@@ -1801,7 +1768,9 @@ def sync_teams(
         store["assignments"] = all_assignments
 
         now_iso = datetime.now(timezone.utc).isoformat()
-        account["lastSynced"] = now_iso
+        account["lastSyncAttempt"] = now_iso
+        if not is_stale_fallback:
+            account["lastSynced"] = now_iso
         account["matchedSubjects"] = matched_subjects
         account["matchedCount"] = len(matched_subjects)
         account["totalTeamsCount"] = user_info.get("teamsCount", 0)
@@ -1824,7 +1793,7 @@ def sync_teams(
             "assignments": all_assignments,
             "matchedSubjects": matched_subjects,
             "matchedCount": len(matched_subjects),
-            "lastSynced": now_iso,
+            "lastSynced": account.get("lastSynced"),
         }
     except HTTPException:
         raise

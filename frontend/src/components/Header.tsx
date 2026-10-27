@@ -121,13 +121,20 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className={`fixed top-0 left-0 ${isCollapsed ? 'lg:left-20' : 'lg:left-64'} right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/30 z-40 px-4 md:px-6 flex items-center justify-between transition-all duration-200`}>
+    <header
+      className={`fixed top-0 left-0 ${isCollapsed ? 'lg:left-20' : 'lg:left-64'} right-0 h-16 border-b border-outline-variant/30 z-40 px-3 sm:px-4 md:px-6 flex items-center justify-between transition-all duration-200`}
+      style={{
+        backgroundColor: 'var(--surface-header, var(--surface-primary, #10141c))',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }}
+    >
       {/* Left: Hamburger (mobile), Breadcrumbs, Search Bar */}
-      <div className="flex items-center gap-3 md:gap-4 min-w-0">
+      <div className="flex items-center gap-2.5 md:gap-4 min-w-0">
         {onToggleMobileMenu && (
           <button
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+            className="lg:hidden p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors shrink-0"
             aria-label="Open Navigation Drawer"
           >
             <Menu size={20} />
@@ -138,17 +145,17 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 font-label-md text-label-md text-outline truncate text-[13px]">
           <span
             onClick={() => onNavigate?.('dashboard')}
-            className="hover:text-on-surface transition-colors cursor-pointer font-medium flex items-center gap-1.5"
+            className="hover:text-on-surface transition-colors cursor-pointer font-bold flex items-center gap-1.5 text-on-surface shrink-0"
           >
-            <img src="/campusos-emblem.png" alt="CampusOS" className="w-4 h-4 object-contain lg:hidden shrink-0" />
-            <span>CampusOS</span>
+            <img src="/campusos-emblem.png" alt="CampusOS" className="w-4 h-4 object-contain shrink-0" />
+            <span className="font-heading tracking-tight font-bold">CampusOS</span>
           </span>
           <span className="text-outline-variant font-normal">/</span>
-          <span className="text-on-surface font-semibold hidden sm:inline">
+          <span className="text-on-surface font-semibold hidden md:inline">
             {getDisplayBranch()}
           </span>
-          <span className="text-outline-variant font-normal hidden sm:inline">/</span>
-          <span className="text-primary font-semibold truncate">
+          <span className="text-outline-variant font-normal hidden md:inline">/</span>
+          <span className="text-primary font-semibold truncate text-xs sm:text-[13px]">
             {getViewBreadcrumb()}
           </span>
         </div>
@@ -174,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Actions, Live Sync, Notifications, Semester, Theme, User */}
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
-        {/* VTOP Live Status Badge & Sync Action */}
+        {/* VTOP Live Status Badge & Sync Action (Desktop/Tablet) */}
         <button
           type="button"
           onClick={onSync || onOpenVtopModal}
@@ -184,6 +191,18 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <RefreshCw size={13} className={`text-secondary ${syncing ? 'animate-spin' : ''}`} />
           <span>{syncing ? 'Syncing...' : 'VTOP Live'}</span>
+        </button>
+
+        {/* VTOP Sync Icon (Mobile < 640px) */}
+        <button
+          type="button"
+          onClick={onSync || onOpenVtopModal}
+          disabled={syncing}
+          className="sm:hidden p-2 rounded text-secondary hover:bg-surface-container transition-colors disabled:opacity-50"
+          title={syncing ? 'Syncing...' : 'Sync with VTOP'}
+          aria-label="Sync with VTOP"
+        >
+          <RefreshCw size={17} className={syncing ? 'animate-spin' : ''} />
         </button>
 
         {/* Notification Bell */}

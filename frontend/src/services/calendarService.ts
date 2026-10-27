@@ -39,11 +39,11 @@ export interface ImportantEvent {
 const HOLIDAY_KEYWORDS = [
   'holiday', 'pooja', 'puja', 'ayudha', 'diwali', 'pongal', 'eid', 'christmas', 'good friday',
   'independence', 'republic', 'onam', 'holi', 'ramadan', 'ganesh', 'maha shivaratri', 'vesak',
-  'vacation', 'term end', 'no instructional', 'noinstructional',
+  'vacation', 'no instructional', 'non instructional', 'noinstructional',
 ];
 
 function normalize(str = ''): string {
-  return String(str).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+  return String(str).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function isHolidayEvent(e: CalendarEvent): boolean {
@@ -73,7 +73,8 @@ const MONTH_NAME_MAP: Record<string, number> = {
 
 export function analyzeCalendar(calendar: any = {}): { result: CalendarResult; importantEvents: Map<string, ImportantEvent> } {
   const now = new Date();
-  let year = Number(String(calendar.month ?? '').split(' ').pop()) || Number(calendar.year);
+  const headingYear = String(calendar.month ?? '').match(/\b(20\d{2})\b/);
+  let year = Number(headingYear?.[1] || calendar.year);
   if (!Number.isFinite(year)) year = now.getFullYear();
 
   let monthIndex = now.getMonth();
@@ -121,10 +122,9 @@ export function analyzeCalendar(calendar: any = {}): { result: CalendarResult; i
     const events: CalendarEvent[] = dayInfo?.events || [];
     const hasHoliday = events.some(isHolidayEvent);
     const hasInstructional = events.some(isInstructionalEvent);
-    const isEmpty = events.length === 0;
 
     let dayType: 'working' | 'holiday' | 'other' = 'other';
-    if (hasHoliday || isEmpty || (!hasInstructional && events.length > 0)) {
+    if (hasHoliday) {
       dayType = 'holiday';
     } else if (hasInstructional) {
       dayType = 'working';
@@ -162,7 +162,7 @@ export function analyzeCalendar(calendar: any = {}): { result: CalendarResult; i
     for (const ev of day.events) {
       const text = normalize(ev.text || '');
       for (const { key, display, aliases = [] } of IMPORTANT_EVENT_NAMES) {
-        const matched = text.includes(key) || aliases.some((alias) => text.includes(alias));
+        const matched = [key, ...aliases].some((alias) => (` ${text} `).includes(` ${normalize(alias)} `));
         if (matched && !importantEvents.has(key)) {
           importantEvents.set(key, {
             event: display,

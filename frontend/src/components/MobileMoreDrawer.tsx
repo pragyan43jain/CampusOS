@@ -10,6 +10,7 @@ import {
   Check,
   Layers,
   User,
+  Smartphone,
 } from 'lucide-react';
 import { NavView } from './Sidebar';
 import { ThemeType, THEMES } from './Header';
@@ -28,6 +29,7 @@ interface MobileMoreDrawerProps {
   onOpenProfileModal?: () => void;
   onLogout?: () => void;
   onOpenFeatures?: () => void;
+  onOpenMobileDownload?: () => void;
 }
 
 export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
@@ -43,6 +45,7 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
   onOpenProfileModal,
   onLogout,
   onOpenFeatures,
+  onOpenMobileDownload,
 }) => {
   useLockBodyScroll(isOpen);
 
@@ -205,6 +208,33 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Features &amp; Availability</span>
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>System operational readiness ledger</span>
+              </div>
+            </button>
+          )}
+
+          {onOpenMobileDownload && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenMobileDownload();
+              }}
+              className="nav-item-btn"
+              style={{
+                height: '50px',
+                padding: '0 16px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--surface-secondary)',
+                border: '1px solid var(--border-card)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <Smartphone size={18} color="var(--accent-cyan)" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.92rem', fontWeight: 700 }}>Download Mobile App</span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Install PWA or download Android APK</span>
               </div>
             </button>
           )}

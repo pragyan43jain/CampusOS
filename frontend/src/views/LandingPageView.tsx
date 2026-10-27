@@ -20,6 +20,7 @@ import {
   Info,
   Sparkles,
   KeyRound,
+  Download,
 } from 'lucide-react';
 import { ThemeType } from '../components/ThemeSwitcher';
 
@@ -198,13 +199,13 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 href="#attendance"
                 className="text-on-surface-variant hover:text-on-surface px-2 py-1 transition-colors"
               >
-                Attendance Engine
+                Attendance
               </a>
               <a
                 href="#grading"
                 className="text-on-surface-variant hover:text-on-surface px-2 py-1 transition-colors"
               >
-                Marks & Grading
+                Marks
               </a>
               <a
                 href="#study-hub"
@@ -216,14 +217,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 href="#security"
                 className="text-on-surface-variant hover:text-on-surface px-2 py-1 transition-colors"
               >
-                Security & VTOP Sync
+                VTOP Sync
               </a>
-              <a
-                href="#architecture"
-                className="text-on-surface-variant hover:text-on-surface px-2 py-1 transition-colors"
-              >
-                Architecture
-              </a>
+
             </nav>
           </div>
 
@@ -253,16 +249,16 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               <>
                 <button
                   onClick={handleLogin}
-                  className="hidden sm:inline-flex items-center justify-center px-3.5 py-1.5 rounded bg-surface-container-low text-on-surface hover:bg-surface-container font-label-md text-xs font-medium transition-colors border border-outline-variant/30"
+                  className="inline-flex items-center justify-center px-2.5 sm:px-3.5 py-1.5 rounded bg-surface-container-low text-on-surface hover:bg-surface-container font-label-md text-xs font-semibold transition-colors border border-outline-variant/30 active:scale-95"
                 >
-                  Student Login
+                  Sign In
                 </button>
                 <button
                   onClick={handleEnter}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded bg-primary text-on-primary hover:bg-primary-container font-label-md text-xs font-semibold transition-all shadow-sm"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded bg-primary text-on-primary hover:bg-primary-container font-label-md text-xs font-semibold transition-all shadow-sm active:scale-95"
                 >
-                  <span>Launch CampusOS</span>
-                  <ArrowRight size={14} />
+                  <span>Launch</span>
+                  <ArrowRight size={13} />
                 </button>
               </>
             )}
@@ -271,32 +267,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </header>
 
       <main className="w-full pt-16 bg-surface min-h-screen">
-        {/* =========================================================================
-            2. TOP TECHNICAL STATUS BEACON BAR
-            ========================================================================= */}
-        <section className="w-full bg-surface-container-low border-b border-outline-variant/20">
-          <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-1.5 flex flex-wrap items-center justify-between gap-2 text-on-surface-variant font-label-sm text-[11px]">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-primary">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-                VTOP SYNCHRONIZATION KERNEL 4.2.1-RELEASE
-              </span>
-              <span className="hidden md:inline text-outline-variant">•</span>
-              <span className="hidden md:inline text-on-surface-variant">
-                Zero Cloud Passwords • Cryptographic Session Bridge
-              </span>
-            </div>
-            <div className="flex items-center gap-3 font-tabular-data">
-              <span className="hidden sm:inline text-on-surface-variant">
-                Network Latency: 12ms (Direct Socket)
-              </span>
-              <span className="px-2 py-0.5 rounded bg-surface-container text-on-surface font-label-sm text-[10px] uppercase font-semibold">
-                Campus Node: Active
-              </span>
-            </div>
-          </div>
-        </section>
-
         {/* =========================================================================
             3. HERO SECTION WITH EDITORIAL PRECISION
             ========================================================================= */}
@@ -307,59 +277,49 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           <div className="max-w-[1440px] mx-auto px-4 md:px-8 relative z-10 flex flex-col items-center text-center">
             {/* Overline Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-surface-container text-primary font-label-sm text-[11px] tracking-widest uppercase mb-4 shadow-sm border border-outline-variant/30">
-              <ShieldCheck size={14} className="text-primary" />
-              <span>CAMPUSOS V4.2 • THE NEXT GENERATION ACADEMIC SUITE • 100% CLIENT-SIDE VTOP SYNC</span>
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1 rounded bg-surface-container text-primary font-label-sm text-[10px] sm:text-[11px] tracking-wider uppercase mb-4 shadow-sm border border-outline-variant/30 text-center">
+              <ShieldCheck size={14} className="text-primary shrink-0" />
+              <span className="sm:hidden">MADE FOR VIT CHENNAI</span>
+              <span className="hidden sm:inline">MADE FOR VIT CHENNAI</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="font-display-lg text-3xl sm:text-5xl lg:text-6xl text-on-surface tracking-tight max-w-4xl text-balance font-semibold mb-4 leading-tight">
-              Master your academics with mathematical precision.
+            <h1 className="font-display-lg text-2xl sm:text-5xl lg:text-6xl text-on-surface tracking-tight max-w-4xl text-balance font-bold mb-3 sm:mb-4 leading-snug sm:leading-tight">
+              Your campus. One clear view.
             </h1>
 
             {/* Subheadline */}
-            <p className="font-body-lg text-base sm:text-lg text-on-surface-variant max-w-2xl text-balance mb-8">
-              Automated 75% attendance margin forecasting, continuous assessment relative GPA modeling, and timetable-aware deep work sprints — unified into one calm, private campus workspace.
+            <p className="font-body-lg text-sm sm:text-lg text-on-surface-variant max-w-2xl text-balance mb-6 sm:mb-8 leading-relaxed">
+              Classes, attendance, and deadlines — together with VTOP.
             </p>
 
             {/* Primary Action Cluster */}
-            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 mb-6 sm:mb-8 w-full max-w-md sm:max-w-none">
               <button
                 onClick={isLoggedIn ? handleEnter : handleLogin}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded bg-primary text-on-primary hover:bg-primary-container font-label-lg text-sm font-semibold transition-all shadow-md group"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-on-primary hover:bg-primary-container font-label-lg text-sm font-semibold transition-all shadow-md group active:scale-95"
               >
-                <span>{isLoggedIn ? 'Launch CampusOS Cockpit' : 'Launch CampusOS'}</span>
+                <span>{isLoggedIn ? 'Open dashboard' : 'Sign in with VTOP'}</span>
                 <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
 
               <button
                 onClick={handleEnter}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-sm font-medium transition-colors border border-outline-variant/30"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-sm font-medium transition-colors border border-outline-variant/30 active:scale-95"
               >
                 <Play size={16} className="text-secondary" />
-                <span>Explore Live Sandbox</span>
-                <span className="ml-1 px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-sm text-[11px] tracking-wider font-mono">
-                  ⌘ + K
-                </span>
+                <span>Explore dashboard</span>
               </button>
-            </div>
 
-            {/* Zero Credentials Trust Telemetry */}
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-on-surface-variant font-body-sm text-xs pb-10">
-              <div className="flex items-center gap-1.5">
-                <Lock size={14} className="text-primary" />
-                <span>Zero credentials stored on cloud</span>
-              </div>
-              <span className="text-outline-variant">•</span>
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck size={14} className="text-primary" />
-                <span>99.98% Debarment Safety Record</span>
-              </div>
-              <span className="text-outline-variant">•</span>
-              <div className="flex items-center gap-1.5">
-                <Sparkles size={14} className="text-primary" />
-                <span>4.9 / 5 Peer Index Rating</span>
-              </div>
+              <a
+                href="https://github.com/pragyan43jain/CampusOS/releases/download/mobile-latest/CampusOS.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-secondary-fixed/30 hover:bg-secondary-fixed/50 text-secondary border border-secondary-fixed/50 font-label-lg text-sm font-semibold transition-colors active:scale-95"
+              >
+                <Download size={16} />
+                <span>Download Android App</span>
+              </a>
             </div>
 
             {/* =========================================================================
@@ -373,12 +333,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   <div className="w-3 h-3 rounded-full bg-surface-container-highest" />
                   <div className="w-3 h-3 rounded-full bg-surface-container-highest" />
                   <span className="ml-3 font-label-sm text-[11px] text-on-surface-variant tracking-wider uppercase font-semibold">
-                    ACADEMIC TERMINAL • WINTER SEMESTER 2024–25
+                    ATTENDANCE PREVIEW · SAMPLE DATA
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded bg-secondary-container/40 text-on-secondary-container font-tabular-data text-[11px] font-semibold">
-                    Live Sync: 14s ago
+                    Interactive demo
                   </span>
                   <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 </div>
@@ -491,8 +451,61 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   </div>
                 </div>
 
-                {/* Academic Table */}
-                <div className="overflow-x-auto">
+                {/* Mobile Cards View (< 768px) */}
+                <div className="md:hidden flex flex-col gap-3">
+                  {courseCalculations.map((course, i) => (
+                    <div
+                      key={i}
+                      className="p-3.5 rounded-lg bg-surface-container border border-outline-variant/30 flex flex-col gap-2.5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-primary font-mono text-xs uppercase">
+                            {course.code}
+                          </span>
+                          <h4 className="font-semibold text-on-surface text-sm truncate">
+                            {course.title}
+                          </h4>
+                          <span className="text-[11px] text-outline block mt-0.5">
+                            {course.slot}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`text-xl font-bold font-tabular-data block ${course.percentage < 75 ? 'text-error' : 'text-on-surface'}`}>
+                            {course.percentage}%
+                          </span>
+                          <span className="text-[10px] text-outline">
+                            {course.attended} / {course.totalConducted} att.
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-1.5 rounded-full transition-all duration-300 ${course.percentage < 75 ? 'bg-error' : 'bg-primary'}`}
+                          style={{ width: `${Math.min(100, Math.max(0, course.percentage))}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-outline-variant/15 text-xs">
+                        <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${course.statusBg}`}>
+                          {course.status}
+                        </span>
+                        <span className="font-bold text-primary text-xs font-tabular-data">
+                          {course.safeLeaves > 0
+                            ? `+${course.safeLeaves} Safe Bunks`
+                            : course.percentage < 75
+                            ? 'Debarred (< 75%)'
+                            : 'Critical Edge'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Academic Table (>= 768px) */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left font-body-sm text-xs">
                     <thead>
                       <tr className="text-on-surface-variant font-label-sm text-[11px] uppercase bg-surface-container">
@@ -927,78 +940,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         {/* =========================================================================
             7. ARCHITECTURE & PRIVACY COMPARISON MATRIX
             ========================================================================= */}
-        <section id="architecture" className="w-full bg-surface-container-low py-16 md:py-24">
-          <div className="max-w-[1440px] mx-auto px-4 md:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-10">
-              <span className="font-label-sm text-xs text-primary font-semibold uppercase tracking-wider block mb-1">
-                ARCHITECTURAL INTEGRITY
-              </span>
-              <h2 className="font-headline-xl text-2xl sm:text-4xl text-on-surface font-semibold tracking-tight">
-                How CampusOS compares against typical methods.
-              </h2>
-            </div>
 
-            {/* Comparison Matrix Table */}
-            <div className="rounded-lg bg-surface-container-lowest shadow-sm overflow-hidden border border-outline-variant/30">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left font-body-sm text-xs">
-                  <thead>
-                    <tr className="bg-surface-container text-on-surface font-label-md text-xs">
-                      <th className="py-3.5 px-4 font-semibold">Capability / Architecture</th>
-                      <th className="py-3.5 px-4 text-on-surface-variant">Default University Portal</th>
-                      <th className="py-3.5 px-4 text-on-surface-variant">Manual Excel Spreadsheets</th>
-                      <th className="py-3.5 px-4 bg-secondary-container/30 text-primary font-semibold">
-                        CampusOS Platform
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/15">
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-on-surface">Automatic Timetable & Slot Parsing</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Basic static HTML view</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Requires manual copy-pasting</td>
-                      <td className="py-3 px-4 bg-secondary-container/10 font-semibold text-primary">
-                        Instant automated sync via DOM parser
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-on-surface">Predictive 75% Attendance Margins</td>
-                      <td className="py-3 px-4 text-on-surface-variant">None (Only past raw percentage)</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Complex customized formula formulas</td>
-                      <td className="py-3 px-4 bg-secondary-container/10 font-semibold text-primary">
-                        Automated buffer counts with OD inputs
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-on-surface">Relative Class GPA Distribution Curves</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Hidden until final grade publication</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Infeasible without cohort dataset</td>
-                      <td className="py-3 px-4 bg-secondary-container/10 font-semibold text-primary">
-                        Cohort statistical bell-curve estimation
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-on-surface">Speed & Offline Resilience</td>
-                      <td className="py-3 px-4 text-on-surface-variant">8s - 15s server response time</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Fast, but siloed</td>
-                      <td className="py-3 px-4 bg-secondary-container/10 font-semibold text-primary">
-                        Instant 0ms memory cache execution
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-on-surface">Privacy & Credential Isolation</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Subject to portal session drops</td>
-                      <td className="py-3 px-4 text-on-surface-variant">Local files</td>
-                      <td className="py-3 px-4 bg-secondary-container/10 font-semibold text-primary">
-                        Zero cloud storage; AES browser memory tokens
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* =========================================================================
             8. HIGH-CONVERTING CLOSING CALL-TO-ACTION BLOCK
@@ -1050,108 +992,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* =========================================================================
           9. INSTITUTIONAL EDITORIAL FOOTER
           ========================================================================= */}
-      <footer id="about" className="w-full bg-surface-container-low border-t border-outline-variant/30">
-        <div className="w-full max-w-[1440px] mx-auto px-4 md:px-8 pt-12 pb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12">
-            <div className="lg:col-span-2 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <img
-                  src="/logo.png"
-                  alt="CampusOS - Unified platform"
-                  className="h-7 w-auto object-contain max-w-[160px]"
-                />
-                <span className="font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
-                  v4.2
-                </span>
-              </div>
-              <p className="font-body-sm text-xs text-on-surface-variant max-w-sm leading-relaxed">
-                High-precision computational academic operating environment engineered for institutional rigor, predictive attendance modeling, and continuous evaluation tracking.
-              </p>
-              <div className="flex items-center gap-2 pt-1">
-                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="font-tabular-data text-xs text-on-surface-variant">
-                  Systems Operational • VTOP Direct Sync Live
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              <span className="font-label-sm text-[11px] uppercase tracking-wider text-on-surface-variant font-semibold">
-                Capabilities
-              </span>
-              <nav className="flex flex-col gap-1.5 text-xs text-on-surface-variant">
-                <a href="#attendance" className="hover:text-on-surface transition-colors">
-                  75% Cutoff Projections
-                </a>
-                <a href="#grading" className="hover:text-on-surface transition-colors">
-                  Continuous Evaluation Matrix
-                </a>
-                <a href="#study-hub" className="hover:text-on-surface transition-colors">
-                  Synthesized Curriculum AI
-                </a>
-                <a href="#security" className="hover:text-on-surface transition-colors">
-                  Zero-Knowledge VTOP Bridge
-                </a>
-              </nav>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              <span className="font-label-sm text-[11px] uppercase tracking-wider text-on-surface-variant font-semibold">
-                Architecture
-              </span>
-              <nav className="flex flex-col gap-1.5 text-xs text-on-surface-variant">
-                <a href="#security" className="hover:text-on-surface transition-colors">
-                  Cryptographic Vaults
-                </a>
-                <a href="#architecture" className="hover:text-on-surface transition-colors">
-                  Student Privacy Charter
-                </a>
-                <a href="#overview" className="hover:text-on-surface transition-colors">
-                  Sync Protocol Telemetry
-                </a>
-                <a href="#architecture" className="hover:text-on-surface transition-colors">
-                  Zero-Telemetry Attestation
-                </a>
-              </nav>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              <span className="font-label-sm text-[11px] uppercase tracking-wider text-on-surface-variant font-semibold">
-                Governance
-              </span>
-              <nav className="flex flex-col gap-1.5 text-xs text-on-surface-variant">
-                <a href="#about" className="hover:text-on-surface transition-colors">
-                  Academic Council
-                </a>
-                <a href="#about" className="hover:text-on-surface transition-colors">
-                  Institutional Deployment
-                </a>
-                <a href="#about" className="hover:text-on-surface transition-colors">
-                  Compliance & Terms
-                </a>
-                <button
-                  onClick={handleLogin}
-                  className="text-left text-primary hover:underline transition-colors"
-                >
-                  Terminal Gateway
-                </button>
-              </nav>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-outline-variant/20 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
-            <div className="flex items-center gap-2">
-              <span>© 2025 CampusOS Academic Operating Environment.</span>
-              <span className="font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
-                Open-Audit Core
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span>End-to-end encrypted client-side execution</span>
-              <span>•</span>
-              <span>Autonomous University Platform</span>
-            </div>
-          </div>
+      <footer className="border-t border-outline-variant/20 px-6 py-8">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4 text-sm text-on-surface-variant">
+          <span>CampusOS · Your campus, in one place.</span>
+          <a href="https://github.com/pragyan43jain/CampusOS/releases/download/mobile-latest/CampusOS.apk" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline"><Download size={16} /> Android app</a>
         </div>
       </footer>
     </div>
