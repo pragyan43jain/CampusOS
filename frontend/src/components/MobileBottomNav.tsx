@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  LayoutDashboard,
+  Home,
   ShieldCheck,
   ClipboardList,
   CalendarDays,
@@ -31,8 +31,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const tabs = [
     {
       id: 'dashboard' as const,
-      label: 'Dashboard',
-      icon: LayoutDashboard,
+      label: 'Home',
+      icon: Home,
       isActive: activeView === 'dashboard',
     },
     {
@@ -44,14 +44,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     },
     {
       id: 'assignments' as const,
-      label: 'Tasks',
+      label: 'Assignments',
       icon: ClipboardList,
       isActive: activeView === 'assignments',
       badge: pendingAssignmentsCount > 0 ? { count: pendingAssignmentsCount, alert: false } : undefined,
     },
     {
       id: 'timetable' as const,
-      label: 'Timetable',
+      label: 'Schedule',
       icon: CalendarDays,
       isActive: activeView === 'academics' && academicsSubTab === 'timetable',
     },
@@ -59,16 +59,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   return (
     <nav
-      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant/30 shadow-[0_-2px_16px_rgba(0,0,0,0.35)]"
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 border-t border-outline-variant/30"
       style={{
         backgroundColor: 'var(--surface-header, var(--surface-primary, #10141c))',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 8px)',
-        height: 'calc(62px + env(safe-area-inset-bottom, 8px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      <div className="flex items-center justify-around h-[62px] px-1 max-w-lg mx-auto">
+      <div className="mobile-bottom-nav-inner flex items-stretch justify-around px-1 max-w-lg mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.isActive;
@@ -77,13 +74,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <button
               key={tab.id}
               onClick={() => onSelectView(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-all relative py-1 min-h-[44px] min-w-[44px] ${
+              className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative py-1.5 min-h-[56px] min-w-0 ${
                 isActive
                   ? 'text-primary font-bold'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <div className={`relative flex items-center justify-center px-3.5 py-1 rounded-full transition-all ${
+              <div className={`relative flex items-center justify-center w-14 h-7 rounded-full transition-colors ${
                 isActive ? 'bg-primary/20 text-primary' : ''
               }`}>
                 <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
@@ -99,7 +96,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] tracking-tight font-medium leading-none">
+              <span className="mobile-nav-label text-[9px] tracking-tight font-medium leading-none">
                 {tab.label}
               </span>
             </button>
@@ -109,12 +106,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         {/* More Actions Drawer Trigger */}
         <button
           onClick={onOpenMore}
-          className="flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-all relative py-1 min-h-[44px] min-w-[44px] text-on-surface-variant hover:text-on-surface"
+          className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative py-1.5 min-h-[56px] min-w-0 text-on-surface-variant hover:text-on-surface"
         >
-          <div className="relative flex items-center justify-center px-3.5 py-1">
+          <div className="relative flex items-center justify-center w-14 h-7">
             <Menu size={20} strokeWidth={1.8} />
           </div>
-          <span className="text-[10px] tracking-tight font-medium leading-none">More</span>
+          <span className="mobile-nav-label text-[9px] tracking-tight font-medium leading-none">More</span>
         </button>
       </div>
     </nav>

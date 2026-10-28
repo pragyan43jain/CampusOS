@@ -1660,11 +1660,11 @@ export const App: React.FC = () => {
           onOpenVtopModal={() => setShowVtopModal(true)}
           onOpenProfileModal={() => setShowProfileModal(true)}
           onOpenFeatures={() => setIsFeatureModalOpen(true)}
-          onToggleMobileMenu={() => setShowMobileMore(true)}
           onLogout={handleSignOut}
           syncing={syncing}
           pendingAssignmentsCount={pendingAssignmentsCount}
           criticalAttendanceCount={criticalAttendanceCount}
+          activeSubTab={academicsSubTab}
           isCollapsed={isSidebarCollapsed}
           onNavigate={(view, subTab) => {
             setActiveView(view as NavView);

@@ -53,12 +53,13 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
 
   return (
     <div
+      className="mobile-more-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.58)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         zIndex: 100,
         display: 'flex',
         flexDirection: 'column',
@@ -67,17 +68,18 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
       onClick={onClose}
     >
       <div
+        className="mobile-more-sheet"
         style={{
           backgroundColor: 'var(--surface-primary)',
           borderTop: '1px solid var(--border-medium)',
           borderRadius: '24px 24px 0 0',
-          padding: '20px 24px calc(24px + env(safe-area-inset-bottom, 16px))',
+          padding: '12px 18px calc(18px + env(safe-area-inset-bottom, 0px))',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
-          maxHeight: '85vh',
+          maxHeight: '88dvh',
           overflowY: 'auto',
-          boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.6)',
+          boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.28)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -85,33 +87,18 @@ export const MobileMoreDrawer: React.FC<MobileMoreDrawerProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: '40px',
+              width: '36px',
               height: '4px',
               borderRadius: '9999px',
               backgroundColor: 'var(--border-medium)',
             }}
           />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <span style={{ fontSize: '1.05rem', fontWeight: 750, color: 'var(--text-primary)' }}>
+              More
+            </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  background: 'var(--gradient-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#000000',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                }}
-              >
-                C
-              </div>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                CampusOS Actions
-              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>CampusOS</span>
             </div>
             <button
               onClick={onClose}

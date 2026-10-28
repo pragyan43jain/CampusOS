@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   RefreshCw,
   Bell,
-  Menu,
   Search,
   CheckCircle2,
   Calendar,
@@ -31,6 +30,7 @@ interface HeaderProps {
   onOpenFeatures?: () => void;
   pendingAssignmentsCount?: number;
   criticalAttendanceCount?: number;
+  activeSubTab?: string;
   onNavigate?: (view: string, subTab?: string) => void;
   isCollapsed?: boolean;
 }
@@ -44,9 +44,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenVtopModal,
   onOpenProfileModal,
   syncing,
-  onToggleMobileMenu,
   pendingAssignmentsCount = 0,
   criticalAttendanceCount = 0,
+  activeSubTab,
   onNavigate,
   isCollapsed = false,
 }) => {
@@ -90,9 +90,19 @@ export const Header: React.FC<HeaderProps> = ({
       case 'dashboard':
         return 'Dashboard';
       case 'academics':
-        return 'Academic Ledger';
+        switch (activeSubTab) {
+          case 'attendance': return 'Attendance';
+          case 'timetable': return 'Timetable';
+          case 'marks': return 'Marks';
+          case 'exams': return 'Exams';
+          case 'grades': return 'Grades';
+          case 'calendar': return 'Calendar';
+          case 'courses': return 'Courses';
+          case 'faculty': return 'Faculty';
+          default: return 'Academics';
+        }
       case 'assignments':
-        return 'LMS & Coursework';
+        return 'Assignments';
       case 'fees':
         return 'Fees & Ledger';
       case 'placements':
@@ -122,27 +132,22 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`fixed top-0 left-0 ${isCollapsed ? 'lg:left-20' : 'lg:left-64'} right-0 h-16 border-b border-outline-variant/30 z-40 px-3 sm:px-4 md:px-6 flex items-center justify-between transition-all duration-200`}
+      className={`app-top-bar fixed top-0 left-0 ${isCollapsed ? 'lg:left-20' : 'lg:left-64'} right-0 h-16 border-b border-outline-variant/30 z-40 px-3 sm:px-4 md:px-6 flex items-center justify-between transition-all duration-200`}
       style={{
         backgroundColor: 'var(--surface-header, var(--surface-primary, #10141c))',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
       }}
     >
-      {/* Left: Hamburger (mobile), Breadcrumbs, Search Bar */}
+      {/* Mobile title and desktop breadcrumb */}
       <div className="flex items-center gap-2.5 md:gap-4 min-w-0">
-        {onToggleMobileMenu && (
-          <button
-            onClick={onToggleMobileMenu}
-            className="lg:hidden p-1.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors shrink-0"
-            aria-label="Open Navigation Drawer"
-          >
-            <Menu size={20} />
-          </button>
-        )}
+        <div className="mobile-page-title md:hidden flex items-center gap-2 min-w-0">
+          <img src="/campusos-emblem.png" alt="" className="w-7 h-7 object-contain shrink-0" />
+          <span className="truncate text-base font-semibold tracking-tight text-on-surface">{getViewBreadcrumb()}</span>
+        </div>
 
         {/* Academic Breadcrumb Trail */}
-        <div className="flex items-center gap-1.5 font-label-md text-label-md text-outline truncate text-[13px]">
+        <div className="hidden md:flex items-center gap-1.5 font-label-md text-label-md text-outline truncate text-[13px]">
           <span
             onClick={() => onNavigate?.('dashboard')}
             className="hover:text-on-surface transition-colors cursor-pointer font-bold flex items-center gap-1.5 text-on-surface shrink-0"
@@ -267,10 +272,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Theme Switcher */}
         {onSelectTheme && (
-          <ThemeSwitcher
-            currentTheme={currentTheme}
-            onSelectTheme={onSelectTheme}
-          />
+          <div className="hidden sm:block">
+            <ThemeSwitcher
+              currentTheme={currentTheme}
+              onSelectTheme={onSelectTheme}
+            />
+          </div>
         )}
 
         <div className="h-6 w-px bg-outline-variant/30 hidden sm:block" />
